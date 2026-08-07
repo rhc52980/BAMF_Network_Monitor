@@ -1,0 +1,1853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BAMF — Basic ARP Monitoring Framework</title>
+<link rel="icon" type="image/svg+xml" href="/bamf-icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root, [data-theme="dark"] {
+    --bg: #10141a;
+    --panel: #171d26;
+    --panel-2: #1d2530;
+    --line: #263040;
+    --text: #d5dde8;
+    --text-dim: #7e8b9d;
+    --led-on: #3fdb7f;
+    --led-warn: #ffb454;
+    --led-off: #3a4656;
+    --danger: #f2716f;
+    --focus: #6db7d8;
+    --radius: 8px;
+  }
+  [data-theme="light"] {
+    --bg: #eef1f5;
+    --panel: #ffffff;
+    --panel-2: #e6eaf0;
+    --line: #d0d7e2;
+    --text: #1c2430;
+    --text-dim: #66717f;
+    --led-on: #1ba85a;
+    --led-warn: #d67d00;
+    --led-off: #b6bfcc;
+    --danger: #d63b39;
+    --focus: #2b7fb0;
+    --radius: 8px;
+  }
+  [data-theme="terminal"] {
+    --bg: #020a02;
+    --panel: #041004;
+    --panel-2: #072007;
+    --line: #0d3d0d;
+    --text: #33ff66;
+    --text-dim: #1f9940;
+    --led-on: #33ff66;
+    --led-warn: #ffcc33;
+    --led-off: #0d3d0d;
+    --danger: #ff5544;
+    --focus: #33ff99;
+    --radius: 2px;
+  }
+  [data-theme="terminal"] body, [data-theme="terminal"] {
+    font-family: "IBM Plex Mono", monospace !important;
+  }
+  [data-theme="terminal"] * { font-family: "IBM Plex Mono", monospace !important; letter-spacing: 0.02em; }
+  [data-theme="terminal"] h1, [data-theme="terminal"] .brand h1 { text-shadow: 0 0 6px var(--led-on); }
+  [data-theme="terminal"]::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 9998;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 3px);
+    mix-blend-mode: multiply;
+  }
+
+  [data-theme="amber"] {
+    --bg:#0a0600; --panel:#140d02; --panel-2:#1f1404; --line:#3d2a0d;
+    --text:#ffb000; --text-dim:#996600; --led-on:#ffb000; --led-warn:#ffd633;
+    --led-off:#3d2a0d; --danger:#ff5533; --focus:#ffcc44; --radius:2px;
+  }
+  [data-theme="amber"] *, [data-theme="amber"] { font-family:"IBM Plex Mono",monospace !important; }
+  [data-theme="amber"]::before { content:""; position:fixed; inset:0; pointer-events:none; z-index:9998;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.15) 0,rgba(0,0,0,.15) 1px,transparent 1px,transparent 3px); mix-blend-mode:multiply; }
+
+  [data-theme="synthwave"] {
+    --bg:#1a0b2e; --panel:#241141; --panel-2:#2d1650; --line:#4a2578;
+    --text:#f5e6ff; --text-dim:#b58fd6; --led-on:#2de2e6; --led-warn:#ff8b39;
+    --led-off:#4a2578; --danger:#ff3864; --focus:#ff6ac1; --radius:8px;
+  }
+  [data-theme="synthwave"] .brand h1 { color:#ff6ac1; text-shadow:0 0 8px #ff6ac1; }
+
+  [data-theme="c64"] {
+    --bg:#40318d; --panel:#4a3a9c; --panel-2:#5443ab; --line:#7869c4;
+    --text:#a5a0e0; --text-dim:#8079c9; --led-on:#8bc673; --led-warn:#c9b458;
+    --led-off:#5443ab; --danger:#b86a6a; --focus:#a5a0e0; --radius:2px;
+  }
+  [data-theme="c64"] *, [data-theme="c64"] { font-family:"IBM Plex Mono",monospace !important; }
+
+  [data-theme="gameboy"] {
+    --bg:#0f380f; --panel:#1e4620; --panel-2:#2d5a2d; --line:#4a7a3a;
+    --text:#9bbc0f; --text-dim:#6a9028; --led-on:#9bbc0f; --led-warn:#c4cf4a;
+    --led-off:#2d5a2d; --danger:#8a9a2a; --focus:#9bbc0f; --radius:2px;
+  }
+  [data-theme="gameboy"] *, [data-theme="gameboy"] { font-family:"IBM Plex Mono",monospace !important; }
+
+  [data-theme="nord"] {
+    --bg:#2e3440; --panel:#3b4252; --panel-2:#434c5e; --line:#4c566a;
+    --text:#eceff4; --text-dim:#9099a8; --led-on:#a3be8c; --led-warn:#ebcb8b;
+    --led-off:#4c566a; --danger:#bf616a; --focus:#88c0d0; --radius:8px;
+  }
+
+  [data-theme="dracula"] {
+    --bg:#282a36; --panel:#343746; --panel-2:#414458; --line:#4d5066;
+    --text:#f8f8f2; --text-dim:#9ea0b0; --led-on:#50fa7b; --led-warn:#ffb86c;
+    --led-off:#4d5066; --danger:#ff5555; --focus:#bd93f9; --radius:8px;
+  }
+
+  [data-theme="solarized"] {
+    --bg:#002b36; --panel:#073642; --panel-2:#0a4453; --line:#164a56;
+    --text:#93a1a1; --text-dim:#5f7778; --led-on:#859900; --led-warn:#b58900;
+    --led-off:#164a56; --danger:#dc322f; --focus:#268bd2; --radius:8px;
+  }
+
+  [data-theme="solar-light"] {
+    --bg:#fdf6e3; --panel:#fbf1d6; --panel-2:#eee8d5; --line:#ddd6c1;
+    --text:#586e75; --text-dim:#93a1a1; --led-on:#859900; --led-warn:#b58900;
+    --led-off:#ddd6c1; --danger:#dc322f; --focus:#268bd2; --radius:8px;
+  }
+
+  [data-theme="gruvbox"] {
+    --bg:#282828; --panel:#32302f; --panel-2:#3c3836; --line:#504945;
+    --text:#ebdbb2; --text-dim:#a89984; --led-on:#b8bb26; --led-warn:#fabd2f;
+    --led-off:#504945; --danger:#fb4934; --focus:#83a598; --radius:6px;
+  }
+
+  [data-theme="contrast"] {
+    --bg:#000000; --panel:#0a0a0a; --panel-2:#161616; --line:#ffffff;
+    --text:#ffffff; --text-dim:#c0c0c0; --led-on:#00ff00; --led-warn:#ffff00;
+    --led-off:#555555; --danger:#ff0000; --focus:#00ffff; --radius:4px;
+  }
+
+  [data-theme="matrix"] {
+    --bg:#000700; --panel:#001200; --panel-2:#002200; --line:#004400;
+    --text:#00ff41; --text-dim:#008f11; --led-on:#00ff41; --led-warn:#88ff00;
+    --led-off:#004400; --danger:#ff2222; --focus:#00ff41; --radius:2px;
+  }
+  [data-theme="matrix"] *, [data-theme="matrix"] { font-family:"IBM Plex Mono",monospace !important; }
+  [data-theme="matrix"] .brand h1 { text-shadow:0 0 8px #00ff41; }
+  [data-theme="matrix"]::before { content:""; position:fixed; inset:0; pointer-events:none; z-index:9998;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.2) 0,rgba(0,0,0,.2) 1px,transparent 1px,transparent 3px); mix-blend-mode:multiply; }
+
+  [data-theme="blueprint"] {
+    --bg:#0d2b52; --panel:#123464; --panel-2:#173d72; --line:#2f5a94;
+    --text:#dbe8ff; --text-dim:#7fa8dd; --led-on:#7fffd4; --led-warn:#ffd479;
+    --led-off:#2f5a94; --danger:#ff8a8a; --focus:#a0d8ff; --radius:2px;
+  }
+
+  [data-theme="hackerred"] {
+    --bg:#0a0000; --panel:#160202; --panel-2:#220404; --line:#4d0d0d;
+    --text:#ff3333; --text-dim:#992020; --led-on:#ff3333; --led-warn:#ff8833;
+    --led-off:#4d0d0d; --danger:#ff0000; --focus:#ff5555; --radius:2px;
+  }
+  [data-theme="hackerred"] *, [data-theme="hackerred"] { font-family:"IBM Plex Mono",monospace !important; }
+  [data-theme="hackerred"] .brand h1 { text-shadow:0 0 8px #ff3333; }
+
+  [data-theme="cottoncandy"] {
+    --bg:#fdeef7; --panel:#ffffff; --panel-2:#fbe4f2; --line:#f4cbe4;
+    --text:#7a4a68; --text-dim:#c48fb3; --led-on:#7ececa; --led-warn:#f7b955;
+    --led-off:#f4cbe4; --danger:#f47ca0; --focus:#b39ddb; --radius:12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: "IBM Plex Mono", monospace; }
+
+  header {
+    display: flex; align-items: center; gap: 20px;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark { flex-shrink: 0; }
+  .brand h1 { font-size: 17px; font-weight: 700; letter-spacing: 0.06em; color: var(--led-on); }
+  .brand .sub { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim); }
+  .scanline {
+    margin-left: auto; display: flex; align-items: center; gap: 12px;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim);
+  }
+  .scan-track {
+    width: 140px; height: 4px; background: var(--panel-2);
+    border-radius: 2px; overflow: hidden;
+  }
+  .scan-fill { height: 100%; width: 0%; background: var(--focus); transition: width 1s linear; }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--led-on); }
+  .arp-toggle {
+    display: flex; align-items: center; gap: 7px; cursor: pointer;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim);
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 6px 10px; user-select: none;
+  }
+  .arp-toggle:hover { border-color: var(--focus); }
+  .arp-toggle .pill {
+    width: 28px; height: 15px; border-radius: 8px; background: var(--led-off);
+    position: relative; transition: background .15s; flex-shrink: 0;
+  }
+  .arp-toggle .pill::after {
+    content: ""; position: absolute; top: 2px; left: 2px;
+    width: 11px; height: 11px; border-radius: 50%; background: var(--bg);
+    transition: left .15s;
+  }
+  .arp-toggle.on .pill { background: var(--led-on); }
+  .arp-toggle.on .pill::after { left: 15px; }
+  .arp-toggle.nodriver { opacity: .6; }
+  .arp-toggle.nodriver .pill { background: var(--led-warn); }
+  .conn-dot.err { background: var(--danger); }
+
+  .netbar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 24px 0; flex-wrap: wrap;
+  }
+  .netbar .lbl {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .nettabs { display: flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .nettab {
+    background: var(--panel); color: var(--text-dim);
+    border: none; padding: 8px 14px; font: inherit; cursor: pointer;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px;
+  }
+  .nettab + .nettab { border-left: 1px solid var(--line); }
+  .nettab.active { background: var(--panel-2); color: var(--text); }
+  .nettab .cnt { color: var(--text-dim); margin-left: 6px; }
+  .nettab.active .cnt { color: var(--focus); }
+  .nettab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+  .portstrip-wrap { padding: 18px 24px 6px; }
+  .portstrip-label {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+  .legend-swatch {
+    width: 16px; height: 16px; border-radius: 3px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    position: relative; flex-shrink: 0;
+  }
+  .legend-swatch::after {
+    content: ""; position: absolute; inset: 4px;
+    border-radius: 2px; background: var(--led-off);
+  }
+  .legend-swatch.on::after { background: var(--led-on); box-shadow: 0 0 5px rgba(63,219,127,.55); }
+  .legend-swatch.warn::after { background: var(--led-warn); box-shadow: 0 0 5px rgba(255,180,84,.6); animation: blink 1.1s steps(2) infinite; }
+  @media (prefers-reduced-motion: reduce) { .legend-swatch.warn::after { animation: none; } }
+  .portstrip {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 12px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    min-height: 48px;
+  }
+  .port {
+    width: 22px; height: 22px; border-radius: 4px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    cursor: pointer; position: relative; padding: 0;
+  }
+  .port::after {
+    content: ""; position: absolute; inset: 6px;
+    border-radius: 2px; background: var(--led-off);
+  }
+  .port.on::after { background: var(--led-on); box-shadow: 0 0 6px rgba(63,219,127,.55); }
+  .port.warn::after { background: var(--led-warn); box-shadow: 0 0 6px rgba(255,180,84,.6); animation: blink 1.1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) {
+    .port.warn::after { animation: none; }
+    .scan-fill { transition: none; }
+  }
+
+  .stats { display: flex; gap: 12px; padding: 14px 24px; flex-wrap: wrap; }
+  .stat {
+    flex: 1; min-width: 130px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 12px 16px;
+  }
+  .stat .num { font-family: "IBM Plex Mono", monospace; font-size: 22px; font-weight: 600; }
+  .stat .lbl { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .stat.alert .num { color: var(--led-warn); }
+
+  .controls {
+    display: flex; gap: 10px; align-items: center;
+    padding: 4px 24px 14px; flex-wrap: wrap;
+  }
+  .tabs { display: flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .tab {
+    background: var(--panel); color: var(--text-dim);
+    border: none; padding: 8px 16px; font: inherit; cursor: pointer;
+  }
+  .tab + .tab { border-left: 1px solid var(--line); }
+  .tab.active { background: var(--panel-2); color: var(--text); }
+  .search {
+    margin-left: auto; background: var(--panel);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--text); padding: 8px 12px; font: inherit; width: 240px;
+  }
+  .search::placeholder { color: var(--text-dim); }
+  .tab:focus-visible, .toggle:focus-visible, input:focus-visible, .port:focus-visible {
+    outline: 2px solid var(--focus); outline-offset: 2px;
+  }
+
+  .table-wrap { padding: 0 24px 32px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 880px; }
+  thead th {
+    text-align: left; font-family: "IBM Plex Mono", monospace;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-dim);
+    padding: 10px 12px; border-bottom: 1px solid var(--line);
+  }
+  thead th[data-sort] { cursor: pointer; user-select: none; }
+  thead th[data-sort]:hover { color: var(--text); }
+  thead th[data-sort].sorted { color: var(--focus); }
+  thead th[data-sort].sorted::after { content: " \25B4"; }
+  thead th[data-sort].sorted.desc::after { content: " \25BE"; }
+  .export-btn {
+    background: var(--panel); color: var(--text-dim);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 8px 14px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .export-btn:hover { color: var(--text); border-color: var(--focus); }
+  tbody td { padding: 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tbody tr:hover { background: var(--panel); }
+  tbody tr.is-unknown { background: rgba(255,180,84,.05); }
+  tbody tr.is-ignored { opacity: 0.55; }
+  tbody tr.is-ignored:hover { opacity: 1; }
+  .led { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: var(--led-off); }
+  .led.on { background: var(--led-on); box-shadow: 0 0 6px rgba(63,219,127,.55); }
+  .hostname { font-weight: 500; cursor: pointer; }
+  .hostname:hover .name-text { text-decoration: underline; text-decoration-color: var(--focus); text-underline-offset: 3px; }
+  .hostname .dns { display: block; font-weight: 400; font-size: 11px; color: var(--text-dim); font-family: "IBM Plex Mono", monospace; }
+  .name-input {
+    background: var(--panel-2); border: 1px solid var(--focus); border-radius: 4px;
+    color: var(--text); font: inherit; padding: 4px 8px; width: 160px;
+  }
+  .vendor, .seen { color: var(--text-dim); font-size: 13px; }
+  .mac, .ip { font-family: "IBM Plex Mono", monospace; font-size: 13px; }
+  .ip a { color: var(--text); text-decoration: none; border-bottom: 1px dotted var(--text-dim); }
+  .ip a:hover { color: var(--focus); border-bottom-color: var(--focus); }
+  .ports-cell { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+  .spark { display: inline-flex; height: 16px; gap: 1px; align-items: flex-end; }
+  .spark i { width: 3px; background: var(--led-off); border-radius: 1px; display: block; }
+  .spark i.on { background: var(--led-on); }
+  .port-chip {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    padding: 2px 7px; border-radius: 4px;
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--text-dim);
+  }
+  .port-chip.web { color: var(--led-on); border-color: rgba(63,219,127,.4); cursor: pointer; }
+  .port-chip.web:hover { background: rgba(63,219,127,.1); }
+  .ports-scanning { color: var(--text-dim); font-size: 12px; font-family: "IBM Plex Mono", monospace; }
+  .badge {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    padding: 3px 8px; border-radius: 4px;
+  }
+  .badge.known { color: var(--led-on); background: rgba(63,219,127,.1); }
+  .badge.unknown { color: var(--led-warn); background: rgba(255,180,84,.12); }
+  .toggle {
+    background: none; border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--text-dim); padding: 6px 12px; font: inherit; font-size: 12px; cursor: pointer;
+  }
+  .toggle:hover { color: var(--text); border-color: var(--focus); }
+  .toggle.del:hover { color: var(--danger); border-color: var(--danger); }
+  .watch-star {
+    background: none; border: none; cursor: pointer; padding: 4px 6px;
+    line-height: 0; display: inline-flex; align-items: center;
+  }
+  .watch-star img { width: 22px; height: auto; display: block; transition: transform .12s ease; }
+  .watch-star:hover img { transform: scale(1.12); }
+  .watch-star .cam { position: relative; display: inline-block; width: 22px; }
+  .watch-star .cam img { position: absolute; inset: 0; }
+  .watch-star .cam .cam-nodot { position: static; }
+  .watch-star .cam .cam-dot { animation: recBlink 1.3s steps(1) infinite; }
+  @keyframes recBlink {
+    0%, 55%  { opacity: 1; }
+    56%,100% { opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .watch-star .cam .cam-dot { animation: none; opacity: 1; }
+    .watch-star:hover img { transform: none; }
+  }
+  .watch-star:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+  .toggle.del.confirming { color: var(--bg); background: var(--danger); border-color: var(--danger); }
+  .actions { display: flex; gap: 6px; }
+  .empty { text-align: center; color: var(--text-dim); padding: 48px 20px; font-size: 14px; }
+  .empty-scan {
+    display: inline-block; color: var(--text-dim);
+    background: linear-gradient(90deg, var(--text-dim) 25%, var(--focus) 50%, var(--text-dim) 75%);
+    background-size: 200% 100%; -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; animation: shimmer 1.6s linear infinite;
+    font-family: "IBM Plex Mono", monospace;
+  }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  @media (prefers-reduced-motion: reduce) { .empty-scan { animation: none; -webkit-text-fill-color: var(--focus); } }
+
+  tr.history-row td {
+    background: var(--panel); padding: 14px 16px 16px;
+  }
+  .history-title {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .sessions { display: flex; flex-direction: column; gap: 6px; }
+  .session {
+    display: flex; align-items: center; gap: 10px;
+    font-family: "IBM Plex Mono", monospace; font-size: 12.5px;
+  }
+  .session .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .session .dot.on { background: var(--led-on); }
+  .session .dot.off { background: var(--led-off); }
+  .session .dur { color: var(--text-dim); }
+  .session .ongoing { color: var(--led-on); }
+  .history-empty { color: var(--text-dim); font-size: 13px; }
+  .note-flag { margin-left: 6px; font-size: 11px; opacity: .8; cursor: help; }
+  .note-box { margin-top: 14px; }
+  .note-box label {
+    display: block; font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--text-dim); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px;
+  }
+  .note-box textarea {
+    width: 100%; min-height: 54px; resize: vertical; box-sizing: border-box;
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 8px 10px; font: inherit; font-size: 13px;
+  }
+  .note-box textarea:focus { outline: none; border-color: var(--focus); }
+  .note-box .note-save {
+    margin-top: 8px; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 6px 14px; font: inherit; font-size: 12px; cursor: pointer;
+  }
+  .note-box .note-save:hover { border-color: var(--focus); }
+
+  .feed-wrap { padding: 0 24px 32px; }
+  .home-wrap { padding: 8px 24px 32px; }
+  .home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .home-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px; display: flex; flex-direction: column; gap: 8px; align-items: center;
+    text-align: center; position: relative; transition: border-color .2s;
+  }
+  .home-card.here { border-color: var(--led-on); }
+  .home-card .halo {
+    width: 46px; height: 46px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--panel-2); font-size: 22px; color: var(--text-dim);
+  }
+  .home-card.here .halo { background: rgba(63,219,127,.14); color: var(--led-on); box-shadow: 0 0 0 3px rgba(63,219,127,.12); }
+  .home-card .hn { font-weight: 500; font-size: 14px; word-break: break-word; }
+  .home-card .hs { font-size: 12px; color: var(--text-dim); font-family: "IBM Plex Mono", monospace; }
+  .home-card.here .hs { color: var(--led-on); }
+  .feed { display: flex; flex-direction: column; }
+  .feed-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-bottom: 1px solid var(--line);
+    font-size: 13.5px;
+  }
+  .feed-item .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .feed-item .dot.on { background: var(--led-on); box-shadow: 0 0 5px rgba(63,219,127,.5); }
+  .feed-item .dot.off { background: var(--led-off); }
+  .feed-item .who { font-weight: 500; }
+  .feed-item .what { color: var(--text-dim); }
+  .feed-item .meta {
+    margin-left: auto; color: var(--text-dim);
+    font-family: "IBM Plex Mono", monospace; font-size: 12px;
+    display: flex; gap: 14px; flex-shrink: 0;
+  }
+  .feed-day {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 16px 12px 8px;
+  }
+
+  .timeline {
+    display: flex; height: 14px; border-radius: 4px; overflow: hidden;
+    background: var(--panel-2); border: 1px solid var(--line); margin: 10px 0 4px;
+  }
+  .timeline .seg-on { background: var(--led-on); opacity: .85; }
+  .timeline-lbl {
+    display: flex; justify-content: space-between;
+    font-family: "IBM Plex Mono", monospace; font-size: 10px;
+    color: var(--text-dim); margin-bottom: 12px;
+  }
+
+  .scan-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 92vw);
+    z-index: 600; background: var(--panel); border-left: 1px solid var(--line);
+    box-shadow: -8px 0 30px rgba(0,0,0,.35); display: flex; flex-direction: column;
+  }
+  .scan-panel[hidden] { display: none; }
+  .scan-panel-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; border-bottom: 1px solid var(--line); flex-shrink: 0;
+  }
+  .scan-panel-title { font-weight: 700; font-size: 15px; }
+  .scan-panel-actions { margin-left: auto; display: flex; gap: 6px; }
+  .scan-panel-actions button {
+    background: var(--panel-2); color: var(--text-dim); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer;
+  }
+  .scan-panel-actions button:hover { color: var(--text); border-color: var(--focus); }
+  .scan-panel-body { overflow-y: auto; padding: 12px 16px; flex: 1; }
+  .scan-entry { border-bottom: 1px solid var(--line); padding: 12px 0; }
+  .scan-entry:first-child { padding-top: 2px; }
+  .scan-entry-head {
+    display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;
+  }
+  .scan-entry-head .nm { font-weight: 600; }
+  .scan-entry-head .ipx { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim); }
+  .scan-entry-head .ts { margin-left: auto; font-size: 11px; color: var(--text-dim); font-family: "IBM Plex Mono", monospace; }
+  .scan-entry.busy .nm::after { content: " · scanning…"; color: var(--focus); font-weight: 400; font-size: 12px; }
+  .scan-entry .none { color: var(--text-dim); font-size: 13px; }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,.5);
+    display: flex; align-items: flex-start; justify-content: center; padding-top: 8vh;
+  }
+  .modal-backdrop[hidden] { display: none; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    width: min(560px, 92vw); padding: 20px; max-height: 80vh; overflow: auto;
+  }
+  .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+  .modal-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; font-size: 13px; color: var(--text-dim); }
+  .modal-row select, .modal-input {
+    margin-left: auto; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 10px; font: inherit;
+    min-width: 220px;
+  }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+  .modal-result { margin-top: 16px; }
+  .modal-result .scan-host {
+    padding: 10px 0; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap;
+  }
+  .modal-result .scan-host .nm { font-weight: 500; min-width: 140px; }
+  .modal-result .scan-host .ipx { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim); }
+  .scan-progress { color: var(--text-dim); font-size: 13px; font-family: "IBM Plex Mono", monospace; }
+
+  .splat {
+    position: fixed; inset: 0; z-index: 9999;
+    display: none; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .splat.show { display: flex; }
+  .splat svg { width: min(60vw, 460px); height: auto; }
+  .splat .burst-group {
+    animation: splatPop 0.7s cubic-bezier(.18,1.4,.4,1) forwards;
+    transform-origin: center;
+  }
+  @keyframes splatPop {
+    0%   { transform: scale(0.2) rotate(-18deg); opacity: 0; }
+    40%  { transform: scale(1.15) rotate(6deg);  opacity: 1; }
+    60%  { transform: scale(0.97) rotate(-3deg); }
+    78%  { transform: scale(1.04) rotate(1deg); }
+    100% { transform: scale(1) rotate(-4deg);    opacity: 1; }
+  }
+  .splat.fade .burst-group { animation: splatFade 0.35s ease-in forwards; }
+  @keyframes splatFade {
+    to { transform: scale(1.25) rotate(-4deg); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .splat .burst-group { animation: none; }
+    .splat.fade .burst-group { animation: none; opacity: 0; transition: opacity .2s; }
+  }
+
+  .theme-menu {
+    position: fixed; z-index: 10000; display: none;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 8px; width: 260px; max-height: 70vh; overflow-y: auto;
+    box-shadow: 0 12px 40px rgba(0,0,0,.4);
+    grid-template-columns: 1fr 1fr; gap: 4px;
+  }
+  .theme-menu.show { display: grid; }
+  .theme-item {
+    display: flex; align-items: center; gap: 8px;
+    background: none; border: 1px solid transparent; border-radius: 8px;
+    padding: 8px; cursor: pointer; font: inherit; color: var(--text); text-align: left;
+  }
+  .theme-item:hover { background: var(--panel-2); border-color: var(--line); }
+  .theme-item.active { border-color: var(--focus); }
+  .theme-item .sw { display: inline-flex; gap: 2px; flex-shrink: 0; }
+  .theme-item .sw i { width: 9px; height: 16px; border-radius: 2px; display: block; }
+  .theme-item .tn { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .stat.clickable { cursor: pointer; transition: border-color .15s; }
+  .stat.clickable:hover { border-color: var(--focus); }
+
+  .viewbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 24px 0; flex-wrap: wrap;
+  }
+  .views { display: flex; gap: 2px; }
+  .view-btn {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: var(--text-dim); padding: 8px 14px; font: inherit; cursor: pointer;
+  }
+  .view-btn:hover { color: var(--text); }
+  .view-btn.active { color: var(--text); border-bottom-color: var(--focus); }
+  .tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .tools-menu-wrap { position: relative; }
+  .tools-menu {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 400;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 4px; min-width: 160px; display: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
+  .tools-menu.show { display: block; }
+  .tools-menu button {
+    display: block; width: 100%; text-align: left; background: none; border: none;
+    color: var(--text); padding: 8px 10px; font: inherit; cursor: pointer; border-radius: 6px;
+  }
+  .tools-menu button:hover { background: var(--panel-2); }
+
+  .more-wrap { position: relative; display: inline-block; }
+  .more-btn { min-width: 30px; font-weight: 700; }
+  .row-menu {
+    position: absolute; right: 0; top: calc(100% + 4px); z-index: 300;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 4px; min-width: 170px; display: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
+  .row-menu.show { display: block; }
+  .row-menu button {
+    display: block; width: 100%; text-align: left; background: none; border: none;
+    color: var(--text); padding: 8px 10px; font: inherit; cursor: pointer; border-radius: 6px;
+    white-space: nowrap;
+  }
+  .row-menu button:hover { background: var(--panel-2); }
+  .row-menu button.danger { color: var(--danger); }
+
+  @media (max-width: 700px) {
+    header { flex-wrap: wrap; gap: 10px; padding: 12px 16px; }
+    .scanline { width: 100%; margin-left: 0; }
+    .stats { padding: 12px 16px; }
+    .stat { min-width: calc(50% - 6px); }
+    .viewbar, .controls, .table-wrap, .feed-wrap, .home-wrap, .portstrip-wrap, .netbar { padding-left: 16px; padding-right: 16px; }
+    .tools { width: 100%; margin-left: 0; }
+    .search { flex: 1; }
+
+    /* table -> cards */
+    table, thead, tbody, tr, td { display: block; }
+    thead { display: none; }
+    table { min-width: 0; }
+    tbody tr {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+      margin-bottom: 12px; padding: 14px 14px 10px; position: relative;
+    }
+    tbody tr:hover { background: var(--panel); }
+    tbody tr.history-row, tbody tr.ports-row {
+      background: var(--panel-2); border-radius: 0 0 12px 12px; margin-top: -12px; padding-top: 16px;
+    }
+    tbody td { border: none; padding: 3px 0; }
+    /* LED + name as a header line */
+    td.led-cell { position: absolute; top: 16px; right: 14px; padding: 0; }
+    td.hostname { font-size: 16px; padding-bottom: 8px; padding-right: 24px; }
+    /* labeled fields */
+    td[data-label] { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+    td[data-label]::before {
+      content: attr(data-label); color: var(--text-dim);
+      font-family: "IBM Plex Mono", monospace; font-size: 11px; text-transform: uppercase;
+      letter-spacing: .05em; flex-shrink: 0;
+    }
+    td.spark-cell { align-items: center; }
+    td.status-cell { padding-top: 8px; }
+    td.actions-cell { padding-top: 6px; }
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .row-menu, .tools-menu { right: auto; left: 0; }
+    /* home board: 2 per row on phones */
+    .home-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 420px) {
+    .home-grid { grid-template-columns: 1fr; }
+    .stat { min-width: 100%; }
+  }
+
+  .toast {
+    position: fixed; bottom: 20px; right: 20px;
+    background: var(--panel-2); border: 1px solid var(--led-warn);
+    border-radius: var(--radius); padding: 12px 16px;
+    font-size: 13px; display: none; max-width: 340px;
+  }
+  .toast.show { display: block; }
+  .toast .mono { color: var(--led-warn); }
+
+  @media (max-width: 640px) {
+    .search { width: 100%; margin-left: 0; }
+    .scanline .lbl-next { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand" title="Basic ARP Monitoring Framework">
+    <svg class="mark" viewBox="0 0 120 120" width="28" height="28" aria-hidden="true">
+      <polygon fill="#3fdb7f" stroke="#0c3a22" stroke-width="4" stroke-linejoin="round"
+        points="117,60 93.3,73.8 98.2,98.2 73.8,93.3 60,117 46.2,93.3 19.8,101.2 26.7,73.8 3,60 26.7,46.2 21.8,19.8 46.2,26.7 60,3 73.8,26.7 101.2,19.8 93.3,46.2"/>
+      <line x1="42" y1="72" x2="60" y2="48" stroke="#0c3a22" stroke-width="7" stroke-linecap="round"/>
+      <line x1="60" y1="48" x2="78" y2="72" stroke="#0c3a22" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="42" cy="72" r="9" fill="#0c3a22"/>
+      <circle cx="60" cy="48" r="9" fill="#0c3a22"/>
+      <circle cx="78" cy="72" r="9" fill="#ffb454" stroke="#0c3a22" stroke-width="3"/>
+    </svg>
+    <h1>BAMF</h1>
+    <span class="sub" id="subnetLabel">—</span>
+  </div>
+  <div class="scanline">
+    <button class="arp-toggle" id="randToggle" title="">
+      <span class="pill"></span><span>ignore random MACs</span>
+    </button>
+    <button class="arp-toggle" id="arpToggle" title="">
+      <span class="pill"></span><span id="arpToggleLbl">active ARP</span>
+    </button>
+    <button class="arp-toggle" id="themeToggle" title="Toggle light / dark theme">
+      <span id="themeIcon">☾</span>
+    </button>
+    <span class="conn-dot" id="connDot" title="API connection"></span>
+    <span class="lbl-next">next scan ~<span id="countdown">—</span>s</span>
+    <div class="scan-track"><div class="scan-fill" id="scanFill"></div></div>
+  </div>
+</header>
+
+<div class="netbar">
+  <span class="lbl">Network</span>
+  <div class="nettabs" id="nettabs" role="tablist"></div>
+</div>
+
+<div class="portstrip-wrap">
+  <div class="portstrip-label">
+    <span>Hosts on segment</span>
+    <span class="legend-item"><span class="legend-swatch on"></span> online</span>
+    <span class="legend-item"><span class="legend-swatch warn"></span> unknown</span>
+    <span class="legend-item"><span class="legend-swatch"></span> offline</span>
+  </div>
+  <div class="portstrip" id="portstrip" role="list"></div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="num" id="statTotal">0</div><div class="lbl">Total hosts</div></div>
+  <div class="stat clickable" data-jump="online"><div class="num" id="statOnline">0</div><div class="lbl">Online now</div></div>
+  <div class="stat alert clickable" data-jump="unknown"><div class="num" id="statUnknown">0</div><div class="lbl">Unknown hosts</div></div>
+  <div class="stat"><div class="num mono" id="statLast">—</div><div class="lbl" id="statLastLbl">Last scan</div></div>
+</div>
+
+<div class="viewbar">
+  <div class="views" role="tablist">
+    <button class="view-btn active" data-view="devices">Devices</button>
+    <button class="view-btn" data-view="home">Who's home</button>
+    <button class="view-btn" data-view="activity">Activity</button>
+    <button class="view-btn" data-view="forgotten">Forgotten</button>
+  </div>
+  <div class="tools">
+    <input class="search" id="search" type="search" placeholder="Search…" aria-label="Search hosts">
+    <div class="tools-menu-wrap">
+      <button class="export-btn" id="toolsBtn" title="Tools">Tools ▾</button>
+      <div class="tools-menu" id="toolsMenu">
+        <button id="netScan">Scan ports…</button>
+        <button id="exportCsv">Export CSV</button>
+        <button id="testWebhook">Test webhook</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="controls" id="statusFilters">
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-filter="all">All</button>
+    <button class="tab" data-filter="online">Online</button>
+    <button class="tab" data-filter="unknown">Unknown</button>
+    <button class="tab" data-filter="offline">Offline</button>
+    <button class="tab" data-filter="ignored">Ignored</button>
+  </div>
+</div>
+
+<div class="home-wrap" id="homeWrap" hidden>
+  <div class="home-grid" id="homeGrid"></div>
+  <div class="empty" id="homeEmpty" hidden>No watched devices yet. Click the camera on a host to watch it, and it'll show up here.</div>
+</div>
+
+<div class="feed-wrap" id="feedWrap" hidden>
+  <div class="feed" id="feed"></div>
+  <div class="empty" id="feedEmpty" hidden>No activity recorded yet.</div>
+</div>
+
+<div class="table-wrap" id="tableWrap">
+  <table>
+    <thead>
+      <tr>
+        <th data-sort="online" title="Sort by online state"></th>
+        <th data-sort="name" title="Click a name to edit it; click here to sort">Name ✎</th>
+        <th data-sort="ip">IP address</th>
+        <th data-sort="mac">MAC address</th>
+        <th data-sort="vendor">Vendor</th>
+        <th data-sort="subnet">Network</th>
+        <th data-sort="firstSeen">First seen</th>
+        <th data-sort="lastSeen">Last seen</th>
+        <th>24h</th>
+        <th data-sort="known">Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="empty" id="empty" hidden>No hosts match this view.</div>
+</div>
+
+<div class="scan-panel" id="scanPanel" hidden>
+  <div class="scan-panel-head">
+    <span class="scan-panel-title">Port scan results</span>
+    <div class="scan-panel-actions">
+      <button id="scanPanelClear" title="Clear the log">Clear</button>
+      <button id="scanPanelClose" title="Close">✕</button>
+    </div>
+  </div>
+  <div class="scan-panel-body" id="scanPanelBody"></div>
+</div>
+
+<div class="modal-backdrop" id="scanModal" hidden>
+  <div class="modal">
+    <div class="modal-title">Port scan</div>
+    <label class="modal-row">Target
+      <select id="scanTarget">
+        <option value="all">All online hosts</option>
+      </select>
+    </label>
+    <label class="modal-row">Ports
+      <select id="scanPortsMode">
+        <option value="common">Common ports (~18)</option>
+        <option value="custom">Custom…</option>
+      </select>
+    </label>
+    <label class="modal-row" id="scanCustomRow" style="display:none">Port list
+      <input id="scanCustom" placeholder="e.g. 22,80,443,8000-8100" class="modal-input">
+    </label>
+    <div class="modal-actions">
+      <button class="toggle" id="scanCancel">Cancel</button>
+      <button class="export-btn" id="scanGo">Start scan</button>
+    </div>
+    <div class="modal-result" id="scanResult"></div>
+  </div>
+</div>
+
+<div class="splat" id="splat" aria-hidden="true"></div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const POLL_MS = 10000;
+
+let hosts = [];
+let filter = "all";       // status filter within Devices view
+let view = "devices";     // devices | home | activity | forgotten
+let query = "";
+let network = "all";      // selected network, or "all"
+let subnets = [];         // networks reported by the scanner
+let scanModes = {};       // subnet -> 'active ARP' | 'ping sweep'
+let activeArp = { enabled: false, npcapAvailable: false };
+let autoIgnoreRandom = false;
+let webhookConfigured = false;
+let loadedOnce = false;
+let sortKey = null;       // null = server order (network, then IP)
+let sortDir = 1;
+let scanInterval = 60;
+let lastScan = null;
+let knownMacs = null; // for client-side "new host" toast
+let expandedId = null;       // host whose history is open
+let eventsCache = {};        // hostId -> events array
+let feedCache = [];          // network-wide activity feed
+
+function fmtExact(iso) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString([], {
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+  });
+}
+
+function fmtDur(ms) {
+  const m = Math.round(ms / 60000);
+  if (m < 1) return "<1 min";
+  if (m < 60) return m + " min";
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + " h " + (m % 60) + " min";
+  return Math.floor(h / 24) + " d " + (h % 24) + " h";
+}
+
+async function loadFeed() {
+  const r = await fetch("/api/events");
+  if (!r.ok) throw new Error("API " + r.status);
+  return r.json();
+}
+
+function renderHome() {
+  const watched = hosts.filter(x => x.watched && !x.forgotten && inNetwork(x));
+  const grid = $("homeGrid");
+  grid.innerHTML = "";
+  const he = $("homeEmpty");
+  he.hidden = watched.length > 0;
+  if (watched.length === 0)
+    he.innerHTML = loadedOnce
+      ? "No watched devices yet. Tap the camera on a device to watch it — it'll show up here as home/away."
+      : `<span class="empty-scan">Scanning your network…</span>`;
+  // online first, then by name
+  watched.sort((a, b) => (b.online - a.online) || dispName(a).localeCompare(dispName(b)));
+  for (const x of watched) {
+    const card = document.createElement("div");
+    card.className = "home-card" + (x.online ? " here" : "");
+    card.innerHTML = `
+      <div class="halo">${x.online ? "\u25cf" : "\u25cb"}</div>
+      <div class="hn">${esc(dispName(x))}</div>
+      <div class="hs">${x.online ? "home" : "away"}</div>`;
+    grid.appendChild(card);
+  }
+}
+
+function buildSpark(host) {
+  const wrap = document.createElement("span");
+  wrap.className = "spark";
+  wrap.title = "Activity over the last 24 hours";
+  // derive hourly online coverage from this host's events in the feed
+  const now = Date.now();
+  const events = feedCache
+    .filter(e => e.hostId === host.id)
+    .map(e => ({ type: e.type, t: new Date(e.at).getTime() }))
+    .sort((a, b) => a.t - b.t);
+
+  // reconstruct state across 24 buckets
+  const buckets = new Array(24).fill(null);
+  const start = now - 24 * 36e5;
+  // starting state: if currently online and no events, assume on the whole time
+  let state = host.online;
+  // walk hours; for each hour see if any event flips within, else carry state
+  // simpler: for each event set state; sample state at each hour boundary end
+  let ei = 0;
+  // find state at 'start' by replaying events before start
+  for (const e of events) { if (e.t <= start) state = (e.type === "online"); }
+  for (let hbar = 0; hbar < 24; hbar++) {
+    const hEnd = start + (hbar + 1) * 36e5;
+    let onDuring = state;
+    while (ei < events.length && events[ei].t <= hEnd) {
+      if (events[ei].t >= start && events[ei].type === "online") onDuring = true;
+      state = (events[ei].type === "online");
+      ei++;
+    }
+    buckets[hbar] = onDuring || state;
+  }
+  for (let i = 0; i < 24; i++) {
+    const bar = document.createElement("i");
+    const on = buckets[i];
+    bar.className = on ? "on" : "";
+    bar.style.height = on ? "14px" : "5px";
+    wrap.appendChild(bar);
+  }
+  return wrap;
+}
+
+function renderFeed() {
+  const items = feedCache.filter(e => network === "all" || e.subnet === network);
+  const wrap = $("feed");
+  wrap.innerHTML = "";
+  const fe = $("feedEmpty");
+  fe.hidden = items.length > 0;
+  if (items.length === 0)
+    fe.innerHTML = loadedOnce
+      ? "No activity yet. Device online/offline events will appear here as they happen."
+      : `<span class="empty-scan">Scanning your network…</span>`;
+  let lastDay = "";
+  for (const e of items) {
+    const d = new Date(e.at);
+    const day = d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+    if (day !== lastDay) {
+      lastDay = day;
+      const hdr = document.createElement("div");
+      hdr.className = "feed-day";
+      hdr.textContent = day;
+      wrap.appendChild(hdr);
+    }
+    const row = document.createElement("div");
+    row.className = "feed-item";
+    const on = e.type === "online";
+    row.innerHTML = `
+      <span class="dot ${on ? "on" : "off"}"></span>
+      <span class="who">${esc(e.name)}</span>
+      <span class="what">${on ? "came online" : "went offline"}</span>
+      <span class="meta"><span>${esc(e.ip)}</span><span>${esc(e.subnet)}</span><span>${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></span>`;
+    wrap.appendChild(row);
+  }
+}
+
+async function loadEvents(id) {
+  const r = await fetch(`/api/hosts/${id}/events`);
+  if (!r.ok) throw new Error("API " + r.status);
+  return r.json();
+}
+
+// Renders a 24h bar: green segments where the host was online.
+function buildTimeline(sessions, onlineNow) {
+  const now = Date.now();
+  const start = now - 24 * 36e5;
+  // collect [from,to] overlapping the window, oldest first
+  const spans = [];
+  for (const s of [...sessions].reverse()) {
+    const a = new Date(s.from).getTime();
+    const b = s.to === null ? now : new Date(s.to).getTime();
+    if (b < start) continue;
+    spans.push([Math.max(a, start), Math.min(b, now)]);
+  }
+  let cells = "", cursor = start;
+  const pct = ms => ((ms / (24 * 36e5)) * 100).toFixed(2);
+  for (const [a, b] of spans) {
+    if (a > cursor) cells += `<div style="width:${pct(a - cursor)}%"></div>`;
+    cells += `<div class="seg-on" style="width:${pct(b - a)}%" title="${fmtExact(new Date(a).toISOString())} \u2192 ${fmtExact(new Date(b).toISOString())}"></div>`;
+    cursor = b;
+  }
+  if (cursor < now) cells += `<div style="width:${pct(now - cursor)}%"></div>`;
+  return `<div class="timeline">${cells}</div>
+    <div class="timeline-lbl"><span>24 h ago</span><span>now</span></div>`;
+}
+
+// Pair events (newest-first) into sessions: online..offline spans.
+function buildSessions(events) {
+  const asc = [...events].reverse(); // oldest first
+  const sessions = [];
+  let openAt = null;
+  for (const e of asc) {
+    if (e.type === "online") {
+      openAt = e.at;
+    } else if (e.type === "offline" && openAt) {
+      sessions.push({ from: openAt, to: e.at });
+      openAt = null;
+    }
+  }
+  if (openAt) sessions.push({ from: openAt, to: null }); // still online
+  return sessions.reverse(); // newest first
+}
+
+const $ = id => document.getElementById(id);
+
+function fmtAgo(iso) {
+  if (!iso) return "—";
+  const s = Math.max(0, (Date.now() - new Date(iso)) / 1000);
+  if (s < 90) return "just now";
+  if (s < 3600) return Math.round(s / 60) + " min ago";
+  if (s < 86400) return Math.round(s / 3600) + " h ago";
+  return Math.round(s / 86400) + " d ago";
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+async function loadHosts() {
+  const r = await fetch("/api/hosts");
+  if (!r.ok) throw new Error("API " + r.status);
+  return r.json();
+}
+
+async function setKnown(host, known) {
+  await fetch(`/api/hosts/${host.id}/known`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ known }),
+  });
+}
+
+async function setName(host, name) {
+  await fetch(`/api/hosts/${host.id}/name`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+}
+
+async function setNote(host, note) {
+  await fetch(`/api/hosts/${host.id}/note`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ note }),
+  });
+}
+
+async function setIgnored(host, ignored) {
+  await fetch(`/api/hosts/${host.id}/ignore`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ignored }),
+  });
+}
+
+async function forgetHost(host, forgotten) {
+  await fetch(`/api/hosts/${host.id}/forget`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ forgotten }),
+  });
+}
+async function deleteHostPermanent(host) {
+  await fetch(`/api/hosts/${host.id}`, { method: "DELETE" });
+}
+
+function inNetwork(h) {
+  return network === "all" || h.subnet === network;
+}
+
+function dispName(h) {
+  return h.customName || h.hostname || "—";
+}
+
+function visible() {
+  if (view === "home" || view === "activity") return [];
+  return hosts.filter(h => {
+    if (!inNetwork(h)) return false;
+    if (view === "forgotten") { if (!h.forgotten) return false; }
+    else {
+      if (h.forgotten) return false;
+      if (filter === "ignored") { if (!h.ignored) return false; }
+      else {
+        if (h.ignored) return false;
+        if (filter === "online" && !h.online) return false;
+        if (filter === "offline" && h.online) return false;
+        if (filter === "unknown" && h.known) return false;
+      }
+    }
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return [h.customName, h.hostname, h.ip, h.mac, h.vendor, h.note].join(" ").toLowerCase().includes(q);
+  });
+}
+
+function renderNetTabs() {
+  // Networks = what the scanner reports, plus any subnet still present on stored hosts.
+  const cidrKey = c => {
+    const [ip, pfx] = c.split("/");
+    const octets = ip.split(".").map(Number);
+    // pack octets into a sortable number, then prefix as tiebreaker
+    return octets.reduce((a, o) => a * 256 + (o || 0), 0) * 100 + (Number(pfx) || 0);
+  };
+  const all = [...new Set([...subnets, ...hosts.map(h => h.subnet).filter(Boolean)])]
+    .sort((a, b) => cidrKey(a) - cidrKey(b));
+  if (network !== "all" && !all.includes(network)) network = "all";
+
+  const wrap = $("nettabs");
+  wrap.innerHTML = "";
+  const mk = (value, label, count) => {
+    const b = document.createElement("button");
+    b.className = "nettab" + (network === value ? " active" : "");
+    if (scanModes[value]) b.title = "scanned via " + scanModes[value];
+    b.innerHTML = `${esc(label)}<span class="cnt">${count}</span>`;
+    b.onclick = () => { network = value; render(); };
+    wrap.appendChild(b);
+  };
+  const counted = hosts.filter(h => !h.ignored && !h.forgotten);
+  mk("all", "All networks", counted.length);
+  for (const s of all)
+    mk(s, s, counted.filter(h => h.subnet === s).length);
+}
+
+const ipNum = ip => ip.split(".").reduce((a, o) => (a << 8) + (+o || 0), 0) >>> 0;
+
+function applySort(rows) {
+  if (!sortKey) return rows;
+  const val = h => {
+    switch (sortKey) {
+      case "name":   return dispName(h).toLowerCase();
+      case "ip":     return ipNum(h.ip);
+      case "mac":    return h.mac;
+      case "vendor": return (h.vendor || "").toLowerCase();
+      case "subnet": return h.subnet || "";
+      case "firstSeen": return h.firstSeen || "";
+      case "lastSeen":  return h.lastSeen || "";
+      case "known":  return h.known ? 1 : 0;
+      case "online": return h.online ? 1 : 0;
+      default: return "";
+    }
+  };
+  return [...rows].sort((a, b) => {
+    const va = val(a), vb = val(b);
+    return (va < vb ? -1 : va > vb ? 1 : 0) * sortDir;
+  });
+}
+
+function render() {
+  renderNetTabs();
+  const showTable = view === "devices" || view === "forgotten";
+  $("tableWrap").hidden = !showTable;
+  $("feedWrap").hidden = view !== "activity";
+  $("homeWrap").hidden = view !== "home";
+  $("statusFilters").style.display = view === "devices" ? "" : "none";
+  if (view === "activity") renderFeed();
+  if (view === "home") renderHome();
+  document.querySelectorAll("thead th[data-sort]").forEach(th => {
+    th.classList.toggle("sorted", th.dataset.sort === sortKey);
+    th.classList.toggle("desc", th.dataset.sort === sortKey && sortDir === -1);
+  });
+  const scoped = hosts.filter(h => inNetwork(h) && !h.ignored && !h.forgotten);
+  $("statTotal").textContent = scoped.length;
+  $("statOnline").textContent = scoped.filter(h => h.online).length;
+  $("statUnknown").textContent = scoped.filter(h => !h.known).length;
+  $("statLast").textContent = lastScan
+    ? new Date(lastScan).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "—";
+  const modeVals = [...new Set(Object.values(scanModes))];
+  $("statLastLbl").textContent = "Last scan" +
+    (modeVals.length === 1 ? " · " + modeVals[0] : modeVals.length > 1 ? " · mixed" : "");
+
+  const strip = $("portstrip");
+  strip.innerHTML = "";
+  scoped.forEach(h => {
+    const b = document.createElement("button");
+    b.className = "port " + (!h.known ? "warn" : h.online ? "on" : "");
+    b.title = `${dispName(h)} — ${h.ip}`;
+    b.setAttribute("aria-label", `${dispName(h)}, ${h.ip}, ${!h.known ? "unknown" : h.online ? "online" : "offline"}`);
+    b.onclick = () => {
+      const row = document.querySelector(`tr[data-id="${h.id}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        row.style.background = "var(--panel-2)";
+        setTimeout(() => row.style.background = "", 1200);
+      }
+    };
+    strip.appendChild(b);
+  });
+
+  const rows = applySort(visible());
+  const tb = $("tbody");
+  tb.innerHTML = "";
+  const emptyEl = $("empty");
+  emptyEl.hidden = rows.length > 0;
+  if (rows.length === 0) {
+    if (!loadedOnce) emptyEl.innerHTML = `<span class="empty-scan">Scanning your network…</span>`;
+    else if (view === "forgotten") emptyEl.textContent = "Nothing forgotten. Devices you Forget land here, ready to restore.";
+    else if (query) emptyEl.textContent = `No devices match “${query}”.`;
+    else if (filter === "unknown") emptyEl.textContent = "No unknown devices — you're all clear. ✓";
+    else if (filter === "ignored") emptyEl.textContent = "Nothing ignored. Randomized phone MACs and devices you hide show up here.";
+    else if (filter === "offline") emptyEl.textContent = "Every known device is online right now.";
+    else if (filter === "online") emptyEl.textContent = "No devices online at the moment.";
+    else emptyEl.textContent = "No devices yet — the first scan will populate this shortly.";
+  }
+  rows.forEach(h => {
+    const tr = document.createElement("tr");
+    tr.dataset.id = h.id;
+    if (!h.known && !h.ignored) tr.classList.add("is-unknown");
+    if (h.ignored) tr.classList.add("is-ignored");
+    const showDns = h.customName && h.hostname && h.hostname !== "—" && h.hostname !== h.customName;
+    tr.innerHTML = `
+      <td class="led-cell"><span class="led ${h.online ? "on" : ""}" title="${h.online ? "online" : "offline"}"></span></td>
+      <td class="hostname" title="Click to rename">
+        <span class="name-text">${esc(dispName(h))}</span>
+        ${h.note ? `<span class="note-flag" title="${esc(h.note)}">\uD83D\uDCDD</span>` : ""}
+        ${showDns ? `<span class="dns">${esc(h.hostname)}</span>` : ""}
+      </td>
+      <td class="ip" data-label="IP"><a href="http://${esc(h.ip)}" target="_blank" rel="noopener" title="Open http://${esc(h.ip)}">${esc(h.ip)}</a></td>
+      <td class="mac" data-label="MAC">${esc(h.mac)}</td>
+      <td class="vendor" data-label="Vendor">${esc(h.vendor)}</td>
+      <td class="ip" data-label="Network">${esc(h.subnet || "—")}</td>
+      <td class="seen" data-label="First seen" title="${esc(fmtExact(h.firstSeen))}">${fmtAgo(h.firstSeen)}</td>
+      <td class="seen" data-label="Last seen" title="${esc(fmtExact(h.lastSeen))}">${fmtAgo(h.lastSeen)}</td>
+      <td class="spark-cell" data-label="24h"></td>
+      <td class="status-cell"><span class="badge ${h.known ? "known" : "unknown"}">${h.known ? "known" : "unknown"}</span></td>
+      <td class="actions-cell"></td>`;
+
+    const nameCell = tr.querySelector(".hostname");
+    nameCell.onclick = () => {
+      if (nameCell.querySelector("input")) return;
+      const input = document.createElement("input");
+      input.className = "name-input";
+      input.value = h.customName || "";
+      input.placeholder = h.hostname === "—" ? "Name this device" : h.hostname;
+      input.maxLength = 60;
+      nameCell.innerHTML = "";
+      nameCell.appendChild(input);
+      input.focus();
+      input.select();
+
+      let done = false;
+      const finish = async (save) => {
+        if (done) return;
+        done = true;
+        const value = input.value;
+        input.remove(); // so the refresh guard doesn't block the redraw
+        if (save) await setName(h, value); // empty clears back to DNS name
+        await refresh();
+      };
+      input.onkeydown = e => {
+        if (e.key === "Enter") finish(true);
+        if (e.key === "Escape") finish(false);
+      };
+      input.onblur = () => finish(true);
+      input.onclick = e => e.stopPropagation();
+    };
+    const cell = tr.lastElementChild;
+    cell.className = "actions";
+
+    const star = document.createElement("button");
+    star.className = "watch-star" + (h.watched ? " on" : "");
+    star.innerHTML = h.watched
+      ? `<span class="cam"><img src="watch-on.png" alt="" class="cam-dot" draggable="false"><img src="watch-on-off.png" alt="" class="cam-nodot" draggable="false"></span>`
+      : `<img src="watch-idle.png" alt="" draggable="false">`;
+    star.title = h.watched
+      ? "Watching — you'll get a Discord alert if this host goes offline. Click to stop watching."
+      : "Watch this host — get a Discord alert if it goes offline";
+    star.onclick = async () => {
+      await fetch(`/api/hosts/${h.id}/watch`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ watched: !h.watched }),
+      });
+      toast(h.watched ? `No longer watching ${esc(dispName(h))}` : `Now watching ${esc(dispName(h))} for downtime`);
+      await refresh();
+    };
+    cell.appendChild(star);
+
+    const hist = document.createElement("button");
+    hist.className = "toggle";
+    hist.textContent = expandedId === h.id ? "Hide" : "History";
+    hist.onclick = async () => {
+      if (expandedId === h.id) { expandedId = null; render(); return; }
+      expandedId = h.id;
+      try { eventsCache[h.id] = await loadEvents(h.id); } catch { eventsCache[h.id] = []; }
+      render();
+    };
+    cell.appendChild(hist);
+
+    // Everything else lives in a ⋯ overflow menu to keep the row calm.
+    const moreWrap = document.createElement("span");
+    moreWrap.className = "more-wrap";
+    const more = document.createElement("button");
+    more.className = "toggle more-btn";
+    more.innerHTML = "⋯";
+    more.title = "More actions";
+    const menu = document.createElement("div");
+    menu.className = "row-menu";
+
+    const addItem = (label, fn, opts = {}) => {
+      const b = document.createElement("button");
+      b.textContent = label;
+      if (opts.danger) b.className = "danger";
+      b.onclick = async (e) => { e.stopPropagation(); menu.classList.remove("show"); await fn(); };
+      menu.appendChild(b);
+      return b;
+    };
+
+    if (h.forgotten) {
+      addItem("Unforget", async () => { await forgetHost(h, false); await refresh(); });
+      addItem("Delete permanently", async () => {
+        if (confirm(`Permanently delete ${dispName(h)} and its history? This cannot be undone.`)) {
+          await deleteHostPermanent(h); await refresh();
+        }
+      }, { danger: true });
+    } else {
+      addItem("Scan ports", () => scanPorts(h, more, null));
+      addItem("Scan custom ports…", () => {
+        const spec = prompt("Ports to scan on " + dispName(h) + " (e.g. 22,80,443,8000-8100):", "");
+        if (spec) scanPorts(h, more, spec);
+      });
+      addItem(h.known ? "Mark unknown" : "Mark known", async () => { await setKnown(h, !h.known); await refresh(); });
+      addItem(h.ignored ? "Unignore" : "Ignore", async () => { await setIgnored(h, !h.ignored); await refresh(); });
+      if (!h.online) {
+        addItem("Wake (WoL)", async () => {
+          try {
+            const r = await fetch(`/api/hosts/${h.id}/wake`, { method: "POST" });
+            const data = await r.json();
+            toast(data.ok ? `Magic packet sent to ${esc(dispName(h))}` : "Wake failed: " + esc(data.error || "unknown"));
+          } catch { toast("Wake failed — see server logs"); }
+        });
+        addItem("Forget", async () => {
+          if (confirm(`Move ${dispName(h)} to the Forgotten view? (reversible)`)) {
+            await forgetHost(h, true); await refresh();
+          }
+        }, { danger: true });
+      }
+    }
+
+    more.onclick = (e) => {
+      e.stopPropagation();
+      document.querySelectorAll(".row-menu.show").forEach(m => { if (m !== menu) m.classList.remove("show"); });
+      menu.classList.toggle("show");
+    };
+    moreWrap.appendChild(more);
+    moreWrap.appendChild(menu);
+    cell.appendChild(moreWrap);
+    // 24h sparkline built from the network-wide feed we already fetch
+    const sparkCell = tr.querySelector(".spark-cell");
+    if (sparkCell) sparkCell.appendChild(buildSpark(h));
+
+    tb.appendChild(tr);
+
+    if (expandedId === h.id) {
+      const detail = document.createElement("tr");
+      detail.className = "history-row";
+      const td = document.createElement("td");
+      td.colSpan = 11;
+
+      const sessions = buildSessions(eventsCache[h.id] || []);
+      let inner = `<div class="history-title">Recent sessions — ${esc(dispName(h))}</div>`;
+      inner += buildTimeline(sessions, h.online);
+      if (sessions.length === 0) {
+        inner += `<div class="history-empty">No history recorded yet. Sessions appear as this host comes and goes.</div>`;
+      } else {
+        inner += `<div class="sessions">` + sessions.slice(0, 15).map(s => {
+          const from = fmtExact(s.from);
+          if (s.to === null) {
+            return `<div class="session"><span class="dot on"></span>${esc(from)} → <span class="ongoing">still online</span><span class="dur">(${fmtDur(Date.now() - new Date(s.from))})</span></div>`;
+          }
+          return `<div class="session"><span class="dot off"></span>${esc(from)} → ${esc(fmtExact(s.to))}<span class="dur">(${fmtDur(new Date(s.to) - new Date(s.from))})</span></div>`;
+        }).join("") + `</div>`;
+      }
+      inner += `<div class="note-box">
+        <label>Notes</label>
+        <textarea id="note-${h.id}" placeholder="e.g. garage ESP32 sensor · kids' iPad, bedtime 9pm" maxlength="500">${esc(h.note || "")}</textarea>
+        <button class="note-save" id="notesave-${h.id}">Save note</button>
+      </div>`;
+      td.innerHTML = inner;
+      detail.appendChild(td);
+      tb.appendChild(detail);
+      // wire note save
+      const ta = td.querySelector(`#note-${h.id}`);
+      const sv = td.querySelector(`#notesave-${h.id}`);
+      if (sv && ta) sv.onclick = async () => {
+        sv.disabled = true; sv.textContent = "Saving…";
+        await setNote(h, ta.value);
+        toast(ta.value.trim() ? `Note saved for ${esc(dispName(h))}` : `Note cleared for ${esc(dispName(h))}`);
+        await refresh();
+      };
+    }
+  });
+}
+
+// ---- dockable scan results panel ----
+function openScanPanel() { $("scanPanel").hidden = false; }
+$("scanPanelClose").onclick = () => { $("scanPanel").hidden = true; };
+$("scanPanelClear").onclick = () => { $("scanPanelBody").innerHTML = ""; };
+
+function portChips(ip, ports) {
+  if (!ports || !ports.length) return `<span class="none">No open ports found in that set.</span>`;
+  return `<div class="ports-cell">` + ports.map(p => {
+    const isWeb = ["HTTP","HTTPS","HTTP-alt","HTTPS-alt","IPP/Print","UPnP/Web","Plex"].includes(p.service);
+    const scheme = (String(p.service).startsWith("HTTPS") || p.port === 8443) ? "https" : "http";
+    return isWeb
+      ? `<a class="port-chip web" href="${scheme}://${esc(ip)}:${p.port}" target="_blank" rel="noopener">${p.port} ${esc(p.service||"")} ↗</a>`
+      : `<span class="port-chip">${p.port}${p.service?" "+esc(p.service):""}</span>`;
+  }).join(" ") + `</div>`;
+}
+
+// adds an entry, returns its element so we can fill it when the scan completes
+function addScanEntry(name, ip, subLabel) {
+  openScanPanel();
+  const body = $("scanPanelBody");
+  const el = document.createElement("div");
+  el.className = "scan-entry busy";
+  const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  el.innerHTML = `<div class="scan-entry-head">
+      <span class="nm">${esc(name)}</span>
+      <span class="ipx">${esc(ip)}${subLabel ? " · " + esc(subLabel) : ""}</span>
+      <span class="ts">${now}</span>
+    </div><div class="scan-entry-body"></div>`;
+  body.prepend(el);
+  return el;
+}
+
+async function scanPorts(host, _btn, spec) {
+  const el = addScanEntry(dispName(host), host.ip, spec ? ("ports " + spec) : "common");
+  try {
+    const q = spec ? "?ports=" + encodeURIComponent(spec) : "";
+    const r = await fetch(`/api/hosts/${host.id}/portscan${q}`);
+    const ports = await r.json();
+    el.classList.remove("busy");
+    el.querySelector(".scan-entry-body").innerHTML = portChips(host.ip, ports);
+  } catch (e) {
+    el.classList.remove("busy");
+    el.querySelector(".scan-entry-body").innerHTML = `<span class="none">Scan failed.</span>`;
+  }
+}
+
+function toast(msg) {
+  const t = $("toast");
+  t.innerHTML = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 8000);
+}
+
+async function refresh() {
+  // Don't redraw while the user is typing a device name.
+  if (document.querySelector(".name-input")) return;
+  try {
+    const data = await loadHosts();
+    $("connDot").classList.remove("err");
+
+    scanInterval = data.scanIntervalSeconds || 60;
+    lastScan = data.lastScan;
+    subnets = data.subnets || [];
+    scanModes = data.scanModes || {};
+    activeArp = data.activeArp || activeArp;
+    autoIgnoreRandom = !!data.autoIgnoreRandom;
+    webhookConfigured = !!data.webhookConfigured;
+    $("testWebhook").style.display = webhookConfigured ? "" : "none";
+    renderArpToggle();
+    renderRandToggle();
+    $("subnetLabel").textContent = subnets.length === 1
+      ? subnets[0]
+      : subnets.length + " networks";
+
+    const incoming = data.hosts || [];
+
+    // toast on newly-appearing unknown hosts (after first load)
+    if (knownMacs) {
+      for (const h of incoming) {
+        if (!knownMacs.has(h.mac) && !h.known && !h.ignored && !h.forgotten) {
+          toast(`New host on <span class="mono">${esc(h.subnet)}</span>: <span class="mono">${esc(h.mac)}</span> at <span class="mono">${esc(h.ip)}</span>`);
+        }
+      }
+    }
+    knownMacs = new Set(incoming.map(h => h.mac));
+
+    hosts = incoming;
+    loadedOnce = true;
+    try { feedCache = await loadFeed(); } catch { /* keep old feed */ }
+    render();
+  } catch (e) {
+    $("connDot").classList.add("err");
+    console.error("refresh failed", e);
+  }
+}
+
+// countdown estimate toward next backend scan
+setInterval(() => {
+  if (!lastScan) return;
+  const elapsed = (Date.now() - new Date(lastScan)) / 1000;
+  const left = Math.max(0, Math.round(scanInterval - (elapsed % scanInterval)));
+  $("countdown").textContent = left;
+  $("scanFill").style.width = (100 * (1 - left / scanInterval)) + "%";
+}, 1000);
+
+function renderArpToggle() {
+  const t = $("arpToggle");
+  t.classList.toggle("on", activeArp.enabled);
+  t.classList.toggle("nodriver", activeArp.enabled && !activeArp.npcapAvailable);
+  t.title = !activeArp.npcapAvailable
+    ? (activeArp.enabled
+        ? "Active ARP is on, but the Npcap driver isn't installed - running ping sweep. Install it from npcap.com."
+        : "Turn on active ARP scanning (needs the Npcap driver from npcap.com)")
+    : (activeArp.enabled
+        ? "Active ARP scanning is on - click to switch to ping sweep"
+        : "Click to turn on active ARP scanning");
+}
+
+// ---- theme + comic splat ----
+const SPLAT_WORDS = ["BAMF!"];
+
+function currentTheme() {
+  return document.documentElement.getAttribute("data-theme") || "dark";
+}
+
+function showSplat() {
+  const word = SPLAT_WORDS[Math.floor(Math.random() * SPLAT_WORDS.length)];
+  const hue = [ ["#ffb454","#0c3a22"], ["#3fdb7f","#0c3a22"], ["#6db7d8","#10141a"], ["#f2716f","#2a0f0f"] ][Math.floor(Math.random()*4)];
+  const rot = (Math.random() * 16 - 8).toFixed(1);
+  // 12-point starburst
+  let pts = "";
+  const cx = 250, cy = 200;
+  for (let i = 0; i < 24; i++) {
+    const r = i % 2 === 0 ? 200 : 120;
+    const a = (Math.PI * 2 * i) / 24 - Math.PI / 2;
+    pts += `${(cx + r * Math.cos(a)).toFixed(0)},${(cy + r * Math.sin(a)).toFixed(0)} `;
+  }
+  const el = $("splat");
+  el.innerHTML = `
+    <svg viewBox="0 0 500 400" style="transform:rotate(${rot}deg)">
+      <g class="burst-group">
+        <polygon points="${pts}" fill="${hue[0]}" stroke="${hue[1]}" stroke-width="8" stroke-linejoin="round"/>
+        <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central"
+              font-family="Arial Black, Arial, sans-serif" font-weight="900"
+              font-size="${word.length > 5 ? 66 : 92}" fill="${hue[1]}"
+              stroke="#fff" stroke-width="1.5" paint-order="stroke">${word}</text>
+      </g>
+    </svg>`;
+  el.classList.remove("fade");
+  el.classList.add("show");
+  clearTimeout(el._t1); clearTimeout(el._t2);
+  el._t1 = setTimeout(() => el.classList.add("fade"), 650);
+  el._t2 = setTimeout(() => { el.classList.remove("show", "fade"); }, 1050);
+}
+
+const THEMES = [
+  { id: "dark",        name: "Dark",         sw: ["#10141a", "#3fdb7f", "#ffb454"] },
+  { id: "light",       name: "Light",        sw: ["#eef1f5", "#1ba85a", "#d67d00"] },
+  { id: "terminal",    name: "Terminal",     sw: ["#020a02", "#33ff66", "#ffcc33"] },
+  { id: "amber",       name: "Amber CRT",    sw: ["#0a0600", "#ffb000", "#ffd633"] },
+  { id: "synthwave",   name: "Synthwave",    sw: ["#1a0b2e", "#ff6ac1", "#2de2e6"] },
+  { id: "c64",         name: "Commodore 64", sw: ["#40318d", "#a5a0e0", "#8bc673"] },
+  { id: "gameboy",     name: "Game Boy",     sw: ["#0f380f", "#9bbc0f", "#c4cf4a"] },
+  { id: "nord",        name: "Nord",         sw: ["#2e3440", "#88c0d0", "#a3be8c"] },
+  { id: "dracula",     name: "Dracula",      sw: ["#282a36", "#bd93f9", "#50fa7b"] },
+  { id: "solarized",   name: "Solarized",    sw: ["#002b36", "#268bd2", "#859900"] },
+  { id: "solar-light", name: "Solar Light",  sw: ["#fdf6e3", "#268bd2", "#859900"] },
+  { id: "gruvbox",     name: "Gruvbox",      sw: ["#282828", "#fabd2f", "#b8bb26"] },
+  { id: "contrast",    name: "High Contrast",sw: ["#000000", "#00ff00", "#ffff00"] },
+  { id: "matrix",      name: "Matrix",       sw: ["#000700", "#00ff41", "#88ff00"] },
+  { id: "blueprint",   name: "Blueprint",    sw: ["#0d2b52", "#7fffd4", "#a0d8ff"] },
+  { id: "hackerred",   name: "Hacker Red",   sw: ["#0a0000", "#ff3333", "#ff8833"] },
+  { id: "cottoncandy", name: "Cotton Candy", sw: ["#fdeef7", "#f47ca0", "#7ececa"] },
+];
+
+let themeMenuOpen = false;
+
+function buildThemeMenu() {
+  let menu = $("themeMenu");
+  if (!menu) {
+    menu = document.createElement("div");
+    menu.id = "themeMenu";
+    menu.className = "theme-menu";
+    document.body.appendChild(menu);
+  }
+  menu.innerHTML = "";
+  const cur = currentTheme();
+  for (const t of THEMES) {
+    const item = document.createElement("button");
+    item.className = "theme-item" + (t.id === cur ? " active" : "");
+    item.innerHTML = `
+      <span class="sw">${t.sw.map(c => `<i style="background:${c}"></i>`).join("")}</span>
+      <span class="tn">${t.name}</span>`;
+    item.onclick = () => {
+      applyTheme(t.id);
+      showSplat();
+      closeThemeMenu();
+    };
+    menu.appendChild(item);
+  }
+  // position under the toggle button
+  const r = $("themeToggle").getBoundingClientRect();
+  menu.style.top = (r.bottom + 8) + "px";
+  menu.style.right = (window.innerWidth - r.right) + "px";
+}
+
+function openThemeMenu() { buildThemeMenu(); $("themeMenu").classList.add("show"); themeMenuOpen = true; }
+function closeThemeMenu() { const m = $("themeMenu"); if (m) m.classList.remove("show"); themeMenuOpen = false; }
+
+$("themeToggle").onclick = (e) => {
+  e.stopPropagation();
+  themeMenuOpen ? closeThemeMenu() : openThemeMenu();
+};
+document.addEventListener("click", (e) => {
+  if (themeMenuOpen && !e.target.closest("#themeMenu") && e.target.id !== "themeToggle")
+    closeThemeMenu();
+});
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const t = THEMES.find(x => x.id === theme);
+  $("themeIcon").textContent = "\u25d1"; // half-filled circle = "theme"
+  $("themeToggle").title = "Theme: " + (t ? t.name : theme) + " — click to change";
+  try { window.name = "bamf-theme:" + theme; } catch {}
+}
+
+// restore saved theme (persisted in window.name, which survives reloads)
+(function initTheme() {
+  let saved = "dark";
+  try {
+    if (window.name && window.name.startsWith("bamf-theme:")) {
+      const t = window.name.split(":")[1];
+      if (THEMES.some(x => x.id === t)) saved = t;
+    }
+  } catch {}
+  applyTheme(saved);
+})();
+
+function renderRandToggle() {
+  const t = $("randToggle");
+  t.classList.toggle("on", autoIgnoreRandom);
+  t.title = autoIgnoreRandom
+    ? "New devices with randomized MACs are auto-filed under Ignored - click to disable"
+    : "Click to auto-ignore new devices with randomized MACs (phone privacy addresses)";
+}
+
+$("randToggle").onclick = async () => {
+  const next = !autoIgnoreRandom;
+  try {
+    await fetch("/api/settings/auto-ignore-random", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: next }),
+    });
+    autoIgnoreRandom = next;
+    renderRandToggle();
+    toast(next
+      ? "Auto-ignoring randomized MACs - applies to new devices from next scan"
+      : "Randomized MACs will alert like any other new device");
+  } catch (e) { console.error(e); }
+};
+
+$("arpToggle").onclick = async () => {
+  const next = !activeArp.enabled;
+  try {
+    await fetch("/api/settings/active-arp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: next }),
+    });
+    activeArp.enabled = next;
+    renderArpToggle();
+    toast(next
+      ? "Active ARP scanning on - takes effect next scan"
+      : "Switched to ping sweep - takes effect next scan");
+  } catch (e) { console.error(e); }
+};
+
+document.querySelectorAll("thead th[data-sort]").forEach(th => {
+  th.onclick = () => {
+    const key = th.dataset.sort;
+    if (sortKey === key) {
+      if (sortDir === 1) sortDir = -1;
+      else { sortKey = null; sortDir = 1; } // third click restores default order
+    } else { sortKey = key; sortDir = 1; }
+    render();
+  };
+});
+
+function openScanModal() {
+  // populate target dropdown from current networks
+  const sel = $("scanTarget");
+  sel.innerHTML = '<option value="all">All online hosts</option>';
+  const nets = [...new Set(hosts.filter(x => !x.ignored).map(x => x.subnet).filter(Boolean))];
+  const cidrKey2 = c => { const [ip,p]=c.split("/"); return ip.split(".").reduce((a,o)=>a*256+(+o||0),0)*100+(+p||0); };
+  nets.sort((a,b)=>cidrKey2(a)-cidrKey2(b)).forEach(n => {
+    const o = document.createElement("option"); o.value = "net:" + n; o.textContent = n; sel.appendChild(o);
+  });
+  $("scanResult").innerHTML = "";
+  $("scanModal").hidden = false;
+}
+$("netScan").onclick = openScanModal;
+$("scanCancel").onclick = () => { $("scanModal").hidden = true; };
+$("scanModal").onclick = e => { if (e.target.id === "scanModal") $("scanModal").hidden = true; };
+$("scanPortsMode").onchange = e => {
+  $("scanCustomRow").style.display = e.target.value === "custom" ? "" : "none";
+};
+$("scanGo").onclick = async () => {
+  const target = $("scanTarget").value;
+  const mode = $("scanPortsMode").value;
+  const custom = $("scanCustom").value.trim();
+  if (mode === "custom" && !custom) { $("scanResult").innerHTML = '<span class="scan-progress">Enter a port list first.</span>'; return; }
+
+  const params = new URLSearchParams();
+  if (mode === "custom") params.set("ports", custom);
+  let scope = "all online hosts";
+  if (target.startsWith("net:")) { params.set("subnet", target.slice(4)); scope = target.slice(4); }
+
+  // close the dialog, open the results panel, show a busy header entry
+  $("scanModal").hidden = true;
+  const el = addScanEntry("Network scan", scope, mode === "custom" ? ("ports " + custom) : "common");
+
+  try {
+    const r = await fetch("/api/portscan?" + params.toString());
+    const data = await r.json();
+    el.classList.remove("busy");
+    el.querySelector(".nm").textContent = "Network scan";
+    let html = `<div class="none">Scanned ${data.scanned} host(s), ${data.withOpenPorts} with open ports.</div>`;
+    for (const hd of (data.hosts || [])) {
+      html += `<div style="margin-top:10px"><div class="scan-entry-head"><span class="nm">${esc(hd.name)}</span><span class="ipx">${esc(hd.ip)} · ${esc(hd.subnet)}</span></div>${portChips(hd.ip, hd.ports)}</div>`;
+    }
+    el.querySelector(".scan-entry-body").innerHTML = html;
+  } catch (e) {
+    el.classList.remove("busy");
+    el.querySelector(".scan-entry-body").innerHTML = '<span class="none">Scan failed — see server logs.</span>';
+  }
+};
+
+$("testWebhook").onclick = async () => {
+  const btn = $("testWebhook");
+  btn.disabled = true;
+  btn.textContent = "Sending\u2026";
+  try {
+    const r = await fetch("/api/webhook/test", { method: "POST" });
+    const data = await r.json();
+    toast(data.ok
+      ? "Test notification sent \u2014 check your Discord channel"
+      : "Webhook test failed: " + esc(data.error || "unknown error"));
+  } catch (e) {
+    toast("Webhook test failed \u2014 see server logs");
+  }
+  btn.disabled = false;
+  btn.textContent = "Test webhook";
+};
+
+$("exportCsv").onclick = () => {
+  const rows = applySort(visible());
+  const cols = ["name","dnsHostname","ip","mac","vendor","network","online","known","ignored","firstSeen","lastSeen"];
+  const cell = v => {
+    v = String(v ?? "");
+    return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  };
+  const lines = [cols.join(",")];
+  for (const h of rows) {
+    lines.push([
+      dispName(h), h.hostname === "\u2014" ? "" : h.hostname, h.ip, h.mac, h.vendor,
+      h.subnet, h.online, h.known, h.ignored, h.firstSeen, h.lastSeen
+    ].map(cell).join(","));
+  }
+  const blob = new Blob([lines.join("\r\n")], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "bamf-hosts-" + new Date().toISOString().slice(0, 10) + ".csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".more-wrap"))
+    document.querySelectorAll(".row-menu.show").forEach(m => m.classList.remove("show"));
+});
+
+document.querySelectorAll(".stat.clickable").forEach(s => s.onclick = () => {
+  view = "devices";
+  document.querySelectorAll(".view-btn").forEach(x => x.classList.toggle("active", x.dataset.view === "devices"));
+  filter = s.dataset.jump;
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.filter === filter));
+  render();
+});
+
+let toolsOpen = false;
+$("toolsBtn").onclick = (e) => {
+  e.stopPropagation();
+  toolsOpen = !toolsOpen;
+  $("toolsMenu").classList.toggle("show", toolsOpen);
+};
+document.addEventListener("click", (e) => {
+  if (toolsOpen && !e.target.closest(".tools-menu-wrap")) {
+    toolsOpen = false;
+    $("toolsMenu").classList.remove("show");
+  }
+});
+
+document.querySelectorAll(".view-btn").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".view-btn").forEach(x => x.classList.remove("active"));
+  b.classList.add("active");
+  view = b.dataset.view;
+  render();
+});
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  t.classList.add("active");
+  filter = t.dataset.filter;
+  render();
+});
+$("search").oninput = e => { query = e.target.value; render(); };
+
+refresh();
+setInterval(refresh, POLL_MS);
+</script>
+</body>
+</html>
