@@ -1,0 +1,16 @@
+[Unit]
+Description=BAMF - Basic ARP Monitoring Framework
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStart=/opt/bamf/BAMF
+WorkingDirectory=/opt/bamf
+Restart=on-failure
+RestartSec=5
+User=root
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+
+[Install]
+WantedBy=multi-user.target

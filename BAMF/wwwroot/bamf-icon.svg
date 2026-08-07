@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="BAMF icon">
+  <polygon fill="#3fdb7f" stroke="#0c3a22" stroke-width="3" stroke-linejoin="round"
+    points="117,60 93.3,73.8 98.2,98.2 73.8,93.3 60,117 46.2,93.3 19.8,101.2 26.7,73.8 3,60 26.7,46.2 21.8,19.8 46.2,26.7 60,3 73.8,26.7 101.2,19.8 93.3,46.2"/>
+  <line x1="42" y1="72" x2="60" y2="48" stroke="#0c3a22" stroke-width="6" stroke-linecap="round"/>
+  <line x1="60" y1="48" x2="78" y2="72" stroke="#0c3a22" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="42" cy="72" r="8.5" fill="#0c3a22"/>
+  <circle cx="60" cy="48" r="8.5" fill="#0c3a22"/>
+  <circle cx="78" cy="72" r="8.5" fill="#ffb454" stroke="#0c3a22" stroke-width="3"/>
+</svg>
