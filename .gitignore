@@ -1,0 +1,42 @@
+# Claude Code local config
+.claude/
+
+# Build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Dd]ebug/
+[Rr]elease/
+publish/
+*.dll
+*.exe
+*.pdb
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userprefs
+
+# NuGet
+*.nupkg
+packages/
+project.lock.json
+
+# Local settings & secrets
+appsettings.Development.json
+appsettings.Local.json
+*.local.json
+
+# Logs & databases
+*.log
+*.db
+*.db-shm
+*.db-wal
+
+# OS cruft
+Thumbs.db
+desktop.ini
+.DS_Store
