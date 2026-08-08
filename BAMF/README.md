@@ -56,6 +56,12 @@ dotnet publish -c Release -r win-x64   -p:PublishSingleFile=true --self-containe
 dotnet publish -c Release -r linux-x64 -p:PublishSingleFile=true --self-contained true -o publish   # Linux
 ```
 
+> **Rebuilding over a folder you already run from?** `dotnet publish` overwrites
+> `appsettings.json` in the output folder — the build's copy always wins. Your
+> `bamf.db` is safe (it isn't a build artifact), but your config is not. Copy it
+> aside first and put it back after, or use the updaters below, which handle
+> this for you.
+
 ## Run it manually first
 
 ```powershell
@@ -159,6 +165,43 @@ starting the service first if it isn't running (no admin prompt when the
 service is already up). The launcher and icon are copied to `C:\BAMFApp`, so
 the shortcut survives updates.
 
+## What an update preserves
+
+Both updaters are built so an update never costs you anything. Your settings
+live in three places, and it helps to know which is which:
+
+| What | Where it lives | On update |
+|---|---|---|
+| Subnets, password, webhook URL, scan interval, ping tuning | `appsettings.json` | Copied aside and restored. The version's fresh defaults are written next to it as `appsettings.new.json` so you can merge in any new options. |
+| Custom names, notes, watch stars, ignored/known flags, all online-offline history, **and the dashboard's active-ARP and auto-ignore toggles** | `bamf.db` | Never touched, and snapshotted to `backups/` first (last 10 kept). |
+| Theme choice | your browser's localStorage | Not on the server at all, so nothing can disturb it. |
+
+The second row is the one people don't expect: the header toggles are stored in
+the database, not the config file, and the database value **overrides**
+`appsettings.json`. So if a toggle seems to ignore your config after an update,
+that's why - flip it in the dashboard.
+
+### Rolling back
+
+The snapshots in `backups/` are ordinary SQLite files - restoring one is a copy:
+
+```powershell
+# Windows
+Stop-Service BAMF
+Copy-Item C:\BAMFApp\backups\bamf-20260808-231500.db C:\BAMFApp\bamf.db -Force
+Start-Service BAMF
+```
+
+```bash
+# Linux
+systemctl stop bamf
+cp /opt/bamf/backups/bamf-20260808-231500.db /opt/bamf/bamf.db
+systemctl start bamf
+```
+
+To roll the *config* back instead, your previous `appsettings.json` is the one
+still in place - it's `appsettings.new.json` that holds the incoming defaults.
+
 ## One-click updates (Windows)
 
 On Linux, updating is the same one command as installing:
@@ -229,7 +272,10 @@ bash linux/install.sh /root/BAMF.zip   # or straight from the zip
 
 Notes:
 - Everything lives in `/opt/bamf` — binary, `appsettings.json`, `bamf.db`, and
-  `backups/`. Re-running the script updates in place and keeps all of it.
+  `backups/`. Re-running the script updates in place and keeps all of it: your
+  `appsettings.json` is restored afterwards (the version's fresh defaults are
+  left as `appsettings.new.json`) and the database is snapshotted into
+  `/opt/bamf/backups` first. See [What an update preserves](#what-an-update-preserves).
 - The unit runs as `root` with `AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN`
   so active ARP scanning works.
 - Logs: `journalctl -u bamf -f`. Control: `systemctl {status,restart,stop} bamf`.
