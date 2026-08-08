@@ -1,16 +1,22 @@
 # BAMF — Basic ARP Monitoring Framework
 
-A lightweight WatchYourLAN-style network monitor for Windows Server 2022.
-Ping-sweeps your subnet, reads the ARP table, tracks every MAC address it has
-ever seen in SQLite, flags unknown hosts, fires a webhook when something new
-appears, and serves a web dashboard.
+A lightweight WatchYourLAN-style network monitor that runs on **Windows and
+Linux** from the same codebase. Ping-sweeps your subnet, reads the ARP table,
+tracks every MAC address it has ever seen in SQLite, flags unknown hosts, fires
+a webhook when something new appears, and serves a web dashboard.
+
+It installs as a Windows Service or a systemd unit (and runs fine from a
+console on either), with the same database format, the same dashboard, and the
+same features on both. Popular homes for it: a Windows Server box, or a Debian
+LXC container on Proxmox.
 
 ## How it works
 
 Every scan cycle (default 60 s) the service:
 
 1. Pings every address in the subnet in parallel (populates the ARP cache).
-2. Reads the Windows ARP table (`arp -a`) and keeps dynamic entries in the subnet.
+2. Reads the system ARP table (`arp -a` on Windows, `/proc/net/arp` on Linux)
+   and keeps complete/dynamic entries in the subnet.
 3. Resolves hostnames via reverse DNS and vendors via OUI prefix lookup.
 4. Upserts each host into `bamf.db`. A never-before-seen MAC is stored as
    **unknown** and triggers the webhook (if configured).
@@ -18,35 +24,48 @@ Every scan cycle (default 60 s) the service:
 
 The dashboard at `http://<server>:8840` polls `/api/hosts` every 10 seconds.
 
-## Linux / Proxmox
-
-BAMF also runs on Debian-based Linux, including Proxmox LXC containers - see
-`linux/README-PROXMOX.md`. `linux/install.sh` handles install and updates.
-
 ## Requirements
 
-- Windows Server 2022 (also works on Win 10/11 and Server 2019)
+- **Windows**: Server 2022 (also fine on Win 10/11 and Server 2019).
+- **Linux**: any Debian-based distro (Debian 12 / Ubuntu 22.04+), bare metal,
+  VM, or LXC container.
 - .NET 8 SDK to build (https://dotnet.microsoft.com/download/dotnet/8.0)
   — the published output can be fully self-contained, so the *server* needs
   nothing installed if you publish that way.
+- Optional, for active ARP scanning: Npcap on Windows, libpcap on Linux.
+
+## Install
+
+- **Windows** — build (below), then register the service; the `update/` folder
+  has a one-click updater and a desktop shortcut installer. See
+  [Install as a Windows Service](#install-as-a-windows-service).
+- **Linux** — `linux/install.sh` handles install *and* updates end to end
+  (dependencies, build to `/opt/bamf`, systemd unit, start). For Proxmox LXC
+  specifics see `linux/README-PROXMOX.md`.
 
 ## Build
 
 From this folder:
 
 ```powershell
-# Framework-dependent (needs .NET 8 runtime on the server):
+# Framework-dependent (needs the .NET 8 runtime on the server):
 dotnet publish -c Release -o publish
 
-# OR fully self-contained single exe (no runtime needed on the server):
-dotnet publish -c Release -r win-x64 -p:PublishSingleFile=true --self-contained true -o publish
+# OR fully self-contained single file (no runtime needed on the server):
+dotnet publish -c Release -r win-x64   -p:PublishSingleFile=true --self-contained true -o publish   # Windows
+dotnet publish -c Release -r linux-x64 -p:PublishSingleFile=true --self-contained true -o publish   # Linux
 ```
 
 ## Run it manually first
 
 ```powershell
-cd publish
-.\BAMF.exe
+# Windows
+cd publish; .\BAMF.exe
+```
+
+```bash
+# Linux
+cd publish && ./BAMF
 ```
 
 Then open http://localhost:8840. Run it from a console at least once so you can
@@ -60,7 +79,7 @@ watch the log output and confirm the subnet detection and scan look right.
 | `Bamf:Subnets` | List of CIDRs to scan, e.g. `["192.168.1.0/24", "192.168.2.0/24"]`. Empty list = auto-detect every active IPv4 interface. (`Bamf:Subnet` as a single string still works for back-compat.) |
 | `Bamf:HistoryRetentionDays` | Days of online/offline history to keep (default 90, pruned daily). |
 | `Bamf:AutoDownloadOui` | Download the IEEE vendor registry on first run (default true). |
-| `Bamf:ActiveArpScan` | Use raw ARP scanning via Npcap when available; falls back to ping sweep otherwise. |
+| `Bamf:ActiveArpScan` | Use raw ARP scanning via Npcap/libpcap when available; falls back to ping sweep otherwise. |
 | `Bamf:ScanIntervalSeconds` | Seconds between scans. |
 | `Bamf:AutoIgnoreRandomizedMacs` | Auto-ignore new hosts with randomized MACs (default in shipped config: true). |
 | `Bamf:WebhookUrl` | Optional. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use the dashboard's Test webhook button to verify. |
@@ -71,21 +90,24 @@ watch the log output and confirm the subnet detection and scan look right.
 
 With `ActiveArpScan` enabled (default in shipped config), BAMF sends raw ARP
 requests to every address instead of relying on ping - catching devices whose
-firewalls drop ICMP. This requires the free **Npcap** driver:
+firewalls drop ICMP. This needs a packet-capture driver:
 
-1. Download and install from https://npcap.com (defaults are fine).
-2. Restart the BAMF service.
+- **Windows** — install the free **Npcap** from https://npcap.com (defaults are
+  fine), then restart the BAMF service.
+- **Linux** — install `libpcap` (`linux/install.sh` does this for you) and make
+  sure the service can open raw sockets; the shipped systemd unit grants
+  `CAP_NET_RAW`/`CAP_NET_ADMIN`.
 
 There's also a toggle switch in the dashboard header - flip it anytime and the
 new mode applies from the next scan cycle. The dashboard toggle is stored in
 the database and overrides the `ActiveArpScan` value in appsettings.json.
 
 The "Last scan" card shows which mode ran (`active ARP` or `ping sweep`), and
-each network tab's tooltip shows its mode. If Npcap is missing or a raw scan
-fails, BAMF logs a warning and automatically falls back to ping sweep - nothing
-breaks.
+each network tab's tooltip shows its mode. If the capture driver is missing or
+a raw scan fails, BAMF logs a warning and automatically falls back to ping
+sweep - nothing breaks.
 
-Note: if you chose "Restrict Npcap driver's access to Administrators only"
+Windows note: if you chose "Restrict Npcap driver's access to Administrators only"
 during install, the service account needs admin rights - either reinstall Npcap
 without that option, or run the service as LocalSystem (recreate it without the
 `obj=` argument).
@@ -129,7 +151,7 @@ A sun/moon button in the header toggles light and dark mode - and yes, every
 flip triggers a 1960s-Batman-style comic splat (BAMF!, POW!, ZAP!...). The
 choice persists across reloads. Respects prefers-reduced-motion.
 
-## Desktop shortcut
+## Desktop shortcut (Windows)
 
 Run `update\Install-DesktopIcon.bat` once. It puts a **BAMF** shortcut on your
 Desktop with the burst icon; double-clicking it opens the dashboard, silently
@@ -137,7 +159,11 @@ starting the service first if it isn't running (no admin prompt when the
 service is already up). The launcher and icon are copied to `C:\BAMFApp`, so
 the shortcut survives updates.
 
-## One-click updates
+## One-click updates (Windows)
+
+On Linux, updating is the same one command as installing:
+`bash /opt/bamf/install.sh /root/BAMF.zip` — it preserves your config and
+database and snapshots the DB into `/opt/bamf/backups` first.
 
 The `update` folder contains `Update-BAMF.bat` + `update.ps1`. One-time setup:
 copy both files somewhere permanent (the Desktop is fine). The updater builds
@@ -188,6 +214,31 @@ Uninstall:
 ```powershell
 sc.exe stop BAMF
 sc.exe delete BAMF
+```
+
+## Install as a systemd service (Linux)
+
+`linux/install.sh` does the whole job as root — installs libpcap and the .NET 8
+SDK (one-time), builds a self-contained binary to `/opt/bamf`, installs
+`linux/bamf.service`, enables it, and starts it:
+
+```bash
+bash linux/install.sh              # from inside the source tree
+bash linux/install.sh /root/BAMF.zip   # or straight from the zip
+```
+
+Notes:
+- Everything lives in `/opt/bamf` — binary, `appsettings.json`, `bamf.db`, and
+  `backups/`. Re-running the script updates in place and keeps all of it.
+- The unit runs as `root` with `AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN`
+  so active ARP scanning works.
+- Logs: `journalctl -u bamf -f`. Control: `systemctl {status,restart,stop} bamf`.
+- If a firewall is in the way, open TCP 8840 (e.g. `ufw allow 8840/tcp`).
+
+Uninstall:
+
+```bash
+systemctl disable --now bamf && rm /etc/systemd/system/bamf.service && systemctl daemon-reload && rm -rf /opt/bamf
 ```
 
 ## API
