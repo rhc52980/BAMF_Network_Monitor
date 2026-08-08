@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text;
 using LanWatch.Services;
 
@@ -18,6 +19,15 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ScannerService>())
 builder.Services.AddHttpClient();
 
 var app = builder.Build();
+
+// App version, from <Version> in BAMF.csproj. Builds may append a source
+// revision as "1.0.0+abc1234" — keep just the version itself.
+var version = (Assembly.GetExecutingAssembly()
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+    ?? "0.0.0").Split('+')[0];
+
+// First line in the Event Log / journal, so "what's actually running?" is answerable.
+app.Logger.LogInformation("BAMF {Version} starting", version);
 
 // ---------- optional HTTP Basic auth ----------
 var password = app.Configuration["Bamf:Password"];
@@ -77,6 +87,7 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner) =>
     });
     return Results.Json(new
     {
+        version,
         subnets = scanner.SubnetLabels,
         scanModes = scanner.SubnetModes,
         activeArp = new { enabled = scanner.ActiveArpEnabled, npcapAvailable = scanner.NpcapAvailable },

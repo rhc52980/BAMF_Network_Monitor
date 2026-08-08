@@ -178,6 +178,7 @@
   .brand .mark { flex-shrink: 0; }
   .brand h1 { font-size: 17px; font-weight: 700; letter-spacing: 0.06em; color: var(--led-on); }
   .brand .sub { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim); }
+  .brand .ver { font-size: 10px; color: var(--text-dim); opacity: 0.75; align-self: flex-start; margin-left: -4px; }
   .scanline {
     margin-left: auto; display: flex; align-items: center; gap: 12px;
     font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim);
@@ -707,6 +708,7 @@
       <circle cx="78" cy="72" r="9" fill="#ffb454" stroke="#0c3a22" stroke-width="3"/>
     </svg>
     <h1>BAMF</h1>
+    <span class="ver mono" id="version" title="BAMF version"></span>
     <span class="sub" id="subnetLabel">—</span>
   </div>
   <div class="scanline">
@@ -1502,6 +1504,7 @@ async function refresh() {
     $("subnetLabel").textContent = subnets.length === 1
       ? subnets[0]
       : subnets.length + " networks";
+    if (data.version) $("version").textContent = "v" + data.version;
 
     const incoming = data.hosts || [];
 
