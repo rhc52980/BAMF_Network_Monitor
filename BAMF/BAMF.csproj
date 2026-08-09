@@ -6,6 +6,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>LanWatch</RootNamespace>
     <AssemblyName>BAMF</AssemblyName>
+
+    <!-- Single source of truth for the app version. Surfaced in the startup
+         log, /api/hosts, and the dashboard header. Bump on release. -->
+    <Version>1.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
