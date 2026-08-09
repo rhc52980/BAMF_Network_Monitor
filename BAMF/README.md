@@ -321,6 +321,7 @@ systemctl disable --now bamf && rm /etc/systemd/system/bamf.service && systemctl
 | POST | `/api/hosts/{id}/wake` | Send a Wake-on-LAN magic packet to the host (button appears on offline hosts) |
 | GET | `/api/hosts/{id}/portscan` | On-demand port check for one host. Optional `?ports=22,80,8000-8100` for a custom set (default: ~18 common ports) |
 | GET | `/api/portscan` | On-demand port scan across online hosts. Optional `?ports=...` and `?subnet=...` |
+| GET | `/api/portscan/ip` | On-demand port check for any IP: `?ip=192.168.1.50`, optional `?ports=...`. The address need not be a known host; private ranges only (400 otherwise) |
 | GET | `/api/events` | Network-wide activity feed (recent online/offline events, all hosts) |
 | GET | `/api/hosts/{id}/events` | One host's online/offline event history |
 | POST | `/api/hosts/{id}/forget` | Body `{"forgotten": true}` — soft-delete to the Forgotten tab (reversible) |
@@ -334,12 +335,21 @@ runs an on-demand check of ~18 common service ports (HTTP, HTTPS, SSH, SMB,
 RDP, print, Plex, etc.) for that one host and shows what's open; web ports
 become clickable links with the right scheme.
 
-Three ways to scan:
+Four ways to scan:
 - **Per host, common ports** - click **Ports** on a host row.
 - **Per host, custom ports** - **Shift+click** Ports and enter a spec like
   `22,80,443,8000-8100`.
 - **Network-wide** - the **Scan ports** button above the table opens a dialog:
   choose all online hosts or one network, common or custom ports.
+- **One specific IP** - in that same dialog pick **Specific IP address…** and
+  type an address. It doesn't have to be a host BAMF knows about, which makes
+  it useful for something that never answered a scan, a device you just plugged
+  in, or an address on a subnet you aren't monitoring. If the address does
+  match a known host, the result is labeled with that host's name.
+
+  Only private addresses can be scanned this way (RFC1918, loopback,
+  link-local, CGNAT). The dashboard can be exposed without a password, and this
+  keeps it from being used as an internet port scanner.
 
 All on-demand, never automatic. Single ranges are capped at 2000 ports and
 host concurrency is bounded, so a scan can't turn into a network flood.
