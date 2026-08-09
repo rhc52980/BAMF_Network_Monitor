@@ -77,6 +77,25 @@ cd publish && ./BAMF
 Then open http://localhost:8840. Run it from a console at least once so you can
 watch the log output and confirm the subnet detection and scan look right.
 
+## Version
+
+The version is declared once, as `<Version>` in `BAMF.csproj`, and shows up in
+three places so you can always tell what's actually running:
+
+- **Startup log** — `BAMF 1.0.0 starting`, the first line in the Windows Event
+  Log or `journalctl -u bamf`.
+- **`/api/hosts`** — a `version` field alongside the scan metadata.
+- **Dashboard header** — next to the BAMF wordmark.
+
+Handy after an update: Ctrl+F5 the dashboard and check the header actually
+changed. If it didn't, the new build isn't the one running.
+
+To release a new version, bump `<Version>` in `BAMF.csproj` and tag it:
+
+```bash
+git tag v1.0.1 && git push --tags
+```
+
 ## Configuration (`appsettings.json`)
 
 | Setting | Meaning |
@@ -291,7 +310,7 @@ systemctl disable --now bamf && rm /etc/systemd/system/bamf.service && systemctl
 
 | Method | Route | Purpose |
 |---|---|---|
-| GET | `/api/hosts` | All hosts + scan metadata |
+| GET | `/api/hosts` | All hosts + scan metadata (includes the running `version`) |
 | POST | `/api/hosts/{id}/known` | Body `{"known": true}` — approve/unapprove a host |
 | POST | `/api/settings/active-arp` | Body `{"enabled": true}` — toggle active ARP scanning at runtime |
 | POST | `/api/settings/auto-ignore-random` | Body `{"enabled": true}` — toggle auto-ignoring of randomized MACs at runtime |
