@@ -82,10 +82,15 @@ watch the log output and confirm the subnet detection and scan look right.
 The version is declared once, as `<Version>` in `BAMF.csproj`, and shows up in
 three places so you can always tell what's actually running:
 
-- **Startup log** — `BAMF 1.0.0 starting`, the first line in the Windows Event
-  Log or `journalctl -u bamf`.
-- **`/api/hosts`** — a `version` field alongside the scan metadata.
-- **Dashboard header** — next to the BAMF wordmark.
+- **Startup log** — `BAMF 1.0.0 (built 2026-08-09 01:25 UTC) starting`, the
+  first line in the Windows Event Log or `journalctl -u bamf`.
+- **`/api/hosts`** — `version` and `buildDate` fields alongside the scan metadata.
+- **Dashboard header** — `v1.0.0 · 2026-08-09` next to the BAMF wordmark; hover
+  for the full build timestamp.
+
+Each build is also stamped with its UTC build date, because between releases
+the version number doesn't change — the build date is what actually tells two
+builds apart.
 
 Handy after an update: Ctrl+F5 the dashboard and check the header actually
 changed. If it didn't, the new build isn't the one running.
@@ -241,6 +246,14 @@ From then on, updating is:
    source, rebuilds, restores your `appsettings.json`, and restarts the service.
 3. Ctrl+F5 the dashboard.
 
+The updater **follows the installed service**: it reads the service's binary
+path and updates that folder, rather than assuming `C:\BAMFApp`. Older installs
+often live elsewhere, and building into the default while the service still
+pointed at the old folder used to look like a successful update that changed
+nothing. It also verifies the build produced an exe and a `wwwroot`, prints the
+version it installed and the path it's running from, and warns loudly if the
+service still points somewhere else.
+
 Your database and dashboard settings are never touched, and every update
 snapshots `bamf.db` into `C:\BAMFApp\backups` first (last 10 kept). If an update ships new
 config options, the fresh defaults are saved as `appsettings.new.json` next to
@@ -295,6 +308,9 @@ Notes:
   `appsettings.json` is restored afterwards (the version's fresh defaults are
   left as `appsettings.new.json`) and the database is snapshotted into
   `/opt/bamf/backups` first. See [What an update preserves](#what-an-update-preserves).
+- If a `bamf.service` already exists pointing somewhere other than `/opt/bamf`,
+  the script updates *that* folder and rewrites the unit to match, so an update
+  can't silently install next to the copy you're actually running.
 - The unit runs as `root` with `AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN`
   so active ARP scanning works.
 - Logs: `journalctl -u bamf -f`. Control: `systemctl {status,restart,stop} bamf`.

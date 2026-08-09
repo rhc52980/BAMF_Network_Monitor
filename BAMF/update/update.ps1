@@ -16,14 +16,38 @@
 param([string]$ZipPath)
 
 $ErrorActionPreference = "Stop"
-$AppDir  = "C:\BAMFApp"
+$AppDir  = "C:\BAMFApp"   # default for a fresh install; an existing service wins
 $Service = "BAMF"
+$RepointService = $false
 
 function Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 
 $tempSrc = Join-Path $env:TEMP "bamf-src"
 
 try {
+    # --- where does the installed service actually run from? ---
+    # Older installs live somewhere other than C:\BAMFApp. Building into the
+    # default while the service still points elsewhere used to "succeed" and
+    # change nothing, so follow the service instead. Updating its own folder
+    # also keeps that install's appsettings.json and bamf.db in place.
+    $svcInfo = Get-CimInstance Win32_Service -Filter "Name='$Service'" -ErrorAction SilentlyContinue
+    if ($svcInfo -and $svcInfo.PathName) {
+        $binPath = $svcInfo.PathName.Trim()
+        # binPath may be quoted and may carry arguments
+        $exePath = if ($binPath.StartsWith('"')) { ($binPath -split '"')[1] } else { ($binPath -split ' ')[0] }
+        $existingDir = Split-Path $exePath -Parent
+        if ($existingDir -and (Test-Path $existingDir)) {
+            if ($existingDir -ne $AppDir) {
+                Step "Service '$Service' runs from $existingDir - updating that folder (keeps its config and database)"
+            }
+            $AppDir = $existingDir
+        }
+        else {
+            Step "Service '$Service' points at a missing path ($exePath) - installing to $AppDir and repointing it"
+            $RepointService = $true
+        }
+    }
+
     # --- locate the zip ---
     if (-not $ZipPath) {
         $downloads = Join-Path $env:USERPROFILE "Downloads"
@@ -100,20 +124,50 @@ try {
         Copy-Item (Join-Path $toolSrc "*") $AppDir -Force -Exclude "Install-DesktopIcon.bat"
     }
 
+    # --- prove the build actually produced what we expect ---
+    $newExe = Join-Path $AppDir "BAMF.exe"
+    if (-not (Test-Path $newExe)) { throw "Build finished but $newExe is missing - nothing was installed." }
+    if (-not (Test-Path (Join-Path $AppDir "wwwroot\index.html"))) {
+        throw "Build finished but $AppDir\wwwroot is missing - the dashboard would not load."
+    }
+
     # --- service ---
     $svc = Get-Service -Name $Service -ErrorAction SilentlyContinue
     if (-not $svc) {
         Step "Service not found - creating it"
-        sc.exe create $Service binPath= "$AppDir\BAMF.exe" start= auto obj= "NT AUTHORITY\LocalService" | Out-Null
+        sc.exe create $Service binPath= "$newExe" start= auto obj= "NT AUTHORITY\LocalService" | Out-Null
         sc.exe description $Service "Basic ARP Monitoring Framework" | Out-Null
+    }
+    elseif ($RepointService) {
+        Step "Repointing service $Service at $newExe"
+        sc.exe config $Service binPath= "$newExe" | Out-Null
     }
     Step "Starting service $Service"
     Start-Service -Name $Service
 
+    # --- report what is now actually running ---
+    # The whole point: an update that changes nothing must not claim success.
+    $ver = (Get-Item $newExe).VersionInfo.ProductVersion
+    if ($ver) { $ver = ($ver -split '\+')[0].Trim() }
+    $runningFrom = $newExe
+    $svcNow = Get-CimInstance Win32_Service -Filter "Name='$Service'" -ErrorAction SilentlyContinue
+    if ($svcNow -and $svcNow.PathName) {
+        $bp = $svcNow.PathName.Trim()
+        $runningFrom = if ($bp.StartsWith('"')) { ($bp -split '"')[1] } else { ($bp -split ' ')[0] }
+    }
+
     Write-Host ""
-    Write-Host "BAMF updated successfully." -ForegroundColor Green
-    Write-Host "Dashboard: http://localhost:8840  (Ctrl+F5 in your browser to load the new UI)"
-    Write-Host "Everything lives in $AppDir - the old C:\BAMF source folder is no longer used and can be deleted."
+    if ($runningFrom -ne $newExe) {
+        Write-Host "WARNING: the service runs $runningFrom but this update installed to $newExe." -ForegroundColor Yellow
+        Write-Host "Those are different folders, so the update will not take effect. Fix with:"
+        Write-Host "  sc.exe config $Service binPath= `"$newExe`""
+    }
+    else {
+        Write-Host "BAMF $ver updated successfully." -ForegroundColor Green
+        Write-Host "Running from: $runningFrom"
+        Write-Host "Dashboard: http://localhost:8840  (Ctrl+F5 in your browser to load the new UI)"
+        Write-Host "Confirm the version shown in the dashboard header matches $ver."
+    }
 }
 catch {
     Write-Host ""
