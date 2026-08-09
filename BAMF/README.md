@@ -246,6 +246,13 @@ From then on, updating is:
    source, rebuilds, restores your `appsettings.json`, and restarts the service.
 3. Ctrl+F5 the dashboard.
 
+**Which source it builds** is decided in this order: an explicit `-ZipPath`, then
+the source tree the script is sitting in, then the newest `BAMF*.zip` in
+Downloads. So running `update.ps1` out of a freshly downloaded source tree uses
+*that* tree — it won't reach past it for a stale zip left in Downloads months
+ago. The script prints the source it chose and the version it's about to
+install, e.g. `Installing version 1.0.0 (replacing 0.9.0)`.
+
 The updater **follows the installed service**: it reads the service's binary
 path and updates that folder, rather than assuming `C:\BAMFApp`. Older installs
 often live elsewhere, and building into the default while the service still

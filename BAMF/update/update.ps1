@@ -48,16 +48,33 @@ try {
         }
     }
 
-    # --- locate the zip ---
-    if (-not $ZipPath) {
-        $downloads = Join-Path $env:USERPROFILE "Downloads"
-        $zip = Get-ChildItem -Path $downloads -Filter "BAMF*.zip" -File -ErrorAction SilentlyContinue |
-               Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        if (-not $zip) { throw "No BAMF*.zip found in $downloads. Download the update zip first, or pass -ZipPath." }
-        $ZipPath = $zip.FullName
+    # --- locate the source ---
+    # Priority: an explicit -ZipPath, then the source tree this script lives in,
+    # then the newest BAMF*.zip in Downloads. The middle case matters: running
+    # update.ps1 out of a freshly downloaded tree used to skip that tree
+    # entirely and rebuild from whatever stale zip was sitting in Downloads,
+    # which looks like a successful update that installs old code.
+    # linux/install.sh has always preferred its own tree; this matches it.
+    $srcDir = $null
+    if (-not $ZipPath -and $PSScriptRoot) {
+        $treeRoot = Split-Path $PSScriptRoot -Parent   # ...\BAMF\update -> ...\BAMF
+        if ($treeRoot -and (Test-Path (Join-Path $treeRoot "BAMF.csproj"))) {
+            $srcDir = $treeRoot
+            Step "Using source tree: $srcDir"
+        }
     }
-    if (-not (Test-Path $ZipPath)) { throw "Zip not found: $ZipPath" }
-    Step "Using package: $ZipPath"
+
+    if (-not $srcDir) {
+        if (-not $ZipPath) {
+            $downloads = Join-Path $env:USERPROFILE "Downloads"
+            $zip = Get-ChildItem -Path $downloads -Filter "BAMF*.zip" -File -ErrorAction SilentlyContinue |
+                   Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            if (-not $zip) { throw "No BAMF*.zip found in $downloads. Download the update zip first, or pass -ZipPath." }
+            $ZipPath = $zip.FullName
+        }
+        if (-not (Test-Path $ZipPath)) { throw "Zip not found: $ZipPath" }
+        Step "Using package: $ZipPath  (downloaded $((Get-Item $ZipPath).LastWriteTime))"
+    }
 
     if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
         throw ".NET SDK not found. Install it from https://dotnet.microsoft.com/download/dotnet/8.0"
@@ -73,13 +90,27 @@ try {
     Get-Process -Name "BAMF" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     Start-Sleep -Milliseconds 500
 
-    # --- extract source to temp ---
-    if (Test-Path $tempSrc) { Remove-Item $tempSrc -Recurse -Force }
-    Step "Extracting source (temporary)"
-    Expand-Archive -Path $ZipPath -DestinationPath $tempSrc -Force
-    $csproj = Get-ChildItem -Path $tempSrc -Filter "BAMF.csproj" -Recurse | Select-Object -First 1
-    if (-not $csproj) { throw "BAMF.csproj not found inside the zip - is this the right package?" }
-    $srcDir = $csproj.Directory.FullName
+    # --- extract source to temp (only when building from a zip) ---
+    if (-not $srcDir) {
+        if (Test-Path $tempSrc) { Remove-Item $tempSrc -Recurse -Force }
+        Step "Extracting source (temporary)"
+        Expand-Archive -Path $ZipPath -DestinationPath $tempSrc -Force
+        $csproj = Get-ChildItem -Path $tempSrc -Filter "BAMF.csproj" -Recurse | Select-Object -First 1
+        if (-not $csproj) { throw "BAMF.csproj not found inside the zip - is this the right package?" }
+        $srcDir = $csproj.Directory.FullName
+    }
+
+    # Say up front which version is about to be built. A source too old to
+    # declare one is the tell that you're rebuilding a stale package.
+    $srcVersion = "unknown (source predates versioning)"
+    $vm = [regex]::Match((Get-Content (Join-Path $srcDir "BAMF.csproj") -Raw), '<Version>\s*([^<]+?)\s*</Version>')
+    if ($vm.Success) { $srcVersion = $vm.Groups[1].Value }
+    $installedVersion = $null
+    if (Test-Path (Join-Path $AppDir "BAMF.exe")) {
+        $pv = (Get-Item (Join-Path $AppDir "BAMF.exe")).VersionInfo.ProductVersion
+        if ($pv) { $installedVersion = ($pv -split '\+')[0].Trim() }
+    }
+    Step "Installing version $srcVersion$(if ($installedVersion) { " (replacing $installedVersion)" })"
 
     # --- preserve config ---
     $userConfig = Join-Path $AppDir "appsettings.json"
