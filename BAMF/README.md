@@ -36,9 +36,13 @@ The dashboard at `http://<server>:8840` polls `/api/hosts` every 10 seconds.
 
 ## Install
 
-- **Windows** — build (below), then register the service; the `update/` folder
-  has a one-click updater and a desktop shortcut installer. See
-  [Install as a Windows Service](#install-as-a-windows-service).
+- **Windows** — extract the source anywhere and double-click
+  `update\Install-BAMF.bat`. It elevates, builds to `C:\BAMFApp`, creates the
+  `BAMF` service, and starts it; then open http://localhost:8840. Needs the
+  .NET 8 SDK on that machine (it builds there). `update\Install-DesktopIcon.bat`
+  adds a Desktop shortcut, and `update\Update-BAMF.bat` handles updates later —
+  it's the same script, so installing and updating are one operation. Prefer to
+  do it by hand? See [Install as a Windows Service](#install-as-a-windows-service).
 - **Linux** — `linux/install.sh` handles install *and* updates end to end
   (dependencies, build to `/opt/bamf`, systemd unit, start). For Proxmox LXC
   specifics see `linux/README-PROXMOX.md`.
@@ -267,6 +271,10 @@ config options, the fresh defaults are saved as `appsettings.new.json` next to
 your kept config so you can merge anything interesting.
 
 ## Install as a Windows Service
+
+Most people should just double-click `update\Install-BAMF.bat`, which does all
+of this. The manual route, if you want control over the location or the service
+account:
 
 Copy the `publish` folder somewhere permanent, e.g. `C:\BAMF`, then in an
 elevated PowerShell:
