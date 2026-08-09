@@ -26,8 +26,14 @@ var version = (Assembly.GetExecutingAssembly()
         .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
     ?? "0.0.0").Split('+')[0];
 
+// UTC build stamp from BAMF.csproj. Between releases the version doesn't change,
+// so this is what actually distinguishes one build from another.
+var buildDate = Assembly.GetExecutingAssembly()
+    .GetCustomAttributes<AssemblyMetadataAttribute>()
+    .FirstOrDefault(a => a.Key == "BuildDate")?.Value ?? "";
+
 // First line in the Event Log / journal, so "what's actually running?" is answerable.
-app.Logger.LogInformation("BAMF {Version} starting", version);
+app.Logger.LogInformation("BAMF {Version} (built {BuildDate} UTC) starting", version, buildDate);
 
 // ---------- optional HTTP Basic auth ----------
 var password = app.Configuration["Bamf:Password"];
@@ -88,6 +94,7 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner) =>
     return Results.Json(new
     {
         version,
+        buildDate,
         subnets = scanner.SubnetLabels,
         scanModes = scanner.SubnetModes,
         activeArp = new { enabled = scanner.ActiveArpEnabled, npcapAvailable = scanner.NpcapAvailable },

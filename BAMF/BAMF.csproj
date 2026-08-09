@@ -12,6 +12,12 @@
     <Version>1.0.0</Version>
   </PropertyGroup>
 
+  <!-- Stamped into the assembly at build time. The version alone can't tell two
+       builds apart between releases; this can. Shown next to the version. -->
+  <ItemGroup>
+    <AssemblyMetadata Include="BuildDate" Value="$([System.DateTime]::UtcNow.ToString(`yyyy-MM-dd HH:mm`))" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.6" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
