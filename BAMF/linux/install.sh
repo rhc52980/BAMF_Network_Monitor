@@ -41,6 +41,22 @@ DOTNET_DIR="/opt/dotnet"
 UNIT_SRC="$SRC_DIR/linux/bamf.service"  # resolved after resolve_source
 UNIT_DST="/etc/systemd/system/bamf.service"
 
+# --- follow an existing install ---
+# The unit may point somewhere other than /opt/bamf. Building into the default
+# while the service runs from elsewhere changes nothing and still reports
+# success, so update whatever folder is actually in use - which also keeps that
+# install's appsettings.json and bamf.db.
+if [ -f "$UNIT_DST" ]; then
+    EXISTING_EXEC="$(sed -n 's/^ExecStart=//p' "$UNIT_DST" | head -1 | awk '{print $1}')"
+    if [ -n "$EXISTING_EXEC" ]; then
+        EXISTING_DIR="$(dirname "$EXISTING_EXEC")"
+        if [ -d "$EXISTING_DIR" ] && [ "$EXISTING_DIR" != "$APP_DIR" ]; then
+            step "Service runs from $EXISTING_DIR - updating that folder (keeps its config and database)"
+            APP_DIR="$EXISTING_DIR"
+        fi
+    fi
+fi
+
 # --- dependencies ---
 step "Installing dependencies (libpcap, curl, ca-certificates)"
 apt-get update -qq
@@ -93,17 +109,29 @@ fi
 cp "$SRC_DIR/linux/install.sh" "$APP_DIR/install.sh"
 chmod +x "$APP_DIR/install.sh"
 
+# --- prove the build produced what we expect ---
+[ -x "$APP_DIR/BAMF" ] || { echo "Build finished but $APP_DIR/BAMF is missing - nothing was installed."; exit 1; }
+[ -f "$APP_DIR/wwwroot/index.html" ] || { echo "Build finished but $APP_DIR/wwwroot is missing - the dashboard would not load."; exit 1; }
+
 # --- service ---
 step "Installing systemd unit"
-cp "$UNIT_SRC" "$UNIT_DST"
+if [ "$APP_DIR" = "/opt/bamf" ]; then
+    cp "$UNIT_SRC" "$UNIT_DST"
+else
+    # keep the unit pointing at the folder we actually installed to
+    sed "s#/opt/bamf#$APP_DIR#g" "$UNIT_SRC" > "$UNIT_DST"
+fi
 systemctl daemon-reload
 systemctl enable bamf >/dev/null 2>&1
 step "Starting bamf"
 systemctl start bamf
 
+VER="$(sed -n 's:.*<Version>[[:space:]]*\([^<[:space:]]*\)[[:space:]]*</Version>.*:\1:p' "$SRC_DIR/BAMF.csproj" | head -1)"
+
 echo
-echo -e "\e[32mBAMF is running.\e[0m"
+echo -e "\e[32mBAMF ${VER:-} is running from $APP_DIR.\e[0m"
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 echo "Dashboard: http://${IP:-<container-ip>}:8840"
+[ -n "$VER" ] && echo "Check the dashboard header shows v$VER - if it doesn't, you're seeing a cached page (Ctrl+F5)."
 echo "Logs:      journalctl -u bamf -f"
 echo "Update:    copy the new zip in and run: bash /opt/bamf/install.sh /root/BAMF.zip"

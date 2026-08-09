@@ -1507,7 +1507,11 @@ async function refresh() {
     $("subnetLabel").textContent = subnets.length === 1
       ? subnets[0]
       : subnets.length + " networks";
-    if (data.version) $("version").textContent = "v" + data.version;
+    if (data.version) {
+      const el = $("version");
+      el.textContent = "v" + data.version + (data.buildDate ? " · " + data.buildDate.slice(0, 10) : "");
+      el.title = "BAMF " + data.version + (data.buildDate ? " — built " + data.buildDate + " UTC" : "");
+    }
 
     const incoming = data.hosts || [];
 

@@ -16,24 +16,65 @@
 param([string]$ZipPath)
 
 $ErrorActionPreference = "Stop"
-$AppDir  = "C:\BAMFApp"
+$AppDir  = "C:\BAMFApp"   # default for a fresh install; an existing service wins
 $Service = "BAMF"
+$RepointService = $false
 
 function Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 
 $tempSrc = Join-Path $env:TEMP "bamf-src"
 
 try {
-    # --- locate the zip ---
-    if (-not $ZipPath) {
-        $downloads = Join-Path $env:USERPROFILE "Downloads"
-        $zip = Get-ChildItem -Path $downloads -Filter "BAMF*.zip" -File -ErrorAction SilentlyContinue |
-               Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        if (-not $zip) { throw "No BAMF*.zip found in $downloads. Download the update zip first, or pass -ZipPath." }
-        $ZipPath = $zip.FullName
+    # --- where does the installed service actually run from? ---
+    # Older installs live somewhere other than C:\BAMFApp. Building into the
+    # default while the service still points elsewhere used to "succeed" and
+    # change nothing, so follow the service instead. Updating its own folder
+    # also keeps that install's appsettings.json and bamf.db in place.
+    $svcInfo = Get-CimInstance Win32_Service -Filter "Name='$Service'" -ErrorAction SilentlyContinue
+    if ($svcInfo -and $svcInfo.PathName) {
+        $binPath = $svcInfo.PathName.Trim()
+        # binPath may be quoted and may carry arguments
+        $exePath = if ($binPath.StartsWith('"')) { ($binPath -split '"')[1] } else { ($binPath -split ' ')[0] }
+        $existingDir = Split-Path $exePath -Parent
+        if ($existingDir -and (Test-Path $existingDir)) {
+            if ($existingDir -ne $AppDir) {
+                Step "Service '$Service' runs from $existingDir - updating that folder (keeps its config and database)"
+            }
+            $AppDir = $existingDir
+        }
+        else {
+            Step "Service '$Service' points at a missing path ($exePath) - installing to $AppDir and repointing it"
+            $RepointService = $true
+        }
     }
-    if (-not (Test-Path $ZipPath)) { throw "Zip not found: $ZipPath" }
-    Step "Using package: $ZipPath"
+
+    # --- locate the source ---
+    # Priority: an explicit -ZipPath, then the source tree this script lives in,
+    # then the newest BAMF*.zip in Downloads. The middle case matters: running
+    # update.ps1 out of a freshly downloaded tree used to skip that tree
+    # entirely and rebuild from whatever stale zip was sitting in Downloads,
+    # which looks like a successful update that installs old code.
+    # linux/install.sh has always preferred its own tree; this matches it.
+    $srcDir = $null
+    if (-not $ZipPath -and $PSScriptRoot) {
+        $treeRoot = Split-Path $PSScriptRoot -Parent   # ...\BAMF\update -> ...\BAMF
+        if ($treeRoot -and (Test-Path (Join-Path $treeRoot "BAMF.csproj"))) {
+            $srcDir = $treeRoot
+            Step "Using source tree: $srcDir"
+        }
+    }
+
+    if (-not $srcDir) {
+        if (-not $ZipPath) {
+            $downloads = Join-Path $env:USERPROFILE "Downloads"
+            $zip = Get-ChildItem -Path $downloads -Filter "BAMF*.zip" -File -ErrorAction SilentlyContinue |
+                   Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            if (-not $zip) { throw "No BAMF*.zip found in $downloads. Download the update zip first, or pass -ZipPath." }
+            $ZipPath = $zip.FullName
+        }
+        if (-not (Test-Path $ZipPath)) { throw "Zip not found: $ZipPath" }
+        Step "Using package: $ZipPath  (downloaded $((Get-Item $ZipPath).LastWriteTime))"
+    }
 
     if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
         throw ".NET SDK not found. Install it from https://dotnet.microsoft.com/download/dotnet/8.0"
@@ -49,13 +90,27 @@ try {
     Get-Process -Name "BAMF" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     Start-Sleep -Milliseconds 500
 
-    # --- extract source to temp ---
-    if (Test-Path $tempSrc) { Remove-Item $tempSrc -Recurse -Force }
-    Step "Extracting source (temporary)"
-    Expand-Archive -Path $ZipPath -DestinationPath $tempSrc -Force
-    $csproj = Get-ChildItem -Path $tempSrc -Filter "BAMF.csproj" -Recurse | Select-Object -First 1
-    if (-not $csproj) { throw "BAMF.csproj not found inside the zip - is this the right package?" }
-    $srcDir = $csproj.Directory.FullName
+    # --- extract source to temp (only when building from a zip) ---
+    if (-not $srcDir) {
+        if (Test-Path $tempSrc) { Remove-Item $tempSrc -Recurse -Force }
+        Step "Extracting source (temporary)"
+        Expand-Archive -Path $ZipPath -DestinationPath $tempSrc -Force
+        $csproj = Get-ChildItem -Path $tempSrc -Filter "BAMF.csproj" -Recurse | Select-Object -First 1
+        if (-not $csproj) { throw "BAMF.csproj not found inside the zip - is this the right package?" }
+        $srcDir = $csproj.Directory.FullName
+    }
+
+    # Say up front which version is about to be built. A source too old to
+    # declare one is the tell that you're rebuilding a stale package.
+    $srcVersion = "unknown (source predates versioning)"
+    $vm = [regex]::Match((Get-Content (Join-Path $srcDir "BAMF.csproj") -Raw), '<Version>\s*([^<]+?)\s*</Version>')
+    if ($vm.Success) { $srcVersion = $vm.Groups[1].Value }
+    $installedVersion = $null
+    if (Test-Path (Join-Path $AppDir "BAMF.exe")) {
+        $pv = (Get-Item (Join-Path $AppDir "BAMF.exe")).VersionInfo.ProductVersion
+        if ($pv) { $installedVersion = ($pv -split '\+')[0].Trim() }
+    }
+    Step "Installing version $srcVersion$(if ($installedVersion) { " (replacing $installedVersion)" })"
 
     # --- preserve config ---
     $userConfig = Join-Path $AppDir "appsettings.json"
@@ -100,20 +155,50 @@ try {
         Copy-Item (Join-Path $toolSrc "*") $AppDir -Force -Exclude "Install-DesktopIcon.bat"
     }
 
+    # --- prove the build actually produced what we expect ---
+    $newExe = Join-Path $AppDir "BAMF.exe"
+    if (-not (Test-Path $newExe)) { throw "Build finished but $newExe is missing - nothing was installed." }
+    if (-not (Test-Path (Join-Path $AppDir "wwwroot\index.html"))) {
+        throw "Build finished but $AppDir\wwwroot is missing - the dashboard would not load."
+    }
+
     # --- service ---
     $svc = Get-Service -Name $Service -ErrorAction SilentlyContinue
     if (-not $svc) {
         Step "Service not found - creating it"
-        sc.exe create $Service binPath= "$AppDir\BAMF.exe" start= auto obj= "NT AUTHORITY\LocalService" | Out-Null
+        sc.exe create $Service binPath= "$newExe" start= auto obj= "NT AUTHORITY\LocalService" | Out-Null
         sc.exe description $Service "Basic ARP Monitoring Framework" | Out-Null
+    }
+    elseif ($RepointService) {
+        Step "Repointing service $Service at $newExe"
+        sc.exe config $Service binPath= "$newExe" | Out-Null
     }
     Step "Starting service $Service"
     Start-Service -Name $Service
 
+    # --- report what is now actually running ---
+    # The whole point: an update that changes nothing must not claim success.
+    $ver = (Get-Item $newExe).VersionInfo.ProductVersion
+    if ($ver) { $ver = ($ver -split '\+')[0].Trim() }
+    $runningFrom = $newExe
+    $svcNow = Get-CimInstance Win32_Service -Filter "Name='$Service'" -ErrorAction SilentlyContinue
+    if ($svcNow -and $svcNow.PathName) {
+        $bp = $svcNow.PathName.Trim()
+        $runningFrom = if ($bp.StartsWith('"')) { ($bp -split '"')[1] } else { ($bp -split ' ')[0] }
+    }
+
     Write-Host ""
-    Write-Host "BAMF updated successfully." -ForegroundColor Green
-    Write-Host "Dashboard: http://localhost:8840  (Ctrl+F5 in your browser to load the new UI)"
-    Write-Host "Everything lives in $AppDir - the old C:\BAMF source folder is no longer used and can be deleted."
+    if ($runningFrom -ne $newExe) {
+        Write-Host "WARNING: the service runs $runningFrom but this update installed to $newExe." -ForegroundColor Yellow
+        Write-Host "Those are different folders, so the update will not take effect. Fix with:"
+        Write-Host "  sc.exe config $Service binPath= `"$newExe`""
+    }
+    else {
+        Write-Host "BAMF $ver updated successfully." -ForegroundColor Green
+        Write-Host "Running from: $runningFrom"
+        Write-Host "Dashboard: http://localhost:8840  (Ctrl+F5 in your browser to load the new UI)"
+        Write-Host "Confirm the version shown in the dashboard header matches $ver."
+    }
 }
 catch {
     Write-Host ""
