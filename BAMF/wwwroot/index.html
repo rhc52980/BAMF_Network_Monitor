@@ -830,6 +830,9 @@
         <option value="all">All online hosts</option>
       </select>
     </label>
+    <label class="modal-row" id="scanIpRow" style="display:none">IP address
+      <input id="scanIp" placeholder="e.g. 192.168.2.50" class="modal-input" inputmode="decimal">
+    </label>
     <label class="modal-row">Ports
       <select id="scanPortsMode">
         <option value="common">Common ports (~18)</option>
@@ -1730,6 +1733,10 @@ function openScanModal() {
   nets.sort((a,b)=>cidrKey2(a)-cidrKey2(b)).forEach(n => {
     const o = document.createElement("option"); o.value = "net:" + n; o.textContent = n; sel.appendChild(o);
   });
+  const ipOpt = document.createElement("option");
+  ipOpt.value = "ip"; ipOpt.textContent = "Specific IP address…";
+  sel.appendChild(ipOpt);
+  $("scanIpRow").style.display = "none";
   $("scanResult").innerHTML = "";
   $("scanModal").hidden = false;
 }
@@ -1739,6 +1746,12 @@ $("scanModal").onclick = e => { if (e.target.id === "scanModal") $("scanModal").
 $("scanPortsMode").onchange = e => {
   $("scanCustomRow").style.display = e.target.value === "custom" ? "" : "none";
 };
+$("scanTarget").onchange = e => {
+  const isIp = e.target.value === "ip";
+  $("scanIpRow").style.display = isIp ? "" : "none";
+  if (isIp) $("scanIp").focus();
+};
+$("scanIp").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("scanGo").click(); } };
 $("scanGo").onclick = async () => {
   const target = $("scanTarget").value;
   const mode = $("scanPortsMode").value;
@@ -1747,12 +1760,38 @@ $("scanGo").onclick = async () => {
 
   const params = new URLSearchParams();
   if (mode === "custom") params.set("ports", custom);
+  const portLabel = mode === "custom" ? ("ports " + custom) : "common";
+
+  // Single arbitrary IP — doesn't have to be a host we know about.
+  if (target === "ip") {
+    const ip = $("scanIp").value.trim();
+    if (!ip) { $("scanResult").innerHTML = '<span class="scan-progress">Enter an IP address first.</span>'; return; }
+    params.set("ip", ip);
+    $("scanModal").hidden = true;
+    const el = addScanEntry("IP scan", ip, portLabel);
+    try {
+      const r = await fetch("/api/portscan/ip?" + params.toString());
+      const data = await r.json();
+      el.classList.remove("busy");
+      if (!r.ok) {
+        el.querySelector(".scan-entry-body").innerHTML = `<span class="none">${esc(data.error || "Scan failed.")}</span>`;
+        return;
+      }
+      if (data.name) el.querySelector(".nm").textContent = data.name;
+      el.querySelector(".scan-entry-body").innerHTML = portChips(data.ip, data.ports);
+    } catch (e) {
+      el.classList.remove("busy");
+      el.querySelector(".scan-entry-body").innerHTML = '<span class="none">Scan failed — see server logs.</span>';
+    }
+    return;
+  }
+
   let scope = "all online hosts";
   if (target.startsWith("net:")) { params.set("subnet", target.slice(4)); scope = target.slice(4); }
 
   // close the dialog, open the results panel, show a busy header entry
   $("scanModal").hidden = true;
-  const el = addScanEntry("Network scan", scope, mode === "custom" ? ("ports " + custom) : "common");
+  const el = addScanEntry("Network scan", scope, portLabel);
 
   try {
     const r = await fetch("/api/portscan?" + params.toString());
