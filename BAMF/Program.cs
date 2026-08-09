@@ -127,6 +127,36 @@ app.MapGet("/api/hosts/{id:long}/portscan", async (long id, string? ports, HostS
     return Results.Json(open.Select(o => new { port = o.Port, service = o.Service }));
 });
 
+// On-demand scan of any IP the user types — it doesn't have to be a known
+// host. Restricted to private/loopback ranges: the dashboard can be exposed
+// with no password, and this shouldn't become an internet port scanner.
+app.MapGet("/api/portscan/ip", async (string? ip, string? ports, HostStore store, CancellationToken ct) =>
+{
+    if (!System.Net.IPAddress.TryParse(ip, out var addr) ||
+        addr.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+        return Results.BadRequest(new { error = "Enter a valid IPv4 address." });
+
+    if (!IsPrivateAddress(addr))
+        return Results.BadRequest(new { error = "Only private network addresses can be scanned." });
+
+    var target = addr.ToString();
+    var spec = PortChecker.ParseSpec(ports);
+    var open = spec is null
+        ? await PortChecker.ScanAsync(target, 700, ct)
+        : await PortChecker.ScanAsync(target, spec, 700, ct);
+
+    // If we happen to know this address, label the result with its name.
+    var host = store.GetAll().FirstOrDefault(h => h.Ip == target);
+    return Results.Json(new
+    {
+        ip = target,
+        name = host is null
+            ? ""
+            : (host.CustomName != "" ? host.CustomName : (host.Hostname != "" ? host.Hostname : host.Mac)),
+        ports = open.Select(o => new { port = o.Port, service = o.Service }),
+    });
+});
+
 // Network-wide, on-demand scan. Optional ?ports=... custom spec, optional
 // ?subnet=... to limit to one network. Online hosts only (offline can't answer).
 app.MapGet("/api/portscan", async (string? ports, string? subnet, HostStore store, CancellationToken ct) =>
@@ -226,6 +256,19 @@ app.MapDelete("/api/hosts/{id:long}", (long id, HostStore store) =>
     store.DeletePermanent(id) ? Results.Ok() : Results.NotFound());
 
 app.Run();
+
+// RFC1918, loopback, link-local, and CGNAT — the ranges a LAN monitor has any
+// business probing.
+static bool IsPrivateAddress(System.Net.IPAddress ip)
+{
+    var b = ip.GetAddressBytes();
+    return b[0] == 10
+        || (b[0] == 172 && b[1] >= 16 && b[1] <= 31)
+        || (b[0] == 192 && b[1] == 168)
+        || b[0] == 127
+        || (b[0] == 169 && b[1] == 254)
+        || (b[0] == 100 && b[1] >= 64 && b[1] <= 127);
+}
 
 static bool CryptographicEquals(string a, string b)
 {
