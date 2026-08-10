@@ -463,23 +463,88 @@ hosts. Web ports are clickable links. The panel is never wiped by auto-refresh.
 
 ## Device identification
 
-Each device gets a best-effort guess at what it actually is, shown under the
-vendor in its row.
+Each device gets a best-effort guess at what it actually is, shown in small
+text under the vendor in its row. There are two tiers, kept separate so nothing
+probes your network unless you ask it to.
 
-- **Automatic, and free.** Every scan, BAMF fills in guesses from the vendor OUI
-  and hostname it already has — "Google/Nest device", "Printer or HP device",
-  "Raspberry Pi", "iPhone". **No packets are sent for this**, so the
-  never-automatic-scanning rule still holds.
-- **Identify device** in a host's ⋯ menu goes further, on demand: one ICMP echo
-  to read the reply's **TTL** (64 → Linux/Unix/Android/iOS, 128 → Windows,
-  255 → network gear or printer) plus a probe of a few telling ports (445/139
-  SMB, 22 SSH, 3389 RDP, 9100/631 print, 62078 iOS, 32400 Plex). The result
-  names its own evidence — `Windows (TTL 128, SMB)` — so a wrong guess is
-  visible rather than authoritative. Results land in the scan panel and the
-  guess is saved.
+### Tier 1 — passive, automatic, zero packets
 
-It's a heuristic, not nmap. A device that answers neither ICMP nor any probed
-port keeps whatever the vendor suggested.
+After every scan cycle BAMF fills in guesses for devices that don't have one,
+using only data it already holds: the vendor (from the MAC's OUI) and the
+hostname (from reverse DNS or NetBIOS).
+
+| Signal | Guess |
+|---|---|
+| `Nest Labs`, `Google` | Google/Nest device |
+| `HP Inc.`, `Canon`, `Epson`, `Brother` | Printer or HP device |
+| `Espressif` | ESP32/ESP8266 IoT |
+| `Raspberry Pi` | Raspberry Pi |
+| `Ubiquiti`, `MikroTik`, `TP-Link`, `Netgear`, `Cisco`, `Aruba` | Network gear |
+| `Synology`, `QNAP` | NAS |
+| `Apple` | Apple device |
+| `Amazon` | Amazon device |
+| `Vizio`, `Roku`, `Samsung Electronics`, `LG Electronics` | TV or media device |
+| hostname contains `iphone` / `ipad` / `android` | that device |
+
+**No packets are sent for this**, so the never-automatic-scanning rule holds.
+Devices that already have a guess are skipped, so repeat scans cost nothing. On
+a typical home network this identifies well over half the devices for free.
+
+### Tier 2 — active, on demand only
+
+**Identify device** in a host's ⋯ menu (or `POST /api/hosts/{id}/identify`)
+does the real work:
+
+**1. One ICMP echo, to read the reply's TTL.** Each OS starts packets at a
+characteristic TTL, and a device on your own LAN is 0–1 hops away, so what
+arrives is essentially what it sent:
+
+| TTL observed | Suggests |
+|---|---|
+| ≤ 64 | Linux, Unix, Android, iOS, most IoT |
+| 65–128 | Windows |
+| > 128 | Network gear, BSD, some printers |
+
+**2. A probe of eleven telling ports** — chosen for what they reveal rather
+than for coverage: 445 and 139 (SMB), 3389 (RDP), 22 (SSH), 9100 and 631
+(print), 62078 (iOS lockdown), 32400 (Plex), 80, 443, and 5900 (VNC).
+
+**3. Combine, with ports overriding the TTL** where they're more specific: port
+62078 means iOS whatever the TTL suggested, 9100 means printer, 3389 means
+Windows.
+
+The result always names its own evidence, so you can judge it yourself rather
+than take it on faith:
+
+```
+Windows (TTL 128, SMB)
+Linux/Unix (incl. Android, iOS, most IoT) (TTL 64)
+Printer or HP device (vendor)          ← answered nothing; fell back to tier 1
+```
+
+Results appear in the scan panel alongside port scans, and the guess is saved.
+
+### Where the guess shows up
+
+Under the vendor in the device row, in `/api/hosts` as `osGuess`, in the
+`DEVICE GUESS` column of `/api/hosts.txt`, and in the CSV export. It's also
+**searchable** — `*Windows*` in the search box finds every device fingerprinted
+as Windows, which is a quick way to audit what's on the network.
+
+### Limits worth knowing
+
+- **It's a heuristic, not nmap.** No TCP/IP stack fingerprinting, no service
+  banner parsing, no version detection.
+- **A silent device stays unidentified.** One that answers neither ICMP nor any
+  probed port keeps whatever the vendor suggested — which is often still right,
+  but no better than free.
+- **TTL can be changed.** It's a normal OS setting and some appliances alter
+  it, so treat it as evidence rather than proof.
+- **Vendor matching is substring-based**, so an unusual OUI spelling simply
+  won't match instead of producing a wrong answer.
+
+The bias throughout is to report "Unknown" rather than invent something
+confident and false.
 
 ## Search
 
