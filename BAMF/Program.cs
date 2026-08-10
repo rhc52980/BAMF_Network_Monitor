@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using LanWatch.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -88,6 +89,7 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner) =>
         watched = h.Watched,
         forgotten = h.Forgotten,
         note = h.Note,
+        osGuess = h.OsGuess,
         firstSeen = h.FirstSeen,
         lastSeen = h.LastSeen,
     });
@@ -103,6 +105,83 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner) =>
         lastScan = scanner.LastScanUtc?.ToString("o"),
         scanIntervalSeconds = scanner.ScanIntervalSeconds,
         hosts,
+    });
+});
+
+// Plain-text device table. No JSON, no markup - meant for `curl`, a terminal,
+// or pointing a read-only agent at. Sorted by network then IP so diffs between
+// two fetches are meaningful.
+app.MapGet("/api/hosts.txt", (HostStore store, ScannerService scanner) =>
+{
+    var hosts = store.GetAll()
+        .OrderBy(h => h.Subnet, StringComparer.Ordinal)
+        .ThenBy(h => IpSortKey(h.Ip))
+        .ToList();
+
+    var rows = hosts.Select(h => new[]
+    {
+        h.CustomName != "" ? h.CustomName : (h.Hostname != "" ? h.Hostname : "-"),
+        h.Ip,
+        h.Mac,
+        h.Vendor == "" ? "-" : h.Vendor,
+        h.Subnet == "" ? "-" : h.Subnet,
+        h.Online ? "online" : "offline",
+        string.Concat(h.Known ? "K" : "-", h.Ignored ? "I" : "-", h.Watched ? "W" : "-", h.Forgotten ? "F" : "-"),
+        h.OsGuess == "" ? "-" : h.OsGuess,
+        h.LastSeen,
+        h.Note == "" ? "-" : h.Note,
+    }).ToList();
+
+    string[] headers = { "NAME", "IP", "MAC", "VENDOR", "NETWORK", "STATUS", "FLAGS", "DEVICE GUESS", "LAST SEEN", "NOTE" };
+    var widths = headers.Select((hd, i) =>
+        Math.Max(hd.Length, rows.Count == 0 ? 0 : rows.Max(r => r[i].Length))).ToArray();
+
+    var sb = new StringBuilder();
+    sb.AppendLine($"BAMF {version} - {hosts.Count} device(s) - generated {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
+    sb.AppendLine($"networks: {(scanner.SubnetLabels.Count == 0 ? "-" : string.Join(", ", scanner.SubnetLabels))}");
+    sb.AppendLine($"last scan: {(scanner.LastScanUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? "never")} UTC" +
+                  $"   flags: K=known I=ignored W=watched F=forgotten");
+    sb.AppendLine();
+    sb.AppendLine(string.Join("  ", headers.Select((hd, i) => hd.PadRight(widths[i]))).TrimEnd());
+    sb.AppendLine(string.Join("  ", widths.Select(w => new string('-', w))));
+    foreach (var r in rows)
+        sb.AppendLine(string.Join("  ", r.Select((c, i) => c.PadRight(widths[i]))).TrimEnd());
+
+    return Results.Text(sb.ToString(), "text/plain; charset=utf-8");
+});
+
+// Deeper device identification, on demand only: one ICMP echo for the TTL plus
+// a short fingerprint-port probe. Never runs on its own.
+app.MapPost("/api/hosts/{id:long}/identify", async (long id, HostStore store, CancellationToken ct) =>
+{
+    var host = store.GetAll().FirstOrDefault(h => h.Id == id);
+    if (host is null) return Results.NotFound();
+
+    int? ttl = null;
+    try
+    {
+        using var ping = new System.Net.NetworkInformation.Ping();
+        var reply = await ping.SendPingAsync(host.Ip, 700);
+        if (reply.Status == System.Net.NetworkInformation.IPStatus.Success)
+            ttl = reply.Options?.Ttl;
+    }
+    catch { /* no reply is itself a (weak) signal; fall through */ }
+
+    // Ports chosen for what they reveal about the device, not for coverage.
+    int[] fingerprintPorts = { 22, 80, 139, 443, 445, 631, 3389, 5900, 9100, 32400, 62078 };
+    var open = await PortChecker.ScanAsync(host.Ip, fingerprintPorts, 700, ct);
+    var openPorts = open.Select(o => o.Port).ToList();
+
+    var guess = OsFingerprint.Active(ttl, host.Vendor, host.Hostname, openPorts);
+    store.SetOsGuess(id, guess);
+
+    return Results.Json(new
+    {
+        ok = true,
+        osGuess = guess,
+        ttl,
+        openPorts,
+        reachable = ttl is not null,
     });
 });
 
@@ -162,6 +241,78 @@ app.MapGet("/api/portscan/ip", async (string? ip, string? ports, HostStore store
             : (host.CustomName != "" ? host.CustomName : (host.Hostname != "" ? host.Hostname : host.Mac)),
         ports = open.Select(o => new { port = o.Port, service = o.Service }),
     });
+});
+
+// Wildcard scan: "*.245" hits that last octet on every configured network,
+// "192.168.2.*" walks a subnet. Expansion is limited to the networks BAMF is
+// configured for, so a pattern can't reach somewhere it isn't already looking.
+app.MapGet("/api/portscan/pattern", async (string? ip, string? ports, HostStore store, ScannerService scanner, CancellationToken ct) =>
+{
+    const int maxTargets = 256;
+    const int maxSubnetSize = 65536;
+
+    if (string.IsNullOrWhiteSpace(ip) || !(ip.Contains('*') || ip.Contains('?')))
+        return Results.BadRequest(new { error = "Pattern must contain * or ?, e.g. *.245" });
+
+    var rx = new Regex("^" + string.Concat(ip.Select(c =>
+        c == '*' ? ".*" : c == '?' ? "." : Regex.Escape(c.ToString()))) + "$");
+
+    var targets = new List<(string Ip, string Subnet)>();
+    foreach (var label in scanner.SubnetLabels)
+    {
+        var parts = label.Split('/');
+        if (parts.Length != 2 ||
+            !System.Net.IPAddress.TryParse(parts[0], out var net) ||
+            !int.TryParse(parts[1], out var prefix)) continue;
+
+        var size = prefix >= 31 ? 2L : 1L << (32 - prefix);
+        if (size > maxSubnetSize) continue;   // too wide to enumerate sanely
+
+        var baseKey = IpSortKey(net.ToString());
+        for (var i = 1; i < size - 1; i++)
+        {
+            var k = baseKey + i;
+            var addr = $"{(k >> 24) & 255}.{(k >> 16) & 255}.{(k >> 8) & 255}.{k & 255}";
+            if (!rx.IsMatch(addr)) continue;
+            targets.Add((addr, label));
+            if (targets.Count > maxTargets) break;
+        }
+        if (targets.Count > maxTargets) break;
+    }
+
+    if (targets.Count == 0)
+        return Results.BadRequest(new { error = $"'{ip}' matches no address on {(scanner.SubnetLabels.Count == 0 ? "any configured network" : string.Join(", ", scanner.SubnetLabels))}." });
+    if (targets.Count > maxTargets)
+        return Results.BadRequest(new { error = $"'{ip}' expands past {maxTargets} addresses. Narrow it." });
+
+    var spec = PortChecker.ParseSpec(ports);
+    var known = store.GetAll().ToDictionary(h => h.Ip, h => h, StringComparer.OrdinalIgnoreCase);
+    var results = new List<object>();
+    using var sem = new SemaphoreSlim(8);
+    await Task.WhenAll(targets.Select(async t =>
+    {
+        await sem.WaitAsync(ct);
+        try
+        {
+            var open = spec is null
+                ? await PortChecker.ScanAsync(t.Ip, 700, ct)
+                : await PortChecker.ScanAsync(t.Ip, spec, 700, ct);
+            if (open.Count == 0) return;
+            known.TryGetValue(t.Ip, out var h);
+            lock (results)
+                results.Add(new
+                {
+                    id = h?.Id ?? 0,
+                    name = h is null ? t.Ip : (h.CustomName != "" ? h.CustomName : (h.Hostname != "" ? h.Hostname : h.Mac)),
+                    ip = t.Ip,
+                    subnet = t.Subnet,
+                    ports = open.Select(o => new { port = o.Port, service = o.Service }),
+                });
+        }
+        finally { sem.Release(); }
+    }));
+
+    return Results.Json(new { scanned = targets.Count, withOpenPorts = results.Count, hosts = results });
 });
 
 // Network-wide, on-demand scan. Optional ?ports=... custom spec, optional
@@ -263,6 +414,16 @@ app.MapDelete("/api/hosts/{id:long}", (long id, HostStore store) =>
     store.DeletePermanent(id) ? Results.Ok() : Results.NotFound());
 
 app.Run();
+
+// Sorts dotted-quads numerically so .9 comes before .10.
+static long IpSortKey(string ip)
+{
+    if (!System.Net.IPAddress.TryParse(ip, out var addr) ||
+        addr.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+        return long.MaxValue;
+    var b = addr.GetAddressBytes();
+    return ((long)b[0] << 24) | ((long)b[1] << 16) | ((long)b[2] << 8) | b[3];
+}
 
 // RFC1918, loopback, link-local, and CGNAT — the ranges a LAN monitor has any
 // business probing.
