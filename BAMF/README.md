@@ -37,7 +37,7 @@ The dashboard at `http://<server>:8840` polls `/api/hosts` every 10 seconds.
 ## Install
 
 - **Windows** — extract the source anywhere and double-click
-  `update\Install-BAMF.bat`. It elevates, builds to `C:\BAMFApp`, creates the
+  `update\Install-BAMF.bat`. It elevates, builds to `C:\BAMF`, creates the
   `BAMF` service, and starts it; then open http://localhost:8840. Needs the
   .NET 8 SDK on that machine (it builds there). `update\Install-DesktopIcon.bat`
   adds a Desktop shortcut, and `update\Update-BAMF.bat` handles updates later —
@@ -86,10 +86,10 @@ watch the log output and confirm the subnet detection and scan look right.
 The version is declared once, as `<Version>` in `BAMF.csproj`, and shows up in
 three places so you can always tell what's actually running:
 
-- **Startup log** — `BAMF 1.2.1 (built 2026-08-10 13:55 UTC) starting`, the
+- **Startup log** — `BAMF 1.2.2 (built 2026-08-10 14:10 UTC) starting`, the
   first line in the Windows Event Log or `journalctl -u bamf`.
 - **`/api/hosts`** — `version` and `buildDate` fields alongside the scan metadata.
-- **Dashboard header** — `v1.2.1 · 2026-08-10` next to the BAMF wordmark; hover
+- **Dashboard header** — `v1.2.2 · 2026-08-10` next to the BAMF wordmark; hover
   for the full build timestamp.
 
 Each build is also stamped with its UTC build date, because between releases
@@ -105,7 +105,7 @@ the only thing separating them is the build date. To cut a release, bump and
 tag:
 
 ```bash
-git tag v1.2.1 && git push --tags
+git tag v1.2.2 && git push --tags
 ```
 
 ## Configuration (`appsettings.json`)
@@ -213,7 +213,7 @@ choice persists across reloads. Respects prefers-reduced-motion.
 Run `update\Install-DesktopIcon.bat` once. It puts a **BAMF** shortcut on your
 Desktop with the burst icon; double-clicking it opens the dashboard, silently
 starting the service first if it isn't running (no admin prompt when the
-service is already up). The launcher and icon are copied to `C:\BAMFApp`, so
+service is already up). The launcher and icon are copied to `C:\BAMF`, so
 the shortcut survives updates.
 
 ## What an update preserves
@@ -239,7 +239,7 @@ The snapshots in `backups/` are ordinary SQLite files - restoring one is a copy:
 ```powershell
 # Windows
 Stop-Service BAMF
-Copy-Item C:\BAMFApp\backups\bamf-20260808-231500.db C:\BAMFApp\bamf.db -Force
+Copy-Item C:\BAMF\backups\bamf-20260808-231500.db C:\BAMF\bamf.db -Force
 Start-Service BAMF
 ```
 
@@ -262,9 +262,15 @@ database and snapshots the DB into `/opt/bamf/backups` first.
 The `update` folder contains `Update-BAMF.bat` + `update.ps1`. One-time setup:
 copy both files somewhere permanent (the Desktop is fine). The updater builds
 from the zip via a temp folder, so the only folder BAMF keeps on disk is
-`C:\BAMFApp` - app, config, database, and backups all live there. An old
-`C:\BAMF` source folder from earlier versions is no longer used and can be
-deleted.
+`C:\BAMF` - app, config, database, and backups all live there.
+
+**Installs from before 1.2.2 lived in `C:\BAMFApp`, and the updater moves them
+to `C:\BAMF` automatically**, once. It moves the whole folder, so your config,
+database and backups come along untouched, then repoints the Windows service
+and retargets the desktop shortcut. If a leftover `C:\BAMF` source folder from
+an old version is in the way it's renamed to `C:\BAMF.old-<timestamp>` rather
+than deleted; if `C:\BAMF` already holds a working install, the migration is
+skipped and your existing folder is left alone.
 
 From then on, updating is:
 
@@ -281,7 +287,7 @@ ago. The script prints the source it chose and the version it's about to
 install, e.g. `Installing version 1.0.0 (replacing 0.9.0)`.
 
 The updater **follows the installed service**: it reads the service's binary
-path and updates that folder, rather than assuming `C:\BAMFApp`. Older installs
+path and updates that folder, rather than assuming `C:\BAMF`. Older installs
 often live elsewhere, and building into the default while the service still
 pointed at the old folder used to look like a successful update that changed
 nothing. It also verifies the build produced an exe and a `wwwroot`, prints the
@@ -289,7 +295,7 @@ version it installed and the path it's running from, and warns loudly if the
 service still points somewhere else.
 
 Your database and dashboard settings are never touched, and every update
-snapshots `bamf.db` into `C:\BAMFApp\backups` first (last 10 kept). If an update ships new
+snapshots `bamf.db` into `C:\BAMF\backups` first (last 10 kept). If an update ships new
 config options, the fresh defaults are saved as `appsettings.new.json` next to
 your kept config so you can merge anything interesting.
 
