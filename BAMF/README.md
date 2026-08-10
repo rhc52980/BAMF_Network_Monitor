@@ -345,6 +345,8 @@ systemctl disable --now bamf && rm /etc/systemd/system/bamf.service && systemctl
 | Method | Route | Purpose |
 |---|---|---|
 | GET | `/api/hosts` | All hosts + scan metadata (includes the running `version`) |
+| GET | `/api/hosts.txt` | The same devices as a plain-text fixed-width table — no JSON, no markup. For `curl`, a terminal, or pointing a read-only agent at |
+| POST | `/api/hosts/{id}/identify` | On-demand device fingerprint: one ICMP echo for the TTL plus a short fingerprint-port probe. Returns the guess, TTL, and open ports, and saves the guess |
 | POST | `/api/hosts/{id}/known` | Body `{"known": true}` — approve/unapprove a host |
 | POST | `/api/settings/active-arp` | Body `{"enabled": true}` — toggle active ARP scanning at runtime |
 | POST | `/api/settings/auto-ignore-random` | Body `{"enabled": true}` — toggle auto-ignoring of randomized MACs at runtime |
@@ -356,6 +358,7 @@ systemctl disable --now bamf && rm /etc/systemd/system/bamf.service && systemctl
 | GET | `/api/hosts/{id}/portscan` | On-demand port check for one host. Optional `?ports=22,80,8000-8100` for a custom set (default: ~18 common ports) |
 | GET | `/api/portscan` | On-demand port scan across online hosts. Optional `?ports=...` and `?subnet=...` |
 | GET | `/api/portscan/ip` | On-demand port check for any IP: `?ip=192.168.1.50`, optional `?ports=...`. The address need not be a known host; private ranges only (400 otherwise) |
+| GET | `/api/portscan/pattern` | Wildcard scan: `?ip=*.245`, optional `?ports=...`. Expands only across configured subnets, capped at 256 addresses |
 | GET | `/api/events` | Network-wide activity feed (recent online/offline events, all hosts) |
 | GET | `/api/hosts/{id}/events` | One host's online/offline event history |
 | POST | `/api/hosts/{id}/forget` | Body `{"forgotten": true}` — soft-delete to the Forgotten tab (reversible) |
@@ -380,6 +383,12 @@ Four ways to scan:
   it useful for something that never answered a scan, a device you just plugged
   in, or an address on a subnet you aren't monitoring. If the address does
   match a known host, the result is labeled with that host's name.
+- **A wildcard pattern** - the same field accepts `*` and `?`. `*.245` scans
+  that address on every configured network, `192.168.2.*` walks a subnet, and
+  `192.168.2.1?` covers `.10`-`.19`. Patterns only expand across networks in
+  your `Subnets` config, are capped at 256 addresses (so `*.*` is refused
+  rather than becoming a sweep), and the result shows how many addresses were
+  scanned.
 
   Only private addresses can be scanned this way (RFC1918, loopback,
   link-local, CGNAT). The dashboard can be exposed without a password, and this
@@ -391,6 +400,57 @@ host concurrency is bounded, so a scan can't turn into a network flood.
 Results open in a **dockable panel** on the right that stays until you close
 it, and keeps a log of every scan you run (newest on top) so you can compare
 hosts. Web ports are clickable links. The panel is never wiped by auto-refresh.
+
+## Device identification
+
+Each device gets a best-effort guess at what it actually is, shown under the
+vendor in its row.
+
+- **Automatic, and free.** Every scan, BAMF fills in guesses from the vendor OUI
+  and hostname it already has — "Google/Nest device", "Printer or HP device",
+  "Raspberry Pi", "iPhone". **No packets are sent for this**, so the
+  never-automatic-scanning rule still holds.
+- **Identify device** in a host's ⋯ menu goes further, on demand: one ICMP echo
+  to read the reply's **TTL** (64 → Linux/Unix/Android/iOS, 128 → Windows,
+  255 → network gear or printer) plus a probe of a few telling ports (445/139
+  SMB, 22 SSH, 3389 RDP, 9100/631 print, 62078 iOS, 32400 Plex). The result
+  names its own evidence — `Windows (TTL 128, SMB)` — so a wrong guess is
+  visible rather than authoritative. Results land in the scan panel and the
+  guess is saved.
+
+It's a heuristic, not nmap. A device that answers neither ICMP nor any probed
+port keeps whatever the vendor suggested.
+
+## Search
+
+The search box does substring matching across name, hostname, IP, MAC, vendor,
+note, and device guess. Add `*` or `?` and it becomes a wildcard match against
+each field on its own:
+
+| Query | Finds |
+|---|---|
+| `*.245` | any IP ending in `.245`, on every network |
+| `192.168.2.*` | everything on that subnet |
+| `192.168.2.1?` | `.10` through `.19` |
+| `*Windows*` | everything fingerprinted as Windows |
+| `HP*` | vendors starting with HP |
+
+The same wildcards work in the port scan dialog's **Specific IP address…**
+field, where they expand into addresses to probe rather than filtering the
+list — see [Device links and port check](#device-links-and-port-check).
+
+## Plain-text device list
+
+`GET /api/hosts.txt` returns the whole device table as fixed-width plain text —
+no JSON, no buttons, nothing to parse around:
+
+```bash
+curl http://<server>:8840/api/hosts.txt
+```
+
+Rows are sorted by network then numeric IP, so two fetches diff cleanly. Handy
+in a terminal, and a tidy read-only way to hand an AI agent an accurate picture
+of the network. It respects `Bamf:Password` like every other route.
 
 ## Down alerts (watch)
 

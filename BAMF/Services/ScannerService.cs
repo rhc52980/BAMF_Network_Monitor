@@ -104,6 +104,10 @@ public partial class ScannerService : BackgroundService
                 foreach (var h in recovered)
                     await SendStatusAlert(h, up: true, CancellationToken.None);
 
+                // Vendor/hostname-derived device guesses. No packets are sent -
+                // deeper fingerprinting stays behind the Identify action.
+                _store.ApplyPassiveFingerprints();
+
                 LastScanUtc = DateTime.UtcNow;
 
                 if ((DateTime.UtcNow - _lastPruneUtc).TotalHours >= 24)

@@ -4,7 +4,8 @@ namespace LanWatch.Services;
 
 public record HostRecord(
     long Id, string Mac, string Ip, string Hostname, string CustomName, string Vendor, string Subnet,
-    bool Online, bool Known, bool Ignored, bool Watched, bool Forgotten, string Note, string FirstSeen, string LastSeen);
+    bool Online, bool Known, bool Ignored, bool Watched, bool Forgotten, string Note, string FirstSeen, string LastSeen,
+    string OsGuess);
 
 /// <summary>SQLite-backed store for discovered hosts.</summary>
 public class HostStore
@@ -63,7 +64,8 @@ public class HostStore
                 forgotten   INTEGER NOT NULL DEFAULT 0,
                 note        TEXT NOT NULL DEFAULT '',
                 first_seen  TEXT NOT NULL,
-                last_seen   TEXT NOT NULL
+                last_seen   TEXT NOT NULL,
+                os_guess    TEXT NOT NULL DEFAULT ''
             );
             """;
         cmd.ExecuteNonQuery();
@@ -100,6 +102,7 @@ public class HostStore
             ("watched", "ALTER TABLE hosts ADD COLUMN watched INTEGER NOT NULL DEFAULT 0"),
             ("forgotten", "ALTER TABLE hosts ADD COLUMN forgotten INTEGER NOT NULL DEFAULT 0"),
             ("note", "ALTER TABLE hosts ADD COLUMN note TEXT NOT NULL DEFAULT ''"),
+            ("os_guess", "ALTER TABLE hosts ADD COLUMN os_guess TEXT NOT NULL DEFAULT ''"),
         })
         {
             if (existing.Contains(col)) continue;
@@ -353,7 +356,7 @@ public class HostStore
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT id, mac, ip, hostname, custom_name, vendor, subnet, online, known, ignored, watched, forgotten, note, first_seen, last_seen
+            SELECT id, mac, ip, hostname, custom_name, vendor, subnet, online, known, ignored, watched, forgotten, note, first_seen, last_seen, os_guess
             FROM hosts WHERE id = $id
             """;
         cmd.Parameters.AddWithValue("$id", id);
@@ -363,7 +366,8 @@ public class HostStore
             r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3),
             r.GetString(4), r.GetString(5), r.GetString(6),
             r.GetInt64(7) == 1, r.GetInt64(8) == 1, r.GetInt64(9) == 1, r.GetInt64(10) == 1,
-            r.GetInt64(11) == 1, r.GetString(12), r.GetString(13), r.GetString(14));
+            r.GetInt64(11) == 1, r.GetString(12), r.GetString(13), r.GetString(14),
+            r.GetString(15));
     }
 
     /// <summary>UTC timestamp of the host's most recent "offline" event, if any.</summary>
@@ -431,7 +435,7 @@ public class HostStore
             using var conn = Open();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = """
-                SELECT id, mac, ip, hostname, custom_name, vendor, subnet, online, known, ignored, watched, forgotten, note, first_seen, last_seen
+                SELECT id, mac, ip, hostname, custom_name, vendor, subnet, online, known, ignored, watched, forgotten, note, first_seen, last_seen, os_guess
                 FROM hosts ORDER BY subnet, ip
                 """;
             using var r = cmd.ExecuteReader();
@@ -441,7 +445,8 @@ public class HostStore
                     r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3),
                     r.GetString(4), r.GetString(5), r.GetString(6),
                     r.GetInt64(7) == 1, r.GetInt64(8) == 1, r.GetInt64(9) == 1, r.GetInt64(10) == 1,
-                    r.GetInt64(11) == 1, r.GetString(12), r.GetString(13), r.GetString(14)));
+                    r.GetInt64(11) == 1, r.GetString(12), r.GetString(13), r.GetString(14),
+                    r.GetString(15)));
             }
             return list;
         }
@@ -470,6 +475,49 @@ public class HostStore
             cmd.Parameters.AddWithValue("$note", (note ?? "").Trim());
             cmd.Parameters.AddWithValue("$id", id);
             return cmd.ExecuteNonQuery() > 0;
+        }
+    }
+
+    /// <summary>Stores a device/OS guess. Empty string clears it.</summary>
+    public bool SetOsGuess(long id, string guess)
+    {
+        lock (_lock)
+        {
+            using var conn = Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE hosts SET os_guess = $g WHERE id = $id";
+            cmd.Parameters.AddWithValue("$g", (guess ?? "").Trim());
+            cmd.Parameters.AddWithValue("$id", id);
+            return cmd.ExecuteNonQuery() > 0;
+        }
+    }
+
+    /// <summary>
+    /// Fills in a passive guess for hosts that don't have one yet. Vendor and
+    /// hostname only — no packets, so this is safe to run every scan.
+    /// </summary>
+    public void ApplyPassiveFingerprints()
+    {
+        lock (_lock)
+        {
+            using var conn = Open();
+            var pending = new List<(long Id, string Vendor, string Hostname)>();
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT id, vendor, hostname FROM hosts WHERE os_guess = ''";
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) pending.Add((r.GetInt64(0), r.GetString(1), r.GetString(2)));
+            }
+            foreach (var (id, vendor, hostname) in pending)
+            {
+                var guess = OsFingerprint.Passive(vendor, hostname);
+                if (guess == "") continue;
+                using var upd = conn.CreateCommand();
+                upd.CommandText = "UPDATE hosts SET os_guess = $g WHERE id = $id";
+                upd.Parameters.AddWithValue("$g", guess);
+                upd.Parameters.AddWithValue("$id", id);
+                upd.ExecuteNonQuery();
+            }
         }
     }
 
