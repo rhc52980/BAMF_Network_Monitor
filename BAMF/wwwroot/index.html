@@ -179,6 +179,7 @@
   .brand h1 { font-size: 17px; font-weight: 700; letter-spacing: 0.06em; color: var(--led-on); }
   .brand .sub { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim); }
   .brand .ver { font-size: 10px; color: var(--text-dim); opacity: 0.75; align-self: flex-start; margin-left: -4px; }
+  .os-guess { display: block; font-size: 10px; color: var(--text-dim); opacity: 0.85; }
   .scanline {
     margin-left: auto; display: flex; align-items: center; gap: 12px;
     font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim);
@@ -757,7 +758,7 @@
     <button class="view-btn" data-view="forgotten">Forgotten</button>
   </div>
   <div class="tools">
-    <input class="search" id="search" type="search" placeholder="Search…" aria-label="Search hosts">
+    <input class="search" id="search" type="search" placeholder="Search… (* wildcards, e.g. *.245)" aria-label="Search hosts" title="Substring match, or use * / ? wildcards — *.245 matches any IP ending in .245">
     <div class="tools-menu-wrap">
       <button class="export-btn" id="toolsBtn" title="Tools">Tools ▾</button>
       <div class="tools-menu" id="toolsMenu">
@@ -1130,10 +1131,27 @@ function visible() {
         if (filter === "unknown" && h.known) return false;
       }
     }
-    if (!query) return true;
-    const q = query.toLowerCase();
-    return [h.customName, h.hostname, h.ip, h.mac, h.vendor, h.note].join(" ").toLowerCase().includes(q);
+    return matchesQuery(h, query);
   });
+}
+
+// Plain substring by default. If the query contains * or ?, treat it as a glob
+// and match it against each field on its own — so "*.245" finds any IP ending
+// in .245, and "192.168.2.*" finds a whole subnet.
+function matchesQuery(h, query) {
+  if (!query) return true;
+  const fields = [h.customName, h.hostname, h.ip, h.mac, h.vendor, h.note, h.osGuess].filter(Boolean);
+  if (/[*?]/.test(query)) {
+    let rx;
+    try {
+      const pattern = [...query].map(c =>
+        c === "*" ? ".*" : c === "?" ? "." : c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      ).join("");
+      rx = new RegExp("^" + pattern + "$", "i");
+    } catch { return false; }
+    return fields.some(f => rx.test(String(f)));
+  }
+  return fields.join(" ").toLowerCase().includes(query.toLowerCase());
 }
 
 function renderNetTabs() {
@@ -1189,6 +1207,10 @@ function applySort(rows) {
 }
 
 function render() {
+  // The 10s auto-refresh rebuilds the table, which used to destroy any open ⋯
+  // menu — it looked like the menu closed itself on a timer. Remember which
+  // row's menu is open and reopen it after the rebuild.
+  const openMenuRow = document.querySelector(".row-menu.show")?.closest("tr")?.dataset.id ?? null;
   renderNetTabs();
   const showTable = view === "devices" || view === "forgotten";
   $("tableWrap").hidden = !showTable;
@@ -1260,7 +1282,7 @@ function render() {
       </td>
       <td class="ip" data-label="IP"><a href="http://${esc(h.ip)}" target="_blank" rel="noopener" title="Open http://${esc(h.ip)}">${esc(h.ip)}</a></td>
       <td class="mac" data-label="MAC">${esc(h.mac)}</td>
-      <td class="vendor" data-label="Vendor">${esc(h.vendor)}</td>
+      <td class="vendor" data-label="Vendor">${esc(h.vendor)}${h.osGuess ? `<span class="os-guess" title="Device guess — heuristic, from ${esc(h.osGuess)}">${esc(h.osGuess)}</span>` : ""}</td>
       <td class="ip" data-label="Network">${esc(h.subnet || "—")}</td>
       <td class="seen" data-label="First seen" title="${esc(fmtExact(h.firstSeen))}">${fmtAgo(h.firstSeen)}</td>
       <td class="seen" data-label="Last seen" title="${esc(fmtExact(h.lastSeen))}">${fmtAgo(h.lastSeen)}</td>
@@ -1356,6 +1378,7 @@ function render() {
         }
       }, { danger: true });
     } else {
+      addItem("Identify device", () => identifyHost(h));
       addItem("Scan ports", () => scanPorts(h, more, null));
       addItem("Scan custom ports…", () => {
         const spec = prompt("Ports to scan on " + dispName(h) + " (e.g. 22,80,443,8000-8100):", "");
@@ -1384,6 +1407,7 @@ function render() {
       document.querySelectorAll(".row-menu.show").forEach(m => { if (m !== menu) m.classList.remove("show"); });
       menu.classList.toggle("show");
     };
+    if (openMenuRow !== null && String(h.id) === openMenuRow) menu.classList.add("show");
     moreWrap.appendChild(more);
     moreWrap.appendChild(menu);
     cell.appendChild(moreWrap);
@@ -1464,6 +1488,33 @@ function addScanEntry(name, ip, subLabel) {
     </div><div class="scan-entry-body"></div>`;
   body.prepend(el);
   return el;
+}
+
+// On-demand device identification. Results land in the scan panel alongside
+// port scans, so there's one place to read everything BAMF probed.
+async function identifyHost(host) {
+  const el = addScanEntry(dispName(host), host.ip, "identify");
+  try {
+    const r = await fetch(`/api/hosts/${host.id}/identify`, { method: "POST" });
+    const d = await r.json();
+    el.classList.remove("busy");
+    if (!r.ok || d.ok !== true) {
+      el.querySelector(".scan-entry-body").innerHTML = `<span class="none">Identify failed.</span>`;
+      return;
+    }
+    const bits = [
+      `<div><strong>${esc(d.osGuess || "Unknown")}</strong></div>`,
+      `<div class="none">TTL ${d.ttl ?? "no ICMP reply"}</div>`,
+      d.openPorts && d.openPorts.length
+        ? portChips(host.ip, d.openPorts.map(p => ({ port: p, service: "" })))
+        : `<span class="none">No fingerprint ports open.</span>`,
+    ];
+    el.querySelector(".scan-entry-body").innerHTML = bits.join("");
+    await refresh();
+  } catch (e) {
+    el.classList.remove("busy");
+    el.querySelector(".scan-entry-body").innerHTML = `<span class="none">Identify failed — see server logs.</span>`;
+  }
 }
 
 async function scanPorts(host, _btn, spec) {
@@ -1832,7 +1883,7 @@ $("testWebhook").onclick = async () => {
 
 $("exportCsv").onclick = () => {
   const rows = applySort(visible());
-  const cols = ["name","dnsHostname","ip","mac","vendor","network","online","known","ignored","firstSeen","lastSeen"];
+  const cols = ["name","dnsHostname","ip","mac","vendor","deviceGuess","network","online","known","ignored","firstSeen","lastSeen"];
   const cell = v => {
     v = String(v ?? "");
     return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
@@ -1841,7 +1892,7 @@ $("exportCsv").onclick = () => {
   for (const h of rows) {
     lines.push([
       dispName(h), h.hostname === "\u2014" ? "" : h.hostname, h.ip, h.mac, h.vendor,
-      h.subnet, h.online, h.known, h.ignored, h.firstSeen, h.lastSeen
+      h.osGuess || "", h.subnet, h.online, h.known, h.ignored, h.firstSeen, h.lastSeen
     ].map(cell).join(","));
   }
   const blob = new Blob([lines.join("\r\n")], { type: "text/csv" });
