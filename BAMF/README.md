@@ -182,6 +182,26 @@ survive IP changes.
   + light), Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy.
   CRT themes get scanlines; each pick triggers a BAMF! splat. Choice persists.
 
+## Fonts and offline use
+
+The dashboard's fonts — Space Grotesk and IBM Plex Mono — are **served from the
+BAMF machine**, not a CDN. `wwwroot/fonts.css` plus `wwwroot/fonts/*.woff2`
+(Latin subset, ~110 KB total) ship with the app.
+
+That matters for where BAMF actually runs: monitoring boxes frequently sit on
+segments with no internet, and a CDN font link would leave the dashboard
+rendering in fallback fonts there. It also means loading the dashboard never
+reports the viewer's IP to a third party — worth knowing if you run this
+somewhere with privacy obligations.
+
+Both fonts are licensed under the **SIL Open Font License 1.1**, which permits
+redistribution, including commercially. To refresh or add scripts beyond Latin,
+regenerate the files from Google Fonts and update `fonts.css`.
+
+The dashboard has no other external dependencies: no CDN scripts, no analytics,
+no outbound calls at all. The only network traffic BAMF originates is scanning
+your subnets and, if configured, the vendor-registry download and your webhook.
+
 ## Theme
 
 A sun/moon button in the header toggles light and dark mode - and yes, every
