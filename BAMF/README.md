@@ -340,6 +340,65 @@ Uninstall:
 systemctl disable --now bamf && rm /etc/systemd/system/bamf.service && systemctl daemon-reload && rm -rf /opt/bamf
 ```
 
+## Using the API
+
+Plain HTTP on the same port as the dashboard - no SDK, no tokens, no
+negotiation. Everything below works from `curl`, a browser, a script, or
+anything that speaks HTTP.
+
+**Base URL**: `http://<server>:8840`
+
+**Auth**: none unless you set `Bamf:Password`. If you have, every route needs
+HTTP Basic auth with *any* username and that password:
+
+```bash
+curl -u x:yourpassword http://192.168.2.137:8840/api/hosts
+```
+
+**Reading.** `GET /api/hosts` is the full JSON picture - devices plus scan
+metadata (`version`, `buildDate`, `subnets`, `lastScan`, per-network scan
+modes). Each device carries an `id`, which is what the per-host routes take:
+
+```bash
+curl http://192.168.2.137:8840/api/hosts
+curl http://192.168.2.137:8840/api/hosts.txt      # same devices, plain text
+curl http://192.168.2.137:8840/api/events         # recent online/offline events
+```
+
+**Changing things.** POST with a JSON body:
+
+```bash
+# name a device (empty string clears it back to the DNS name)
+curl -X POST http://192.168.2.137:8840/api/hosts/16/name \
+  -H "Content-Type: application/json" -d '{"name":"Kevin PC"}'
+
+# approve it, watch it for downtime, hide it
+curl -X POST http://192.168.2.137:8840/api/hosts/16/known   -H "Content-Type: application/json" -d '{"known":true}'
+curl -X POST http://192.168.2.137:8840/api/hosts/16/watch   -H "Content-Type: application/json" -d '{"watched":true}'
+curl -X POST http://192.168.2.137:8840/api/hosts/16/ignore  -H "Content-Type: application/json" -d '{"ignored":true}'
+
+# no body needed
+curl -X POST http://192.168.2.137:8840/api/hosts/16/wake
+curl -X POST http://192.168.2.137:8840/api/hosts/16/identify
+```
+
+**Scanning** is `GET` - it returns results rather than changing state:
+
+```bash
+curl "http://192.168.2.137:8840/api/hosts/16/portscan?ports=22,80,443"
+curl "http://192.168.2.137:8840/api/portscan/ip?ip=192.168.2.50"
+curl "http://192.168.2.137:8840/api/portscan/pattern?ip=*.245"
+curl "http://192.168.2.137:8840/api/portscan?subnet=192.168.2.0/24"
+```
+
+### Handing the network to a script or an AI agent
+
+Point it at `GET /api/hosts.txt` and nothing else. One request returns a
+complete, current picture; the output is sorted by network then numeric IP, so
+two fetches diff cleanly; and **every route that changes anything is a POST or
+a DELETE**, so a consumer restricted to that one GET cannot rename, wake,
+scan, or delete a thing.
+
 ## API
 
 | Method | Route | Purpose |
@@ -348,6 +407,7 @@ systemctl disable --now bamf && rm /etc/systemd/system/bamf.service && systemctl
 | GET | `/api/hosts.txt` | The same devices as a plain-text fixed-width table — no JSON, no markup. For `curl`, a terminal, or pointing a read-only agent at |
 | POST | `/api/hosts/{id}/identify` | On-demand device fingerprint: one ICMP echo for the TTL plus a short fingerprint-port probe. Returns the guess, TTL, and open ports, and saves the guess |
 | POST | `/api/hosts/{id}/known` | Body `{"known": true}` — approve/unapprove a host |
+| POST | `/api/webhook/test` | Send a test notification to `Bamf:WebhookUrl` (the dashboard's Test webhook button). Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/settings/active-arp` | Body `{"enabled": true}` — toggle active ARP scanning at runtime |
 | POST | `/api/settings/auto-ignore-random` | Body `{"enabled": true}` — toggle auto-ignoring of randomized MACs at runtime |
 | POST | `/api/hosts/{id}/watch` | Body `{"watched": true}` — watch a host for downtime (star toggle in the UI) |
