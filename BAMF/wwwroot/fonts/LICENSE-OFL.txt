@@ -1,0 +1,17 @@
+The fonts in this folder are used under the SIL Open Font License, Version 1.1.
+
+  Space Grotesk   Copyright (c) Florian Karsten
+                  https://fonts.google.com/specimen/Space+Grotesk
+  IBM Plex Mono   Copyright (c) IBM Corp.
+                  https://fonts.google.com/specimen/IBM+Plex+Mono
+
+Both are distributed under the SIL Open Font License 1.1, which permits use,
+modification, and redistribution — including with commercial software —
+provided the fonts are not sold on their own and this notice is retained.
+
+Full license text: https://openfontlicense.org  (also shipped with each font's
+upstream release as OFL.txt)
+
+These are the Latin subsets, generated from Google Fonts. To regenerate or add
+other scripts, fetch the CSS from fonts.googleapis.com, download the .woff2
+files it references, and update ../fonts.css to match.
