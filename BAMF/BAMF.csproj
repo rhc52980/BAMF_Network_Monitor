@@ -9,7 +9,7 @@
 
     <!-- Single source of truth for the app version. Surfaced in the startup
          log, /api/hosts, and the dashboard header. Bump on release. -->
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
   </PropertyGroup>
 
   <!-- Stamped into the assembly at build time. The version alone can't tell two
