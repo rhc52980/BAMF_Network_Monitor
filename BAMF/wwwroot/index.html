@@ -832,7 +832,8 @@
       </select>
     </label>
     <label class="modal-row" id="scanIpRow" style="display:none">IP address
-      <input id="scanIp" placeholder="e.g. 192.168.2.50" class="modal-input" inputmode="decimal">
+      <input id="scanIp" placeholder="e.g. 192.168.2.50 or *.245" class="modal-input"
+             title="One address, or a wildcard expanded across your configured networks — *.245 hits that host on every network, 192.168.2.* walks the subnet">
     </label>
     <label class="modal-row">Ports
       <select id="scanPortsMode">
@@ -1490,6 +1491,16 @@ function addScanEntry(name, ip, subLabel) {
   return el;
 }
 
+// Shared renderer for scans that cover several addresses (network scans and
+// wildcard patterns), so both read identically in the panel.
+function renderMultiHostScan(el, data) {
+  let html = `<div class="none">Scanned ${data.scanned} address(es), ${data.withOpenPorts} with open ports.</div>`;
+  for (const hd of (data.hosts || [])) {
+    html += `<div style="margin-top:10px"><div class="scan-entry-head"><span class="nm">${esc(hd.name)}</span><span class="ipx">${esc(hd.ip)} · ${esc(hd.subnet)}</span></div>${portChips(hd.ip, hd.ports)}</div>`;
+  }
+  el.querySelector(".scan-entry-body").innerHTML = html;
+}
+
 // On-demand device identification. Results land in the scan panel alongside
 // port scans, so there's one place to read everything BAMF probed.
 async function identifyHost(host) {
@@ -1817,23 +1828,28 @@ $("scanGo").onclick = async () => {
   if (mode === "custom") params.set("ports", custom);
   const portLabel = mode === "custom" ? ("ports " + custom) : "common";
 
-  // Single arbitrary IP — doesn't have to be a host we know about.
+  // Single arbitrary IP, or a wildcard pattern expanded across your networks.
   if (target === "ip") {
     const ip = $("scanIp").value.trim();
-    if (!ip) { $("scanResult").innerHTML = '<span class="scan-progress">Enter an IP address first.</span>'; return; }
+    if (!ip) { $("scanResult").innerHTML = '<span class="scan-progress">Enter an IP address or pattern first.</span>'; return; }
+    const isPattern = /[*?]/.test(ip);
     params.set("ip", ip);
     $("scanModal").hidden = true;
-    const el = addScanEntry("IP scan", ip, portLabel);
+    const el = addScanEntry(isPattern ? "Pattern scan" : "IP scan", ip, portLabel);
     try {
-      const r = await fetch("/api/portscan/ip?" + params.toString());
+      const r = await fetch(`/api/portscan/${isPattern ? "pattern" : "ip"}?` + params.toString());
       const data = await r.json();
       el.classList.remove("busy");
       if (!r.ok) {
         el.querySelector(".scan-entry-body").innerHTML = `<span class="none">${esc(data.error || "Scan failed.")}</span>`;
         return;
       }
-      if (data.name) el.querySelector(".nm").textContent = data.name;
-      el.querySelector(".scan-entry-body").innerHTML = portChips(data.ip, data.ports);
+      if (isPattern) {
+        renderMultiHostScan(el, data);
+      } else {
+        if (data.name) el.querySelector(".nm").textContent = data.name;
+        el.querySelector(".scan-entry-body").innerHTML = portChips(data.ip, data.ports);
+      }
     } catch (e) {
       el.classList.remove("busy");
       el.querySelector(".scan-entry-body").innerHTML = '<span class="none">Scan failed — see server logs.</span>';
@@ -1853,11 +1869,7 @@ $("scanGo").onclick = async () => {
     const data = await r.json();
     el.classList.remove("busy");
     el.querySelector(".nm").textContent = "Network scan";
-    let html = `<div class="none">Scanned ${data.scanned} host(s), ${data.withOpenPorts} with open ports.</div>`;
-    for (const hd of (data.hosts || [])) {
-      html += `<div style="margin-top:10px"><div class="scan-entry-head"><span class="nm">${esc(hd.name)}</span><span class="ipx">${esc(hd.ip)} · ${esc(hd.subnet)}</span></div>${portChips(hd.ip, hd.ports)}</div>`;
-    }
-    el.querySelector(".scan-entry-body").innerHTML = html;
+    renderMultiHostScan(el, data);
   } catch (e) {
     el.classList.remove("busy");
     el.querySelector(".scan-entry-body").innerHTML = '<span class="none">Scan failed — see server logs.</span>';

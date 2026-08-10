@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using LanWatch.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -240,6 +241,78 @@ app.MapGet("/api/portscan/ip", async (string? ip, string? ports, HostStore store
             : (host.CustomName != "" ? host.CustomName : (host.Hostname != "" ? host.Hostname : host.Mac)),
         ports = open.Select(o => new { port = o.Port, service = o.Service }),
     });
+});
+
+// Wildcard scan: "*.245" hits that last octet on every configured network,
+// "192.168.2.*" walks a subnet. Expansion is limited to the networks BAMF is
+// configured for, so a pattern can't reach somewhere it isn't already looking.
+app.MapGet("/api/portscan/pattern", async (string? ip, string? ports, HostStore store, ScannerService scanner, CancellationToken ct) =>
+{
+    const int maxTargets = 256;
+    const int maxSubnetSize = 65536;
+
+    if (string.IsNullOrWhiteSpace(ip) || !(ip.Contains('*') || ip.Contains('?')))
+        return Results.BadRequest(new { error = "Pattern must contain * or ?, e.g. *.245" });
+
+    var rx = new Regex("^" + string.Concat(ip.Select(c =>
+        c == '*' ? ".*" : c == '?' ? "." : Regex.Escape(c.ToString()))) + "$");
+
+    var targets = new List<(string Ip, string Subnet)>();
+    foreach (var label in scanner.SubnetLabels)
+    {
+        var parts = label.Split('/');
+        if (parts.Length != 2 ||
+            !System.Net.IPAddress.TryParse(parts[0], out var net) ||
+            !int.TryParse(parts[1], out var prefix)) continue;
+
+        var size = prefix >= 31 ? 2L : 1L << (32 - prefix);
+        if (size > maxSubnetSize) continue;   // too wide to enumerate sanely
+
+        var baseKey = IpSortKey(net.ToString());
+        for (var i = 1; i < size - 1; i++)
+        {
+            var k = baseKey + i;
+            var addr = $"{(k >> 24) & 255}.{(k >> 16) & 255}.{(k >> 8) & 255}.{k & 255}";
+            if (!rx.IsMatch(addr)) continue;
+            targets.Add((addr, label));
+            if (targets.Count > maxTargets) break;
+        }
+        if (targets.Count > maxTargets) break;
+    }
+
+    if (targets.Count == 0)
+        return Results.BadRequest(new { error = $"'{ip}' matches no address on {(scanner.SubnetLabels.Count == 0 ? "any configured network" : string.Join(", ", scanner.SubnetLabels))}." });
+    if (targets.Count > maxTargets)
+        return Results.BadRequest(new { error = $"'{ip}' expands past {maxTargets} addresses. Narrow it." });
+
+    var spec = PortChecker.ParseSpec(ports);
+    var known = store.GetAll().ToDictionary(h => h.Ip, h => h, StringComparer.OrdinalIgnoreCase);
+    var results = new List<object>();
+    using var sem = new SemaphoreSlim(8);
+    await Task.WhenAll(targets.Select(async t =>
+    {
+        await sem.WaitAsync(ct);
+        try
+        {
+            var open = spec is null
+                ? await PortChecker.ScanAsync(t.Ip, 700, ct)
+                : await PortChecker.ScanAsync(t.Ip, spec, 700, ct);
+            if (open.Count == 0) return;
+            known.TryGetValue(t.Ip, out var h);
+            lock (results)
+                results.Add(new
+                {
+                    id = h?.Id ?? 0,
+                    name = h is null ? t.Ip : (h.CustomName != "" ? h.CustomName : (h.Hostname != "" ? h.Hostname : h.Mac)),
+                    ip = t.Ip,
+                    subnet = t.Subnet,
+                    ports = open.Select(o => new { port = o.Port, service = o.Service }),
+                });
+        }
+        finally { sem.Release(); }
+    }));
+
+    return Results.Json(new { scanned = targets.Count, withOpenPorts = results.Count, hosts = results });
 });
 
 // Network-wide, on-demand scan. Optional ?ports=... custom spec, optional

@@ -358,6 +358,7 @@ systemctl disable --now bamf && rm /etc/systemd/system/bamf.service && systemctl
 | GET | `/api/hosts/{id}/portscan` | On-demand port check for one host. Optional `?ports=22,80,8000-8100` for a custom set (default: ~18 common ports) |
 | GET | `/api/portscan` | On-demand port scan across online hosts. Optional `?ports=...` and `?subnet=...` |
 | GET | `/api/portscan/ip` | On-demand port check for any IP: `?ip=192.168.1.50`, optional `?ports=...`. The address need not be a known host; private ranges only (400 otherwise) |
+| GET | `/api/portscan/pattern` | Wildcard scan: `?ip=*.245`, optional `?ports=...`. Expands only across configured subnets, capped at 256 addresses |
 | GET | `/api/events` | Network-wide activity feed (recent online/offline events, all hosts) |
 | GET | `/api/hosts/{id}/events` | One host's online/offline event history |
 | POST | `/api/hosts/{id}/forget` | Body `{"forgotten": true}` — soft-delete to the Forgotten tab (reversible) |
@@ -382,6 +383,12 @@ Four ways to scan:
   it useful for something that never answered a scan, a device you just plugged
   in, or an address on a subnet you aren't monitoring. If the address does
   match a known host, the result is labeled with that host's name.
+- **A wildcard pattern** - the same field accepts `*` and `?`. `*.245` scans
+  that address on every configured network, `192.168.2.*` walks a subnet, and
+  `192.168.2.1?` covers `.10`-`.19`. Patterns only expand across networks in
+  your `Subnets` config, are capped at 256 addresses (so `*.*` is refused
+  rather than becoming a sweep), and the result shows how many addresses were
+  scanned.
 
   Only private addresses can be scanned this way (RFC1918, loopback,
   link-local, CGNAT). The dashboard can be exposed without a password, and this
@@ -427,6 +434,10 @@ each field on its own:
 | `192.168.2.1?` | `.10` through `.19` |
 | `*Windows*` | everything fingerprinted as Windows |
 | `HP*` | vendors starting with HP |
+
+The same wildcards work in the port scan dialog's **Specific IP address…**
+field, where they expand into addresses to probe rather than filtering the
+list — see [Device links and port check](#device-links-and-port-check).
 
 ## Plain-text device list
 
