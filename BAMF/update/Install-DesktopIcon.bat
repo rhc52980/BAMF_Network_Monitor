@@ -1,10 +1,10 @@
 @echo off
 :: Creates a "BAMF" shortcut on your Desktop with the burst icon.
-:: Copies the launcher + icon into C:\BAMFApp first so the shortcut
-:: keeps working even when the C:\BAMF source folder is replaced by updates.
+:: Copies the launcher + icon into the install folder first so the shortcut
+:: keeps working across updates, which replace everything else in there.
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$app = 'C:\BAMFApp';" ^
+  "$app = if (Test-Path 'C:\BAMF\BAMF.exe') { 'C:\BAMF' } elseif (Test-Path 'C:\BAMFApp\BAMF.exe') { 'C:\BAMFApp' } else { 'C:\BAMF' };" ^
   "if (-not (Test-Path $app)) { New-Item -ItemType Directory -Path $app | Out-Null };" ^
   "Copy-Item -Path (Join-Path '%~dp0' 'Launch-BAMF.bat') -Destination $app -Force;" ^
   "Copy-Item -Path (Join-Path '%~dp0' 'bamf.ico') -Destination $app -Force;" ^

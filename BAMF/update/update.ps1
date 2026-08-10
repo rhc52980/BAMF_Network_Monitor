@@ -3,20 +3,24 @@
 #   powershell -ExecutionPolicy Bypass -File update.ps1 [-ZipPath C:\path\to\BAMF.zip]
 #
 # What it does:
-#   1. Finds the newest BAMF*.zip in your Downloads (or uses -ZipPath)
+#   1. Finds the source: -ZipPath, else this script's own source tree, else the
+#      newest BAMF*.zip in Downloads
 #   2. Stops the BAMF service / process
-#   3. Extracts the source to a TEMP folder and builds straight to C:\BAMFApp
+#   3. Migrates an old C:\BAMFApp install to C:\BAMF (folder move + service
+#      repoint + desktop shortcut fixup), once
+#   4. Builds straight into the install folder
 #      - your appsettings.json is preserved (new defaults saved as appsettings.new.json)
-#      - your database is snapshotted to C:\BAMFApp\backups first (last 10 kept)
-#   4. Cleans up the temp source, restarts the service (creates it if missing)
+#      - your database is snapshotted to <install>\backups first (last 10 kept)
+#   5. Cleans up the temp source, restarts the service (creates it if missing)
 #
-# The only folder that exists afterwards is C:\BAMFApp. You never need to
-# extract the zip yourself.
+# The only folder that exists afterwards is C:\BAMF. You never need to extract
+# the zip yourself.
 
 param([string]$ZipPath)
 
 $ErrorActionPreference = "Stop"
-$AppDir  = "C:\BAMFApp"   # default for a fresh install; an existing service wins
+$AppDir  = "C:\BAMF"      # default for a fresh install; an existing service wins
+$LegacyDir = "C:\BAMFApp" # pre-1.2.2 name, migrated automatically
 $Service = "BAMF"
 $RepointService = $false
 
@@ -89,6 +93,61 @@ try {
     }
     Get-Process -Name "BAMF" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     Start-Sleep -Milliseconds 500
+
+    # --- one-time migration: C:\BAMFApp -> C:\BAMF ---
+    # Moves the whole folder, so config, database and backups come along intact.
+    # Only runs when the install actually lives in the old location.
+    # Covers both cases: the service points at the old folder, and the service is
+    # missing but an old install is sitting there with its database.
+    $legacyHasInstall = (Test-Path (Join-Path $LegacyDir "bamf.db")) -or (Test-Path (Join-Path $LegacyDir "BAMF.exe"))
+    if ($legacyHasInstall -and ($AppDir -ieq $LegacyDir -or -not (Test-Path (Join-Path $AppDir "BAMF.exe")))) {
+        $canMove = $true
+        if (Test-Path "C:\BAMF") {
+            $existing = @(Get-ChildItem "C:\BAMF" -Force -ErrorAction SilentlyContinue)
+            if ($existing.Count -eq 0) {
+                # Directory.Delete without recursion throws unless it's genuinely
+                # empty, so this can never take data with it.
+                [IO.Directory]::Delete("C:\BAMF")
+            }
+            elseif (Test-Path "C:\BAMF\BAMF.exe") {
+                # Another install already lives there - don't guess which one is wanted.
+                Step "C:\BAMF already contains an install; keeping this one in $LegacyDir"
+                $canMove = $false
+            }
+            else {
+                # Almost certainly the abandoned pre-1.1 source folder. Set it aside
+                # rather than delete it, so nothing is lost if that's wrong.
+                $aside = "C:\BAMF.old-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+                Step "C:\BAMF exists but isn't an install - moving it to $aside"
+                Move-Item "C:\BAMF" $aside -Force
+            }
+        }
+
+        if ($canMove) {
+            Step "Migrating install from $LegacyDir to C:\BAMF (config, database and backups move with it)"
+            Move-Item $LegacyDir "C:\BAMF" -Force
+            $AppDir = "C:\BAMF"
+            $RepointService = $true
+
+            # The desktop shortcut points into the old folder; retarget it.
+            $lnk = Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) "BAMF.lnk"
+            if (-not (Test-Path $lnk)) {
+                $lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) "BAMF.lnk"
+            }
+            if (Test-Path $lnk) {
+                try {
+                    $ws = New-Object -ComObject WScript.Shell
+                    $sc = $ws.CreateShortcut($lnk)
+                    $sc.TargetPath = $sc.TargetPath -replace [regex]::Escape($LegacyDir), "C:\BAMF"
+                    $sc.IconLocation = $sc.IconLocation -replace [regex]::Escape($LegacyDir), "C:\BAMF"
+                    $sc.WorkingDirectory = "C:\BAMF"
+                    $sc.Save()
+                    Step "Desktop shortcut retargeted to C:\BAMF"
+                }
+                catch { Step "Could not update the desktop shortcut - re-run Install-DesktopIcon.bat" }
+            }
+        }
+    }
 
     # --- extract source to temp (only when building from a zip) ---
     if (-not $srcDir) {
