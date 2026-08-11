@@ -86,10 +86,10 @@ watch the log output and confirm the subnet detection and scan look right.
 The version is declared once, as `<Version>` in `BAMF.csproj`, and shows up in
 three places so you can always tell what's actually running:
 
-- **Startup log** — `BAMF 1.3.0 (built 2026-08-10 15:20 UTC) starting`, the
+- **Startup log** — `BAMF 1.4.0 (built 2026-08-11 03:50 UTC) starting`, the
   first line in the Windows Event Log or `journalctl -u bamf`.
 - **`/api/hosts`** — `version` and `buildDate` fields alongside the scan metadata.
-- **Dashboard header** — `v1.3.0 · 2026-08-10` next to the BAMF wordmark; hover
+- **Dashboard header** — `v1.4.0 · 2026-08-11` next to the BAMF wordmark; hover
   for the full build timestamp.
 
 Each build is also stamped with its UTC build date, because between releases
@@ -105,7 +105,7 @@ the only thing separating them is the build date. To cut a release, bump and
 tag:
 
 ```bash
-git tag v1.3.0 && git push --tags
+git tag v1.4.0 && git push --tags
 ```
 
 ## Configuration (`appsettings.json`)
@@ -117,6 +117,8 @@ git tag v1.3.0 && git push --tags
 | `Bamf:DeviceLinkTemplate` | Where a device's IP link points when it has no link of its own. `{ip}` is the device address. Default `http://{ip}`. |
 | `Bamf:HistoryRetentionDays` | Days of online/offline history to keep (default 90, pruned daily). |
 | `Bamf:AutoDownloadOui` | Download the IEEE vendor registry on first run (default true). |
+| `Bamf:UpdateCheck` | Check GitHub daily for a newer release and show a badge (default **false**). Read-only — never downloads or installs. Header toggle overrides this. |
+| `Bamf:UpdateRepo` | Repository the update check reads. Change it if you run a fork. |
 | `Bamf:ActiveArpScan` | Use raw ARP scanning via Npcap/libpcap when available; falls back to ping sweep otherwise. |
 | `Bamf:ScanIntervalSeconds` | Seconds between scans. |
 | `Bamf:AutoIgnoreRandomizedMacs` | Auto-ignore new hosts with randomized MACs (default in shipped config: true). |
@@ -149,6 +151,39 @@ Windows note: if you chose "Restrict Npcap driver's access to Administrators onl
 during install, the service account needs admin rights - either reinstall Npcap
 without that option, or run the service as LocalSystem (recreate it without the
 `obj=` argument).
+
+## Update check (optional, off by default)
+
+BAMF can check GitHub once a day for a newer release and show an **update
+1.4.0** badge in the header, linking to the release page.
+
+It is **off by default and opt-in**, because BAMF often runs on isolated
+networks and this is the only outbound call it would make that you didn't ask
+for. Turn it on with the **update check** toggle in the header, or
+`Bamf:UpdateCheck` in `appsettings.json` — the toggle is stored in the database
+and overrides the config value, same as the other header toggles.
+
+What it does and doesn't do:
+
+- Reads `https://api.github.com/repos/<repo>/releases/latest` at most once every
+  24 hours, plus immediately when you switch it on.
+- Compares the release tag with the running version and shows a badge if it's
+  newer. **Nothing is downloaded and nothing is installed** — updating stays a
+  deliberate act.
+- Fails silently. No internet, GitHub down, rate limited, private repo: it logs
+  at debug level and scanning carries on untouched.
+- `Bamf:UpdateRepo` points it somewhere else if you run a fork.
+
+The state is in `/api/hosts` under `update`, so scripts can see it too:
+
+```json
+"update": { "enabled": true, "available": true, "latest": "1.4.0",
+            "url": "https://github.com/.../releases/tag/v1.4.0",
+            "checkedUtc": "2026-08-11T03:46:00Z" }
+```
+
+Note: a **private** repository returns 404 to an unauthenticated request, so
+the check quietly finds nothing until the repository is public.
 
 ## Vendor names
 
@@ -437,6 +472,7 @@ scan, or delete a thing.
 | POST | `/api/webhook/test` | Send a test notification to `Bamf:WebhookUrl` (the dashboard's Test webhook button). Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/settings/active-arp` | Body `{"enabled": true}` — toggle active ARP scanning at runtime |
 | POST | `/api/settings/auto-ignore-random` | Body `{"enabled": true}` — toggle auto-ignoring of randomized MACs at runtime |
+| POST | `/api/settings/update-check` | Body `{"enabled": true}` — toggle the daily GitHub update check. Turning it on checks immediately and returns the result |
 | POST | `/api/hosts/{id}/watch` | Body `{"watched": true}` — watch a host for downtime (star toggle in the UI) |
 | POST | `/api/hosts/{id}/ignore` | Body `{"ignored": true}` — hide a host from main views and suppress its alerts/history |
 | POST | `/api/hosts/{id}/note` | Body `{"note": "..."}` — save a free-text note (max 500 chars) |
