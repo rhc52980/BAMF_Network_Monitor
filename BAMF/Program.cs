@@ -5,6 +5,19 @@ using LanWatch.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// App version, from <Version> in BAMF.csproj. Builds may append a source
+// revision as "1.0.0+abc1234" — keep just the version itself. Computed before
+// the container is built because UpdateChecker needs it at construction.
+var version = (Assembly.GetExecutingAssembly()
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+    ?? "0.0.0").Split('+')[0];
+
+// UTC build stamp from BAMF.csproj. Between releases the version doesn't change,
+// so this is what actually distinguishes one build from another.
+var buildDate = Assembly.GetExecutingAssembly()
+    .GetCustomAttributes<AssemblyMetadataAttribute>()
+    .FirstOrDefault(a => a.Key == "BuildDate")?.Value ?? "";
+
 // Run as a Windows Service or systemd service when installed as one;
 // each call is a harmless no-op on the other platform or in a console.
 builder.Host.UseWindowsService(o => o.ServiceName = "BAMF");
@@ -15,23 +28,17 @@ builder.Host.UseContentRoot(AppContext.BaseDirectory);
 
 builder.Services.AddSingleton<HostStore>();
 builder.Services.AddSingleton<OuiLookup>();
+builder.Services.AddSingleton(sp => new UpdateChecker(
+    sp.GetRequiredService<IHttpClientFactory>(),
+    sp.GetRequiredService<HostStore>(),
+    sp.GetRequiredService<IConfiguration>(),
+    sp.GetRequiredService<ILogger<UpdateChecker>>(),
+    version));
 builder.Services.AddSingleton<ScannerService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ScannerService>());
 builder.Services.AddHttpClient();
 
 var app = builder.Build();
-
-// App version, from <Version> in BAMF.csproj. Builds may append a source
-// revision as "1.0.0+abc1234" — keep just the version itself.
-var version = (Assembly.GetExecutingAssembly()
-        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-    ?? "0.0.0").Split('+')[0];
-
-// UTC build stamp from BAMF.csproj. Between releases the version doesn't change,
-// so this is what actually distinguishes one build from another.
-var buildDate = Assembly.GetExecutingAssembly()
-    .GetCustomAttributes<AssemblyMetadataAttribute>()
-    .FirstOrDefault(a => a.Key == "BuildDate")?.Value ?? "";
 
 // First line in the Event Log / journal, so "what's actually running?" is answerable.
 app.Logger.LogInformation("BAMF {Version} (built {BuildDate} UTC) starting", version, buildDate);
@@ -72,7 +79,7 @@ app.UseStaticFiles();
 
 // ---------- API ----------
 
-app.MapGet("/api/hosts", (HostStore store, ScannerService scanner) =>
+app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker updates) =>
 {
     var linkTemplate = app.Configuration["Bamf:DeviceLinkTemplate"];
     var hosts = store.GetAll().Select(h => new
@@ -104,6 +111,14 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner) =>
         scanModes = scanner.SubnetModes,
         activeArp = new { enabled = scanner.ActiveArpEnabled, npcapAvailable = scanner.NpcapAvailable },
         autoIgnoreRandom = scanner.AutoIgnoreRandomEnabled,
+        update = new
+        {
+            enabled = updates.Enabled,
+            available = updates.UpdateAvailable,
+            latest = updates.LatestVersion,
+            url = updates.ReleaseUrl,
+            checkedUtc = updates.LastCheckedUtc?.ToString("o"),
+        },
         webhookConfigured = !string.IsNullOrWhiteSpace(app.Configuration["Bamf:WebhookUrl"]),
         lastScan = scanner.LastScanUtc?.ToString("o"),
         scanIntervalSeconds = scanner.ScanIntervalSeconds,
@@ -380,6 +395,20 @@ app.MapPost("/api/settings/active-arp", (ActiveArpRequest body, HostStore store)
 {
     store.SetSetting("activeArpScan", body.Enabled ? "true" : "false");
     return Results.Ok();
+});
+
+app.MapPost("/api/settings/update-check", async (ActiveArpRequest body, HostStore store, UpdateChecker updates, CancellationToken ct) =>
+{
+    store.SetSetting("updateCheck", body.Enabled ? "true" : "false");
+    // Turning it on should answer immediately rather than at the next daily window.
+    if (body.Enabled) await updates.MaybeCheckAsync(ct);
+    return Results.Json(new
+    {
+        ok = true,
+        available = updates.UpdateAvailable,
+        latest = updates.LatestVersion,
+        url = updates.ReleaseUrl,
+    });
 });
 
 app.MapPost("/api/settings/auto-ignore-random", (ActiveArpRequest body, HostStore store) =>

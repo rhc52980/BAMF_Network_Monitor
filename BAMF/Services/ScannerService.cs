@@ -20,6 +20,7 @@ public partial class ScannerService : BackgroundService
     private readonly ILogger<ScannerService> _log;
     private readonly IConfiguration _config;
     private readonly IHttpClientFactory _httpFactory;
+    private readonly UpdateChecker _updates;
 
     public DateTime? LastScanUtc { get; private set; }
     public int ScanIntervalSeconds { get; private set; } = 60;
@@ -54,13 +55,14 @@ public partial class ScannerService : BackgroundService
     }
 
     public ScannerService(HostStore store, OuiLookup oui, IConfiguration config,
-        IHttpClientFactory httpFactory, ILogger<ScannerService> log)
+        IHttpClientFactory httpFactory, ILogger<ScannerService> log, UpdateChecker updates)
     {
         _store = store;
         _oui = oui;
         _config = config;
         _httpFactory = httpFactory;
         _log = log;
+        _updates = updates;
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -107,6 +109,9 @@ public partial class ScannerService : BackgroundService
                 // Vendor/hostname-derived device guesses. No packets are sent -
                 // deeper fingerprinting stays behind the Identify action.
                 _store.ApplyPassiveFingerprints();
+
+                // Opt-in, at most once a day, and failures are silent.
+                await _updates.MaybeCheckAsync(ct);
 
                 LastScanUtc = DateTime.UtcNow;
 
