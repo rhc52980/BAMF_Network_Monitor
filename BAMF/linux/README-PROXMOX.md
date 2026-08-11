@@ -39,9 +39,19 @@ pct push 200 BAMF.zip /root/BAMF.zip
 
 # inside the container (pct enter 200) - first time, extract just the script:
 cd /root && apt-get update && apt-get install -y unzip
-unzip -j BAMF.zip "BAMF/linux/install.sh" -d /root
+unzip -j -o BAMF.zip "*/BAMF/linux/install.sh" "BAMF/linux/install.sh" -d /root
+sed -i 's/\r$//' /root/install.sh          # harmless if already LF
 bash /root/install.sh /root/BAMF.zip
 ```
+
+The wildcard matters: a zip downloaded from GitHub wraps everything in a
+`BAMF_Network_Monitor-<ref>/` folder, so the bare `BAMF/linux/install.sh` path
+finds nothing. Both forms are listed above so either layout works.
+
+The `sed` line is belt-and-braces. The repo stores shell scripts with Unix line
+endings, but a zip built on a Windows machine with `core.autocrlf=true` can
+still arrive with CRLF, and bash rejects that with
+`$'\r': command not found` and `set: pipefail: invalid option name`.
 
 The script extracts the zip to a temp folder, builds to `/opt/bamf`, and cleans
 up - `/opt/bamf` is the only folder that persists, holding the app, your
