@@ -74,6 +74,7 @@ app.UseStaticFiles();
 
 app.MapGet("/api/hosts", (HostStore store, ScannerService scanner) =>
 {
+    var linkTemplate = app.Configuration["Bamf:DeviceLinkTemplate"];
     var hosts = store.GetAll().Select(h => new
     {
         id = h.Id,
@@ -90,6 +91,8 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner) =>
         forgotten = h.Forgotten,
         note = h.Note,
         osGuess = h.OsGuess,
+        link = h.Link,                                              // raw override, for editing
+        linkUrl = DeviceLink.Resolve(h.Link, h.Ip, linkTemplate),   // resolved, for the href
         firstSeen = h.FirstSeen,
         lastSeen = h.LastSeen,
     });
@@ -398,6 +401,27 @@ app.MapPost("/api/hosts/{id:long}/note", (long id, NoteRequest body, HostStore s
     return store.SetNote(id, note) ? Results.Ok() : Results.NotFound();
 });
 
+// Per-host link override. Accepts a bare port ("8006"), ":8006/admin", or a
+// full URL with an optional {ip} placeholder. Empty clears it back to the
+// global template. The resolved URL is returned so the caller can see what it
+// will actually open - including when the input was rejected as non-http(s).
+app.MapPost("/api/hosts/{id:long}/link", (long id, LinkRequest body, HostStore store) =>
+{
+    var host = store.GetAll().FirstOrDefault(h => h.Id == id);
+    if (host is null) return Results.NotFound();
+
+    var raw = (body.Link ?? "").Trim();
+    if (raw.Length > 200) raw = raw[..200];
+    if (!store.SetLink(id, raw)) return Results.NotFound();
+
+    return Results.Json(new
+    {
+        ok = true,
+        link = raw,
+        linkUrl = DeviceLink.Resolve(raw, host.Ip, app.Configuration["Bamf:DeviceLinkTemplate"]),
+    });
+});
+
 app.MapPost("/api/hosts/{id:long}/name", (long id, NameRequest body, HostStore store) =>
 {
     var name = (body.Name ?? "").Trim();
@@ -449,6 +473,7 @@ static bool CryptographicEquals(string a, string b)
 record KnownRequest(bool Known);
 record NameRequest(string? Name);
 record NoteRequest(string? Note);
+record LinkRequest(string? Link);
 record IgnoreRequest(bool Ignored);
 record WatchRequest(bool Watched);
 record ForgetRequest(bool Forgotten);

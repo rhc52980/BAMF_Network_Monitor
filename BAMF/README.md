@@ -86,10 +86,10 @@ watch the log output and confirm the subnet detection and scan look right.
 The version is declared once, as `<Version>` in `BAMF.csproj`, and shows up in
 three places so you can always tell what's actually running:
 
-- **Startup log** — `BAMF 1.2.2 (built 2026-08-10 14:10 UTC) starting`, the
+- **Startup log** — `BAMF 1.3.0 (built 2026-08-10 15:20 UTC) starting`, the
   first line in the Windows Event Log or `journalctl -u bamf`.
 - **`/api/hosts`** — `version` and `buildDate` fields alongside the scan metadata.
-- **Dashboard header** — `v1.2.2 · 2026-08-10` next to the BAMF wordmark; hover
+- **Dashboard header** — `v1.3.0 · 2026-08-10` next to the BAMF wordmark; hover
   for the full build timestamp.
 
 Each build is also stamped with its UTC build date, because between releases
@@ -105,7 +105,7 @@ the only thing separating them is the build date. To cut a release, bump and
 tag:
 
 ```bash
-git tag v1.2.2 && git push --tags
+git tag v1.3.0 && git push --tags
 ```
 
 ## Configuration (`appsettings.json`)
@@ -114,6 +114,7 @@ git tag v1.2.2 && git push --tags
 |---|---|
 | `Urls` | Listen address. Default `http://0.0.0.0:8840` (all interfaces). |
 | `Bamf:Subnets` | List of CIDRs to scan, e.g. `["192.168.1.0/24", "192.168.2.0/24"]`. Empty list = auto-detect every active IPv4 interface. (`Bamf:Subnet` as a single string still works for back-compat.) |
+| `Bamf:DeviceLinkTemplate` | Where a device's IP link points when it has no link of its own. `{ip}` is the device address. Default `http://{ip}`. |
 | `Bamf:HistoryRetentionDays` | Days of online/offline history to keep (default 90, pruned daily). |
 | `Bamf:AutoDownloadOui` | Download the IEEE vendor registry on first run (default true). |
 | `Bamf:ActiveArpScan` | Use raw ARP scanning via Npcap/libpcap when available; falls back to ping sweep otherwise. |
@@ -439,6 +440,7 @@ scan, or delete a thing.
 | POST | `/api/hosts/{id}/watch` | Body `{"watched": true}` — watch a host for downtime (star toggle in the UI) |
 | POST | `/api/hosts/{id}/ignore` | Body `{"ignored": true}` — hide a host from main views and suppress its alerts/history |
 | POST | `/api/hosts/{id}/note` | Body `{"note": "..."}` — save a free-text note (max 500 chars) |
+| POST | `/api/hosts/{id}/link` | Body `{"link": "8006"}` — per-host link override: bare port, `:port/path`, or a full URL with an optional `{ip}`. Empty clears it. Returns the resolved `linkUrl` |
 | POST | `/api/hosts/{id}/name` | Body `{"name": "Kevin's PC"}` — set a friendly name (empty string clears it). In the UI, click a host's name to edit it. |
 | POST | `/api/hosts/{id}/wake` | Send a Wake-on-LAN magic packet to the host (button appears on offline hosts) |
 | GET | `/api/hosts/{id}/portscan` | On-demand port check for one host. Optional `?ports=22,80,8000-8100` for a custom set (default: ~18 common ports) |
@@ -452,8 +454,23 @@ scan, or delete a thing.
 
 ## Device links and port check
 
-Each host's IP is a link that opens `http://<ip>` in a new tab - handy for
-routers, NAS boxes, printers, and cameras with web UIs. The **Ports** button
+Each host's IP is a link to that device's web UI - handy for routers, NAS
+boxes, printers, and cameras.
+
+**Where it points is configurable**, because a real network rarely runs
+everything on port 80:
+
+- **Per device** - **Set link…** in a host's ⋯ menu. Accepts a bare port
+  (`8006` → `http://<ip>:8006`), a port with a path (`:8006/admin`), or a full
+  URL with an optional `{ip}` placeholder (`https://{ip}:8443`). A small ⇗
+  marks devices with their own link. Like names and notes, it's bound to the
+  MAC, so it survives the device changing IP.
+- **For everything else** - `Bamf:DeviceLinkTemplate` in `appsettings.json`,
+  default `http://{ip}`. Set it to `https://{ip}` or `http://{ip}:8080` and
+  every device without its own link follows.
+
+Only `http` and `https` links are accepted; anything else falls back to
+`http://<ip>` rather than becoming a clickable link. The **Ports** button
 runs an on-demand check of ~18 common service ports (HTTP, HTTPS, SSH, SMB,
 RDP, print, Plex, etc.) for that one host and shows what's open; web ports
 become clickable links with the right scheme.

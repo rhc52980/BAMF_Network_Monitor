@@ -181,6 +181,7 @@
   .brand .sub { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim); }
   .brand .ver { font-size: 10px; color: var(--text-dim); opacity: 0.75; align-self: flex-start; margin-left: -4px; }
   .os-guess { display: block; font-size: 10px; color: var(--text-dim); opacity: 0.85; }
+  .link-flag { font-size: 10px; opacity: 0.7; margin-left: 3px; }
   .scanline {
     margin-left: auto; display: flex; align-items: center; gap: 12px;
     font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim);
@@ -1282,7 +1283,7 @@ function render() {
         ${h.note ? `<span class="note-flag" title="${esc(h.note)}">\uD83D\uDCDD</span>` : ""}
         ${showDns ? `<span class="dns">${esc(h.hostname)}</span>` : ""}
       </td>
-      <td class="ip" data-label="IP"><a href="http://${esc(h.ip)}" target="_blank" rel="noopener" title="Open http://${esc(h.ip)}">${esc(h.ip)}</a></td>
+      <td class="ip" data-label="IP"><a href="${esc(h.linkUrl || ("http://" + h.ip))}" target="_blank" rel="noopener" title="Open ${esc(h.linkUrl || ("http://" + h.ip))}${h.link ? " (custom link)" : ""}">${esc(h.ip)}${h.link ? '<span class="link-flag" title="Custom link">⇗</span>' : ""}</a></td>
       <td class="mac" data-label="MAC">${esc(h.mac)}</td>
       <td class="vendor" data-label="Vendor">${esc(h.vendor)}${h.osGuess ? `<span class="os-guess" title="Device guess — heuristic, from ${esc(h.osGuess)}">${esc(h.osGuess)}</span>` : ""}</td>
       <td class="ip" data-label="Network">${esc(h.subnet || "—")}</td>
@@ -1380,6 +1381,7 @@ function render() {
         }
       }, { danger: true });
     } else {
+      addItem(h.link ? "Change link…" : "Set link…", () => setHostLink(h));
       addItem("Identify device", () => identifyHost(h));
       addItem("Scan ports", () => scanPorts(h, more, null));
       addItem("Scan custom ports…", () => {
@@ -1500,6 +1502,34 @@ function renderMultiHostScan(el, data) {
     html += `<div style="margin-top:10px"><div class="scan-entry-head"><span class="nm">${esc(hd.name)}</span><span class="ipx">${esc(hd.ip)} · ${esc(hd.subnet)}</span></div>${portChips(hd.ip, hd.ports)}</div>`;
   }
   el.querySelector(".scan-entry-body").innerHTML = html;
+}
+
+// Per-host link override: a port, a ":port/path", or a full URL. The server
+// resolves and validates it, and tells us what it will actually open.
+async function setHostLink(host) {
+  const current = host.link || "";
+  const answer = prompt(
+    `Link for ${dispName(host)} (${host.ip})\n\n` +
+    `Examples:\n` +
+    `  8006                  → http://${host.ip}:8006\n` +
+    `  :8006/admin           → http://${host.ip}:8006/admin\n` +
+    `  https://{ip}:8006     → {ip} is replaced with the address\n\n` +
+    `Leave empty to use the default (${host.linkUrl && !current ? host.linkUrl : "http://" + host.ip}).`,
+    current);
+  if (answer === null) return; // cancelled
+  try {
+    const r = await fetch(`/api/hosts/${host.id}/link`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ link: answer }),
+    });
+    const d = await r.json();
+    if (!r.ok) { toast("Could not save the link"); return; }
+    toast(answer.trim()
+      ? `Link set: <span class="mono">${esc(d.linkUrl)}</span>`
+      : "Link reset to the default");
+    await refresh();
+  } catch { toast("Could not save the link — see server logs"); }
 }
 
 // On-demand device identification. Results land in the scan panel alongside
