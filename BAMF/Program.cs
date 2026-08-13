@@ -43,6 +43,30 @@ var app = builder.Build();
 // First line in the Event Log / journal, so "what's actually running?" is answerable.
 app.Logger.LogInformation("BAMF {Version} (built {BuildDate} UTC) starting", version, buildDate);
 
+// ---------- warn about plaintext where it costs you something ----------
+// BAMF's own calls (IEEE registry, GitHub update check) are HTTPS. These two
+// are the paths where a configuration choice can put data in the clear.
+var webhook = app.Configuration["Bamf:WebhookUrl"];
+if (!string.IsNullOrWhiteSpace(webhook) &&
+    webhook.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+{
+    app.Logger.LogWarning(
+        "WebhookUrl uses http:// - device names, MACs and IPs will be sent in plaintext. " +
+        "Use https:// if the endpoint supports it.");
+}
+
+if (!string.IsNullOrEmpty(app.Configuration["Bamf:Password"]))
+{
+    var urls = app.Configuration["Urls"] ?? "";
+    if (!urls.Contains("https://", StringComparison.OrdinalIgnoreCase))
+    {
+        app.Logger.LogWarning(
+            "A password is set but the dashboard is served over http:// - HTTP Basic auth " +
+            "sends it base64-encoded, which is encoding, not encryption. Fine on a trusted " +
+            "LAN; serve HTTPS if this is reachable from anywhere else (see the README).");
+    }
+}
+
 // ---------- optional HTTP Basic auth ----------
 var password = app.Configuration["Bamf:Password"];
 if (!string.IsNullOrEmpty(password))

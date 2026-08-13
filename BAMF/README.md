@@ -86,10 +86,10 @@ watch the log output and confirm the subnet detection and scan look right.
 The version is declared once, as `<Version>` in `BAMF.csproj`, and shows up in
 three places so you can always tell what's actually running:
 
-- **Startup log** — `BAMF 1.4.0 (built 2026-08-11 03:50 UTC) starting`, the
+- **Startup log** — `BAMF 1.4.1 (built 2026-08-11 04:10 UTC) starting`, the
   first line in the Windows Event Log or `journalctl -u bamf`.
 - **`/api/hosts`** — `version` and `buildDate` fields alongside the scan metadata.
-- **Dashboard header** — `v1.4.0 · 2026-08-11` next to the BAMF wordmark; hover
+- **Dashboard header** — `v1.4.1 · 2026-08-11` next to the BAMF wordmark; hover
   for the full build timestamp.
 
 Each build is also stamped with its UTC build date, because between releases
@@ -105,7 +105,7 @@ the only thing separating them is the build date. To cut a release, bump and
 tag:
 
 ```bash
-git tag v1.4.0 && git push --tags
+git tag v1.4.1 && git push --tags
 ```
 
 ## Configuration (`appsettings.json`)
@@ -123,7 +123,7 @@ git tag v1.4.0 && git push --tags
 | `Bamf:ScanIntervalSeconds` | Seconds between scans. |
 | `Bamf:AutoIgnoreRandomizedMacs` | Auto-ignore new hosts with randomized MACs (default in shipped config: true). |
 | `Bamf:WebhookUrl` | Optional. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use the dashboard's Test webhook button to verify. |
-| `Bamf:Password` | Optional. If set, the UI/API require it via HTTP Basic auth (any username). |
+| `Bamf:Password` | Optional. If set, the UI/API require it via HTTP Basic auth (any username). Over plain HTTP the credential is only base64-encoded — see [What BAMF talks to](#what-bamf-talks-to). |
 | `Bamf:DatabasePath` | SQLite file, relative to the exe. |
 
 ## Active ARP scanning (optional, recommended)
@@ -184,6 +184,70 @@ The state is in `/api/hosts` under `update`, so scripts can see it too:
 
 Note: a **private** repository returns 404 to an unauthenticated request, so
 the check quietly finds nothing until the repository is public.
+
+## What BAMF talks to
+
+Everything BAMF initiates on its own, and how it's protected:
+
+| Connection | Protection | When |
+|---|---|---|
+| IEEE vendor registry (`standards-oui.ieee.org`) | **HTTPS** | First run, unless `AutoDownloadOui` is false |
+| GitHub update check (`api.github.com`) | **HTTPS** | Daily, only if you enable the update check |
+| Your webhook | **whatever scheme your URL uses** | When a new host appears, or a watched host changes state |
+| Scanning: ARP, ICMP, UDP probes, NetBIOS (137), Wake-on-LAN (9), port checks | none — these protocols have none | Every scan / on demand |
+
+Certificate validation is left at the .NET default: a bad or expired
+certificate fails the request. Nothing in BAMF disables it.
+
+The dashboard itself has **no external dependencies** — fonts are served
+locally, and there are no CDN scripts, analytics, or tracking of any kind.
+
+Two things worth knowing:
+
+- **An `http://` webhook sends device names, MACs and IPs in plaintext.** BAMF
+  logs a warning at startup if yours is one. Discord and most services offer
+  HTTPS endpoints - use them.
+- **HTTP Basic auth over plain HTTP is encoding, not encryption.** If you set
+  `Bamf:Password`, the credential travels base64-encoded and anyone who can see
+  traffic on that segment can read it. BAMF warns about this too. Fine on a
+  trusted LAN; see below if not.
+
+### Serving the dashboard over HTTPS
+
+Point `Urls` at an `https://` address and give Kestrel a certificate. With a
+PFX, in `appsettings.json`:
+
+```json
+{
+  "Urls": "https://0.0.0.0:8843",
+  "Kestrel": {
+    "Certificates": {
+      "Default": { "Path": "bamf.pfx", "Password": "your-pfx-password" }
+    }
+  }
+}
+```
+
+A self-signed certificate is enough to encrypt the connection (browsers will
+warn once, since nothing vouches for it):
+
+```powershell
+# Windows - creates the cert and exports it next to the exe
+$c = New-SelfSignedCertificate -DnsName "bamf.lan","192.168.1.10" -CertStoreLocation Cert:\LocalMachine\My
+$p = ConvertTo-SecureString "your-pfx-password" -AsPlainText -Force
+Export-PfxCertificate -Cert $c -FilePath C:\BAMF\bamf.pfx -Password $p
+```
+
+```bash
+# Linux
+openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
+  -subj "/CN=bamf.lan" -keyout /tmp/k.pem -out /tmp/c.pem
+openssl pkcs12 -export -out /opt/bamf/bamf.pfx -inkey /tmp/k.pem -in /tmp/c.pem \
+  -passout pass:your-pfx-password
+```
+
+Then restart the service and use `https://<server>:8843`. Remember to open the
+new port and, if you had one, close the old 8840 rule.
 
 ## Vendor names
 
