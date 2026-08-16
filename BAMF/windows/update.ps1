@@ -257,7 +257,7 @@ try {
     }
 
     # --- keep the updater tools fresh inside the app folder ---
-    $toolSrc = Join-Path $srcDir "update"
+    $toolSrc = Join-Path $srcDir "windows"
     if (Test-Path $toolSrc) {
         Copy-Item (Join-Path $toolSrc "*") $AppDir -Force -Exclude "Install-DesktopIcon.bat"
     }
