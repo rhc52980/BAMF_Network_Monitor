@@ -19,6 +19,9 @@
 param([string]$ZipPath)
 
 $ErrorActionPreference = "Stop"
+# Needed to read a version out of a package without extracting it. Windows
+# PowerShell 5.1 doesn't load this by default.
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 $AppDir  = "C:\BAMF"      # default for a fresh install; an existing service wins
 $LegacyDir = "C:\BAMFApp" # pre-1.2.2 name, migrated automatically
 $Service = "BAMF"
@@ -71,10 +74,55 @@ try {
     if (-not $srcDir) {
         if (-not $ZipPath) {
             $downloads = Join-Path $env:USERPROFILE "Downloads"
-            $zip = Get-ChildItem -Path $downloads -Filter "BAMF*.zip" -File -ErrorAction SilentlyContinue |
-                   Sort-Object LastWriteTime -Descending | Select-Object -First 1
-            if (-not $zip) { throw "No BAMF*.zip found in $downloads. Download the update zip first, or pass -ZipPath." }
-            $ZipPath = $zip.FullName
+            $candidates = @(Get-ChildItem -Path $downloads -Filter "BAMF*.zip" -File -ErrorAction SilentlyContinue)
+            if ($candidates.Count -eq 0) { throw "No BAMF*.zip found in $downloads. Download the update zip first, or pass -ZipPath." }
+
+            # Pick the HIGHEST VERSION, not the newest file. Downloading an older
+            # package after a newer one used to win purely on timestamp, which is
+            # how a stale zip can quietly reinstall old code.
+            $ranked = foreach ($c in $candidates) {
+                $raw = $null
+                # The version declared inside the package is authoritative - a
+                # filename can say anything.
+                try {
+                    $z = [System.IO.Compression.ZipFile]::OpenRead($c.FullName)
+                    try {
+                        $entry = $z.Entries | Where-Object { $_.FullName -like "*BAMF.csproj" } | Select-Object -First 1
+                        if ($entry) {
+                            $sr = New-Object System.IO.StreamReader($entry.Open())
+                            $text = $sr.ReadToEnd(); $sr.Close()
+                            $m = [regex]::Match($text, '<Version>\s*([^<]+?)\s*</Version>')
+                            if ($m.Success) { $raw = $m.Groups[1].Value }
+                        }
+                    }
+                    finally { $z.Dispose() }
+                }
+                catch { }   # unreadable or not a zip: ranks last, never crashes the update
+
+                # Fall back to a version in the filename, e.g. BAMF-1.5.0.zip
+                if (-not $raw) {
+                    $fm = [regex]::Match($c.Name, '(\d+\.\d+(?:\.\d+)?)')
+                    if ($fm.Success) { $raw = $fm.Groups[1].Value }
+                }
+
+                $parsed = [version]"0.0.0"
+                if ($raw) { [void][version]::TryParse($raw, [ref]$parsed) }
+                [pscustomobject]@{ File = $c; Version = $parsed; Raw = $raw }
+            }
+
+            # Highest version wins; same version falls back to the newer file.
+            $ordered = $ranked | Sort-Object -Property Version, { $_.File.LastWriteTime } -Descending
+            $best = $ordered | Select-Object -First 1
+            $ZipPath = $best.File.FullName
+
+            if ($ordered.Count -gt 1) {
+                Step "Found $($ordered.Count) packages in Downloads; choosing the highest version"
+                foreach ($o in $ordered) {
+                    $mark = if ($o.File.FullName -eq $ZipPath) { '->' } else { '  ' }
+                    $shown = if ($o.Raw) { $o.Raw } else { 'unknown' }
+                    Write-Host ("     {0} {1,-28} version {2}" -f $mark, $o.File.Name, $shown)
+                }
+            }
         }
         if (-not (Test-Path $ZipPath)) { throw "Zip not found: $ZipPath" }
         Step "Using package: $ZipPath  (downloaded $((Get-Item $ZipPath).LastWriteTime))"
