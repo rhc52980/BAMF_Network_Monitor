@@ -30,6 +30,22 @@ public partial class ScannerService : BackgroundService
     private bool _npcapWarned;
     private DateTime _lastPruneUtc = DateTime.MinValue;
 
+    /// <summary>
+    /// Webhook endpoint. A URL saved from the dashboard wins over
+    /// appsettings.json, matching how the other runtime settings behave, so
+    /// changing it doesn't need a config edit or a restart.
+    /// </summary>
+    public string? WebhookUrl
+    {
+        get
+        {
+            var db = _store.GetSetting("webhookUrl");
+            if (db is not null) return db.Length == 0 ? null : db;
+            var cfg = _config["Bamf:WebhookUrl"];
+            return string.IsNullOrWhiteSpace(cfg) ? null : cfg;
+        }
+    }
+
     /// <summary>Effective toggle: DB override wins, else appsettings default.</summary>
     public bool ActiveArpEnabled
     {
@@ -498,7 +514,7 @@ public partial class ScannerService : BackgroundService
     /// <summary>Alerts for a watched host going down or recovering.</summary>
     private async Task SendStatusAlert(HostRecord host, bool up, CancellationToken ct)
     {
-        var url = _config["Bamf:WebhookUrl"];
+        var url = WebhookUrl;
         if (string.IsNullOrWhiteSpace(url)) return;
 
         var name = host.CustomName != "" ? host.CustomName
@@ -583,9 +599,9 @@ public partial class ScannerService : BackgroundService
     /// <summary>Sends a test notification. Returns null on success, else an error description.</summary>
     public async Task<string?> SendTestNotification(CancellationToken ct)
     {
-        var url = _config["Bamf:WebhookUrl"];
+        var url = WebhookUrl;
         if (string.IsNullOrWhiteSpace(url))
-            return "No webhook URL configured. Set Bamf:WebhookUrl in appsettings.json and restart.";
+            return "No webhook URL saved. Add one under Tools → Notifications.";
         try
         {
             var ok = await SendWebhook("AA:BB:CC:DD:EE:FF", "192.0.2.123", "test-device",
@@ -601,7 +617,7 @@ public partial class ScannerService : BackgroundService
     private async Task<bool> SendWebhook(string mac, string ip, string hostname, string vendor, string subnet,
         bool test, CancellationToken ct)
     {
-        var url = _config["Bamf:WebhookUrl"];
+        var url = WebhookUrl;
         if (string.IsNullOrWhiteSpace(url)) return false;
 
         try
