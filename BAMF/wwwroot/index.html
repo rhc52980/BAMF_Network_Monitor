@@ -182,6 +182,8 @@
   .brand .ver { font-size: 10px; color: var(--text-dim); opacity: 0.75; align-self: flex-start; margin-left: -4px; }
   .os-guess { display: block; font-size: 10px; color: var(--text-dim); opacity: 0.85; }
   .link-flag { font-size: 10px; opacity: 0.7; margin-left: 3px; }
+  .modal-help { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin: 0 0 12px; }
+  .modal-note { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim); margin: 6px 0 0; word-break: break-all; }
   .update-badge {
     font-family: "IBM Plex Mono", monospace; font-size: 10px; text-decoration: none;
     padding: 2px 6px; border-radius: 999px; margin-left: 6px; white-space: nowrap;
@@ -775,6 +777,7 @@
       <button class="export-btn" id="toolsBtn" title="Tools">Tools ▾</button>
       <div class="tools-menu" id="toolsMenu">
         <button id="netScan">Scan ports…</button>
+        <button id="notifySetup">Notifications…</button>
         <button id="exportCsv">Export CSV</button>
         <button id="testWebhook">Test webhook</button>
       </div>
@@ -835,6 +838,28 @@
   <div class="scan-panel-body" id="scanPanelBody"></div>
 </div>
 
+<div class="modal-backdrop" id="notifyModal" hidden>
+  <div class="modal">
+    <div class="modal-title">Notifications</div>
+    <p class="modal-help">
+      Paste a Discord webhook URL to get an alert when a new device appears, and
+      when a ⭐ watched device goes offline or comes back.
+      In Discord: <em>Server Settings → Integrations → Webhooks → New Webhook →
+      Copy Webhook URL</em>.
+    </p>
+    <label class="modal-row">Webhook URL
+      <input id="notifyUrl" class="modal-input" placeholder="https://discord.com/api/webhooks/…" autocomplete="off" spellcheck="false">
+    </label>
+    <div class="modal-note" id="notifyCurrent"></div>
+    <div class="modal-actions">
+      <button class="toggle" id="notifyClear">Remove</button>
+      <button class="toggle" id="notifyCancel">Cancel</button>
+      <button class="export-btn" id="notifySave">Save &amp; test</button>
+    </div>
+    <div class="modal-result" id="notifyResult"></div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="scanModal" hidden>
   <div class="modal">
     <div class="modal-title">Port scan</div>
@@ -881,6 +906,7 @@ let scanModes = {};       // subnet -> 'active ARP' | 'ping sweep'
 let activeArp = { enabled: false, npcapAvailable: false };
 let autoIgnoreRandom = false;
 let webhookConfigured = false;
+let webhookMasked = null;   // masked form only; the server never sends the full URL
 let updateInfo = null;      // { enabled, available, latest, url } from /api/hosts
 let appVersion = "";
 let loadedOnce = false;
@@ -1608,6 +1634,7 @@ async function refresh() {
     updateInfo = data.update || null;
     appVersion = data.version || appVersion;
     webhookConfigured = !!data.webhookConfigured;
+    webhookMasked = data.webhookMasked || null;
     $("testWebhook").style.display = webhookConfigured ? "" : "none";
     renderArpToggle();
     renderRandToggle();
@@ -1960,6 +1987,66 @@ $("scanGo").onclick = async () => {
     el.classList.remove("busy");
     el.querySelector(".scan-entry-body").innerHTML = '<span class="none">Scan failed — see server logs.</span>';
   }
+};
+
+// Notifications dialog — paste a webhook URL instead of editing appsettings.json
+// and restarting the service.
+function openNotifyModal() {
+  $("notifyUrl").value = "";
+  $("notifyResult").innerHTML = "";
+  $("notifyCurrent").textContent = webhookMasked
+    ? "Currently saved: " + webhookMasked
+    : "No webhook saved — alerts are off.";
+  $("notifyClear").style.display = webhookConfigured ? "" : "none";
+  $("notifyModal").hidden = false;
+  $("notifyUrl").focus();
+}
+$("notifySetup").onclick = openNotifyModal;
+$("notifyCancel").onclick = () => { $("notifyModal").hidden = true; };
+$("notifyModal").onclick = e => { if (e.target.id === "notifyModal") $("notifyModal").hidden = true; };
+$("notifyUrl").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("notifySave").click(); } };
+
+async function saveWebhook(url) {
+  const r = await fetch("/api/settings/webhook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+  return { ok: r.ok, data: await r.json() };
+}
+
+$("notifySave").onclick = async () => {
+  const url = $("notifyUrl").value.trim();
+  const out = $("notifyResult");
+  if (!url) { out.innerHTML = '<span class="scan-progress">Paste a webhook URL first.</span>'; return; }
+  out.innerHTML = '<span class="scan-progress">Saving…</span>';
+  try {
+    const { ok, data } = await saveWebhook(url);
+    if (!ok) { out.innerHTML = `<span class="none">${esc(data.error || "Could not save that URL.")}</span>`; return; }
+
+    out.innerHTML = '<span class="scan-progress">Saved — sending a test…</span>';
+    const t = await fetch("/api/webhook/test", { method: "POST" });
+    const td = await t.json();
+    if (td.ok) {
+      out.innerHTML = `<span class="scan-progress">Test sent${data.discord ? " — check your Discord channel" : ""}.</span>`
+        + (data.insecure ? '<div class="none">Note: this is an http:// URL, so alerts travel in plaintext.</div>' : "");
+      toast("Notifications on");
+    } else {
+      out.innerHTML = `<span class="none">Saved, but the test failed: ${esc(td.error || "unknown error")}</span>`;
+    }
+    await refresh();
+    $("notifyCurrent").textContent = "Currently saved: " + (webhookMasked || "(saved)");
+    $("notifyClear").style.display = "";
+  } catch { out.innerHTML = '<span class="none">Could not save — see server logs.</span>'; }
+};
+
+$("notifyClear").onclick = async () => {
+  try {
+    await saveWebhook("");
+    await refresh();
+    $("notifyModal").hidden = true;
+    toast("Webhook removed — notifications off");
+  } catch { toast("Could not remove the webhook"); }
 };
 
 $("testWebhook").onclick = async () => {
