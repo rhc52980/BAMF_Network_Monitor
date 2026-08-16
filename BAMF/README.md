@@ -86,10 +86,10 @@ watch the log output and confirm the subnet detection and scan look right.
 The version is declared once, as `<Version>` in `BAMF.csproj`, and shows up in
 three places so you can always tell what's actually running:
 
-- **Startup log** — `BAMF 1.5.0 (built 2026-08-13 23:20 UTC) starting`, the
+- **Startup log** — `BAMF 1.5.1 (built 2026-08-16 21:35 UTC) starting`, the
   first line in the Windows Event Log or `journalctl -u bamf`.
 - **`/api/hosts`** — `version` and `buildDate` fields alongside the scan metadata.
-- **Dashboard header** — `v1.5.0 · 2026-08-13` next to the BAMF wordmark; hover
+- **Dashboard header** — `v1.5.1 · 2026-08-16` next to the BAMF wordmark; hover
   for the full build timestamp.
 
 Each build is also stamped with its UTC build date, because between releases
@@ -105,7 +105,7 @@ the only thing separating them is the build date. To cut a release, bump and
 tag:
 
 ```bash
-git tag v1.5.0 && git push --tags
+git tag v1.5.1 && git push --tags
 ```
 
 ## Configuration (`appsettings.json`)
@@ -380,11 +380,27 @@ From then on, updating is:
 3. Ctrl+F5 the dashboard.
 
 **Which source it builds** is decided in this order: an explicit `-ZipPath`, then
-the source tree the script is sitting in, then the newest `BAMF*.zip` in
-Downloads. So running `update.ps1` out of a freshly downloaded source tree uses
-*that* tree — it won't reach past it for a stale zip left in Downloads months
-ago. The script prints the source it chose and the version it's about to
-install, e.g. `Installing version 1.0.0 (replacing 0.9.0)`.
+the source tree the script is sitting in, then a `BAMF*.zip` from Downloads. So
+running `update.ps1` out of a freshly downloaded source tree uses *that* tree —
+it won't reach past it for a stale zip left in Downloads months ago.
+
+When it does fall through to Downloads it picks the **highest version**, not the
+newest file. Each package's version is read from the `BAMF.csproj` *inside* it,
+so a misleading filename can't win; a version in the filename is the fallback,
+and a package too old to declare one ranks last. With several packages present
+it lists them and marks its choice:
+
+```
+==> Found 3 packages in Downloads; choosing the highest version
+     -> BAMF-1.5.0.zip               version 1.5.0
+        BAMF-1.2.0.zip               version 1.2.0
+        BAMF-old.zip                 version unknown
+```
+
+Timestamp order used to decide this, which meant downloading an older package
+after a newer one silently reinstalled the older code. The script also prints
+the version it's about to install and the one it replaces, e.g.
+`Installing version 1.5.0 (replacing 1.2.0)`.
 
 The updater **follows the installed service**: it reads the service's binary
 path and updates that folder, rather than assuming `C:\BAMF`. Older installs
