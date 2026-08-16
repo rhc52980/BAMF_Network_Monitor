@@ -88,5 +88,5 @@ preserves your config + database (with a snapshot in `/opt/bamf/backups`):
 - **What it can see**: same rule as anywhere - ARP is layer 2, so BAMF sees
   the segments its interfaces sit on. One `netX` interface per network you
   want watched.
-- The `update/` folder (Windows updater + desktop shortcut) is not used on
+- The `windows/` folder (Windows installer + updater) is not used on
   Linux; `linux/install.sh` covers install + update.
