@@ -34,13 +34,30 @@ The dashboard at `http://<server>:8840` polls `/api/hosts` every 10 seconds.
   nothing installed if you publish that way.
 - Optional, for active ARP scanning: Npcap on Windows, libpcap on Linux.
 
+## Where everything lives
+
+Two folders in the source, one per platform — open the one for your OS and its
+`README.md` tells you which file to run:
+
+| | Windows | Linux |
+|---|---|---|
+| **Scripts** | `BAMF\windows\` | `BAMF/linux/` |
+| **What you run** | `Install-BAMF.bat` (first time)<br>`Update-BAMF.bat` (later) | `install.sh` (both) |
+| **Installs to** | `C:\BAMF` | `/opt/bamf` |
+| **Your config** | `C:\BAMF\appsettings.json` | `/opt/bamf/appsettings.json` |
+| **Database** | `C:\BAMF\bamf.db` | `/opt/bamf/bamf.db` |
+| **DB snapshots** | `C:\BAMF\backups\` | `/opt/bamf/backups/` |
+
+Everything an install owns is in that one folder, so backing BAMF up means
+copying it, and removing BAMF means deleting it plus the service.
+
 ## Install
 
 - **Windows** — extract the source anywhere and double-click
-  `update\Install-BAMF.bat`. It elevates, builds to `C:\BAMF`, creates the
+  `windows\Install-BAMF.bat`. It elevates, builds to `C:\BAMF`, creates the
   `BAMF` service, and starts it; then open http://localhost:8840. Needs the
-  .NET 8 SDK on that machine (it builds there). `update\Install-DesktopIcon.bat`
-  adds a Desktop shortcut, and `update\Update-BAMF.bat` handles updates later —
+  .NET 8 SDK on that machine (it builds there). `windows\Install-DesktopIcon.bat`
+  adds a Desktop shortcut, and `windows\Update-BAMF.bat` handles updates later —
   it's the same script, so installing and updating are one operation. Prefer to
   do it by hand? See [Install as a Windows Service](#install-as-a-windows-service).
 - **Linux** — `linux/install.sh` handles install *and* updates end to end
@@ -86,10 +103,10 @@ watch the log output and confirm the subnet detection and scan look right.
 The version is declared once, as `<Version>` in `BAMF.csproj`, and shows up in
 three places so you can always tell what's actually running:
 
-- **Startup log** — `BAMF 1.5.1 (built 2026-08-16 21:35 UTC) starting`, the
+- **Startup log** — `BAMF 1.6.0 (built 2026-08-16 21:50 UTC) starting`, the
   first line in the Windows Event Log or `journalctl -u bamf`.
 - **`/api/hosts`** — `version` and `buildDate` fields alongside the scan metadata.
-- **Dashboard header** — `v1.5.1 · 2026-08-16` next to the BAMF wordmark; hover
+- **Dashboard header** — `v1.6.0 · 2026-08-16` next to the BAMF wordmark; hover
   for the full build timestamp.
 
 Each build is also stamped with its UTC build date, because between releases
@@ -105,7 +122,7 @@ the only thing separating them is the build date. To cut a release, bump and
 tag:
 
 ```bash
-git tag v1.5.1 && git push --tags
+git tag v1.6.0 && git push --tags
 ```
 
 ## Configuration (`appsettings.json`)
@@ -310,7 +327,7 @@ choice persists across reloads. Respects prefers-reduced-motion.
 
 ## Desktop shortcut (Windows)
 
-Run `update\Install-DesktopIcon.bat` once. It puts a **BAMF** shortcut on your
+Run `windows\Install-DesktopIcon.bat` once. It puts a **BAMF** shortcut on your
 Desktop with the burst icon; double-clicking it opens the dashboard, silently
 starting the service first if it isn't running (no admin prompt when the
 service is already up). The launcher and icon are copied to `C:\BAMF`, so
@@ -359,7 +376,7 @@ On Linux, updating is the same one command as installing:
 `bash /opt/bamf/install.sh /root/BAMF.zip` — it preserves your config and
 database and snapshots the DB into `/opt/bamf/backups` first.
 
-The `update` folder contains `Update-BAMF.bat` + `update.ps1`. One-time setup:
+The `windows` folder contains `Update-BAMF.bat` + `update.ps1`. One-time setup:
 copy both files somewhere permanent (the Desktop is fine). The updater builds
 from the zip via a temp folder, so the only folder BAMF keeps on disk is
 `C:\BAMF` - app, config, database, and backups all live there.
@@ -417,7 +434,7 @@ your kept config so you can merge anything interesting.
 
 ## Install as a Windows Service
 
-Most people should just double-click `update\Install-BAMF.bat`, which does all
+Most people should just double-click `windows\Install-BAMF.bat`, which does all
 of this. The manual route, if you want control over the location or the service
 account:
 
