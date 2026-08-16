@@ -143,7 +143,10 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
             url = updates.ReleaseUrl,
             checkedUtc = updates.LastCheckedUtc?.ToString("o"),
         },
-        webhookConfigured = !string.IsNullOrWhiteSpace(app.Configuration["Bamf:WebhookUrl"]),
+        webhookConfigured = !string.IsNullOrWhiteSpace(scanner.WebhookUrl),
+        // Masked, never the full URL: anyone who can load the dashboard could
+        // read it, and the token in a Discord webhook URL is the credential.
+        webhookMasked = MaskWebhook(scanner.WebhookUrl),
         lastScan = scanner.LastScanUtc?.ToString("o"),
         scanIntervalSeconds = scanner.ScanIntervalSeconds,
         hosts,
@@ -409,6 +412,38 @@ app.MapGet("/api/hosts/{id:long}/events", (long id, HostStore store) =>
 app.MapPost("/api/hosts/{id:long}/known", (long id, KnownRequest body, HostStore store) =>
     store.SetKnown(id, body.Known) ? Results.Ok() : Results.NotFound());
 
+// Save or clear the webhook endpoint from the dashboard, so it doesn't need a
+// config edit and a service restart. Stored in the database, which overrides
+// Bamf:WebhookUrl exactly like the other runtime settings.
+app.MapPost("/api/settings/webhook", (WebhookRequest body, HostStore store, ScannerService scanner) =>
+{
+    var url = (body.Url ?? "").Trim();
+
+    if (url.Length == 0)
+    {
+        store.SetSetting("webhookUrl", "");
+        return Results.Json(new { ok = true, configured = false, masked = (string?)null });
+    }
+
+    if (url.Length > 500)
+        return Results.BadRequest(new { error = "That URL is implausibly long." });
+    if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+        (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        return Results.BadRequest(new { error = "Enter a full http:// or https:// URL." });
+
+    store.SetSetting("webhookUrl", url);
+    return Results.Json(new
+    {
+        ok = true,
+        configured = true,
+        masked = MaskWebhook(url),
+        // Surfaced so the dashboard can say so rather than failing silently later.
+        insecure = uri.Scheme == Uri.UriSchemeHttp,
+        discord = uri.Host.EndsWith("discord.com", StringComparison.OrdinalIgnoreCase) ||
+                  uri.Host.EndsWith("discordapp.com", StringComparison.OrdinalIgnoreCase),
+    });
+});
+
 app.MapPost("/api/webhook/test", async (ScannerService scanner, CancellationToken ct) =>
 {
     var error = await scanner.SendTestNotification(ct);
@@ -492,6 +527,22 @@ app.MapDelete("/api/hosts/{id:long}", (long id, HostStore store) =>
 
 app.Run();
 
+// Enough of the URL to recognise which webhook is saved, never enough to use it.
+// A Discord URL ends /webhooks/<id>/<token>; the token is the secret.
+static string? MaskWebhook(string? url)
+{
+    if (string.IsNullOrWhiteSpace(url)) return null;
+    if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return "(saved)";
+
+    var segments = uri.AbsolutePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+    if (segments.Length == 0) return $"{uri.Scheme}://{uri.Host}";
+
+    var last = segments[^1];
+    var shown = last.Length <= 6 ? new string('•', last.Length) : last[..3] + new string('•', 8);
+    var path = string.Join("/", segments[..^1].Append(shown));
+    return $"{uri.Scheme}://{uri.Host}/{path}";
+}
+
 // Sorts dotted-quads numerically so .9 comes before .10.
 static long IpSortKey(string ip)
 {
@@ -527,6 +578,7 @@ record KnownRequest(bool Known);
 record NameRequest(string? Name);
 record NoteRequest(string? Note);
 record LinkRequest(string? Link);
+record WebhookRequest(string? Url);
 record IgnoreRequest(bool Ignored);
 record WatchRequest(bool Watched);
 record ForgetRequest(bool Forgotten);

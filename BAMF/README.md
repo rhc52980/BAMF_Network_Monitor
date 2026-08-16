@@ -86,10 +86,10 @@ watch the log output and confirm the subnet detection and scan look right.
 The version is declared once, as `<Version>` in `BAMF.csproj`, and shows up in
 three places so you can always tell what's actually running:
 
-- **Startup log** — `BAMF 1.4.1 (built 2026-08-11 04:10 UTC) starting`, the
+- **Startup log** — `BAMF 1.5.0 (built 2026-08-13 23:20 UTC) starting`, the
   first line in the Windows Event Log or `journalctl -u bamf`.
 - **`/api/hosts`** — `version` and `buildDate` fields alongside the scan metadata.
-- **Dashboard header** — `v1.4.1 · 2026-08-11` next to the BAMF wordmark; hover
+- **Dashboard header** — `v1.5.0 · 2026-08-13` next to the BAMF wordmark; hover
   for the full build timestamp.
 
 Each build is also stamped with its UTC build date, because between releases
@@ -105,7 +105,7 @@ the only thing separating them is the build date. To cut a release, bump and
 tag:
 
 ```bash
-git tag v1.4.1 && git push --tags
+git tag v1.5.0 && git push --tags
 ```
 
 ## Configuration (`appsettings.json`)
@@ -122,7 +122,7 @@ git tag v1.4.1 && git push --tags
 | `Bamf:ActiveArpScan` | Use raw ARP scanning via Npcap/libpcap when available; falls back to ping sweep otherwise. |
 | `Bamf:ScanIntervalSeconds` | Seconds between scans. |
 | `Bamf:AutoIgnoreRandomizedMacs` | Auto-ignore new hosts with randomized MACs (default in shipped config: true). |
-| `Bamf:WebhookUrl` | Optional. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use the dashboard's Test webhook button to verify. |
+| `Bamf:WebhookUrl` | Optional starting value for the notification webhook — the dashboard's **Tools → Notifications** saves over it. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use the dashboard's Test webhook button to verify. |
 | `Bamf:Password` | Optional. If set, the UI/API require it via HTTP Basic auth (any username). Over plain HTTP the credential is only base64-encoded — see [What BAMF talks to](#what-bamf-talks-to). |
 | `Bamf:DatabasePath` | SQLite file, relative to the exe. |
 
@@ -536,6 +536,7 @@ scan, or delete a thing.
 | POST | `/api/webhook/test` | Send a test notification to `Bamf:WebhookUrl` (the dashboard's Test webhook button). Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/settings/active-arp` | Body `{"enabled": true}` — toggle active ARP scanning at runtime |
 | POST | `/api/settings/auto-ignore-random` | Body `{"enabled": true}` — toggle auto-ignoring of randomized MACs at runtime |
+| POST | `/api/settings/webhook` | Body `{"url": "https://..."}` — save the notification webhook (empty string clears it). Returns a masked form; the full URL is never read back |
 | POST | `/api/settings/update-check` | Body `{"enabled": true}` — toggle the daily GitHub update check. Turning it on checks immediately and returns the result |
 | POST | `/api/hosts/{id}/watch` | Body `{"watched": true}` — watch a host for downtime (star toggle in the UI) |
 | POST | `/api/hosts/{id}/ignore` | Body `{"ignored": true}` — hide a host from main views and suppress its alerts/history |
@@ -719,6 +720,38 @@ curl http://<server>:8840/api/hosts.txt
 Rows are sorted by network then numeric IP, so two fetches diff cleanly. Handy
 in a terminal, and a tidy read-only way to hand an AI agent an accurate picture
 of the network. It respects `Bamf:Password` like every other route.
+
+## Discord notifications
+
+**Tools ▾ → Notifications…** — paste a webhook URL, hit **Save & test**. No
+config edit, no service restart.
+
+In Discord: *Server Settings → Integrations → Webhooks → New Webhook*, pick a
+channel, **Copy Webhook URL**, paste it in. BAMF saves it, immediately fires a
+test message, and tells you whether the endpoint accepted it — so a typo shows
+up right there instead of the first time something happens on your network.
+
+You'll then get:
+
+- an **amber** card when a new unknown device appears
+- a **red** card when a ⭐ watched device goes offline
+- a **green** card when it comes back, with how long it was down
+
+**Remove** clears it and turns alerts off.
+
+Notes:
+
+- The URL is stored in the database and **overrides `Bamf:WebhookUrl`** in
+  `appsettings.json`, the same way the header toggles override their config
+  values. The config setting still works if you'd rather manage it that way.
+- The dashboard only ever shows a **masked** form of the URL
+  (`https://discord.com/api/webhooks/1234567890/AbC••••••••`). The token is the
+  credential, and anyone who can load the dashboard could read it otherwise —
+  so the full URL is never sent back to the browser.
+- Non-Discord endpoints work too; they receive generic JSON with a `content`
+  field instead of Discord's embed format.
+- An `http://` URL is accepted but flagged, in the dialog and at startup:
+  alerts would travel in plaintext.
 
 ## Down alerts (watch)
 
