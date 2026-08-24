@@ -15,7 +15,7 @@
 set -euo pipefail
 
 APP_DIR="${1:-/opt/bamf}"
-KEEP="${BAMF_BACKUP_KEEP:-10}"
+KEEP="${BAMF_BACKUP_KEEP:-30}"
 DB="$APP_DIR/bamf.db"
 BAK="$APP_DIR/backups"
 

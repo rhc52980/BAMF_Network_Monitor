@@ -10,7 +10,7 @@
 #      repoint + desktop shortcut fixup), once
 #   4. Builds straight into the install folder
 #      - your appsettings.json is preserved (new defaults saved as appsettings.new.json)
-#      - your database is snapshotted to <install>\backups first (last 10 kept)
+#      - your database is snapshotted to <install>\backups first (last 30 kept)
 #   5. Cleans up the temp source, restarts the service (creates it if missing)
 #
 # The only folder that exists afterwards is C:\BAMF. You never need to extract
@@ -237,7 +237,7 @@ try {
         Copy-Item $db (Join-Path $bakDir "bamf-$stamp.db") -Force
         Step "Database backed up to backups\bamf-$stamp.db"
         Get-ChildItem $bakDir -Filter "bamf-*.db" | Sort-Object LastWriteTime -Descending |
-            Select-Object -Skip 10 | Remove-Item -Force
+            Select-Object -Skip 30 | Remove-Item -Force
     }
 
     # --- build straight into the app folder ---

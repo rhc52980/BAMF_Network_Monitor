@@ -14,7 +14,7 @@
 
 param(
     [string]$AppDir,
-    [int]$Keep = 10,
+    [int]$Keep = 30,
     [switch]$NoStop,     # copy without stopping - fast, but the copy may be inconsistent
     [switch]$Install     # register a nightly scheduled task instead of backing up now
 )
