@@ -1,4 +1,4 @@
-# BAMFapp
+# BAMF
 
 **Basic ARP Monitoring Framework** — a lightweight LAN monitor for Windows and
 Linux. Discovers every device on your subnets via ARP, tracks them in SQLite,
