@@ -103,10 +103,10 @@ watch the log output and confirm the subnet detection and scan look right.
 The version is declared once, as `<Version>` in `BAMF.csproj`, and shows up in
 three places so you can always tell what's actually running:
 
-- **Startup log** — `BAMF 1.7.0 (built 2026-08-23 22:30 UTC) starting`, the
+- **Startup log** — `BAMF 1.7.1 (built 2026-08-24 02:40 UTC) starting`, the
   first line in the Windows Event Log or `journalctl -u bamf`.
 - **`/api/hosts`** — `version` and `buildDate` fields alongside the scan metadata.
-- **Dashboard header** — `v1.7.0 · 2026-08-23` next to the BAMF wordmark; hover
+- **Dashboard header** — `v1.7.1 · 2026-08-24` next to the BAMF wordmark; hover
   for the full build timestamp.
 
 Each build is also stamped with its UTC build date, because between releases
@@ -122,7 +122,7 @@ the only thing separating them is the build date. To cut a release, bump and
 tag:
 
 ```bash
-git tag v1.7.0 && git push --tags
+git tag v1.7.1 && git push --tags
 ```
 
 ## Configuration (`appsettings.json`)
@@ -341,7 +341,7 @@ live in three places, and it helps to know which is which:
 | What | Where it lives | On update |
 |---|---|---|
 | Subnets, password, webhook URL, scan interval, ping tuning | `appsettings.json` | Copied aside and restored. The version's fresh defaults are written next to it as `appsettings.new.json` so you can merge in any new options. |
-| Custom names, notes, watch stars, ignored/known flags, all online-offline history, **and the dashboard's active-ARP and auto-ignore toggles** | `bamf.db` | Never touched, and snapshotted to `backups/` first (last 10 kept). |
+| Custom names, notes, watch stars, ignored/known flags, all online-offline history, **and the dashboard's active-ARP and auto-ignore toggles** | `bamf.db` | Never touched, and snapshotted to `backups/` first (last 30 kept). |
 | Theme choice | your browser's localStorage | Not on the server at all, so nothing can disturb it. |
 
 The second row is the one people don't expect: the header toggles are stored in
@@ -428,7 +428,7 @@ version it installed and the path it's running from, and warns loudly if the
 service still points somewhere else.
 
 Your database and dashboard settings are never touched, and every update
-snapshots `bamf.db` into `C:\BAMF\backups` first (last 10 kept). If an update ships new
+snapshots `bamf.db` into `C:\BAMF\backups` first (last 30 kept). If an update ships new
 config options, the fresh defaults are saved as `appsettings.new.json` next to
 your kept config so you can merge anything interesting.
 
@@ -813,9 +813,13 @@ systemctl start bamf-backup.service    # run one now
 systemctl disable --now bamf-backup.timer   # stop scheduled backups
 ```
 
-Both keep the newest **10** snapshots and copy `appsettings.json` alongside
-them, so a restore gets your subnets, webhook and password back too. Change the
-retention with `-Keep 30` or `BAMF_BACKUP_KEEP=30`.
+Both keep the newest **30** snapshots and copy `appsettings.json` alongside
+them, so a restore gets your subnets, webhook and password back too. At one a
+night that's roughly a month of history; the database is small, so 30 costs
+very little disk. Change it with `-Keep 60` or `BAMF_BACKUP_KEEP=60`.
+
+The updaters prune to the same 30, because they write into the same folder — if
+they kept fewer, running an update would trim your scheduled snapshots back.
 
 ### Why they stop the service
 

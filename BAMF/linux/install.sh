@@ -89,7 +89,7 @@ if [ -f "$APP_DIR/bamf.db" ]; then
     STAMP="$(date +%Y%m%d-%H%M%S)"
     cp "$APP_DIR/bamf.db" "$APP_DIR/backups/bamf-$STAMP.db"
     step "Database backed up to backups/bamf-$STAMP.db"
-    ls -1t "$APP_DIR/backups"/bamf-*.db 2>/dev/null | tail -n +11 | xargs -r rm -f
+    ls -1t "$APP_DIR/backups"/bamf-*.db 2>/dev/null |  tail -n +31 | xargs -r rm -f
 fi
 
 # --- build ---
