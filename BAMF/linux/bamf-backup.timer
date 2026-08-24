@@ -1,0 +1,12 @@
+[Unit]
+Description=Nightly BAMF database backup
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+# Catch up if the machine was off at 03:00 - a container that only runs during
+# the day would otherwise never back up.
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target
