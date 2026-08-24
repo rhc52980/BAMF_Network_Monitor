@@ -1383,12 +1383,13 @@ function render() {
 
     const hist = document.createElement("button");
     hist.className = "toggle";
-    hist.textContent = expandedId === h.id ? "Hide" : "History";
+    // "Details", not "History": the panel holds the editable Notes field too,
+    // and nobody clicks a button labelled History looking for somewhere to type.
+    hist.textContent = expandedId === h.id ? "Hide" : "Details";
+    hist.title = "Session history and notes for this device";
     hist.onclick = async () => {
-      if (expandedId === h.id) { expandedId = null; render(); return; }
-      expandedId = h.id;
-      try { eventsCache[h.id] = await loadEvents(h.id); } catch { eventsCache[h.id] = []; }
-      render();
+      if (expandedId === h.id) { expandedId = null; render(); return; }   // toggle closed
+      await openDetails(h);
     };
     cell.appendChild(hist);
 
@@ -1419,6 +1420,7 @@ function render() {
         }
       }, { danger: true });
     } else {
+      addItem(h.note ? "Edit note…" : "Add note…", () => openDetails(h, { focusNote: true }));
       addItem(h.link ? "Change link…" : "Set link…", () => setHostLink(h));
       addItem("Identify device", () => identifyHost(h));
       addItem("Scan ports", () => scanPorts(h, more, null));
@@ -1570,6 +1572,24 @@ async function setHostLink(host) {
   } catch { toast("Could not save the link — see server logs"); }
 }
 
+// Opens a device's Details panel (session history + notes). focusNote jumps
+// straight to the notes field, which is how the ... menu's Add note gets there.
+async function openDetails(host, opts = {}) {
+  if (expandedId !== host.id) {
+    expandedId = host.id;
+    try { eventsCache[host.id] = await loadEvents(host.id); } catch { eventsCache[host.id] = []; }
+    render();
+  }
+  if (opts.focusNote) {
+    const ta = document.getElementById("note-" + host.id);
+    if (ta) {
+      ta.scrollIntoView({ behavior: "smooth", block: "center" });
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);  // cursor at the end
+    }
+  }
+}
+
 // On-demand device identification. Results land in the scan panel alongside
 // port scans, so there's one place to read everything BAMF probed.
 async function identifyHost(host) {
@@ -1619,8 +1639,12 @@ function toast(msg) {
 }
 
 async function refresh() {
-  // Don't redraw while the user is typing a device name.
+  // Don't redraw while the user is typing in the table. Both the rename input
+  // and the Details panel's notes field live in rows that render() rebuilds, so
+  // a redraw mid-sentence would throw away what they'd typed.
   if (document.querySelector(".name-input")) return;
+  const typing = document.activeElement;
+  if (typing && typing.tagName === "TEXTAREA" && (typing.id || "").startsWith("note-")) return;
   try {
     const data = await loadHosts();
     $("connDot").classList.remove("err");
