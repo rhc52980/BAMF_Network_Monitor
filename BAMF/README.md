@@ -103,10 +103,10 @@ watch the log output and confirm the subnet detection and scan look right.
 The version is declared once, as `<Version>` in `BAMF.csproj`, and shows up in
 three places so you can always tell what's actually running:
 
-- **Startup log** — `BAMF 1.7.2 (built 2026-08-24 02:50 UTC) starting`, the
+- **Startup log** — `BAMF 1.8.0 (built 2026-08-24 18:35 UTC) starting`, the
   first line in the Windows Event Log or `journalctl -u bamf`.
 - **`/api/hosts`** — `version` and `buildDate` fields alongside the scan metadata.
-- **Dashboard header** — `v1.7.2 · 2026-08-24` next to the BAMF wordmark; hover
+- **Dashboard header** — `v1.8.0 · 2026-08-24` next to the BAMF wordmark; hover
   for the full build timestamp.
 
 Each build is also stamped with its UTC build date, because between releases
@@ -122,7 +122,7 @@ the only thing separating them is the build date. To cut a release, bump and
 tag:
 
 ```bash
-git tag v1.7.2 && git push --tags
+git tag v1.8.0 && git push --tags
 ```
 
 ## Configuration (`appsettings.json`)
@@ -848,6 +848,18 @@ lock or replace files underneath the process holding them.
 
 Stop the service, copy a snapshot over `bamf.db`, start it again - see
 [Rolling back](#rolling-back).
+
+## Feedback and bug reports
+
+**Tools ▾ → Feedback / report a bug…** opens a new GitHub issue with the
+version and build date already filled in — the one fact every bug report needs
+and everyone forgets.
+
+It carries **nothing about your network**: no device names, addresses, MACs or
+counts. Just the BAMF version, the build stamp, and your browser string.
+
+The link follows `Bamf:UpdateRepo`, so a fork sends reports to its own tracker
+rather than upstream's.
 
 ## Down alerts (watch)
 
