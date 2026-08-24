@@ -780,6 +780,7 @@
         <button id="notifySetup">Notifications…</button>
         <button id="exportCsv">Export CSV</button>
         <button id="testWebhook">Test webhook</button>
+        <button id="feedback">Feedback / report a bug…</button>
       </div>
     </div>
   </div>
@@ -907,8 +908,10 @@ let activeArp = { enabled: false, npcapAvailable: false };
 let autoIgnoreRandom = false;
 let webhookConfigured = false;
 let webhookMasked = null;   // masked form only; the server never sends the full URL
+let repoUrl = "";           // project page, for the feedback link
 let updateInfo = null;      // { enabled, available, latest, url } from /api/hosts
 let appVersion = "";
+let buildDate = "";        // UTC build stamp, shown in the header and feedback report
 let loadedOnce = false;
 let sortKey = null;       // null = server order (network, then IP)
 let sortDir = 1;
@@ -1657,8 +1660,10 @@ async function refresh() {
     autoIgnoreRandom = !!data.autoIgnoreRandom;
     updateInfo = data.update || null;
     appVersion = data.version || appVersion;
+    buildDate = data.buildDate || buildDate;
     webhookConfigured = !!data.webhookConfigured;
     webhookMasked = data.webhookMasked || null;
+    repoUrl = data.repoUrl || repoUrl;
     $("testWebhook").style.display = webhookConfigured ? "" : "none";
     renderArpToggle();
     renderRandToggle();
@@ -2071,6 +2076,23 @@ $("notifyClear").onclick = async () => {
     $("notifyModal").hidden = true;
     toast("Webhook removed — notifications off");
   } catch { toast("Could not remove the webhook"); }
+};
+
+// Opens a new GitHub issue with the version details already filled in, so a
+// report arrives with the one fact that's always needed and always forgotten.
+// Deliberately carries nothing about the network being monitored - no device
+// names, addresses or counts.
+$("feedback").onclick = () => {
+  const base = repoUrl || "https://github.com/rhc52980/BAMF_Network_Monitor";
+  const body = [
+    "**What happened?**", "", "",
+    "**What did you expect instead?**", "", "",
+    "**Steps to reproduce**", "", "",
+    "---",
+    `BAMF ${appVersion || "?"}${buildDate ? ` (built ${buildDate} UTC)` : ""}`,
+    navigator.userAgent,
+  ].join("\n");
+  window.open(`${base}/issues/new?body=${encodeURIComponent(body)}`, "_blank", "noopener");
 };
 
 $("testWebhook").onclick = async () => {
