@@ -17,6 +17,7 @@ and the database is snapshotted to `/opt/bamf/backups` first.
 |---|---|
 | **`install.sh`** | Install **and** update. The only thing you run. |
 | `bamf.service` | The systemd unit it installs. |
+| `bamf-backup.sh` + `.service` + `.timer` | Nightly database backup at 03:00, enabled by `install.sh`. |
 | `README-PROXMOX.md` | Container setup, including networking for multiple subnets. |
 
 ## Where things end up

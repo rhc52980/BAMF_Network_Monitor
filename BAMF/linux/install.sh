@@ -121,8 +121,23 @@ else
     # keep the unit pointing at the folder we actually installed to
     sed "s#/opt/bamf#$APP_DIR#g" "$UNIT_SRC" > "$UNIT_DST"
 fi
+# --- nightly backup timer ---
+# Snapshots the database on a schedule, not only when you update. Stops the
+# service for the moment it takes to copy, so the snapshot is consistent.
+cp "$SRC_DIR/linux/bamf-backup.sh" "$APP_DIR/bamf-backup.sh"
+chmod +x "$APP_DIR/bamf-backup.sh"
+for u in bamf-backup.service bamf-backup.timer; do
+    if [ "$APP_DIR" = "/opt/bamf" ]; then
+        cp "$SRC_DIR/linux/$u" "/etc/systemd/system/$u"
+    else
+        sed "s#/opt/bamf#$APP_DIR#g" "$SRC_DIR/linux/$u" > "/etc/systemd/system/$u"
+    fi
+done
+
 systemctl daemon-reload
 systemctl enable bamf >/dev/null 2>&1
+systemctl enable --now bamf-backup.timer >/dev/null 2>&1
+step "Nightly backup timer enabled (03:00; systemctl disable --now bamf-backup.timer to stop)"
 step "Starting bamf"
 systemctl start bamf
 

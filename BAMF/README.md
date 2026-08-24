@@ -103,10 +103,10 @@ watch the log output and confirm the subnet detection and scan look right.
 The version is declared once, as `<Version>` in `BAMF.csproj`, and shows up in
 three places so you can always tell what's actually running:
 
-- **Startup log** — `BAMF 1.6.0 (built 2026-08-16 21:50 UTC) starting`, the
+- **Startup log** — `BAMF 1.7.0 (built 2026-08-23 22:30 UTC) starting`, the
   first line in the Windows Event Log or `journalctl -u bamf`.
 - **`/api/hosts`** — `version` and `buildDate` fields alongside the scan metadata.
-- **Dashboard header** — `v1.6.0 · 2026-08-16` next to the BAMF wordmark; hover
+- **Dashboard header** — `v1.7.0 · 2026-08-23` next to the BAMF wordmark; hover
   for the full build timestamp.
 
 Each build is also stamped with its UTC build date, because between releases
@@ -122,7 +122,7 @@ the only thing separating them is the build date. To cut a release, bump and
 tag:
 
 ```bash
-git tag v1.6.0 && git push --tags
+git tag v1.7.0 && git push --tags
 ```
 
 ## Configuration (`appsettings.json`)
@@ -785,6 +785,62 @@ Notes:
   field instead of Discord's embed format.
 - An `http://` URL is accepted but flagged, in the dialog and at startup:
   alerts would travel in plaintext.
+
+## Backups
+
+Every update snapshots `bamf.db` into `backups/` before touching anything. That
+covers the risky moment, but it only fires when you update - go a month without
+updating and your newest snapshot is a month old.
+
+For a scheduled snapshot:
+
+**Windows** - run once, elevated, from the `windows` folder:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Backup-BAMF.ps1 -Install
+```
+
+That registers a **BAMF Backup** scheduled task running nightly at 03:00 as
+SYSTEM. Run it by hand any time with `Backup-BAMF.ps1`, or
+`Start-ScheduledTask -TaskName "BAMF Backup"`.
+
+**Linux** - `install.sh` sets this up for you: `bamf-backup.timer` runs nightly
+at 03:00 (with `Persistent=true`, so a machine that was off catches up).
+
+```bash
+systemctl list-timers bamf-backup      # when it next runs
+systemctl start bamf-backup.service    # run one now
+systemctl disable --now bamf-backup.timer   # stop scheduled backups
+```
+
+Both keep the newest **10** snapshots and copy `appsettings.json` alongside
+them, so a restore gets your subnets, webhook and password back too. Change the
+retention with `-Keep 30` or `BAMF_BACKUP_KEEP=30`.
+
+### Why they stop the service
+
+BAMF writes to `bamf.db` continuously. A plain copy taken mid-write can be
+**torn** - SQLite may consider the result corrupt, and you would not find that
+out until the moment you needed to restore it. Both scripts stop the service,
+copy, and start it again, restarting even if the copy fails. BAMF misses at
+most one scan cycle.
+
+### Syncing backups to cloud storage
+
+Point your sync client at the **`backups`** folder, never at `bamf.db` itself.
+Snapshots are written once and never touched again, so they are safe to sync. A
+live database is not: sync clients can capture a half-written file, and some
+lock or replace files underneath the process holding them.
+
+| | Windows | Linux |
+|---|---|---|
+| Safe to sync | `C:\BAMF\backups\` | `/opt/bamf/backups/` |
+| Do **not** sync | `C:\BAMF\bamf.db` | `/opt/bamf/bamf.db` |
+
+### Restoring
+
+Stop the service, copy a snapshot over `bamf.db`, start it again - see
+[Rolling back](#rolling-back).
 
 ## Down alerts (watch)
 

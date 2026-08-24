@@ -10,6 +10,7 @@
 # Must be LF - executed by bash / read by systemd.
 *.sh        text eol=lf
 *.service   text eol=lf
+*.timer     text eol=lf
 
 # Must be CRLF - cmd.exe and Windows PowerShell hosts expect it.
 *.bat       text eol=crlf

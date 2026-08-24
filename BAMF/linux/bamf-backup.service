@@ -1,0 +1,8 @@
+[Unit]
+Description=BAMF database backup
+# Not Requires=: a backup should still run if the service is stopped.
+After=bamf.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/bamf/bamf-backup.sh /opt/bamf
