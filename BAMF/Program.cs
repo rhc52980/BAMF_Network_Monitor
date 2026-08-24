@@ -135,6 +135,10 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         scanModes = scanner.SubnetModes,
         activeArp = new { enabled = scanner.ActiveArpEnabled, npcapAvailable = scanner.NpcapAvailable },
         autoIgnoreRandom = scanner.AutoIgnoreRandomEnabled,
+        // Where the dashboard's feedback link points. Derived from the same
+        // setting the update check uses, so a fork sends reports to its own
+        // tracker rather than upstream's.
+        repoUrl = $"https://github.com/{app.Configuration["Bamf:UpdateRepo"] ?? "rhc52980/BAMF_Network_Monitor"}",
         update = new
         {
             enabled = updates.Enabled,
