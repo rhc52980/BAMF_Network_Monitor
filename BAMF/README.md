@@ -103,10 +103,10 @@ watch the log output and confirm the subnet detection and scan look right.
 The version is declared once, as `<Version>` in `BAMF.csproj`, and shows up in
 three places so you can always tell what's actually running:
 
-- **Startup log** — `BAMF 1.7.1 (built 2026-08-24 02:40 UTC) starting`, the
+- **Startup log** — `BAMF 1.7.2 (built 2026-08-24 02:50 UTC) starting`, the
   first line in the Windows Event Log or `journalctl -u bamf`.
 - **`/api/hosts`** — `version` and `buildDate` fields alongside the scan metadata.
-- **Dashboard header** — `v1.7.1 · 2026-08-24` next to the BAMF wordmark; hover
+- **Dashboard header** — `v1.7.2 · 2026-08-24` next to the BAMF wordmark; hover
   for the full build timestamp.
 
 Each build is also stamped with its UTC build date, because between releases
@@ -122,7 +122,7 @@ the only thing separating them is the build date. To cut a release, bump and
 tag:
 
 ```bash
-git tag v1.7.1 && git push --tags
+git tag v1.7.2 && git push --tags
 ```
 
 ## Configuration (`appsettings.json`)
@@ -282,8 +282,11 @@ horizontal scrolling. The who's-home board and everything else adapt too.
 
 ## Notes
 
-Open a host's History panel to find a **Notes** field — free text for
-remembering what a device is ("garage ESP32 sensor", "kids' iPad, bedtime 9pm").
+Each device row has a **Details** button opening a panel with its session
+history and a **Notes** field — free text for remembering what a device is
+("garage ESP32 sensor", "kids' iPad, bedtime 9pm"). **Add note…** in the ⋯ menu
+opens the same panel with the cursor already in the field.
+
 A 📝 appears next to the name when a note exists (hover to preview), and notes
 are included in search. Like custom names, notes are bound to the MAC and
 survive IP changes.
