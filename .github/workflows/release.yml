@@ -1,0 +1,130 @@
+# Builds BAMF for Windows and Linux and attaches the results to the release.
+#
+# Triggered by pushing a version tag:
+#
+#   git tag v1.9.0 && git push origin v1.9.0
+#
+# The point is that a user should never need the .NET SDK. The published output
+# is self-contained - the runtime is bundled into the binary - so downloading an
+# artifact from a release is enough to run BAMF.
+#
+# Can also be run by hand from the Actions tab (workflow_dispatch) to check the
+# build without cutting a release.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write        # needed to create the release and upload assets
+
+jobs:
+  build:
+    name: Build ${{ matrix.rid }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false   # one platform failing shouldn't hide the other's result
+      matrix:
+        include:
+          - rid: win-x64
+            archive: zip
+          - rid: linux-x64
+            archive: tar.gz
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      # The version lives in BAMF.csproj, not in the tag - the tag is just how
+      # a release gets cut. Read it so the artifact name matches what the app
+      # will actually report at runtime.
+      - name: Read version from BAMF.csproj
+        id: ver
+        run: |
+          VERSION=$(grep -oPm1 '(?<=<Version>)[^<]+' BAMF/BAMF.csproj)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building BAMF $VERSION for ${{ matrix.rid }}"
+
+      # Fail loudly if the tag and the declared version disagree, rather than
+      # publishing a v1.9.0 release containing a binary that says 1.8.0.
+      - name: Check the tag matches the declared version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          if [ "$TAG" != "${{ steps.ver.outputs.version }}" ]; then
+            echo "::error::Tag v$TAG does not match <Version>${{ steps.ver.outputs.version }}</Version> in BAMF.csproj"
+            exit 1
+          fi
+
+      - name: Publish
+        run: |
+          dotnet publish BAMF/BAMF.csproj \
+            -c Release \
+            -r ${{ matrix.rid }} \
+            -p:PublishSingleFile=true \
+            --self-contained true \
+            -o out
+
+      # A user should get a runnable folder, not a pile of files: the binary,
+      # the dashboard, the default config, and the docs. Everything goes inside
+      # a named directory so extracting doesn't scatter files into whatever
+      # folder they happened to be in.
+      - name: Stage the package
+        run: |
+          NAME="BAMF-${{ steps.ver.outputs.version }}-${{ matrix.rid }}"
+          echo "name=$NAME" >> "$GITHUB_ENV"
+          mkdir -p "stage/$NAME"
+          cp -r out/* "stage/$NAME/"
+          cp BAMF/README.md "stage/$NAME/README.md"
+          cp LICENSE "stage/$NAME/LICENSE"
+          if [ "${{ matrix.rid }}" = "linux-x64" ]; then
+            cp BAMF/linux/bamf.service BAMF/linux/bamf-backup.* "stage/$NAME/"
+            chmod +x "stage/$NAME/BAMF" "stage/$NAME/bamf-backup.sh"
+          else
+            cp BAMF/windows/Backup-BAMF.ps1 "stage/$NAME/"
+          fi
+          # Debug symbols and build metadata aren't wanted in a release package.
+          rm -f "stage/$NAME"/*.pdb
+          rm -rf "stage/$NAME/publish"
+          ls -la "stage/$NAME"
+
+      - name: Archive
+        id: pack
+        run: |
+          NAME="$name"
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            (cd stage && zip -qr "../$NAME.zip" "$NAME")
+            echo "asset=$NAME.zip" >> "$GITHUB_OUTPUT"
+          else
+            tar -czf "$NAME.tar.gz" -C stage "$NAME"
+            echo "asset=$NAME.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+          ls -lh "$NAME".*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pack.outputs.asset }}
+          path: ${{ steps.pack.outputs.asset }}
+          retention-days: 14
+
+      # Only on a tag. A manual run builds and uploads to the Actions tab, so
+      # you can test the workflow without publishing anything.
+      #
+      # Uses the gh CLI that ships on the runner rather than a third-party
+      # action: one less external dependency holding a write-scoped token.
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          # Create the release if it doesn't exist yet, so pushing the tag first
+          # and writing notes later both work.
+          gh release view "$TAG" >/dev/null 2>&1 ||             gh release create "$TAG" --title "BAMF ${{ steps.ver.outputs.version }}" --generate-notes
+          gh release upload "$TAG" "${{ steps.pack.outputs.asset }}" --clobber
