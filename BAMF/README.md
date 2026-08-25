@@ -514,7 +514,7 @@ anything that speaks HTTP.
 HTTP Basic auth with *any* username and that password:
 
 ```bash
-curl -u x:yourpassword http://192.168.2.137:8840/api/hosts
+curl -u x:yourpassword http://192.168.1.10:8840/api/hosts
 ```
 
 **Reading.** `GET /api/hosts` is the full JSON picture - devices plus scan
@@ -522,35 +522,35 @@ metadata (`version`, `buildDate`, `subnets`, `lastScan`, per-network scan
 modes). Each device carries an `id`, which is what the per-host routes take:
 
 ```bash
-curl http://192.168.2.137:8840/api/hosts
-curl http://192.168.2.137:8840/api/hosts.txt      # same devices, plain text
-curl http://192.168.2.137:8840/api/events         # recent online/offline events
+curl http://192.168.1.10:8840/api/hosts
+curl http://192.168.1.10:8840/api/hosts.txt      # same devices, plain text
+curl http://192.168.1.10:8840/api/events         # recent online/offline events
 ```
 
 **Changing things.** POST with a JSON body:
 
 ```bash
 # name a device (empty string clears it back to the DNS name)
-curl -X POST http://192.168.2.137:8840/api/hosts/16/name \
+curl -X POST http://192.168.1.10:8840/api/hosts/16/name \
   -H "Content-Type: application/json" -d '{"name":"Kevin PC"}'
 
 # approve it, watch it for downtime, hide it
-curl -X POST http://192.168.2.137:8840/api/hosts/16/known   -H "Content-Type: application/json" -d '{"known":true}'
-curl -X POST http://192.168.2.137:8840/api/hosts/16/watch   -H "Content-Type: application/json" -d '{"watched":true}'
-curl -X POST http://192.168.2.137:8840/api/hosts/16/ignore  -H "Content-Type: application/json" -d '{"ignored":true}'
+curl -X POST http://192.168.1.10:8840/api/hosts/16/known   -H "Content-Type: application/json" -d '{"known":true}'
+curl -X POST http://192.168.1.10:8840/api/hosts/16/watch   -H "Content-Type: application/json" -d '{"watched":true}'
+curl -X POST http://192.168.1.10:8840/api/hosts/16/ignore  -H "Content-Type: application/json" -d '{"ignored":true}'
 
 # no body needed
-curl -X POST http://192.168.2.137:8840/api/hosts/16/wake
-curl -X POST http://192.168.2.137:8840/api/hosts/16/identify
+curl -X POST http://192.168.1.10:8840/api/hosts/16/wake
+curl -X POST http://192.168.1.10:8840/api/hosts/16/identify
 ```
 
 **Scanning** is `GET` - it returns results rather than changing state:
 
 ```bash
-curl "http://192.168.2.137:8840/api/hosts/16/portscan?ports=22,80,443"
-curl "http://192.168.2.137:8840/api/portscan/ip?ip=192.168.2.50"
-curl "http://192.168.2.137:8840/api/portscan/pattern?ip=*.245"
-curl "http://192.168.2.137:8840/api/portscan?subnet=192.168.2.0/24"
+curl "http://192.168.1.10:8840/api/hosts/16/portscan?ports=22,80,443"
+curl "http://192.168.1.10:8840/api/portscan/ip?ip=192.168.2.50"
+curl "http://192.168.1.10:8840/api/portscan/pattern?ip=*.245"
+curl "http://192.168.1.10:8840/api/portscan?subnet=192.168.2.0/24"
 ```
 
 ### Handing the network to a script or an AI agent
