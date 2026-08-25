@@ -103,10 +103,10 @@ watch the log output and confirm the subnet detection and scan look right.
 The version is declared once, as `<Version>` in `BAMF.csproj`, and shows up in
 three places so you can always tell what's actually running:
 
-- **Startup log** — `BAMF 1.8.0 (built 2026-08-24 18:35 UTC) starting`, the
+- **Startup log** — `BAMF 1.9.0 (built 2026-08-25 21:40 UTC) starting`, the
   first line in the Windows Event Log or `journalctl -u bamf`.
 - **`/api/hosts`** — `version` and `buildDate` fields alongside the scan metadata.
-- **Dashboard header** — `v1.8.0 · 2026-08-24` next to the BAMF wordmark; hover
+- **Dashboard header** — `v1.9.0 · 2026-08-25` next to the BAMF wordmark; hover
   for the full build timestamp.
 
 Each build is also stamped with its UTC build date, because between releases
@@ -122,7 +122,7 @@ the only thing separating them is the build date. To cut a release, bump and
 tag:
 
 ```bash
-git tag v1.8.0 && git push --tags
+git tag v1.9.0 && git push --tags
 ```
 
 ## Configuration (`appsettings.json`)
