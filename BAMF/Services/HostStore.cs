@@ -348,9 +348,15 @@ public class HostStore
                 upd.Parameters.AddWithValue("$mac", mac);
                 upd.ExecuteNonQuery();
                 if (!ign) AddEvent(conn, id, "offline", now);
-                if (wat && !ign) wentDown.Add(GetByIdInternal(conn, id));
+                if (wat && !ign)
+                {
+                    // Null would mean the row vanished between the two queries on this
+                    // same connection; skip it rather than filter it out downstream.
+                    var rec = GetByIdInternal(conn, id);
+                    if (rec is not null) wentDown.Add(rec);
+                }
             }
-            return wentDown.Where(h => h is not null).ToList()!;
+            return wentDown;
         }
     }
 
