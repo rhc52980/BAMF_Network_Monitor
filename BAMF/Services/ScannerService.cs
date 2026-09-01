@@ -152,17 +152,28 @@ public partial class ScannerService : BackgroundService
         bool activeArpWanted, HashSet<string> seenMacs, CancellationToken ct)
     {
         var subnetLabel = $"{network}/{prefix}";
+
+        // Discovery works by reading the OS ARP table, which only ever holds
+        // entries for subnets this machine has an interface on. For anything
+        // else the probes are routed via the default gateway, the ARP table
+        // stays empty, and the scan reports zero hosts no matter what is out
+        // there. Probing it anyway would send a full sweep through - and at -
+        // the router every cycle, forever, for a result that cannot work.
+        var local = FindLocalEndpoint(network, prefix);
+        if (local is null)
+        {
+            _log.LogWarning("Skipping {Subnet}: no local interface on this network, so its hosts " +
+                "can never appear in the ARP table. Remove it from Bamf:Subnets, or add a NIC on " +
+                "this network to scan it.", subnetLabel);
+            return "skipped";
+        }
+
+        _log.LogInformation("Subnet {Subnet}: scanning from local {Ip}", subnetLabel, local.Value.Ip);
+
         var addresses = EnumerateSubnet(network, prefix).ToList();
 
         List<(IPAddress Ip, string Mac)> arpEntries;
         string mode;
-
-        var local = FindLocalEndpoint(network, prefix);
-        if (local is null)
-            _log.LogWarning("No local interface found on {Subnet} — the server may not be " +
-                "connected to this subnet, so discovery will be unreliable. Add a NIC on this network.", subnetLabel);
-        else
-            _log.LogInformation("Subnet {Subnet}: scanning from local {Ip}", subnetLabel, local.Value.Ip);
 
         if (activeArpWanted && ArpScanner.IsAvailable && local is not null)
         {
@@ -241,24 +252,24 @@ public partial class ScannerService : BackgroundService
         // populate and every host on that subnet looks offline.
         var localEndpoint = FindLocalEndpoint(network, prefix);
 
+        // Callers are expected to have skipped subnets with no local interface.
+        // Guard anyway: probing one from here would route every packet at the
+        // gateway to populate an ARP table that cannot hold the answers.
+        if (localEndpoint is null)
+        {
+            _log.LogWarning("Refusing to sweep {Network}/{Prefix}: no local interface on this network.",
+                network, prefix);
+            return new List<(IPAddress, string)>();
+        }
+
         using var semaphore = new SemaphoreSlim(concurrency);
         var sweep = addresses.Select(async ip =>
         {
             await semaphore.WaitAsync(ct);
             try
             {
-                if (localEndpoint is not null)
-                {
-                    // Bound UDP send forces ARP resolution out the correct NIC.
-                    await ProbeBound(localEndpoint.Value.Ip, ip, ct);
-                }
-                else
-                {
-                    // No local IP on this subnet — best effort via ICMP (OS routes it).
-                    using var ping = new Ping();
-                    try { await ping.SendPingAsync(ip, pingTimeoutMs); }
-                    catch { /* unreachable is fine */ }
-                }
+                // Bound UDP send forces ARP resolution out the correct NIC.
+                await ProbeBound(localEndpoint.Value.Ip, ip, ct);
             }
             finally { semaphore.Release(); }
         });
