@@ -84,7 +84,6 @@ public partial class ScannerService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
         ScanIntervalSeconds = _config.GetValue("Bamf:ScanIntervalSeconds", 60);
-        var pingTimeout = _config.GetValue("Bamf:PingTimeoutMs", 300);
         var concurrency = _config.GetValue("Bamf:PingConcurrency", 64);
 
         while (!ct.IsCancellationRequested)
@@ -107,7 +106,7 @@ public partial class ScannerService : BackgroundService
                 foreach (var (network, prefix) in subnets)
                 {
                     ct.ThrowIfCancellationRequested();
-                    var mode = await RunScan(network, prefix, pingTimeout, concurrency,
+                    var mode = await RunScan(network, prefix, concurrency,
                         activeArpWanted, seenMacs, ct);
                     modes[$"{network}/{prefix}"] = mode;
                 }
@@ -148,7 +147,7 @@ public partial class ScannerService : BackgroundService
         }
     }
 
-    private async Task<string> RunScan(IPAddress network, int prefix, int pingTimeoutMs, int concurrency,
+    private async Task<string> RunScan(IPAddress network, int prefix, int concurrency,
         bool activeArpWanted, HashSet<string> seenMacs, CancellationToken ct)
     {
         var subnetLabel = $"{network}/{prefix}";
@@ -189,14 +188,14 @@ public partial class ScannerService : BackgroundService
             catch (Exception ex)
             {
                 _log.LogWarning(ex, "Active ARP scan failed on {Subnet}; falling back to ping sweep", subnetLabel);
-                arpEntries = await PingSweepDiscovery(network, prefix, addresses, pingTimeoutMs, concurrency, ct);
+                arpEntries = await PingSweepDiscovery(network, prefix, addresses, concurrency, ct);
                 mode = "ping sweep";
             }
         }
         else
         {
             _log.LogInformation("Scanning {Subnet} via ping sweep ({Count} addresses)", subnetLabel, addresses.Count);
-            arpEntries = await PingSweepDiscovery(network, prefix, addresses, pingTimeoutMs, concurrency, ct);
+            arpEntries = await PingSweepDiscovery(network, prefix, addresses, concurrency, ct);
             mode = "ping sweep";
         }
 
@@ -244,7 +243,7 @@ public partial class ScannerService : BackgroundService
     /// </summary>
     private async Task<List<(IPAddress Ip, string Mac)>> PingSweepDiscovery(
         IPAddress network, int prefix, List<IPAddress> addresses,
-        int pingTimeoutMs, int concurrency, CancellationToken ct)
+        int concurrency, CancellationToken ct)
     {
         // Bind the sweep to the NIC that actually owns this subnet. Without this,
         // on a multi-homed host the OS routing table may send pings for a
