@@ -337,15 +337,20 @@ app.MapGet("/api/portscan/pattern", async (string? ip, string? ports, HostStore 
     var spec = PortChecker.ParseSpec(ports);
     var known = store.GetAll().ToDictionary(h => h.Ip, h => h, StringComparer.OrdinalIgnoreCase);
     var results = new List<object>();
-    using var sem = new SemaphoreSlim(8);
+    // Hosts run a few at a time, and each gets a slice of the single-host
+    // budget rather than the whole thing, so the two limits can't multiply
+    // into a thousand half-open sockets aimed through the router.
+    const int hostConcurrency = 8;
+    var perHost = PortChecker.PerHostBudget(hostConcurrency);
+    using var sem = new SemaphoreSlim(hostConcurrency);
     await Task.WhenAll(targets.Select(async t =>
     {
         await sem.WaitAsync(ct);
         try
         {
             var open = spec is null
-                ? await PortChecker.ScanAsync(t.Ip, 700, ct)
-                : await PortChecker.ScanAsync(t.Ip, spec, 700, ct);
+                ? await PortChecker.ScanAsync(t.Ip, 700, ct, perHost)
+                : await PortChecker.ScanAsync(t.Ip, spec, 700, ct, perHost);
             if (open.Count == 0) return;
             known.TryGetValue(t.Ip, out var h);
             lock (results)
@@ -375,16 +380,20 @@ app.MapGet("/api/portscan", async (string? ports, string? subnet, HostStore stor
         .ToList();
 
     var results = new List<object>();
-    // Scan hosts a few at a time so we don't blast the whole subnet at once.
-    using var sem = new SemaphoreSlim(8);
+    // Scan hosts a few at a time so we don't blast the whole subnet at once,
+    // and split the single-host budget between them so the two limits can't
+    // multiply into a thousand concurrent connects.
+    const int hostConcurrency = 8;
+    var perHost = PortChecker.PerHostBudget(hostConcurrency);
+    using var sem = new SemaphoreSlim(hostConcurrency);
     var tasks = hosts.Select(async h =>
     {
         await sem.WaitAsync(ct);
         try
         {
             var open = spec is null
-                ? await PortChecker.ScanAsync(h.Ip, 700, ct)
-                : await PortChecker.ScanAsync(h.Ip, spec, 700, ct);
+                ? await PortChecker.ScanAsync(h.Ip, 700, ct, perHost)
+                : await PortChecker.ScanAsync(h.Ip, spec, 700, ct, perHost);
             if (open.Count > 0)
                 lock (results)
                     results.Add(new
