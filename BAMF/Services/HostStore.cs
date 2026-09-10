@@ -85,7 +85,7 @@ public class HostStore
             ev.ExecuteNonQuery();
         }
 
-        PruneEventsInternal(conn);
+        PruneEventsInternal(conn, _retentionDays);
 
         // Migrations: add columns missing from databases created by older versions.
         var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -125,21 +125,56 @@ public class HostStore
         }
     }
 
-    /// <summary>Deletes events older than the configured retention window.</summary>
-    public void PruneEvents()
+    /// <summary>
+    /// Removes a saved setting so the appsettings.json value becomes authoritative
+    /// again. Absent rather than blank: an empty string is a legitimate value for
+    /// some keys, so "unset" has to be the row not existing.
+    /// </summary>
+    public void DeleteSetting(string key)
     {
         lock (_lock)
         {
             using var conn = Open();
-            PruneEventsInternal(conn);
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "DELETE FROM settings WHERE key = $k";
+            cmd.Parameters.AddWithValue("$k", key);
+            cmd.ExecuteNonQuery();
         }
     }
 
-    private void PruneEventsInternal(SqliteConnection conn)
+    /// <summary>
+    /// How long history is kept, a value saved from the dashboard winning over
+    /// appsettings.json. Read at prune time rather than captured at startup, so
+    /// changing it does not need a restart.
+    /// </summary>
+    public int RetentionDays
+    {
+        get
+        {
+            var db = GetSetting("historyRetentionDays");
+            if (db is not null && int.TryParse(db, out var days)) return Math.Max(1, days);
+            return _retentionDays;
+        }
+    }
+
+    /// <summary>Deletes events older than the configured retention window.</summary>
+    public void PruneEvents()
+    {
+        var days = RetentionDays;
+        lock (_lock)
+        {
+            using var conn = Open();
+            PruneEventsInternal(conn, days);
+        }
+    }
+
+    // Takes the window as an argument because Init() prunes before the settings
+    // table exists, so it can only use the value from appsettings.json.
+    private void PruneEventsInternal(SqliteConnection conn, int retentionDays)
     {
         using var prune = conn.CreateCommand();
         prune.CommandText = "DELETE FROM events WHERE at < $cutoff";
-        prune.Parameters.AddWithValue("$cutoff", DateTime.UtcNow.AddDays(-_retentionDays).ToString("o"));
+        prune.Parameters.AddWithValue("$cutoff", DateTime.UtcNow.AddDays(-retentionDays).ToString("o"));
         prune.ExecuteNonQuery();
     }
 
