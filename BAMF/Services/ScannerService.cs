@@ -22,13 +22,32 @@ public partial class ScannerService : BackgroundService
     private readonly IHttpClientFactory _httpFactory;
     private readonly UpdateChecker _updates;
 
+    /// <summary>
+    /// Floor for any scan interval. Below this the sweep barely finishes before
+    /// the next one starts, and the traffic stops being background noise.
+    /// </summary>
+    public const int MinIntervalSeconds = 5;
+
     public DateTime? LastScanUtc { get; private set; }
+
+    /// <summary>Interval used by any network without its own override.</summary>
     public int ScanIntervalSeconds { get; private set; } = 60;
+
+    /// <summary>Effective interval per network, after overrides are applied.</summary>
+    public IReadOnlyDictionary<string, int> SubnetIntervals { get; private set; } =
+        new Dictionary<string, int>();
+
     public IReadOnlyList<string> SubnetLabels { get; private set; } = Array.Empty<string>();
     public IReadOnlyDictionary<string, string> SubnetModes { get; private set; } =
         new Dictionary<string, string>();
     private bool _npcapWarned;
     private DateTime _lastPruneUtc = DateTime.MinValue;
+
+    /// <summary>When each network is next due, keyed by CIDR label.</summary>
+    private readonly Dictionary<string, DateTime> _dueAt = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Override keys already warned about, so the log says it once.</summary>
+    private readonly HashSet<string> _warnedIntervalKeys = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Webhook endpoint. A URL saved from the dashboard wins over
@@ -83,52 +102,82 @@ public partial class ScannerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        ScanIntervalSeconds = _config.GetValue("Bamf:ScanIntervalSeconds", 60);
         var concurrency = _config.GetValue("Bamf:PingConcurrency", 64);
 
         while (!ct.IsCancellationRequested)
         {
             try
             {
+                // Re-read each pass so an appsettings.json edit takes effect
+                // without a restart, the same as the subnet list already does.
+                ScanIntervalSeconds = Math.Max(MinIntervalSeconds,
+                    _config.GetValue("Bamf:ScanIntervalSeconds", 60));
+                var overrides = ReadIntervalOverrides();
+
                 var subnets = ResolveSubnets();
-                SubnetLabels = subnets.Select(s => $"{s.Network}/{s.Prefix}").ToList();
+                var labels = subnets.Select(s => $"{s.Network}/{s.Prefix}").ToList();
+                SubnetLabels = labels;
+                SubnetIntervals = labels.ToDictionary(
+                    l => l,
+                    l => overrides.TryGetValue(l, out var secs) ? secs : ScanIntervalSeconds);
+                WarnAboutUnmatchedOverrides(overrides, labels);
 
-                var activeArpWanted = ActiveArpEnabled;
-                if (activeArpWanted && !ArpScanner.IsAvailable && !_npcapWarned)
+                // Forget schedules for networks that are no longer configured.
+                foreach (var gone in _dueAt.Keys.Where(k => !labels.Contains(k)).ToList())
+                    _dueAt.Remove(gone);
+
+                var startedAt = DateTime.UtcNow;
+                var due = subnets
+                    .Where(s => !_dueAt.TryGetValue($"{s.Network}/{s.Prefix}", out var at) || at <= startedAt)
+                    .ToList();
+
+                if (due.Count > 0)
                 {
-                    _npcapWarned = true;
-                    _log.LogWarning("ActiveArpScan is enabled but the Npcap driver was not found " +
-                                    "(https://npcap.com). Falling back to ping sweep.");
+                    var activeArpWanted = ActiveArpEnabled;
+                    if (activeArpWanted && !ArpScanner.IsAvailable && !_npcapWarned)
+                    {
+                        _npcapWarned = true;
+                        _log.LogWarning("ActiveArpScan is enabled but the Npcap driver was not found " +
+                                        "(https://npcap.com). Falling back to ping sweep.");
+                    }
+
+                    var modes = new Dictionary<string, string>(SubnetModes);
+                    var seenMacs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    var covered = new List<string>();
+                    foreach (var (network, prefix) in due)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var label = $"{network}/{prefix}";
+                        var mode = await RunScan(network, prefix, concurrency,
+                            activeArpWanted, seenMacs, ct);
+                        modes[label] = mode;
+                        covered.Add(label);
+                        _dueAt[label] = DateTime.UtcNow.AddSeconds(SubnetIntervals[label]);
+                    }
+                    SubnetModes = modes;
+
+                    // Only judge the networks this pass actually visited. When every
+                    // network is on the same interval a pass covers them all and this
+                    // is the original whole-database sweep; when intervals differ, a
+                    // pass that skipped a network must not declare its hosts down.
+                    var wentDown = _store.MarkOffline(seenMacs,
+                        covered.Count == labels.Count ? null : covered);
+                    foreach (var h in wentDown)
+                        await SendStatusAlert(h, up: false, CancellationToken.None);
+
+                    var recovered = _store.DrainRecovered();
+                    foreach (var h in recovered)
+                        await SendStatusAlert(h, up: true, CancellationToken.None);
+
+                    // Vendor/hostname-derived device guesses. No packets are sent -
+                    // deeper fingerprinting stays behind the Identify action.
+                    _store.ApplyPassiveFingerprints();
+
+                    LastScanUtc = DateTime.UtcNow;
                 }
-
-                var modes = new Dictionary<string, string>();
-                var seenMacs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var (network, prefix) in subnets)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    var mode = await RunScan(network, prefix, concurrency,
-                        activeArpWanted, seenMacs, ct);
-                    modes[$"{network}/{prefix}"] = mode;
-                }
-                SubnetModes = modes;
-
-                // Anything not seen on ANY subnet this cycle is offline.
-                var wentDown = _store.MarkOffline(seenMacs);
-                foreach (var h in wentDown)
-                    await SendStatusAlert(h, up: false, CancellationToken.None);
-
-                var recovered = _store.DrainRecovered();
-                foreach (var h in recovered)
-                    await SendStatusAlert(h, up: true, CancellationToken.None);
-
-                // Vendor/hostname-derived device guesses. No packets are sent -
-                // deeper fingerprinting stays behind the Identify action.
-                _store.ApplyPassiveFingerprints();
 
                 // Opt-in, at most once a day, and failures are silent.
                 await _updates.MaybeCheckAsync(ct);
-
-                LastScanUtc = DateTime.UtcNow;
 
                 if ((DateTime.UtcNow - _lastPruneUtc).TotalHours >= 24)
                 {
@@ -142,8 +191,55 @@ public partial class ScannerService : BackgroundService
                 _log.LogError(ex, "Scan failed");
             }
 
-            try { await Task.Delay(TimeSpan.FromSeconds(ScanIntervalSeconds), ct); }
+            try { await Task.Delay(WaitUntilNextDue(), ct); }
             catch (OperationCanceledException) { break; }
+        }
+    }
+
+    /// <summary>
+    /// Sleep until the soonest-due network, floored so a misconfigured interval
+    /// can't spin and capped so an edit to appsettings.json is picked up within
+    /// a minute even when every network is on a long interval.
+    /// </summary>
+    private TimeSpan WaitUntilNextDue()
+    {
+        var next = _dueAt.Count > 0
+            ? _dueAt.Values.Min()
+            : DateTime.UtcNow.AddSeconds(ScanIntervalSeconds);
+        var wait = next - DateTime.UtcNow;
+        if (wait < TimeSpan.FromSeconds(1)) return TimeSpan.FromSeconds(1);
+        if (wait > TimeSpan.FromSeconds(60)) return TimeSpan.FromSeconds(60);
+        return wait;
+    }
+
+    /// <summary>Per-network interval overrides, keyed by the subnet's CIDR label.</summary>
+    private Dictionary<string, int> ReadIntervalOverrides()
+    {
+        var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var child in _config.GetSection("Bamf:SubnetScanIntervalSeconds").GetChildren())
+        {
+            if (int.TryParse(child.Value, out var secs))
+                map[child.Key] = Math.Max(MinIntervalSeconds, secs);
+            else
+                _log.LogWarning("Ignoring SubnetScanIntervalSeconds entry for {Key}: " +
+                    "'{Value}' is not a whole number of seconds.", child.Key, child.Value);
+        }
+        return map;
+    }
+
+    /// <summary>
+    /// An override keyed to a network that isn't configured silently does nothing,
+    /// which looks identical to the feature not working. Say so once per key.
+    /// </summary>
+    private void WarnAboutUnmatchedOverrides(Dictionary<string, int> overrides, List<string> labels)
+    {
+        foreach (var key in overrides.Keys)
+        {
+            if (labels.Contains(key, StringComparer.OrdinalIgnoreCase)) continue;
+            if (!_warnedIntervalKeys.Add(key)) continue;
+            _log.LogWarning("SubnetScanIntervalSeconds has an entry for {Key}, which is not in " +
+                "Bamf:Subnets - it will have no effect. Configured networks: {Configured}",
+                key, labels.Count == 0 ? "(none)" : string.Join(", ", labels));
         }
     }
 

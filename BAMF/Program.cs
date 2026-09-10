@@ -152,7 +152,11 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         // read it, and the token in a Discord webhook URL is the credential.
         webhookMasked = MaskWebhook(scanner.WebhookUrl),
         lastScan = scanner.LastScanUtc?.ToString("o"),
+        // The default interval, kept as-is so existing dashboard code and any
+        // API consumer still reads what it always did.
         scanIntervalSeconds = scanner.ScanIntervalSeconds,
+        // Effective interval per network, once per-network overrides are applied.
+        subnetIntervalSeconds = scanner.SubnetIntervals,
         hosts,
     });
 });
