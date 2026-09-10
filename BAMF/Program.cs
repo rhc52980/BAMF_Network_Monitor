@@ -4,7 +4,23 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using LanWatch.Services;
 
-var builder = WebApplication.CreateBuilder(args);
+// Content root is pinned to the exe's own folder, and it has to be done here
+// rather than through builder.Host afterwards. BAMF keeps appsettings.json,
+// bamf.db and wwwroot beside the binary, so the content root must be the exe's
+// directory no matter where it was launched from - a Windows service starts in
+// System32, and a person double-clicking or running it from another folder
+// starts wherever they were.
+//
+// Setting it after the builder exists throws NotSupportedException the moment
+// the value differs from the launch directory, which is exactly the case this
+// is here to handle: it worked as a service (both already C:\BAMF) and crashed
+// for anyone running the binary from anywhere else, with a message that points
+// at host configuration rather than at the real problem.
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory,
+});
 
 // App version, from <Version> in BAMF.csproj. Builds may append a source
 // revision as "1.0.0+abc1234" — keep just the version itself. Computed before
@@ -23,9 +39,6 @@ var buildDate = Assembly.GetExecutingAssembly()
 // each call is a harmless no-op on the other platform or in a console.
 builder.Host.UseWindowsService(o => o.ServiceName = "BAMF");
 builder.Host.UseSystemd();
-
-// When running as a service the working directory is System32 — anchor content root to the exe.
-builder.Host.UseContentRoot(AppContext.BaseDirectory);
 
 builder.Services.AddSingleton<HostStore>();
 builder.Services.AddSingleton<OuiLookup>();
