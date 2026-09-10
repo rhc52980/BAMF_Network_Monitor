@@ -464,14 +464,21 @@
      the rows carrying a unit label ("seconds", "days") sit further left than
      the ones that don't. */
   .set-field { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; width: 180px; }
-  .set-field .modal-input { width: 110px; }
+  /* min-width as well as width: .modal-input carries min-width:220px, which
+     wins over a narrower width and leaves the box its full size. */
+  .set-field .modal-input { width: 110px; min-width: 0; }
   .set-unit { color: var(--text-dim); font-size: 12px; }
-  .set-table { width: 100%; border-collapse: collapse; }
+  /* min-width:0 undoes the global `table { min-width: 880px }`, which exists so
+     the devices grid scrolls horizontally. Inherited here it pushes this table
+     clean past the card it sits in. */
+  .set-table { width: 100%; border-collapse: collapse; min-width: 0; }
   .set-table td { padding: 8px 0; border-top: 1px solid var(--line); vertical-align: middle; }
   .set-table td:last-child { text-align: right; }
   .set-table .set-net { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .set-table .set-eff { color: var(--text-dim); font-size: 12px; }
-  .set-table input { width: 100px; }
+  /* Same min-width override as above; left inherited, the 220px box shoves the
+     whole table past the card's right edge. */
+  .set-table .set-net-input { width: 110px; min-width: 0; }
   .set-ro { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 13px; }
   .set-ro dt, .set-ro .set-ro-k { color: var(--text-dim); }
   .set-ro .set-ro-v { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
