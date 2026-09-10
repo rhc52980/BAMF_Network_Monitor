@@ -448,6 +448,41 @@
   .note-box .note-save:hover { border-color: var(--focus); }
 
   .feed-wrap { padding: 0 24px 32px; }
+  .settings-wrap { padding: 8px 24px 32px; max-width: 820px; }
+  .set-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; margin-bottom: 16px;
+  }
+  .set-card-title { font-weight: 600; margin-bottom: 6px; }
+  .set-row {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; padding: 10px 0; border-top: 1px solid var(--line);
+  }
+  .set-label { display: flex; flex-direction: column; gap: 2px; }
+  .set-hint { color: var(--text-dim); font-size: 12px; font-weight: 400; }
+  /* Fixed width so the input's left edge lines up down the column: without it
+     the rows carrying a unit label ("seconds", "days") sit further left than
+     the ones that don't. */
+  .set-field { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; width: 180px; }
+  .set-field .modal-input { width: 110px; }
+  .set-unit { color: var(--text-dim); font-size: 12px; }
+  .set-table { width: 100%; border-collapse: collapse; }
+  .set-table td { padding: 8px 0; border-top: 1px solid var(--line); vertical-align: middle; }
+  .set-table td:last-child { text-align: right; }
+  .set-table .set-net { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .set-table .set-eff { color: var(--text-dim); font-size: 12px; }
+  .set-table input { width: 100px; }
+  .set-ro { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 13px; }
+  .set-ro dt, .set-ro .set-ro-k { color: var(--text-dim); }
+  .set-ro .set-ro-v { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+  .set-actions { display: flex; align-items: center; gap: 10px; }
+  .set-result { font-size: 13px; }
+  .set-result.ok { color: var(--led-on); }
+  .set-result.err { color: var(--danger); }
+  @media (max-width: 620px) {
+    .set-row { flex-direction: column; gap: 6px; }
+    .set-ro { grid-template-columns: 1fr; }
+  }
   .home-wrap { padding: 8px 24px 32px; }
   .home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
   .home-card {
@@ -770,6 +805,7 @@
     <button class="view-btn" data-view="home">Who's home</button>
     <button class="view-btn" data-view="activity">Activity</button>
     <button class="view-btn" data-view="forgotten">Forgotten</button>
+    <button class="view-btn" data-view="settings">Settings</button>
   </div>
   <div class="tools">
     <input class="search" id="search" type="search" placeholder="Search… (* wildcards, e.g. *.245)" aria-label="Search hosts" title="Substring match, or use * / ? wildcards — *.245 matches any IP ending in .245">
@@ -799,6 +835,60 @@
 <div class="home-wrap" id="homeWrap" hidden>
   <div class="home-grid" id="homeGrid"></div>
   <div class="empty" id="homeEmpty" hidden>No watched devices yet. Click the camera on a host to watch it, and it'll show up here.</div>
+</div>
+
+<div class="settings-wrap" id="settingsWrap" hidden>
+  <div class="set-card">
+    <div class="set-card-title">Scanning</div>
+    <p class="modal-help">
+      Saved here and applied on the next scan — no restart. These override
+      <span class="mono">appsettings.json</span>; Reset below hands control back to the file.
+    </p>
+    <label class="set-row">
+      <span class="set-label">Default scan interval
+        <span class="set-hint">Used by any network without its own value below.</span>
+      </span>
+      <span class="set-field"><input id="setInterval" class="modal-input" type="number" min="5" step="1"> <span class="set-unit">seconds</span></span>
+    </label>
+    <label class="set-row">
+      <span class="set-label">Probe concurrency
+        <span class="set-hint">How many addresses are probed at once during a sweep.</span>
+      </span>
+      <span class="set-field"><input id="setConcurrency" class="modal-input" type="number" min="1" max="1024" step="1"></span>
+    </label>
+    <label class="set-row">
+      <span class="set-label">History retention
+        <span class="set-hint">Online/offline events older than this are pruned daily.</span>
+      </span>
+      <span class="set-field"><input id="setRetention" class="modal-input" type="number" min="1" step="1"> <span class="set-unit">days</span></span>
+    </label>
+  </div>
+
+  <div class="set-card">
+    <div class="set-card-title">Per-network intervals</div>
+    <p class="modal-help">
+      Watch a busy network closely and leave an idle one alone. Blank means the
+      default above. A network is only judged offline by a scan that actually
+      covered it, so differing intervals won't produce false down-alerts.
+    </p>
+    <table class="set-table" id="setNetTable"></table>
+    <div class="modal-note" id="setNetNote"></div>
+  </div>
+
+  <div class="set-card">
+    <div class="set-card-title">Set in appsettings.json</div>
+    <p class="modal-help">
+      Read-only here on purpose. Which networks BAMF may touch is the boundary the
+      wildcard port-scan guard relies on, and the rest need a restart to apply.
+    </p>
+    <div class="set-ro" id="setReadOnly"></div>
+  </div>
+
+  <div class="set-actions">
+    <button class="toggle" id="setReset">Reset to file defaults</button>
+    <button class="export-btn" id="setSave">Save</button>
+    <span class="set-result" id="setResult"></span>
+  </div>
 </div>
 
 <div class="feed-wrap" id="feedWrap" hidden>
@@ -1260,6 +1350,7 @@ function render() {
   $("tableWrap").hidden = !showTable;
   $("feedWrap").hidden = view !== "activity";
   $("homeWrap").hidden = view !== "home";
+  $("settingsWrap").hidden = view !== "settings";
   $("statusFilters").style.display = view === "devices" ? "" : "none";
   if (view === "activity") renderFeed();
   if (view === "home") renderHome();
@@ -2160,10 +2251,143 @@ document.addEventListener("click", (e) => {
   }
 });
 
+// ---------- Settings ----------
+// Loaded on demand rather than folded into the 10s poll: it is read rarely, and
+// refreshing it under someone mid-edit would overwrite what they were typing.
+let settingsData = null;
+
+function setMsg(text, kind) {
+  const el = $("setResult");
+  el.textContent = text;
+  el.className = "set-result" + (kind ? " " + kind : "");
+}
+
+async function loadSettings() {
+  setMsg("");
+  try {
+    const r = await fetch("/api/settings");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    settingsData = await r.json();
+  } catch (e) {
+    setMsg("Couldn't load settings: " + e.message, "err");
+    return;
+  }
+  const e = settingsData.editable, ro = settingsData.readOnly;
+  $("setInterval").value = e.scanIntervalSeconds;
+  $("setInterval").min = settingsData.minIntervalSeconds;
+  $("setConcurrency").value = e.pingConcurrency;
+  $("setRetention").value = e.historyRetentionDays;
+
+  const nets = ro.subnets || [];
+  const tbl = $("setNetTable");
+  tbl.innerHTML = "";
+  if (!nets.length) {
+    $("setNetNote").textContent = "No networks configured.";
+  } else {
+    $("setNetNote").textContent = "";
+    nets.forEach(net => {
+      const override = e.subnetIntervalOverrides ? e.subnetIntervalOverrides[net] : undefined;
+      const effective = e.subnetIntervalSeconds ? e.subnetIntervalSeconds[net] : undefined;
+      const tr = document.createElement("tr");
+
+      const tdNet = document.createElement("td");
+      tdNet.className = "set-net";
+      tdNet.textContent = net;
+      tr.appendChild(tdNet);
+
+      const tdEff = document.createElement("td");
+      tdEff.className = "set-eff";
+      tdEff.textContent = effective === undefined ? "" : "now every " + effective + "s";
+      tr.appendChild(tdEff);
+
+      const tdIn = document.createElement("td");
+      const input = document.createElement("input");
+      input.className = "modal-input set-net-input";
+      input.type = "number";
+      input.min = settingsData.minIntervalSeconds;
+      input.step = "1";
+      input.placeholder = "default";
+      input.dataset.net = net;
+      if (override !== undefined) input.value = override;
+      tdIn.appendChild(input);
+      tr.appendChild(tdIn);
+
+      tbl.appendChild(tr);
+    });
+  }
+
+  const roEl = $("setReadOnly");
+  roEl.innerHTML = "";
+  [
+    ["Networks", (ro.subnets || []).join(", ") || "—"],
+    ["Listening on", ro.urls || "—"],
+    ["Database", ro.databasePath || "—"],
+    ["OUI auto-download", ro.autoDownloadOui ? "on" : "off"],
+    ["Update repo", ro.updateRepo || "—"],
+  ].forEach(([k, v]) => {
+    const dk = document.createElement("div");
+    dk.className = "set-ro-k";
+    dk.textContent = k;
+    const dv = document.createElement("div");
+    dv.className = "set-ro-v";
+    dv.textContent = v;
+    roEl.appendChild(dk);
+    roEl.appendChild(dv);
+  });
+}
+
+async function saveSettings() {
+  const body = {
+    scanIntervalSeconds: Number($("setInterval").value),
+    pingConcurrency: Number($("setConcurrency").value),
+    historyRetentionDays: Number($("setRetention").value),
+    subnetIntervalSeconds: {},
+  };
+  // Sent as a whole map, so clearing a box removes that override rather than
+  // leaving the previously saved value in place.
+  document.querySelectorAll(".set-net-input").forEach(i => {
+    const v = i.value.trim();
+    if (v !== "") body.subnetIntervalSeconds[i.dataset.net] = Number(v);
+  });
+
+  setMsg("Saving…");
+  try {
+    const r = await fetch("/api/settings/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      setMsg(d.error || ("Save failed (HTTP " + r.status + ")"), "err");
+      return;
+    }
+    await loadSettings();
+    setMsg("Saved — applies on the next scan.", "ok");
+  } catch (e) {
+    setMsg("Save failed: " + e.message, "err");
+  }
+}
+
+$("setSave").onclick = saveSettings;
+$("setReset").onclick = async () => {
+  if (!confirm("Discard the settings saved here and go back to appsettings.json?")) return;
+  setMsg("Resetting…");
+  try {
+    const r = await fetch("/api/settings/scan/reset", { method: "POST" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    await loadSettings();
+    setMsg("Reset — appsettings.json is authoritative again.", "ok");
+  } catch (e) {
+    setMsg("Reset failed: " + e.message, "err");
+  }
+};
+
 document.querySelectorAll(".view-btn").forEach(b => b.onclick = () => {
   document.querySelectorAll(".view-btn").forEach(x => x.classList.remove("active"));
   b.classList.add("active");
   view = b.dataset.view;
+  if (view === "settings") loadSettings();
   render();
 });
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
