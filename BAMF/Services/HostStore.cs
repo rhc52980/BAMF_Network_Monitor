@@ -321,7 +321,17 @@ public class HostStore
     /// Marks every host NOT in <paramref name="seenMacs"/> as offline.
     /// Returns the watched hosts that just transitioned offline this cycle.
     /// </summary>
-    public List<HostRecord> MarkOffline(IReadOnlySet<string> seenMacs)
+    /// <param name="coveredSubnets">
+    /// Networks this scan pass actually visited. Absent (or null) means the pass
+    /// covered everything, so any online host missing from <paramref name="seenMacs"/>
+    /// is genuinely down - the original behaviour. When subnets run on different
+    /// intervals a pass covers only some of them, and the hosts on the rest were
+    /// never looked for: judging them by this pass's MACs would declare an entire
+    /// network offline every time a faster one ticked. Scoping the query to the
+    /// networks actually scanned is what makes per-subnet intervals safe.
+    /// </param>
+    public List<HostRecord> MarkOffline(IReadOnlySet<string> seenMacs,
+        IReadOnlyCollection<string>? coveredSubnets = null)
     {
         lock (_lock)
         {
@@ -329,7 +339,24 @@ public class HostStore
             var wentDown = new List<HostRecord>();
             using var conn = Open();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id, mac, ignored, watched FROM hosts WHERE online = 1";
+            if (coveredSubnets is null)
+            {
+                cmd.CommandText = "SELECT id, mac, ignored, watched FROM hosts WHERE online = 1";
+            }
+            else if (coveredSubnets.Count == 0)
+            {
+                // Nothing was scanned, so nothing can be judged offline.
+                return wentDown;
+            }
+            else
+            {
+                var names = coveredSubnets.Select((_, i) => $"$s{i}").ToList();
+                cmd.CommandText =
+                    $"SELECT id, mac, ignored, watched FROM hosts WHERE online = 1 " +
+                    $"AND subnet IN ({string.Join(", ", names)})";
+                var i = 0;
+                foreach (var s in coveredSubnets) cmd.Parameters.AddWithValue($"$s{i++}", s);
+            }
             var toMark = new List<(long Id, string Mac, bool Ignored, bool Watched)>();
             using (var r = cmd.ExecuteReader())
                 while (r.Read())
