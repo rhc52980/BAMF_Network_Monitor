@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using LanWatch.Services;
 
@@ -493,6 +494,105 @@ app.MapPost("/api/settings/auto-ignore-random", (ActiveArpRequest body, HostStor
     return Results.Ok();
 });
 
+// Everything the Settings tab renders, in one round trip. Split into what the
+// dashboard may change and what it may only display: anything that decides which
+// networks BAMF is allowed to touch, or that needs a restart to apply, stays in
+// appsettings.json on purpose. Subnets in particular is the boundary the wildcard
+// port-scan guard depends on - a pattern can only expand across configured
+// networks, so letting the UI edit that list would dissolve the guarantee.
+app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChecker updates, IConfiguration cfg) =>
+{
+    var overrides = scanner.ReadIntervalOverrides();
+    return Results.Ok(new
+    {
+        editable = new
+        {
+            scanIntervalSeconds = scanner.ConfiguredDefaultInterval,
+            subnetIntervalSeconds = scanner.SubnetIntervals,
+            subnetIntervalOverrides = overrides,
+            pingConcurrency = scanner.ConfiguredConcurrency,
+            historyRetentionDays = store.RetentionDays,
+            activeArpScan = scanner.ActiveArpEnabled,
+            activeArpAvailable = scanner.NpcapAvailable,
+            autoIgnoreRandomizedMacs = scanner.AutoIgnoreRandomEnabled,
+            updateCheck = updates.Enabled,
+            webhookConfigured = !string.IsNullOrWhiteSpace(scanner.WebhookUrl),
+            webhookMasked = MaskWebhook(scanner.WebhookUrl),
+        },
+        readOnly = new
+        {
+            subnets = scanner.SubnetLabels,
+            urls = cfg["Urls"] ?? "",
+            databasePath = cfg["Bamf:DatabasePath"] ?? "bamf.db",
+            autoDownloadOui = cfg.GetValue("Bamf:AutoDownloadOui", true),
+            updateRepo = cfg["Bamf:UpdateRepo"] ?? "",
+        },
+        minIntervalSeconds = ScannerService.MinIntervalSeconds,
+    });
+});
+
+app.MapPost("/api/settings/scan", (ScanSettingsRequest body, HostStore store) =>
+{
+    var errors = new List<string>();
+
+    if (body.ScanIntervalSeconds is { } interval)
+    {
+        if (interval < ScannerService.MinIntervalSeconds)
+            errors.Add($"Scan interval must be at least {ScannerService.MinIntervalSeconds} seconds.");
+        else
+            store.SetSetting("scanIntervalSeconds", interval.ToString());
+    }
+
+    if (body.PingConcurrency is { } concurrency)
+    {
+        if (concurrency is < 1 or > 1024)
+            errors.Add("Probe concurrency must be between 1 and 1024.");
+        else
+            store.SetSetting("pingConcurrency", concurrency.ToString());
+    }
+
+    if (body.HistoryRetentionDays is { } days)
+    {
+        if (days < 1)
+            errors.Add("History retention must be at least 1 day.");
+        else
+            store.SetSetting("historyRetentionDays", days.ToString());
+    }
+
+    // Sent whole rather than per-key, so clearing a row in the UI removes the
+    // override instead of leaving the previous value behind.
+    if (body.SubnetIntervalSeconds is { } map)
+    {
+        var clean = new Dictionary<string, int>();
+        foreach (var (label, secs) in map)
+        {
+            if (secs < ScannerService.MinIntervalSeconds)
+                errors.Add($"{label}: interval must be at least {ScannerService.MinIntervalSeconds} seconds.");
+            else
+                clean[label] = secs;
+        }
+        if (errors.Count == 0)
+            store.SetSetting("subnetScanIntervalSeconds", JsonSerializer.Serialize(clean));
+    }
+
+    if (errors.Count > 0) return Results.BadRequest(new { error = string.Join(" ", errors) });
+    return Results.Ok();
+});
+
+// Drops every dashboard-saved scan setting so appsettings.json is authoritative
+// again. Deliberately does not touch the webhook or the toggles that predate the
+// Settings tab - those have their own controls and their own meaning of "off".
+app.MapPost("/api/settings/scan/reset", (HostStore store) =>
+{
+    foreach (var key in new[]
+             {
+                 "scanIntervalSeconds", "pingConcurrency",
+                 "historyRetentionDays", "subnetScanIntervalSeconds",
+             })
+        store.DeleteSetting(key);
+    return Results.Ok();
+});
+
 app.MapPost("/api/hosts/{id:long}/watch", (long id, WatchRequest body, HostStore store) =>
     store.SetWatched(id, body.Watched) ? Results.Ok() : Results.NotFound());
 
@@ -600,3 +700,8 @@ record IgnoreRequest(bool Ignored);
 record WatchRequest(bool Watched);
 record ForgetRequest(bool Forgotten);
 record ActiveArpRequest(bool Enabled);
+record ScanSettingsRequest(
+    int? ScanIntervalSeconds,
+    int? PingConcurrency,
+    int? HistoryRetentionDays,
+    Dictionary<string, int>? SubnetIntervalSeconds);

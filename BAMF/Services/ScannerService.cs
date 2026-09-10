@@ -76,6 +76,34 @@ public partial class ScannerService : BackgroundService
         }
     }
 
+    /// <summary>
+    /// Default interval, dashboard value winning over appsettings.json. Same
+    /// precedence as <see cref="ActiveArpEnabled"/>: a setting saved from the UI
+    /// lives in the database, and the file supplies the default it started from.
+    /// </summary>
+    public int ConfiguredDefaultInterval
+    {
+        get
+        {
+            var db = _store.GetSetting("scanIntervalSeconds");
+            if (db is not null && int.TryParse(db, out var secs))
+                return Math.Max(MinIntervalSeconds, secs);
+            return Math.Max(MinIntervalSeconds, _config.GetValue("Bamf:ScanIntervalSeconds", 60));
+        }
+    }
+
+    /// <summary>Probe concurrency, dashboard value winning over appsettings.json.</summary>
+    public int ConfiguredConcurrency
+    {
+        get
+        {
+            var db = _store.GetSetting("pingConcurrency");
+            if (db is not null && int.TryParse(db, out var n))
+                return Math.Clamp(n, 1, 1024);
+            return Math.Clamp(_config.GetValue("Bamf:PingConcurrency", 64), 1, 1024);
+        }
+    }
+
     public bool NpcapAvailable => ArpScanner.IsAvailable;
 
     /// <summary>Effective toggle: DB override wins, else appsettings default.</summary>
@@ -102,16 +130,15 @@ public partial class ScannerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        var concurrency = _config.GetValue("Bamf:PingConcurrency", 64);
-
         while (!ct.IsCancellationRequested)
         {
             try
             {
-                // Re-read each pass so an appsettings.json edit takes effect
-                // without a restart, the same as the subnet list already does.
-                ScanIntervalSeconds = Math.Max(MinIntervalSeconds,
-                    _config.GetValue("Bamf:ScanIntervalSeconds", 60));
+                // Re-read each pass so a change from the dashboard or an edit to
+                // appsettings.json takes effect without a restart, the same as
+                // the subnet list already does.
+                ScanIntervalSeconds = ConfiguredDefaultInterval;
+                var concurrency = ConfiguredConcurrency;
                 var overrides = ReadIntervalOverrides();
 
                 var subnets = ResolveSubnets();
@@ -212,10 +239,35 @@ public partial class ScannerService : BackgroundService
         return wait;
     }
 
-    /// <summary>Per-network interval overrides, keyed by the subnet's CIDR label.</summary>
-    private Dictionary<string, int> ReadIntervalOverrides()
+    /// <summary>
+    /// Per-network interval overrides, keyed by the subnet's CIDR label. A map
+    /// saved from the dashboard replaces the appsettings.json section outright
+    /// rather than merging with it, so removing a row in the UI actually removes
+    /// the override instead of falling back to a stale file entry.
+    /// </summary>
+    public Dictionary<string, int> ReadIntervalOverrides()
     {
         var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        var db = _store.GetSetting("subnetScanIntervalSeconds");
+        if (db is not null)
+        {
+            try
+            {
+                var saved = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, int>>(db);
+                if (saved is not null)
+                {
+                    foreach (var (k, v) in saved) map[k] = Math.Max(MinIntervalSeconds, v);
+                    return map;
+                }
+            }
+            catch (System.Text.Json.JsonException ex)
+            {
+                _log.LogWarning(ex, "Saved per-network intervals could not be read; " +
+                    "falling back to appsettings.json.");
+            }
+        }
+
         foreach (var child in _config.GetSection("Bamf:SubnetScanIntervalSeconds").GetChildren())
         {
             if (int.TryParse(child.Value, out var secs))
