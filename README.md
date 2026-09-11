@@ -81,7 +81,7 @@ optional daily update check you have to switch on, and your own webhook.
 
 ### Tune it without touching the server
 
-![The Settings tab: scan interval, probe concurrency, history retention, and a scan interval per network](docs/settings.png)
+![The Settings tab: scan interval, probe concurrency, history retention, and an on/off switch and scan interval per network](docs/settings.png)
 
 Scan cadence, probe concurrency and history retention are editable from the
 dashboard and applied on the next scan — no restart, no editing a file over SSH.
