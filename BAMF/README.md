@@ -774,6 +774,13 @@ You'll then get:
 - a **red** card when a ⭐ watched device goes offline
 - a **green** card when it comes back, with how long it was down
 
+A device isn't called offline the first time a scan misses it. **Offline after
+missed scans** in the Settings tab (default 2) is how many consecutive scans of
+its network must miss it first, so a laptop waking or a phone dropping Wi-Fi
+for one sweep doesn't fire a red card and a green one a minute apart. It's
+counted in scans rather than minutes, so it means the same thing whatever a
+network's interval is; set it to 1 for the old first-miss-counts behaviour.
+
 **Remove** clears it and turns alerts off.
 
 Notes:

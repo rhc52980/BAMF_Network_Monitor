@@ -105,6 +105,8 @@ public class HostStore
             ("note", "ALTER TABLE hosts ADD COLUMN note TEXT NOT NULL DEFAULT ''"),
             ("os_guess", "ALTER TABLE hosts ADD COLUMN os_guess TEXT NOT NULL DEFAULT ''"),
             ("link", "ALTER TABLE hosts ADD COLUMN link TEXT NOT NULL DEFAULT ''"),
+            // Consecutive scans of its network that have not seen this host.
+            ("misses", "ALTER TABLE hosts ADD COLUMN misses INTEGER NOT NULL DEFAULT 0"),
         })
         {
             if (existing.Contains(col)) continue;
@@ -311,7 +313,7 @@ public class HostStore
                     upd.CommandText = """
                         UPDATE hosts
                         SET ip = $ip, hostname = $hostname, vendor = $vendor,
-                            subnet = $subnet, online = 1, forgotten = 0, last_seen = $now
+                            subnet = $subnet, online = 1, forgotten = 0, last_seen = $now, misses = 0
                         WHERE mac = $mac
                         """;
                     upd.Parameters.AddWithValue("$ip", ip);
@@ -399,9 +401,19 @@ public class HostStore
     /// network offline every time a faster one ticked. Scoping the query to the
     /// networks actually scanned is what makes per-subnet intervals safe.
     /// </param>
+    /// <param name="missThreshold">
+    /// How many consecutive scans of its network must fail to see a host before
+    /// it is declared offline. 1 is the old behaviour: gone from one scan, gone.
+    /// Counted in scans rather than minutes so it means the same thing on a
+    /// network scanned every 15 seconds and one scanned every 10 minutes, and
+    /// a paused network - never covered - never accumulates misses at all.
+    /// The counter lives in the row, so a service restart neither forgives a
+    /// miss nor invents one.
+    /// </param>
     public List<HostRecord> MarkOffline(IReadOnlySet<string> seenMacs,
-        IReadOnlyCollection<string>? coveredSubnets = null)
+        IReadOnlyCollection<string>? coveredSubnets = null, int missThreshold = 1)
     {
+        if (missThreshold < 1) missThreshold = 1;
         lock (_lock)
         {
             var now = DateTime.UtcNow.ToString("o");
@@ -410,7 +422,7 @@ public class HostStore
             using var cmd = conn.CreateCommand();
             if (coveredSubnets is null)
             {
-                cmd.CommandText = "SELECT id, mac, ignored, watched FROM hosts WHERE online = 1";
+                cmd.CommandText = "SELECT id, mac, ignored, watched, misses FROM hosts WHERE online = 1";
             }
             else if (coveredSubnets.Count == 0)
             {
@@ -421,12 +433,13 @@ public class HostStore
             {
                 var names = coveredSubnets.Select((_, i) => $"$s{i}").ToList();
                 cmd.CommandText =
-                    $"SELECT id, mac, ignored, watched FROM hosts WHERE online = 1 " +
+                    $"SELECT id, mac, ignored, watched, misses FROM hosts WHERE online = 1 " +
                     $"AND subnet IN ({string.Join(", ", names)})";
                 var i = 0;
                 foreach (var s in coveredSubnets) cmd.Parameters.AddWithValue($"$s{i++}", s);
             }
             var toMark = new List<(long Id, string Mac, bool Ignored, bool Watched)>();
+            var toCount = new List<(long Id, long Misses)>();
             using (var r = cmd.ExecuteReader())
                 while (r.Read())
                 {
@@ -434,13 +447,27 @@ public class HostStore
                     var mac = r.GetString(1);
                     var ign = r.GetInt64(2) == 1;
                     var wat = r.GetInt64(3) == 1;
-                    if (!seenMacs.Contains(mac)) toMark.Add((id, mac, ign, wat));
+                    var misses = r.GetInt64(4);
+                    if (seenMacs.Contains(mac)) continue;
+                    // One more miss. Only when that reaches the threshold does the
+                    // host actually go offline; until then just remember the count.
+                    if (misses + 1 >= missThreshold) toMark.Add((id, mac, ign, wat));
+                    else toCount.Add((id, misses + 1));
                 }
+
+            foreach (var (id, misses) in toCount)
+            {
+                using var bump = conn.CreateCommand();
+                bump.CommandText = "UPDATE hosts SET misses = $m WHERE id = $id";
+                bump.Parameters.AddWithValue("$m", misses);
+                bump.Parameters.AddWithValue("$id", id);
+                bump.ExecuteNonQuery();
+            }
 
             foreach (var (id, mac, ign, wat) in toMark)
             {
                 using var upd = conn.CreateCommand();
-                upd.CommandText = "UPDATE hosts SET online = 0 WHERE mac = $mac";
+                upd.CommandText = "UPDATE hosts SET online = 0, misses = 0 WHERE mac = $mac";
                 upd.Parameters.AddWithValue("$mac", mac);
                 upd.ExecuteNonQuery();
                 if (!ign) AddEvent(conn, id, "offline", now);
