@@ -123,6 +123,40 @@ public class HostStore
                 """;
             settings.ExecuteNonQuery();
         }
+
+        ScrubSyntheticHostnames(conn);
+    }
+
+    /// <summary>
+    /// Blanks stored hostnames that are really a device's MAC in disguise.
+    /// The resolver has refused such names for a while, but only on the
+    /// NetBIOS path, and UpsertSeen deliberately keeps an existing hostname
+    /// when a fresh lookup returns nothing - so a junk name that got in once
+    /// stayed forever, showing under the device's real name in the dashboard.
+    /// Runs at startup, so an existing database is cleaned on the next update
+    /// rather than only protecting devices seen from now on. A real name that
+    /// resolves later still replaces the blank as it always has.
+    /// </summary>
+    private static void ScrubSyntheticHostnames(SqliteConnection conn)
+    {
+        var junk = new List<(long Id, string Name)>();
+        using (var read = conn.CreateCommand())
+        {
+            read.CommandText = "SELECT id, hostname FROM hosts WHERE hostname <> ''";
+            using var r = read.ExecuteReader();
+            while (r.Read())
+            {
+                var name = r.GetString(1);
+                if (NetBiosResolver.LooksMacDerived(name)) junk.Add((r.GetInt64(0), name));
+            }
+        }
+        foreach (var (id, _) in junk)
+        {
+            using var upd = conn.CreateCommand();
+            upd.CommandText = "UPDATE hosts SET hostname = '' WHERE id = $id";
+            upd.Parameters.AddWithValue("$id", id);
+            upd.ExecuteNonQuery();
+        }
     }
 
     /// <summary>
