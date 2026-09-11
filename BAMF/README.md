@@ -651,8 +651,12 @@ probes your network unless you ask it to.
 ### Tier 1 — passive, automatic, zero packets
 
 After every scan cycle BAMF fills in guesses for devices that don't have one,
-using only data it already holds: the vendor (from the MAC's OUI) and the
-hostname (from reverse DNS or NetBIOS).
+using only data it already holds: the vendor (from the MAC's OUI), the
+hostname (from reverse DNS or NetBIOS), and the services a device has announced
+over mDNS. A device saying what it is outranks a guess from its vendor alone,
+so an Apple-vendor device that announces `_airplay._tcp` and
+`_companion-link._tcp` becomes "Apple TV / HomePod (mDNS)" rather than "Apple
+device (vendor)".
 
 | Signal | Guess |
 |---|---|
@@ -903,8 +907,21 @@ interface, the log warns you and that subnet's hosts will appear offline.
   separately.
 - Hostnames come from reverse DNS first, then a NetBIOS query (UDP 137) as a
   fallback - this names many Windows PCs, NAS boxes, and printers that have no
-  DNS record. Devices that answer neither (lots of IoT gear, phones, some smart
-  TVs) still show "-"; name those by hand, and the name sticks to the MAC.
+  DNS record. Devices that answer neither may still name themselves over mDNS
+  (below). Anything left still shows "-"; name those by hand, and the name
+  sticks to the MAC.
+- **mDNS listening** (on by default; switch it in the Settings tab or with
+  `Bamf:MdnsListen`) joins the multicast group on each local network and reads
+  the announcements devices make about themselves - Apple TVs, Chromecasts,
+  Sonos speakers, printers, HomeKit and Matter gear. BAMF never sends an mDNS
+  query: the only packet this causes is the kernel's own multicast membership
+  report, which any listener has to make. A name learned this way is shown only
+  when the device has no DNS or NetBIOS name, and the announced services refine
+  the device guess. Because BAMF only listens, coverage grows with time - a
+  device is named when it next announces itself or answers someone else's
+  query, not on the first scan. Port 5353 is shared with the operating system's
+  own responder; if it can't be shared, the Settings tab says so and everything
+  else carries on.
 - Phones with MAC randomization appear as new "(randomized MAC)" hosts each
   time they rejoin. With auto-ignore enabled (default; toggle in the
   dashboard header or via `AutoIgnoreRandomizedMacs`), these are auto-filed

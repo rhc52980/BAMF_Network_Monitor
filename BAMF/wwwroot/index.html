@@ -907,6 +907,13 @@
       </span>
       <span class="set-field"><input id="setMisses" class="modal-input" type="number" min="1" max="20" step="1"> <span class="set-unit">scans</span></span>
     </label>
+    <label class="set-row">
+      <span class="set-label">Listen for mDNS announcements
+        <span class="set-hint">Devices announce their own names and services over multicast — Apple TVs, Chromecasts, Sonos, printers, HomeKit gear. BAMF only listens; it never sends a query. Names learned this way fill in for devices with no hostname.</span>
+        <span class="set-hint" id="setMdnsStatus"></span>
+      </span>
+      <span class="set-field"><button type="button" class="arp-toggle" id="setMdns" aria-pressed="false"><span class="pill"></span></button></span>
+    </label>
   </div>
 
   <div class="set-card">
@@ -1314,7 +1321,9 @@ function inNetwork(h) {
 }
 
 function dispName(h) {
-  return h.customName || h.hostname || "—";
+  // A name the device announced over mDNS is the last resort for display:
+  // a custom name or a resolved hostname always wins over it.
+  return h.customName || (h.hostname && h.hostname !== "—" ? h.hostname : "") || h.mdnsName || "—";
 }
 
 function visible() {
@@ -1341,7 +1350,7 @@ function visible() {
 // in .245, and "192.168.2.*" finds a whole subnet.
 function matchesQuery(h, query) {
   if (!query) return true;
-  const fields = [h.customName, h.hostname, h.ip, h.mac, h.vendor, h.note, h.osGuess].filter(Boolean);
+  const fields = [h.customName, h.hostname, h.mdnsName, h.mdnsServices, h.ip, h.mac, h.vendor, h.note, h.osGuess].filter(Boolean);
   if (/[*?]/.test(query)) {
     let rx;
     try {
@@ -1481,13 +1490,16 @@ function render() {
     tr.dataset.id = h.id;
     if (!h.known && !h.ignored) tr.classList.add("is-unknown");
     if (h.ignored) tr.classList.add("is-ignored");
-    const showDns = h.customName && h.hostname && h.hostname !== "—" && h.hostname !== h.customName;
+    // Under a custom name, show what the network calls the device: its resolved
+    // hostname if there is one, else the name it announced over mDNS.
+    const subName = (h.hostname && h.hostname !== "—") ? h.hostname : (h.mdnsName || "");
+    const showDns = h.customName && subName && subName !== h.customName;
     tr.innerHTML = `
       <td class="led-cell"><span class="led ${h.online ? "on" : ""}" title="${h.online ? "online" : "offline"}"></span></td>
       <td class="hostname" title="Click to rename">
         <span class="name-text">${esc(dispName(h))}</span>
         ${h.note ? `<span class="note-flag" title="${esc(h.note)}">\uD83D\uDCDD</span>` : ""}
-        ${showDns ? `<span class="dns">${esc(h.hostname)}</span>` : ""}
+        ${showDns ? `<span class="dns">${esc(subName)}</span>` : ""}
       </td>
       <td class="ip" data-label="IP"><a href="${esc(h.linkUrl || ("http://" + h.ip))}" target="_blank" rel="noopener" title="Open ${esc(h.linkUrl || ("http://" + h.ip))}${h.link ? " (custom link)" : ""}">${esc(h.ip)}${h.link ? '<span class="link-flag" title="Custom link">⇗</span>' : ""}</a></td>
       <td class="mac" data-label="MAC">${esc(h.mac)}</td>
@@ -2404,6 +2416,15 @@ async function loadSettings() {
   $("setConcurrency").value = e.pingConcurrency;
   $("setRetention").value = e.historyRetentionDays;
   $("setMisses").value = e.offlineAfterMissedScans;
+  const mdnsBtn = $("setMdns");
+  mdnsBtn.classList.toggle("on", !!e.mdnsListen);
+  mdnsBtn.setAttribute("aria-pressed", e.mdnsListen ? "true" : "false");
+  const ms = e.mdnsStatus || {};
+  $("setMdnsStatus").textContent = !e.mdnsListen
+    ? "Off."
+    : ms.running
+      ? `Listening on ${(ms.interfaces || []).join(", ")} · ${ms.packets || 0} announcements heard.`
+      : (ms.error ? `Not listening: ${ms.error}` : "Starting on the next scan.");
 
   const nets = ro.subnets || [];
   const tbl = $("setNetTable");
@@ -2498,6 +2519,7 @@ async function saveSettings() {
     pingConcurrency: Number($("setConcurrency").value),
     historyRetentionDays: Number($("setRetention").value),
     offlineAfterMissedScans: Number($("setMisses").value),
+    mdnsListen: $("setMdns").classList.contains("on"),
     subnetIntervalSeconds: {},
   };
   // Sent as a whole map, so clearing a box removes that override rather than
@@ -2532,6 +2554,12 @@ async function saveSettings() {
 }
 
 $("setSave").onclick = saveSettings;
+$("setMdns").onclick = () => {
+  const b = $("setMdns");
+  const on = !b.classList.contains("on");
+  b.classList.toggle("on", on);
+  b.setAttribute("aria-pressed", on ? "true" : "false");
+};
 $("setReset").onclick = async () => {
   if (!confirm("Discard the settings saved here and go back to appsettings.json?")) return;
   setMsg("Resetting…");

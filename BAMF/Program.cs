@@ -48,6 +48,7 @@ builder.Services.AddSingleton(sp => new UpdateChecker(
     sp.GetRequiredService<IConfiguration>(),
     sp.GetRequiredService<ILogger<UpdateChecker>>(),
     version));
+builder.Services.AddSingleton<MdnsListener>();
 builder.Services.AddSingleton<ScannerService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ScannerService>());
 builder.Services.AddHttpClient();
@@ -136,6 +137,8 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         forgotten = h.Forgotten,
         note = h.Note,
         osGuess = h.OsGuess,
+        mdnsName = h.MdnsName,
+        mdnsServices = h.MdnsServices,
         link = h.Link,                                              // raw override, for editing
         linkUrl = DeviceLink.Resolve(h.Link, h.Ip, linkTemplate),   // resolved, for the href
         firstSeen = h.FirstSeen,
@@ -547,6 +550,14 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             pingConcurrency = scanner.ConfiguredConcurrency,
             historyRetentionDays = store.RetentionDays,
             offlineAfterMissedScans = scanner.ConfiguredOfflineMisses,
+            mdnsListen = scanner.MdnsEnabled,
+            mdnsStatus = new
+            {
+                running = scanner.Mdns.Running,
+                interfaces = scanner.Mdns.Interfaces,
+                packets = scanner.Mdns.PacketsSeen,
+                error = scanner.Mdns.LastError,
+            },
             activeArpScan = scanner.ActiveArpEnabled,
             activeArpAvailable = scanner.NpcapAvailable,
             autoIgnoreRandomizedMacs = scanner.AutoIgnoreRandomEnabled,
@@ -602,6 +613,9 @@ app.MapPost("/api/settings/scan", (ScanSettingsRequest body, HostStore store, Sc
             store.SetSetting("offlineAfterMissedScans", misses.ToString());
     }
 
+    if (body.MdnsListen is { } mdns)
+        store.SetSetting("mdnsListen", mdns ? "true" : "false");
+
     // Sent whole rather than per-key, so clearing a row in the UI removes the
     // override instead of leaving the previous value behind.
     if (body.SubnetIntervalSeconds is { } map)
@@ -651,7 +665,7 @@ app.MapPost("/api/settings/scan/reset", (HostStore store) =>
              {
                  "scanIntervalSeconds", "pingConcurrency",
                  "historyRetentionDays", "subnetScanIntervalSeconds", "disabledSubnets",
-                 "offlineAfterMissedScans",
+                 "offlineAfterMissedScans", "mdnsListen",
              })
         store.DeleteSetting(key);
     return Results.Ok();
@@ -769,5 +783,6 @@ record ScanSettingsRequest(
     int? PingConcurrency,
     int? HistoryRetentionDays,
     int? OfflineAfterMissedScans,
+    bool? MdnsListen,
     Dictionary<string, int>? SubnetIntervalSeconds,
     List<string>? DisabledSubnets);

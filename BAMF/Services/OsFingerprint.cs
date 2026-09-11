@@ -11,6 +11,38 @@ public static class OsFingerprint
     /// Vendor + hostname only — costs nothing, runs on every scan. Returns ""
     /// when the vendor says nothing useful, rather than guessing wildly.
     /// </summary>
+    /// <summary>
+    /// A device guess from the service types it announces over mDNS. These are
+    /// the device saying what it is, so they outrank a vendor-only guess; the
+    /// label names the evidence the same way the others do. First match wins,
+    /// ordered so the most specific kind of device comes first.
+    /// </summary>
+    public static string FromServices(IEnumerable<string> services)
+    {
+        var set = new HashSet<string>(services, StringComparer.OrdinalIgnoreCase);
+        bool Has(string t) => set.Contains(t);
+
+        if (Has("_googlecast._tcp"))          return "Chromecast / Google TV (mDNS)";
+        if (Has("_androidtvremote2._tcp"))    return "Android TV (mDNS)";
+        if (Has("_amzn-wplay._tcp"))          return "Fire TV (mDNS)";
+        if (Has("_sonos._tcp"))               return "Sonos speaker (mDNS)";
+        if (Has("_airplay._tcp") && Has("_companion-link._tcp")) return "Apple TV / HomePod (mDNS)";
+        if (Has("_airplay._tcp") || Has("_raop._tcp")) return "AirPlay device (mDNS)";
+        if (Has("_hap._tcp"))                 return "HomeKit accessory (mDNS)";
+        if (Has("_matter._tcp") || Has("_matterc._udp")) return "Matter device (mDNS)";
+        if (Has("_ipp._tcp") || Has("_ipps._tcp") || Has("_printer._tcp") || Has("_pdl-datastream._tcp")) return "Printer (mDNS)";
+        if (Has("_scanner._tcp") || Has("_uscan._tcp")) return "Scanner (mDNS)";
+        if (Has("_hue._tcp"))                 return "Philips Hue bridge (mDNS)";
+        if (Has("_spotify-connect._tcp"))     return "Spotify Connect speaker (mDNS)";
+        if (Has("_smb._tcp") || Has("_afpovertcp._tcp") || Has("_nfs._tcp")) return "File server / NAS (mDNS)";
+        if (Has("_homeassistant._tcp"))       return "Home Assistant (mDNS)";
+        if (Has("_esphomelib._tcp"))          return "ESPHome device (mDNS)";
+        if (Has("_octoprint._tcp"))           return "3D printer (mDNS)";
+        if (Has("_ssh._tcp") || Has("_sftp-ssh._tcp")) return "SSH host (mDNS)";
+        if (Has("_http._tcp") || Has("_https._tcp")) return "Web server (mDNS)";
+        return "";
+    }
+
     public static string Passive(string vendor, string hostname)
     {
         var v = (vendor ?? "").ToLowerInvariant();
