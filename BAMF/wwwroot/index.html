@@ -1973,19 +1973,34 @@ function applyTheme(theme) {
   const t = THEMES.find(x => x.id === theme);
   $("themeIcon").textContent = "\u25d1"; // half-filled circle = "theme"
   $("themeToggle").title = "Theme: " + (t ? t.name : theme) + " — click to change";
+  // localStorage is what actually persists: per browser, across tabs and
+  // restarts. window.name only ever survived a reload of the same tab, which
+  // is why the theme kept snapping back to dark. Keep writing it as a fallback
+  // for a browser that blocks storage (private mode, strict site settings).
+  try { localStorage.setItem("bamf-theme", theme); } catch {}
   try { window.name = "bamf-theme:" + theme; } catch {}
 }
 
-// restore saved theme (persisted in window.name, which survives reloads)
+// Restore the saved theme: localStorage first (survives restarts and new
+// tabs), then window.name (same-tab reload only) for anyone who chose a theme
+// before storage was used, then dark. Each read is guarded separately so a
+// browser that throws on storage access still gets a theme.
 (function initTheme() {
-  let saved = "dark";
+  const valid = t => THEMES.some(x => x.id === t);
+  let saved = null;
   try {
-    if (window.name && window.name.startsWith("bamf-theme:")) {
-      const t = window.name.split(":")[1];
-      if (THEMES.some(x => x.id === t)) saved = t;
-    }
+    const t = localStorage.getItem("bamf-theme");
+    if (t && valid(t)) saved = t;
   } catch {}
-  applyTheme(saved);
+  if (!saved) {
+    try {
+      if (window.name && window.name.startsWith("bamf-theme:")) {
+        const t = window.name.split(":")[1];
+        if (valid(t)) saved = t;
+      }
+    } catch {}
+  }
+  applyTheme(saved || "dark");
 })();
 
 function renderUpdateToggle() {
