@@ -232,6 +232,7 @@
   .arp-toggle.on .pill::after { left: 15px; }
   .arp-toggle.nodriver { opacity: .6; }
   .arp-toggle.nodriver .pill { background: var(--led-warn); }
+  .arp-toggle .tstate { min-width: 22px; }
   .conn-dot.err { background: var(--danger); }
 
   .netbar {
@@ -498,6 +499,9 @@
   /* min-width as well as width: .modal-input carries min-width:220px, which
      wins over a narrower width and leaves the box its full size. */
   .set-field .modal-input { width: 110px; min-width: 0; }
+  /* In the Notifications card the URL is the point of the row: let it and the
+     format picker take the width the dialog never had. */
+  .set-card .modal-row .modal-input, .set-card .modal-row select { flex: 1 1 auto; min-width: 0; max-width: 560px; }
   .set-unit { color: var(--text-dim); font-size: 12px; }
   /* min-width:0 undoes the global `table { min-width: 880px }`, which exists so
      the devices grid scrolls horizontally. Inherited here it pushes this table
@@ -802,15 +806,9 @@
     <span class="sub" id="subnetLabel">—</span>
   </div>
   <div class="scanline">
-    <button class="arp-toggle" id="updToggle" title="">
-      <span class="pill"></span><span>update check</span>
-    </button>
-    <button class="arp-toggle" id="randToggle" title="">
-      <span class="pill"></span><span>ignore random MACs</span>
-    </button>
-    <button class="arp-toggle" id="arpToggle" title="">
-      <span class="pill"></span><span id="arpToggleLbl">active ARP</span>
-    </button>
+    <!-- The setting toggles that used to live here are in the Settings tab,
+         with the rest of the settings. The header keeps only what isn't a
+         setting: theme, connection, and the countdown to the next scan. -->
     <button class="arp-toggle" id="themeToggle" title="Toggle light / dark theme">
       <span id="themeIcon">☾</span>
     </button>
@@ -933,6 +931,67 @@
     <div class="modal-note" id="setNetNote"></div>
   </div>
 
+  <div class="set-actions">
+    <button class="toggle" id="setReset">Reset to file defaults</button>
+    <button class="export-btn" id="setSave">Save</button>
+    <span class="set-result" id="setResult"></span>
+  </div>
+
+  <div class="set-card">
+    <div class="set-card-title">Behaviour</div>
+    <p class="modal-help">
+      These apply the moment you click them — no Save needed.
+    </p>
+    <label class="set-row">
+      <span class="set-label">Active ARP scanning
+        <span class="set-hint">Send ARP who-has requests directly instead of a ping sweep. Finds devices whose firewalls drop ICMP. Needs the Npcap driver on Windows or libpcap on Linux; without it BAMF falls back to the sweep and says so here.</span>
+        <span class="set-hint" id="arpToggleLbl"></span>
+      </span>
+      <span class="set-field"><button type="button" class="arp-toggle" id="setArp" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+    </label>
+    <label class="set-row">
+      <span class="set-label">Ignore devices with randomised MACs
+        <span class="set-hint">Phones with Wi-Fi privacy on present a new address each time they join. Filed under Ignored automatically so they don't alert as new devices; they are still recorded.</span>
+      </span>
+      <span class="set-field"><button type="button" class="arp-toggle" id="setRand" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+    </label>
+    <label class="set-row">
+      <span class="set-label">Check GitHub daily for a newer release
+        <span class="set-hint">Off by default. Read-only: it only reads the latest release tag and never downloads or installs anything. The only outbound call BAMF makes that you didn't ask for.</span>
+        <span class="set-hint" id="setUpdStatus"></span>
+      </span>
+      <span class="set-field"><button type="button" class="arp-toggle" id="setUpd" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+    </label>
+  </div>
+
+  <div class="set-card">
+    <div class="set-card-title">Notifications</div>
+    <p class="modal-help">
+      Get an alert when a new device appears, and when a ⭐ watched device goes
+      offline or comes back. Discord: <em>Server Settings → Integrations →
+      Webhooks → New Webhook → Copy Webhook URL</em>. ntfy: paste your topic URL,
+      e.g. <span class="mono">https://ntfy.sh/bamf-alerts</span>. Gotify: your
+      server's <span class="mono">/message?token=…</span> URL.
+    </p>
+    <label class="modal-row">Webhook URL
+      <input id="notifyUrl" class="modal-input" placeholder="https://discord.com/api/webhooks/… or https://ntfy.sh/topic" autocomplete="off" spellcheck="false">
+    </label>
+    <label class="modal-row">Format
+      <select id="notifyFormat">
+        <option value="auto">Auto — Discord embed, or generic JSON</option>
+        <option value="ntfy">ntfy</option>
+        <option value="gotify">Gotify</option>
+        <option value="json">Generic JSON</option>
+      </select>
+    </label>
+    <div class="modal-note" id="notifyCurrent"></div>
+    <div class="modal-actions">
+      <button class="toggle" id="notifyClear">Remove</button>
+      <button class="export-btn" id="notifySave">Save &amp; test</button>
+    </div>
+    <div class="modal-result" id="notifyResult"></div>
+  </div>
+
   <div class="set-card">
     <div class="set-card-title">Set in appsettings.json</div>
     <p class="modal-help">
@@ -940,12 +999,6 @@
       wildcard port-scan guard relies on, and the rest need a restart to apply.
     </p>
     <div class="set-ro" id="setReadOnly"></div>
-  </div>
-
-  <div class="set-actions">
-    <button class="toggle" id="setReset">Reset to file defaults</button>
-    <button class="export-btn" id="setSave">Save</button>
-    <span class="set-result" id="setResult"></span>
   </div>
 </div>
 
@@ -985,37 +1038,6 @@
     </div>
   </div>
   <div class="scan-panel-body" id="scanPanelBody"></div>
-</div>
-
-<div class="modal-backdrop" id="notifyModal" hidden>
-  <div class="modal">
-    <div class="modal-title">Notifications</div>
-    <p class="modal-help">
-      Get an alert when a new device appears, and when a ⭐ watched device goes
-      offline or comes back. Discord: <em>Server Settings → Integrations →
-      Webhooks → New Webhook → Copy Webhook URL</em>. ntfy: paste your topic URL,
-      e.g. <span class="mono">https://ntfy.sh/bamf-alerts</span>. Gotify: your
-      server's <span class="mono">/message?token=…</span> URL.
-    </p>
-    <label class="modal-row">Webhook URL
-      <input id="notifyUrl" class="modal-input" placeholder="https://discord.com/api/webhooks/… or https://ntfy.sh/topic" autocomplete="off" spellcheck="false">
-    </label>
-    <label class="modal-row">Format
-      <select id="notifyFormat">
-        <option value="auto">Auto — Discord embed, or generic JSON</option>
-        <option value="ntfy">ntfy</option>
-        <option value="gotify">Gotify</option>
-        <option value="json">Generic JSON</option>
-      </select>
-    </label>
-    <div class="modal-note" id="notifyCurrent"></div>
-    <div class="modal-actions">
-      <button class="toggle" id="notifyClear">Remove</button>
-      <button class="toggle" id="notifyCancel">Cancel</button>
-      <button class="export-btn" id="notifySave">Save &amp; test</button>
-    </div>
-    <div class="modal-result" id="notifyResult"></div>
-  </div>
 </div>
 
 <div class="modal-backdrop" id="noteModal" hidden>
@@ -1934,10 +1956,23 @@ setInterval(() => {
   $("scanFill").style.width = (100 * (1 - left / scanInterval)) + "%";
 }, 1000);
 
+// Shared by the three instant-apply toggles in Settings: pill colour, the
+// word beside it, and the state for screen readers.
+function setToggleState(t, on) {
+  t.classList.toggle("on", on);
+  t.setAttribute("aria-pressed", on ? "true" : "false");
+  const w = t.querySelector(".tstate");
+  if (w) w.textContent = on ? "On" : "Off";
+}
+
 function renderArpToggle() {
-  const t = $("arpToggle");
-  t.classList.toggle("on", activeArp.enabled);
+  const t = $("setArp");
+  setToggleState(t, activeArp.enabled);
   t.classList.toggle("nodriver", activeArp.enabled && !activeArp.npcapAvailable);
+  const lbl = $("arpToggleLbl");
+  if (lbl) lbl.textContent = activeArp.npcapAvailable
+    ? (activeArp.enabled ? "Driver found — sending raw ARP." : "Driver found.")
+    : (activeArp.enabled ? "Driver not installed — running the ping sweep instead." : "");
   t.title = !activeArp.npcapAvailable
     ? (activeArp.enabled
         ? "Active ARP is on, but the Npcap driver isn't installed - running ping sweep. Install it from npcap.com."
@@ -2083,9 +2118,9 @@ function applyTheme(theme) {
 })();
 
 function renderUpdateToggle() {
-  const t = $("updToggle");
+  const t = $("setUpd");
   const on = !!(updateInfo && updateInfo.enabled);
-  t.classList.toggle("on", on);
+  setToggleState(t, on);
   t.title = on
     ? "Checking GitHub once a day for a newer release - click to stop"
     : "Off. Click to check GitHub once a day for a newer release (read-only; nothing is downloaded)";
@@ -2101,9 +2136,21 @@ function renderUpdateToggle() {
   } else {
     badge.hidden = true;
   }
+
+  // The Settings row gets the words; the header badge stays for the one case
+  // worth interrupting for, a release that is actually newer.
+  const status = $("setUpdStatus");
+  if (status) {
+    if (!on) status.textContent = "Off.";
+    else if (updateInfo && updateInfo.available && updateInfo.latest)
+      status.textContent = `${updateInfo.latest} is available — you're on ${appVersion || "?"}.`;
+    else if (updateInfo && updateInfo.checkedUtc)
+      status.textContent = `You're on the latest release (checked ${fmtAgo(updateInfo.checkedUtc)}).`;
+    else status.textContent = "On — the first check runs shortly.";
+  }
 }
 
-$("updToggle").onclick = async () => {
+$("setUpd").onclick = async () => {
   const next = !(updateInfo && updateInfo.enabled);
   try {
     const r = await fetch("/api/settings/update-check", {
@@ -2123,14 +2170,14 @@ $("updToggle").onclick = async () => {
 };
 
 function renderRandToggle() {
-  const t = $("randToggle");
-  t.classList.toggle("on", autoIgnoreRandom);
+  const t = $("setRand");
+  setToggleState(t, autoIgnoreRandom);
   t.title = autoIgnoreRandom
     ? "New devices with randomized MACs are auto-filed under Ignored - click to disable"
     : "Click to auto-ignore new devices with randomized MACs (phone privacy addresses)";
 }
 
-$("randToggle").onclick = async () => {
+$("setRand").onclick = async () => {
   const next = !autoIgnoreRandom;
   try {
     await fetch("/api/settings/auto-ignore-random", {
@@ -2146,7 +2193,7 @@ $("randToggle").onclick = async () => {
   } catch (e) { console.error(e); }
 };
 
-$("arpToggle").onclick = async () => {
+$("setArp").onclick = async () => {
   const next = !activeArp.enabled;
   try {
     await fetch("/api/settings/active-arp", {
@@ -2259,22 +2306,25 @@ $("scanGo").onclick = async () => {
   }
 };
 
-// Notifications dialog — paste a webhook URL instead of editing appsettings.json
-// and restarting the service.
-function openNotifyModal() {
-  $("notifyUrl").value = "";
-  $("notifyResult").innerHTML = "";
+// Notifications live in the Settings tab with the rest of the settings. This
+// fills the card from what the last /api/hosts poll reported; the URL field is
+// left empty on purpose, since the server only ever hands back a masked form.
+function fillNotify() {
   $("notifyFormat").value = webhookFormat;
   $("notifyCurrent").textContent = webhookMasked
     ? "Currently saved: " + webhookMasked
     : "No webhook saved — alerts are off.";
   $("notifyClear").style.display = webhookConfigured ? "" : "none";
-  $("notifyModal").hidden = false;
-  $("notifyUrl").focus();
 }
-$("notifySetup").onclick = openNotifyModal;
-$("notifyCancel").onclick = () => { $("notifyModal").hidden = true; };
-$("notifyModal").onclick = e => { if (e.target.id === "notifyModal") $("notifyModal").hidden = true; };
+// Tools ▾ → Notifications… used to open a dialog; it now goes to the card, so
+// the old habit still lands somewhere sensible.
+$("notifySetup").onclick = () => {
+  document.querySelector('.view-btn[data-view="settings"]').click();
+  setTimeout(() => {
+    $("notifyUrl").scrollIntoView({ behavior: "smooth", block: "center" });
+    $("notifyUrl").focus();
+  }, 150);
+};
 $("notifyUrl").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("notifySave").click(); } };
 
 // Notes dialog. Same shape as the notifications one: backdrop click and
@@ -2295,7 +2345,6 @@ $("noteText").onkeydown = e => {
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   if (!$("noteModal").hidden) { closeNoteDialog(); return; }
-  if (!$("notifyModal").hidden) { $("notifyModal").hidden = true; return; }
   if (!$("scanModal").hidden) { $("scanModal").hidden = true; return; }
   const openMenu = document.querySelector(".row-menu.show");
   if (openMenu) { openMenu.classList.remove("show"); return; }
@@ -2341,7 +2390,9 @@ $("notifyClear").onclick = async () => {
   try {
     await saveWebhook("");
     await refresh();
-    $("notifyModal").hidden = true;
+    $("notifyUrl").value = "";
+    $("notifyResult").innerHTML = "";
+    fillNotify();
     toast("Webhook removed — notifications off");
   } catch { toast("Could not remove the webhook"); }
 };
@@ -2464,6 +2515,13 @@ async function loadSettings() {
     : ms.running
       ? `Listening on ${(ms.interfaces || []).join(", ")} · ${ms.packets || 0} announcements heard.`
       : (ms.error ? `Not listening: ${ms.error}` : "Starting on the next scan.");
+
+  // The instant-apply toggles and the notifications card draw from the last
+  // /api/hosts poll rather than this endpoint, so refresh them here too.
+  renderArpToggle();
+  renderRandToggle();
+  renderUpdateToggle();
+  fillNotify();
 
   const nets = ro.subnets || [];
   const tbl = $("setNetTable");
