@@ -338,6 +338,13 @@ A sun/moon button in the header toggles light and dark mode - and yes, every
 flip triggers a 1960s-Batman-style comic splat (BAMF!, POW!, ZAP!...). The
 choice persists across reloads. Respects prefers-reduced-motion.
 
+## Compact rows
+
+**Settings → Display → Compact rows** halves the height of each device row so
+a busy network fits on one screen. Nothing is hidden; the secondary lines just
+get tighter. Like the theme, it's kept in the browser rather than on the
+server, so each device you open BAMF on can choose for itself.
+
 ## Linking to a tab
 
 Each dashboard tab has its own address: `/#settings`, `/#activity`,
@@ -766,6 +773,10 @@ each field on its own:
 The same wildcards work in the port scan dialog's **Specific IP address…**
 field, where they expand into addresses to probe rather than filtering the
 list — see [Device links and port check](#device-links-and-port-check).
+
+Press `/` anywhere on the page to jump to the search box. `Esc` in the box
+clears the filter; elsewhere it closes whatever is open — a dialog, a row
+menu, the Tools menu, an expanded row.
 
 ## Plain-text device list
 
