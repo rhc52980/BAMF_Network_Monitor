@@ -495,8 +495,20 @@ public class HostStore
     /// The counter lives in the row, so a service restart neither forgives a
     /// miss nor invents one.
     /// </param>
+    /// <summary>
+    /// Judge which online hosts were not seen by this pass. With
+    /// <paramref name="coveredSubnets"/> null every online host is judged (a
+    /// whole-database sweep); otherwise only hosts on a covered network are,
+    /// plus - when <paramref name="configuredSubnets"/> is given - hosts on a
+    /// network that is no longer configured at all. Those can't be seen by
+    /// any pass, so if they were excluded from scoped judgement too they'd
+    /// sit "online" for as long as any other network stays paused or on its
+    /// own interval. A paused network is configured but not covered, so its
+    /// hosts keep their last known state either way.
+    /// </summary>
     public List<HostRecord> MarkOffline(IReadOnlySet<string> seenMacs,
-        IReadOnlyCollection<string>? coveredSubnets = null, int missThreshold = 1)
+        IReadOnlyCollection<string>? coveredSubnets = null, int missThreshold = 1,
+        IReadOnlyCollection<string>? configuredSubnets = null)
     {
         if (missThreshold < 1) missThreshold = 1;
         lock (_lock)
@@ -509,19 +521,30 @@ public class HostStore
             {
                 cmd.CommandText = "SELECT id, mac, ignored, watched, misses FROM hosts WHERE online = 1";
             }
-            else if (coveredSubnets.Count == 0)
+            else if (coveredSubnets.Count == 0 && (configuredSubnets is null || configuredSubnets.Count == 0))
             {
-                // Nothing was scanned, so nothing can be judged offline.
+                // Nothing was scanned and there's no configuration to be
+                // outside of, so nothing can be judged offline.
                 return wentDown;
             }
             else
             {
-                var names = coveredSubnets.Select((_, i) => $"$s{i}").ToList();
+                var where = new List<string>();
+                var i = 0;
+                foreach (var s in coveredSubnets)
+                    cmd.Parameters.AddWithValue($"$c{i++}", s);
+                if (i > 0)
+                    where.Add($"subnet IN ({string.Join(", ", Enumerable.Range(0, i).Select(n => $"$c{n}"))})");
+                if (configuredSubnets is { Count: > 0 })
+                {
+                    var j = 0;
+                    foreach (var s in configuredSubnets)
+                        cmd.Parameters.AddWithValue($"$k{j++}", s);
+                    where.Add($"subnet NOT IN ({string.Join(", ", Enumerable.Range(0, j).Select(n => $"$k{n}"))})");
+                }
                 cmd.CommandText =
                     $"SELECT id, mac, ignored, watched, misses FROM hosts WHERE online = 1 " +
-                    $"AND subnet IN ({string.Join(", ", names)})";
-                var i = 0;
-                foreach (var s in coveredSubnets) cmd.Parameters.AddWithValue($"$s{i++}", s);
+                    $"AND ({string.Join(" OR ", where)})";
             }
             var toMark = new List<(long Id, string Mac, bool Ignored, bool Watched)>();
             var toCount = new List<(long Id, long Misses)>();
