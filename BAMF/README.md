@@ -345,6 +345,16 @@ a busy network fits on one screen. Nothing is hidden; the secondary lines just
 get tighter. Like the theme, it's kept in the browser rather than on the
 server, so each device you open BAMF on can choose for itself.
 
+## A network this machine isn't on
+
+BAMF discovers devices through the ARP table, which only ever holds entries
+for networks this machine has an interface on. A configured network it has
+no address on is **skipped**: the log says so once, the network's tab carries
+a **no interface** tag with no countdown, the Settings row says why, and the
+header countdown ignores it. Nothing is probed there. Either remove it from
+`Bamf:Subnets` or give the machine a NIC on that network; the moment one
+appears, scanning starts on the next pass.
+
 ## Next scan, per network
 
 The header's **next scan** countdown is the scanner's own schedule, not an

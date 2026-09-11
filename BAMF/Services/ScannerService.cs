@@ -72,6 +72,14 @@ public partial class ScannerService : BackgroundService
     private readonly HashSet<string> _warnedDuplicateSubnets = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Networks already warned about for having no local interface. The warning
+    /// is worth reading once; repeated every pass it buries everything else in
+    /// the log. Cleared for a network the moment it does get an interface, so
+    /// losing it again warns again.
+    /// </summary>
+    private readonly HashSet<string> _warnedNoInterface = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Webhook endpoint. A URL saved from the dashboard wins over
     /// appsettings.json, matching how the other runtime settings behave, so
     /// changing it doesn't need a config edit or a restart.
@@ -510,11 +518,15 @@ public partial class ScannerService : BackgroundService
         var local = FindLocalEndpoint(network, prefix);
         if (local is null)
         {
-            _log.LogWarning("Skipping {Subnet}: no local interface on this network, so its hosts " +
-                "can never appear in the ARP table. Remove it from Bamf:Subnets, or add a NIC on " +
-                "this network to scan it.", subnetLabel);
+            if (_warnedNoInterface.Add(subnetLabel))
+                _log.LogWarning("Skipping {Subnet}: no local interface on this network, so its hosts " +
+                    "can never appear in the ARP table. Remove it from Bamf:Subnets, or add a NIC on " +
+                    "this network to scan it. (Reported once; the dashboard marks the network too.)",
+                    subnetLabel);
             return "skipped";
         }
+        if (_warnedNoInterface.Remove(subnetLabel))
+            _log.LogInformation("{Subnet} now has a local interface; scanning it.", subnetLabel);
 
         _log.LogInformation("Subnet {Subnet}: scanning from local {Ip}", subnetLabel, local.Value.Ip);
 
