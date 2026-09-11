@@ -272,11 +272,12 @@
   .nettab .due { color: var(--text-dim); margin-left: 8px; font-size: 11px; opacity: .8; }
   .nettab.active .cnt { color: var(--focus); }
   .nettab.paused { color: var(--text-dim); font-style: italic; }
-  .nettab .paused-tag {
+  .nettab .paused-tag, .nettab .noif-tag {
     margin-left: 8px; padding: 1px 6px; border-radius: 999px; font-style: normal;
     font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
     color: var(--led-warn); border: 1px solid var(--led-warn); opacity: .85;
   }
+  .nettab .noif-tag { color: var(--text-dim); border-color: var(--text-dim); }
   .nettab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
   .portstrip-wrap { padding: 18px 24px 6px; }
@@ -1477,10 +1478,15 @@ function renderNetTabs() {
   const mk = (value, label, count) => {
     const b = document.createElement("button");
     const paused = scanModes[value] === "paused";
-    b.className = "nettab" + (network === value ? " active" : "") + (paused ? " paused" : "");
+    // "skipped": configured, but this machine has no interface on it, so a
+    // scan can never find anything there. Marked like paused, without a
+    // countdown - counting down to a scan that does nothing misleads.
+    const noIf = scanModes[value] === "skipped";
+    b.className = "nettab" + (network === value ? " active" : "") + (paused || noIf ? " paused" : "");
     // A paused network's devices never change, which looks like a fault unless
     // the tab says why. Switched off in Settings; the tab itself is untouched.
     if (paused) b.title = "Paused in Settings - not being scanned, devices keep their last known state";
+    else if (noIf) b.title = "No interface on this machine for this network, so nothing can be found here. Remove it from Bamf:Subnets, or add a NIC on it.";
     else if (value !== "all") {
       const bits = [];
       if (subnetIntervals[value]) bits.push("every " + subnetIntervals[value] + "s");
@@ -1489,7 +1495,8 @@ function renderNetTabs() {
     }
     b.innerHTML = `${esc(label)}<span class="cnt">${count}</span>` +
       (paused ? `<span class="paused-tag">paused</span>` : "") +
-      (!paused && value !== "all" && subnetNextDue[value] ? `<span class="due" data-due-net="${esc(value)}"></span>` : "");
+      (noIf ? `<span class="noif-tag">no interface</span>` : "") +
+      (!paused && !noIf && value !== "all" && subnetNextDue[value] ? `<span class="due" data-due-net="${esc(value)}"></span>` : "");
     b.onclick = () => { network = value; render(); };
     wrap.appendChild(b);
   };
@@ -2024,7 +2031,15 @@ function dueText(iso, fmt) {
   return s === 0 ? "now" : "~" + s + "s";
 }
 setInterval(() => {
-  const nets = Object.keys(subnetNextDue);
+  // A network with no local interface is re-checked on its interval in case
+  // one appears, but that isn't a scan worth counting down to.
+  const nets = Object.keys(subnetNextDue).filter(n => scanModes[n] !== "skipped");
+  if (!nets.length && Object.keys(subnetNextDue).length) {
+    $("nextScan").textContent = "nothing to scan";
+    $("nextScan").title = "Every configured network is paused or has no interface on this machine";
+    $("scanFill").style.width = "0%";
+    return;
+  }
   if (!nets.length) {
     // Older backend, or nothing scheduled yet: the old estimate.
     if (!lastScan) return;
@@ -2677,8 +2692,14 @@ async function loadSettings() {
 
       const tdEff = document.createElement("td");
       tdEff.className = "set-eff";
+      const noIf = isOn && scanModes[net] === "skipped";
       tdEff.textContent = !isOn ? "paused" : (effective === undefined ? "" : "every " + effective + "s");
-      if (isOn && subnetNextDue[net]) {
+      if (noIf) {
+        tdEff.appendChild(document.createTextNode(" \u00b7 no interface on this machine"));
+        tdEff.title = "This machine has no address on this network, so scanning it finds nothing. Remove it from Bamf:Subnets, or add a NIC on it.";
+        tr.classList.add("set-net-paused");
+      }
+      if (isOn && !noIf && subnetNextDue[net]) {
         // Ticks along with the header countdown; see the interval near it.
         const due = document.createElement("span");
         due.dataset.dueNet = net; due.dataset.dueFmt = "in";
