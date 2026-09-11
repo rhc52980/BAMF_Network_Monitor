@@ -56,6 +56,15 @@ public partial class ScannerService : BackgroundService
     /// <summary>When each network is next due, keyed by CIDR label.</summary>
     private readonly Dictionary<string, DateTime> _dueAt = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Snapshot of <see cref="_dueAt"/> for the API, replaced whole after each
+    /// pass. The dictionary itself is only ever touched on the scan thread;
+    /// readers get an immutable copy rather than a view of it mid-edit. Paused
+    /// networks are absent - they have no next scan.
+    /// </summary>
+    public IReadOnlyDictionary<string, DateTime> SubnetNextDue { get; private set; } =
+        new Dictionary<string, DateTime>();
+
     /// <summary>Override keys already warned about, so the log says it once.</summary>
     private readonly HashSet<string> _warnedIntervalKeys = new(StringComparer.OrdinalIgnoreCase);
 
@@ -289,6 +298,11 @@ public partial class ScannerService : BackgroundService
                 // whatever time was pencilled in before it was paused.
                 foreach (var gone in _dueAt.Keys.Where(k => !labels.Contains(k) || disabled.Contains(k)).ToList())
                     _dueAt.Remove(gone);
+                // A network that has never run yet is due now; say so rather
+                // than leaving it out, so the dashboard can count down to it.
+                foreach (var l in labels)
+                    if (!disabled.Contains(l) && !_dueAt.ContainsKey(l)) _dueAt[l] = DateTime.UtcNow;
+                SubnetNextDue = new Dictionary<string, DateTime>(_dueAt, StringComparer.OrdinalIgnoreCase);
 
                 // Carry modes forward, mark paused networks as such, and drop any
                 // network that has left the configuration.
@@ -327,6 +341,7 @@ public partial class ScannerService : BackgroundService
                         _dueAt[label] = DateTime.UtcNow.AddSeconds(SubnetIntervals[label]);
                     }
                     SubnetModes = modes;
+                    SubnetNextDue = new Dictionary<string, DateTime>(_dueAt, StringComparer.OrdinalIgnoreCase);
 
                     // Only judge the networks this pass actually visited. When every
                     // network is on the same interval a pass covers them all and this
