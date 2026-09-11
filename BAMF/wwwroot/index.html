@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BAMF — Basic ARP Monitoring Framework</title>
 <link rel="icon" type="image/svg+xml" href="/bamf-icon.svg">
+<!-- Apply the saved theme before anything paints. The full restore at the end
+     of the main script validates against the theme list; this only has to be
+     early, so it sets the attribute from storage and lets that later pass
+     correct anything odd. Without it every load flashes dark first. -->
+<script>
+(function () {
+  var t = null;
+  try { t = localStorage.getItem("bamf-theme"); } catch (e) {}
+  if (!t) { try { if (window.name && window.name.indexOf("bamf-theme:") === 0) t = window.name.slice(11); } catch (e) {} }
+  if (t && /^[a-z0-9-]{1,32}$/.test(t)) document.documentElement.setAttribute("data-theme", t);
+})();
+</script>
 <!-- Fonts are served from this machine, not a CDN: the dashboard often runs on
      networks with no internet, and it shouldn't report visitors to a third party. -->
 <link href="fonts.css" rel="stylesheet">
@@ -240,6 +252,12 @@
   .nettab.active { background: var(--panel-2); color: var(--text); }
   .nettab .cnt { color: var(--text-dim); margin-left: 6px; }
   .nettab.active .cnt { color: var(--focus); }
+  .nettab.paused { color: var(--text-dim); font-style: italic; }
+  .nettab .paused-tag {
+    margin-left: 8px; padding: 1px 6px; border-radius: 999px; font-style: normal;
+    font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--led-warn); border: 1px solid var(--led-warn); opacity: .85;
+  }
   .nettab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
   .portstrip-wrap { padding: 18px 24px 6px; }
@@ -1347,9 +1365,14 @@ function renderNetTabs() {
   wrap.innerHTML = "";
   const mk = (value, label, count) => {
     const b = document.createElement("button");
-    b.className = "nettab" + (network === value ? " active" : "");
-    if (scanModes[value]) b.title = "scanned via " + scanModes[value];
-    b.innerHTML = `${esc(label)}<span class="cnt">${count}</span>`;
+    const paused = scanModes[value] === "paused";
+    b.className = "nettab" + (network === value ? " active" : "") + (paused ? " paused" : "");
+    // A paused network's devices never change, which looks like a fault unless
+    // the tab says why. Switched off in Settings; the tab itself is untouched.
+    if (paused) b.title = "Paused in Settings - not being scanned, devices keep their last known state";
+    else if (scanModes[value]) b.title = "scanned via " + scanModes[value];
+    b.innerHTML = `${esc(label)}<span class="cnt">${count}</span>` +
+      (paused ? `<span class="paused-tag">paused</span>` : "");
     b.onclick = () => { network = value; render(); };
     wrap.appendChild(b);
   };
