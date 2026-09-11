@@ -456,6 +456,20 @@ app.MapGet("/api/events", (HostStore store) =>
 app.MapGet("/api/hosts/{id:long}/events", (long id, HostStore store) =>
     Results.Json(store.GetEvents(id).Select(e => new { type = e.Type, at = e.At })));
 
+// Every address the host has been seen at, oldest first. Each entry runs from
+// its own timestamp until the next entry's; the last one is the current
+// address and has no end.
+app.MapGet("/api/hosts/{id:long}/ips", (long id, HostStore store) =>
+{
+    var rows = store.GetIpHistory(id);
+    return Results.Json(rows.Select((r, i) => new
+    {
+        ip = r.Ip,
+        from = r.At,
+        to = i + 1 < rows.Count ? rows[i + 1].At : null,
+    }));
+});
+
 app.MapPost("/api/hosts/{id:long}/known", (long id, KnownRequest body, HostStore store) =>
     store.SetKnown(id, body.Known) ? Results.Ok() : Results.NotFound());
 

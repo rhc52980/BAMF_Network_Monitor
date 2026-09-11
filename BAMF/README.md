@@ -283,7 +283,14 @@ horizontal scrolling. The who's-home board and everything else adapt too.
 ## Notes
 
 Each device row has a **History** button opening a panel with its online/offline
-session timeline. Notes are separate: **Add note…** / **Edit note…** in the ⋯
+session timeline. If the device has ever changed address, the panel also lists
+every IP it has held and when each period began and ended — the current one
+first — which is what you want when a DHCP pool is running dry or two devices
+are fighting over a static address. Devices that have only ever had one address
+show no list; a "same address since first seen" line would just be noise.
+History before this feature existed is not reconstructed: a device that
+predates it starts with the address it had at the time, dated from first seen.
+Notes are separate: **Add note…** / **Edit note…** in the ⋯
 menu opens a small dialog with free text for remembering what a device is
 ("garage ESP32 sensor", "kids' iPad, bedtime 9pm"). Ctrl+Enter saves, Escape
 cancels, and **Clear** removes the note.
