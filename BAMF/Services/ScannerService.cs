@@ -59,6 +59,9 @@ public partial class ScannerService : BackgroundService
     /// <summary>Override keys already warned about, so the log says it once.</summary>
     private readonly HashSet<string> _warnedIntervalKeys = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Duplicate Bamf:Subnets entries already warned about, likewise.</summary>
+    private readonly HashSet<string> _warnedDuplicateSubnets = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// Webhook endpoint. A URL saved from the dashboard wins over
     /// appsettings.json, matching how the other runtime settings behave, so
@@ -72,6 +75,78 @@ public partial class ScannerService : BackgroundService
             if (db is not null) return db.Length == 0 ? null : db;
             var cfg = _config["Bamf:WebhookUrl"];
             return string.IsNullOrWhiteSpace(cfg) ? null : cfg;
+        }
+    }
+
+    /// <summary>
+    /// How alerts are delivered to the webhook URL. "auto" keeps the original
+    /// behaviour: a Discord URL gets a rich embed, anything else a generic JSON
+    /// body. "ntfy" posts plain text with Title/Priority/Tags headers the way
+    /// ntfy expects; "gotify" posts its {title, message, priority} JSON; "json"
+    /// forces the generic body even for a Discord URL. Dashboard value wins over
+    /// appsettings.json, like the URL itself.
+    /// </summary>
+    public string WebhookFormat
+    {
+        get
+        {
+            var v = (_store.GetSetting("webhookFormat") ?? _config["Bamf:WebhookFormat"] ?? "auto")
+                .Trim().ToLowerInvariant();
+            return v is "ntfy" or "gotify" or "json" or "discord" ? v : "auto";
+        }
+    }
+
+    private static bool IsDiscordUrl(string url) =>
+        url.Contains("discord.com/api/webhooks", StringComparison.OrdinalIgnoreCase) ||
+        url.Contains("discordapp.com/api/webhooks", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The concrete format to use for this URL once "auto" is resolved.</summary>
+    private string ResolveFormat(string url)
+    {
+        var f = WebhookFormat;
+        return f == "auto" ? (IsDiscordUrl(url) ? "discord" : "json") : f;
+    }
+
+    /// <summary>
+    /// One alert as an HTTP request in the resolved format. ntfy carries the
+    /// title in a header, and headers are ASCII, so the title is stripped to
+    /// ASCII and the device name - which may not be - lives in the body.
+    /// Priority is on ntfy's 1-5 scale; Gotify's 0-10 gets double.
+    /// </summary>
+    private static HttpRequestMessage BuildAlertRequest(string url, string format, string title, string message,
+        int priority, string tags, string discordPayload, string genericPayload)
+    {
+        switch (format)
+        {
+            case "ntfy":
+            {
+                var req = new HttpRequestMessage(HttpMethod.Post, url)
+                {
+                    Content = new StringContent(message, Encoding.UTF8, "text/plain"),
+                };
+                var ascii = new string(title.Where(c => c < 128).ToArray()).Trim();
+                if (ascii != "") req.Headers.TryAddWithoutValidation("Title", ascii);
+                req.Headers.TryAddWithoutValidation("Priority", priority.ToString());
+                if (tags != "") req.Headers.TryAddWithoutValidation("Tags", tags);
+                return req;
+            }
+            case "gotify":
+                return new HttpRequestMessage(HttpMethod.Post, url)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(new { title, message, priority = priority * 2 }),
+                        Encoding.UTF8, "application/json"),
+                };
+            case "discord":
+                return new HttpRequestMessage(HttpMethod.Post, url)
+                {
+                    Content = new StringContent(discordPayload, Encoding.UTF8, "application/json"),
+                };
+            default:
+                return new HttpRequestMessage(HttpMethod.Post, url)
+                {
+                    Content = new StringContent(genericPayload, Encoding.UTF8, "application/json"),
+                };
         }
     }
 
@@ -191,9 +266,14 @@ public partial class ScannerService : BackgroundService
                 var subnets = ResolveSubnets();
                 var labels = subnets.Select(s => $"{s.Network}/{s.Prefix}").ToList();
                 SubnetLabels = labels;
-                SubnetIntervals = labels.ToDictionary(
-                    l => l,
-                    l => overrides.TryGetValue(l, out var secs) ? secs : ScanIntervalSeconds);
+                // Built by hand rather than ToDictionary: a duplicate label would
+                // throw there and take the whole pass with it. ResolveSubnets now
+                // de-duplicates, but a table that survives one anyway is cheaper
+                // than a scanner that stops.
+                var intervals = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                foreach (var l in labels)
+                    intervals[l] = overrides.TryGetValue(l, out var secs) ? secs : ScanIntervalSeconds;
+                SubnetIntervals = intervals;
                 WarnAboutUnmatchedOverrides(overrides, labels);
 
                 // Paused networks: only labels that are actually configured count,
@@ -715,10 +795,23 @@ public partial class ScannerService : BackgroundService
 
         if (configured.Length > 0)
         {
+            // De-duplicate. The same network listed twice - a typo, or a
+            // command-line override replacing one index while the file still
+            // supplies the other - used to reach the scheduler as two entries
+            // with one label, and the per-network tables keyed by label threw
+            // on the second, which failed every scan pass. Say so once.
+            var seenLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var cidr in configured)
             {
                 var parts = cidr.Trim().Split('/');
-                result.Add((IPAddress.Parse(parts[0]), int.Parse(parts[1])));
+                var entry = (IPAddress.Parse(parts[0]), int.Parse(parts[1]));
+                if (!seenLabels.Add($"{entry.Item1}/{entry.Item2}"))
+                {
+                    if (_warnedDuplicateSubnets.Add(cidr.Trim()))
+                        _log.LogWarning("Bamf:Subnets lists {Subnet} more than once; using it once.", cidr.Trim());
+                    continue;
+                }
+                result.Add(entry);
             }
             return result;
         }
@@ -802,10 +895,10 @@ public partial class ScannerService : BackgroundService
         try
         {
             var client = _httpFactory.CreateClient();
-            var isDiscord = url.Contains("discord.com/api/webhooks", StringComparison.OrdinalIgnoreCase)
-                         || url.Contains("discordapp.com/api/webhooks", StringComparison.OrdinalIgnoreCase);
+            var format = ResolveFormat(url);
+            var isDiscord = format == "discord";
 
-            string payload;
+            var payload = "";
             if (isDiscord)
             {
                 payload = JsonSerializer.Serialize(new
@@ -832,17 +925,20 @@ public partial class ScannerService : BackgroundService
                     }
                 });
             }
-            else
-            {
-                var text = up
-                    ? $"BAMF: {name} ({host.Ip}) is back online" + (downFor is not null ? $" after {downFor} down" : "")
-                    : $"BAMF: {name} ({host.Ip}) went offline";
-                payload = JsonSerializer.Serialize(new { content = text, message = text, up, mac = host.Mac, ip = host.Ip });
-            }
+            var text = up
+                ? $"BAMF: {name} ({host.Ip}) is back online" + (downFor is not null ? $" after {downFor} down" : "")
+                : $"BAMF: {name} ({host.Ip}) went offline";
+            var generic = JsonSerializer.Serialize(new { content = text, message = text, up, mac = host.Mac, ip = host.Ip });
 
-            using var resp = await client.PostAsync(url,
-                new StringContent(payload, Encoding.UTF8, "application/json"), ct);
-            _log.LogInformation("Watch alert ({State}) for {Name}: {Status}", up ? "up" : "down", name, (int)resp.StatusCode);
+            using var req = BuildAlertRequest(url, format,
+                title: up ? $"{name} is back online" : $"{name} went offline",
+                message: text,
+                priority: up ? 3 : 4,
+                tags: up ? "green_circle" : "red_circle",
+                discordPayload: payload, genericPayload: generic);
+            using var resp = await client.SendAsync(req, ct);
+            _log.LogInformation("Watch alert ({State}) for {Name} via {Format}: {Status}",
+                up ? "up" : "down", name, format, (int)resp.StatusCode);
         }
         catch (Exception ex)
         {
@@ -895,9 +991,9 @@ public partial class ScannerService : BackgroundService
                        (hostname != "" ? $" ({hostname})" : "") +
                        (vendor != "" ? $" [{vendor}]" : "");
 
-            string payload;
-            if (url.Contains("discord.com/api/webhooks", StringComparison.OrdinalIgnoreCase) ||
-                url.Contains("discordapp.com/api/webhooks", StringComparison.OrdinalIgnoreCase))
+            var format = ResolveFormat(url);
+            var payload = "";
+            if (format == "discord")
             {
                 // Rich Discord embed. Amber for real alerts, green for tests.
                 payload = JsonSerializer.Serialize(new
@@ -926,20 +1022,22 @@ public partial class ScannerService : BackgroundService
                     }
                 });
             }
-            else
+            // Generic JSON: "content" and "message" keep simple endpoints working.
+            var generic = JsonSerializer.Serialize(new
             {
-                // Generic JSON (content also keeps plain Discord/ntfy/Slack-ish endpoints working).
-                payload = JsonSerializer.Serialize(new
-                {
-                    content = text,
-                    message = text,
-                    mac, ip, hostname, vendor, subnet, test,
-                });
-            }
+                content = text,
+                message = text,
+                mac, ip, hostname, vendor, subnet, test,
+            });
 
-            using var resp = await client.PostAsync(url,
-                new StringContent(payload, Encoding.UTF8, "application/json"), ct);
-            _log.LogInformation("Webhook responded {Status}", (int)resp.StatusCode);
+            using var req = BuildAlertRequest(url, format,
+                title: title,
+                message: text,
+                priority: test ? 3 : 4,
+                tags: test ? "test_tube" : "warning",
+                discordPayload: payload, genericPayload: generic);
+            using var resp = await client.SendAsync(req, ct);
+            _log.LogInformation("Webhook ({Format}) responded {Status}", format, (int)resp.StatusCode);
             return resp.IsSuccessStatusCode;
         }
         catch (Exception ex)

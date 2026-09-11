@@ -987,13 +987,22 @@
   <div class="modal">
     <div class="modal-title">Notifications</div>
     <p class="modal-help">
-      Paste a Discord webhook URL to get an alert when a new device appears, and
-      when a ⭐ watched device goes offline or comes back.
-      In Discord: <em>Server Settings → Integrations → Webhooks → New Webhook →
-      Copy Webhook URL</em>.
+      Get an alert when a new device appears, and when a ⭐ watched device goes
+      offline or comes back. Discord: <em>Server Settings → Integrations →
+      Webhooks → New Webhook → Copy Webhook URL</em>. ntfy: paste your topic URL,
+      e.g. <span class="mono">https://ntfy.sh/bamf-alerts</span>. Gotify: your
+      server's <span class="mono">/message?token=…</span> URL.
     </p>
     <label class="modal-row">Webhook URL
-      <input id="notifyUrl" class="modal-input" placeholder="https://discord.com/api/webhooks/…" autocomplete="off" spellcheck="false">
+      <input id="notifyUrl" class="modal-input" placeholder="https://discord.com/api/webhooks/… or https://ntfy.sh/topic" autocomplete="off" spellcheck="false">
+    </label>
+    <label class="modal-row">Format
+      <select id="notifyFormat">
+        <option value="auto">Auto — Discord embed, or generic JSON</option>
+        <option value="ntfy">ntfy</option>
+        <option value="gotify">Gotify</option>
+        <option value="json">Generic JSON</option>
+      </select>
     </label>
     <div class="modal-note" id="notifyCurrent"></div>
     <div class="modal-actions">
@@ -1072,6 +1081,7 @@ let activeArp = { enabled: false, npcapAvailable: false };
 let autoIgnoreRandom = false;
 let webhookConfigured = false;
 let webhookMasked = null;   // masked form only; the server never sends the full URL
+let webhookFormat = "auto"; // auto | ntfy | gotify | json
 let repoUrl = "";           // project page, for the feedback link
 let updateInfo = null;      // { enabled, available, latest, url } from /api/hosts
 let appVersion = "";
@@ -1851,6 +1861,7 @@ async function refresh() {
     buildDate = data.buildDate || buildDate;
     webhookConfigured = !!data.webhookConfigured;
     webhookMasked = data.webhookMasked || null;
+    webhookFormat = data.webhookFormat || "auto";
     repoUrl = data.repoUrl || repoUrl;
     $("testWebhook").style.display = webhookConfigured ? "" : "none";
     renderArpToggle();
@@ -2226,6 +2237,7 @@ $("scanGo").onclick = async () => {
 function openNotifyModal() {
   $("notifyUrl").value = "";
   $("notifyResult").innerHTML = "";
+  $("notifyFormat").value = webhookFormat;
   $("notifyCurrent").textContent = webhookMasked
     ? "Currently saved: " + webhookMasked
     : "No webhook saved — alerts are off.";
@@ -2268,7 +2280,7 @@ async function saveWebhook(url) {
   const r = await fetch("/api/settings/webhook", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, format: $("notifyFormat").value }),
   });
   return { ok: r.ok, data: await r.json() };
 }

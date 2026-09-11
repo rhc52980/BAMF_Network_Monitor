@@ -56,6 +56,8 @@ optional daily update check you have to switch on, and your own webhook.
 **Alerting**
 - Discord webhooks with rich embeds — amber for a new unknown device, red when
   a watched device goes offline, green when it returns with how long it was down
+- Self-hosted push too: ntfy and Gotify, each in the format it expects, plus a
+  generic JSON body for anything else
 - Set it up by pasting a URL into the dashboard; no config file, no restart
 - Star only the devices you actually care about
 - Auto-ignore phones using MAC randomisation, so they don't cry wolf
