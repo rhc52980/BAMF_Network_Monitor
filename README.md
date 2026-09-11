@@ -40,6 +40,9 @@ optional daily update check you have to switch on, and your own webhook.
 - Multiple subnets at once, scanning each from the right interface
 - Hostnames via reverse DNS, then NetBIOS — which names most Windows PCs, NAS
   boxes and printers that have no DNS record
+- mDNS listening for the rest — Apple TVs, Chromecasts, Sonos, HomeKit gear and
+  printers announce their own names and services, and BAMF reads what they
+  volunteer without ever sending a query
 - Vendor names from the full IEEE OUI registry
 
 **Knowing what things are**

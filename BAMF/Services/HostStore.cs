@@ -5,7 +5,7 @@ namespace LanWatch.Services;
 public record HostRecord(
     long Id, string Mac, string Ip, string Hostname, string CustomName, string Vendor, string Subnet,
     bool Online, bool Known, bool Ignored, bool Watched, bool Forgotten, string Note, string FirstSeen, string LastSeen,
-    string OsGuess, string Link);
+    string OsGuess, string Link, string MdnsName, string MdnsServices);
 
 /// <summary>SQLite-backed store for discovered hosts.</summary>
 public class HostStore
@@ -107,6 +107,10 @@ public class HostStore
             ("link", "ALTER TABLE hosts ADD COLUMN link TEXT NOT NULL DEFAULT ''"),
             // Consecutive scans of its network that have not seen this host.
             ("misses", "ALTER TABLE hosts ADD COLUMN misses INTEGER NOT NULL DEFAULT 0"),
+            // Learned passively from the device's own mDNS announcements. Kept apart
+            // from hostname so a DNS or NetBIOS name is never overwritten by one.
+            ("mdns_name", "ALTER TABLE hosts ADD COLUMN mdns_name TEXT NOT NULL DEFAULT ''"),
+            ("mdns_services", "ALTER TABLE hosts ADD COLUMN mdns_services TEXT NOT NULL DEFAULT ''"),
         })
         {
             if (existing.Contains(col)) continue;
@@ -487,7 +491,7 @@ public class HostStore
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT id, mac, ip, hostname, custom_name, vendor, subnet, online, known, ignored, watched, forgotten, note, first_seen, last_seen, os_guess, link
+            SELECT id, mac, ip, hostname, custom_name, vendor, subnet, online, known, ignored, watched, forgotten, note, first_seen, last_seen, os_guess, link, mdns_name, mdns_services
             FROM hosts WHERE id = $id
             """;
         cmd.Parameters.AddWithValue("$id", id);
@@ -498,7 +502,7 @@ public class HostStore
             r.GetString(4), r.GetString(5), r.GetString(6),
             r.GetInt64(7) == 1, r.GetInt64(8) == 1, r.GetInt64(9) == 1, r.GetInt64(10) == 1,
             r.GetInt64(11) == 1, r.GetString(12), r.GetString(13), r.GetString(14),
-            r.GetString(15), r.GetString(16));
+            r.GetString(15), r.GetString(16), r.GetString(17), r.GetString(18));
     }
 
     /// <summary>UTC timestamp of the host's most recent "offline" event, if any.</summary>
@@ -566,7 +570,7 @@ public class HostStore
             using var conn = Open();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = """
-                SELECT id, mac, ip, hostname, custom_name, vendor, subnet, online, known, ignored, watched, forgotten, note, first_seen, last_seen, os_guess, link
+                SELECT id, mac, ip, hostname, custom_name, vendor, subnet, online, known, ignored, watched, forgotten, note, first_seen, last_seen, os_guess, link, mdns_name, mdns_services
                 FROM hosts ORDER BY subnet, ip
                 """;
             using var r = cmd.ExecuteReader();
@@ -577,7 +581,7 @@ public class HostStore
                     r.GetString(4), r.GetString(5), r.GetString(6),
                     r.GetInt64(7) == 1, r.GetInt64(8) == 1, r.GetInt64(9) == 1, r.GetInt64(10) == 1,
                     r.GetInt64(11) == 1, r.GetString(12), r.GetString(13), r.GetString(14),
-                    r.GetString(15), r.GetString(16)));
+                    r.GetString(15), r.GetString(16), r.GetString(17), r.GetString(18)));
             }
             return list;
         }
@@ -663,6 +667,53 @@ public class HostStore
                 upd.Parameters.AddWithValue("$id", id);
                 upd.ExecuteNonQuery();
             }
+        }
+    }
+
+    /// <summary>
+    /// Records what a device announced about itself over mDNS, matched by the
+    /// address the announcement came from. The name goes in its own column and
+    /// is only ever a fallback for display; services accumulate, and refine the
+    /// device guess when the current one is empty or came only from the vendor.
+    /// Returns true when the row actually changed.
+    /// </summary>
+    public bool ApplyMdns(string ip, string name, IEnumerable<string> services)
+    {
+        lock (_lock)
+        {
+            using var conn = Open();
+            long id; string curName, curServices, curGuess;
+            using (var find = conn.CreateCommand())
+            {
+                find.CommandText = "SELECT id, mdns_name, mdns_services, os_guess FROM hosts WHERE ip = $ip AND forgotten = 0 ORDER BY last_seen DESC LIMIT 1";
+                find.Parameters.AddWithValue("$ip", ip);
+                using var r = find.ExecuteReader();
+                if (!r.Read()) return false;
+                id = r.GetInt64(0); curName = r.GetString(1); curServices = r.GetString(2); curGuess = r.GetString(3);
+            }
+
+            var merged = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var s in curServices.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) merged.Add(s);
+            foreach (var s in services) if (!string.IsNullOrWhiteSpace(s)) merged.Add(s.Trim());
+            var newServices = string.Join(",", merged);
+            var newName = string.IsNullOrWhiteSpace(name) ? curName : name.Trim();
+
+            var newGuess = curGuess;
+            if (merged.Count > 0 && (curGuess == "" || curGuess.EndsWith("(vendor)", StringComparison.Ordinal)))
+            {
+                var fromServices = OsFingerprint.FromServices(merged);
+                if (fromServices != "") newGuess = fromServices;
+            }
+
+            if (newName == curName && newServices == curServices && newGuess == curGuess) return false;
+
+            using var upd = conn.CreateCommand();
+            upd.CommandText = "UPDATE hosts SET mdns_name = $n, mdns_services = $s, os_guess = $g WHERE id = $id";
+            upd.Parameters.AddWithValue("$n", newName);
+            upd.Parameters.AddWithValue("$s", newServices);
+            upd.Parameters.AddWithValue("$g", newGuess);
+            upd.Parameters.AddWithValue("$id", id);
+            return upd.ExecuteNonQuery() > 0;
         }
     }
 
