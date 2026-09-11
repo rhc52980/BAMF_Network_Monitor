@@ -168,6 +168,7 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         // Masked, never the full URL: anyone who can load the dashboard could
         // read it, and the token in a Discord webhook URL is the credential.
         webhookMasked = MaskWebhook(scanner.WebhookUrl),
+        webhookFormat = scanner.WebhookFormat,
         lastScan = scanner.LastScanUtc?.ToString("o"),
         // The default interval, kept as-is so existing dashboard code and any
         // API consumer still reads what it always did.
@@ -465,10 +466,17 @@ app.MapPost("/api/settings/webhook", (WebhookRequest body, HostStore store, Scan
 {
     var url = (body.Url ?? "").Trim();
 
+    // Delivery format travels with the URL. Anything unrecognised means "auto",
+    // which is the original behaviour: Discord embed for a Discord URL, generic
+    // JSON for everything else.
+    var format = (body.Format ?? "auto").Trim().ToLowerInvariant();
+    if (format is not ("auto" or "ntfy" or "gotify" or "json" or "discord")) format = "auto";
+    store.SetSetting("webhookFormat", format);
+
     if (url.Length == 0)
     {
         store.SetSetting("webhookUrl", "");
-        return Results.Json(new { ok = true, configured = false, masked = (string?)null });
+        return Results.Json(new { ok = true, configured = false, masked = (string?)null, format });
     }
 
     if (url.Length > 500)
@@ -483,6 +491,7 @@ app.MapPost("/api/settings/webhook", (WebhookRequest body, HostStore store, Scan
         ok = true,
         configured = true,
         masked = MaskWebhook(url),
+        format,
         // Surfaced so the dashboard can say so rather than failing silently later.
         insecure = uri.Scheme == Uri.UriSchemeHttp,
         discord = uri.Host.EndsWith("discord.com", StringComparison.OrdinalIgnoreCase) ||
@@ -564,6 +573,7 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             updateCheck = updates.Enabled,
             webhookConfigured = !string.IsNullOrWhiteSpace(scanner.WebhookUrl),
             webhookMasked = MaskWebhook(scanner.WebhookUrl),
+        webhookFormat = scanner.WebhookFormat,
         },
         readOnly = new
         {
@@ -773,7 +783,7 @@ record KnownRequest(bool Known);
 record NameRequest(string? Name);
 record NoteRequest(string? Note);
 record LinkRequest(string? Link);
-record WebhookRequest(string? Url);
+record WebhookRequest(string? Url, string? Format);
 record IgnoreRequest(bool Ignored);
 record WatchRequest(bool Watched);
 record ForgetRequest(bool Forgotten);
