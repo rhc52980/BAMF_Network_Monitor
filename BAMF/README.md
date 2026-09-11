@@ -762,10 +762,25 @@ Rows are sorted by network then numeric IP, so two fetches diff cleanly. Handy
 in a terminal, and a tidy read-only way to hand an AI agent an accurate picture
 of the network. It respects `Bamf:Password` like every other route.
 
-## Discord notifications
+## Notifications
 
-**Tools ▾ → Notifications…** — paste a webhook URL, hit **Save & test**. No
-config edit, no service restart.
+**Tools ▾ → Notifications…** — paste a webhook URL, pick a format, hit
+**Save & test**. No config edit, no service restart.
+
+Four formats, chosen in the dialog (or with `Bamf:WebhookFormat`):
+
+| Format | What BAMF sends | Your URL |
+|---|---|---|
+| **Auto** (default) | A rich Discord embed for a Discord URL; the generic JSON body for anything else | either |
+| **ntfy** | Plain text with `Title`, `Priority` and `Tags` headers, the way ntfy expects | your topic, e.g. `https://ntfy.sh/bamf-alerts` — add `?auth=…` if the topic needs a token |
+| **Gotify** | Gotify's `{title, message, priority}` JSON | your server's `/message?token=…` |
+| **Generic JSON** | `{content, message, mac, ip, …}` — `content` and `message` both carry the text, so most simple endpoints show it | anything |
+
+Priorities: a new device or an offline alert is high (ntfy 4, Gotify 8); a
+recovery or a test is normal. ntfy alerts carry emoji tags so the notification
+shows a 🔴 for offline and a 🟢 for recovered without any setup on your side.
+
+### Discord
 
 In Discord: *Server Settings → Integrations → Webhooks → New Webhook*, pick a
 channel, **Copy Webhook URL**, paste it in. BAMF saves it, immediately fires a
