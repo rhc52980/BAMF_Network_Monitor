@@ -415,8 +415,17 @@
   .history-title {
     font-family: "IBM Plex Mono", monospace; font-size: 11px;
     color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
-    margin-bottom: 10px;
+    margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
   }
+  /* An explicit way out of the panel. The row's own button does close it, but
+     only after silently relabelling itself "Hide", which nobody thinks to look
+     for. Escape works too. */
+  .history-close {
+    background: none; border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--text-dim); font: inherit; font-size: 11px; letter-spacing: .08em;
+    text-transform: uppercase; padding: 3px 10px; cursor: pointer;
+  }
+  .history-close:hover { color: var(--text); border-color: var(--focus); }
   .sessions { display: flex; flex-direction: column; gap: 6px; }
   .session {
     display: flex; align-items: center; gap: 10px;
@@ -1599,7 +1608,8 @@ function render() {
       td.colSpan = 11;
 
       const sessions = buildSessions(eventsCache[h.id] || []);
-      let inner = `<div class="history-title">Recent sessions — ${esc(dispName(h))}</div>`;
+      let inner = `<div class="history-title"><span>Recent sessions — ${esc(dispName(h))}</span>` +
+        `<button type="button" class="history-close" title="Close (Esc)">Close ✕</button></div>`;
       inner += buildTimeline(sessions, h.online);
       if (sessions.length === 0) {
         inner += `<div class="history-empty">No history recorded yet. Sessions appear as this host comes and goes.</div>`;
@@ -1615,6 +1625,7 @@ function render() {
       td.innerHTML = inner;
       detail.appendChild(td);
       tb.appendChild(detail);
+      td.querySelector(".history-close").onclick = () => { expandedId = null; render(); };
     }
   });
 }
@@ -2182,6 +2193,20 @@ $("noteText").onkeydown = e => {
   // Enter inserts a newline as usual; Ctrl/Cmd+Enter saves.
   if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $("noteSave").click(); }
 };
+
+// One Escape to close whatever is open, innermost first: a dialog, then an
+// open ⋯ menu, then an expanded History panel. Bound on the document so it
+// works wherever focus happens to be, not only inside the note field.
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (!$("noteModal").hidden) { closeNoteDialog(); return; }
+  if (!$("notifyModal").hidden) { $("notifyModal").hidden = true; return; }
+  if (!$("scanModal").hidden) { $("scanModal").hidden = true; return; }
+  const openMenu = document.querySelector(".row-menu.show");
+  if (openMenu) { openMenu.classList.remove("show"); return; }
+  if (toolsOpen) { toolsOpen = false; $("toolsMenu").classList.remove("show"); return; }
+  if (expandedId !== null) { expandedId = null; render(); }
+});
 
 async function saveWebhook(url) {
   const r = await fetch("/api/settings/webhook", {
