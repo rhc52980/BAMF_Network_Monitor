@@ -143,8 +143,25 @@ public partial class ScannerService : BackgroundService
         }
     }
 
+    private readonly MdnsListener _mdns;
+
+    /// <summary>The mDNS listener, for status in the API.</summary>
+    public MdnsListener Mdns => _mdns;
+
+    /// <summary>Whether to listen for mDNS announcements; dashboard value wins over appsettings.json.</summary>
+    public bool MdnsEnabled
+    {
+        get
+        {
+            var db = _store.GetSetting("mdnsListen");
+            if (db is not null) return db == "true";
+            return _config.GetValue("Bamf:MdnsListen", true);
+        }
+    }
+
     public ScannerService(HostStore store, OuiLookup oui, IConfiguration config,
-        IHttpClientFactory httpFactory, ILogger<ScannerService> log, UpdateChecker updates)
+        IHttpClientFactory httpFactory, ILogger<ScannerService> log, UpdateChecker updates,
+        MdnsListener mdns)
     {
         _store = store;
         _oui = oui;
@@ -152,6 +169,7 @@ public partial class ScannerService : BackgroundService
         _httpFactory = httpFactory;
         _log = log;
         _updates = updates;
+        _mdns = mdns;
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -166,6 +184,9 @@ public partial class ScannerService : BackgroundService
                 ScanIntervalSeconds = ConfiguredDefaultInterval;
                 var concurrency = ConfiguredConcurrency;
                 var overrides = ReadIntervalOverrides();
+
+                // Receive-only; starts or stops to follow the setting each pass.
+                _mdns.EnsureRunning(MdnsEnabled);
 
                 var subnets = ResolveSubnets();
                 var labels = subnets.Select(s => $"{s.Network}/{s.Prefix}").ToList();
@@ -247,6 +268,15 @@ public partial class ScannerService : BackgroundService
                     // Vendor/hostname-derived device guesses. No packets are sent -
                     // deeper fingerprinting stays behind the Identify action.
                     _store.ApplyPassiveFingerprints();
+
+                    // What devices said about themselves since the last pass. Written
+                    // here, on the scan thread, rather than from the receive loop, so
+                    // the database sees one writer.
+                    var learned = 0;
+                    foreach (var o in _mdns.Drain())
+                        if (_store.ApplyMdns(o.Ip, o.Name, o.Services)) learned++;
+                    if (learned > 0)
+                        _log.LogInformation("mDNS: learned names or services for {Count} device(s)", learned);
 
                     LastScanUtc = DateTime.UtcNow;
                 }
