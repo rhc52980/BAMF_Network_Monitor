@@ -189,23 +189,37 @@
   }
   .brand { display: flex; align-items: center; gap: 10px; }
   .brand .mark { flex-shrink: 0; }
-  .brand h1 { font-size: 17px; font-weight: 700; letter-spacing: 0.06em; color: var(--led-on); }
-  .brand .sub { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim); }
-  .brand .ver { font-size: 10px; color: var(--text-dim); opacity: 0.75; align-self: flex-start; margin-left: -4px; }
+  .brand h1 { font-size: 17px; font-weight: 700; letter-spacing: 0.06em; color: var(--led-on); line-height: 1; }
+  /* Version, network count and (when there is one) the update badge sit in
+     one row of matching chips, on the same centre line as the wordmark: the
+     old layout floated a 10px version up to the top while the network count
+     sat in the middle, and the two never lined up. */
+  .brand .meta { display: flex; align-items: center; gap: 6px; margin-left: 8px; padding-left: 14px; border-left: 1px solid var(--line); }
+  .brand .chip {
+    display: inline-flex; align-items: center; height: 20px; padding: 0 8px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2);
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; line-height: 1;
+    color: var(--text-dim); white-space: nowrap;
+  }
+  .brand .chip.ver { color: var(--text); }
   .os-guess { display: block; font-size: 10px; color: var(--text-dim); opacity: 0.85; }
   .link-flag { font-size: 10px; opacity: 0.7; margin-left: 3px; }
   .modal-help { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin: 0 0 12px; }
   .modal-note { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim); margin: 6px 0 0; word-break: break-all; }
   .update-badge {
-    font-family: "IBM Plex Mono", monospace; font-size: 10px; text-decoration: none;
-    padding: 2px 6px; border-radius: 999px; margin-left: 6px; white-space: nowrap;
-    background: var(--warn, #ffb454); color: #1b1200; font-weight: 600;
+    display: inline-flex; align-items: center; height: 20px; padding: 0 8px;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; line-height: 1;
+    text-decoration: none; border-radius: 999px; white-space: nowrap;
+    background: var(--warn, #ffb454); border: 1px solid var(--warn, #ffb454);
+    color: #1b1200; font-weight: 600;
   }
+  .update-badge[hidden] { display: none; } /* display:inline-flex would otherwise beat the hidden attribute */
   .update-badge:hover { filter: brightness(1.1); }
   .scanline {
     margin-left: auto; display: flex; align-items: center; gap: 12px;
     font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim);
   }
+  .scanline .lbl-next { white-space: nowrap; }
   .scan-track {
     width: 140px; height: 4px; background: var(--panel-2);
     border-radius: 2px; overflow: hidden;
@@ -729,6 +743,8 @@
 
   @media (max-width: 700px) {
     header { flex-wrap: wrap; gap: 10px; padding: 12px 16px; }
+    .brand { flex-wrap: wrap; }
+    .brand .meta { margin-left: 0; padding-left: 0; border-left: 0; width: 100%; }
     .scanline { width: 100%; margin-left: 0; }
     .stats { padding: 12px 16px; }
     .stat { min-width: calc(50% - 6px); }
@@ -801,9 +817,11 @@
       <circle cx="78" cy="72" r="9" fill="#ffb454" stroke="#0c3a22" stroke-width="3"/>
     </svg>
     <h1>BAMF</h1>
-    <span class="ver mono" id="version" title="BAMF version"></span>
-    <a class="update-badge" id="updateBadge" target="_blank" rel="noopener" hidden></a>
-    <span class="sub" id="subnetLabel">—</span>
+    <div class="meta">
+      <span class="chip ver" id="version" title="BAMF version"></span>
+      <span class="chip" id="subnetLabel">—</span>
+      <a class="update-badge" id="updateBadge" target="_blank" rel="noopener" hidden></a>
+    </div>
   </div>
   <div class="scanline">
     <!-- The setting toggles that used to live here are in the Settings tab,
