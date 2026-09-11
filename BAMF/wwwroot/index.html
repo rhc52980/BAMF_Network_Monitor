@@ -15,6 +15,9 @@
   try { t = localStorage.getItem("bamf-theme"); } catch (e) {}
   if (!t) { try { if (window.name && window.name.indexOf("bamf-theme:") === 0) t = window.name.slice(11); } catch (e) {} }
   if (t && /^[a-z0-9-]{1,32}$/.test(t)) document.documentElement.setAttribute("data-theme", t);
+  var d = null;
+  try { d = localStorage.getItem("bamf-density"); } catch (e) {}
+  if (d === "compact") document.documentElement.classList.add("compact");
 })();
 </script>
 <!-- Fonts are served from this machine, not a CDN: the dashboard often runs on
@@ -369,6 +372,16 @@
   }
   .export-btn:hover { color: var(--text); border-color: var(--focus); }
   tbody td { padding: 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  /* Compact rows: about half the height, for /24s with a hundred hosts.
+     Nothing is hidden, the secondary lines just get tighter. Chosen in
+     Settings, kept in localStorage, and applied from the head script so
+     a reload doesn't paint tall rows first. */
+  .compact tbody td { padding: 5px 10px; font-size: 13px; }
+  .compact thead th { padding-top: 8px; padding-bottom: 8px; }
+  .compact .hostname .dns, .compact .os-guess { font-size: 10px; line-height: 1.2; }
+  .compact .vendor, .compact .seen { font-size: 12px; }
+  .compact .spark { height: 12px; }
+  .compact .actions .toggle { padding-top: 3px; padding-bottom: 3px; }
   tbody tr:hover { background: var(--panel); }
   tbody tr.is-unknown { background: rgba(255,180,84,.05); }
   tbody tr.is-ignored { opacity: 0.55; }
@@ -979,6 +992,25 @@
         <span class="set-hint" id="setUpdStatus"></span>
       </span>
       <span class="set-field"><button type="button" class="arp-toggle" id="setUpd" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+    </label>
+  </div>
+
+  <div class="set-card">
+    <div class="set-card-title">Display</div>
+    <p class="modal-help">
+      Kept in this browser, like the theme — not on the server, so each device you open BAMF on can differ.
+    </p>
+    <label class="set-row">
+      <span class="set-label">Compact rows
+        <span class="set-hint">Tighter device rows, about half the height, so a busy network fits on one screen. Nothing is hidden.</span>
+      </span>
+      <span class="set-field"><button type="button" class="arp-toggle" id="setCompact" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+    </label>
+    <label class="set-row">
+      <span class="set-label">Keyboard
+        <span class="set-hint"><span class="mono">/</span> jumps to the search box. <span class="mono">Esc</span> clears it, or closes whatever is open.</span>
+      </span>
+      <span class="set-field"></span>
     </label>
   </div>
 
@@ -2113,6 +2145,21 @@ function applyTheme(theme) {
   try { window.name = "bamf-theme:" + theme; } catch {}
 }
 
+// Row density: a class on <html> so the head script can apply it before the
+// first paint, the same way the theme is handled.
+function renderDensityToggle() {
+  const on = document.documentElement.classList.contains("compact");
+  const t = $("setCompact");
+  if (t) setToggleState(t, on);
+}
+$("setCompact").onclick = () => {
+  const on = !document.documentElement.classList.contains("compact");
+  document.documentElement.classList.toggle("compact", on);
+  try { localStorage.setItem("bamf-density", on ? "compact" : "comfortable"); } catch {}
+  renderDensityToggle();
+};
+renderDensityToggle();
+
 // Restore the saved theme: localStorage first (survives restarts and new
 // tabs), then window.name (same-tab reload only) for anyone who chose a theme
 // before storage was used, then dark. Each read is guarded separately so a
@@ -2361,7 +2408,19 @@ $("noteText").onkeydown = e => {
 // open ⋯ menu, then an expanded History panel. Bound on the document so it
 // works wherever focus happens to be, not only inside the note field.
 document.addEventListener("keydown", e => {
+  // "/" jumps to the search box from anywhere that isn't already a text field.
+  if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const t = e.target;
+    const typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+    if (!typing) { e.preventDefault(); $("search").focus(); $("search").select(); }
+    return;
+  }
   if (e.key !== "Escape") return;
+  if (document.activeElement === $("search")) {
+    if ($("search").value) { $("search").value = ""; query = ""; render(); }
+    $("search").blur();
+    return;
+  }
   if (!$("noteModal").hidden) { closeNoteDialog(); return; }
   if (!$("scanModal").hidden) { $("scanModal").hidden = true; return; }
   const openMenu = document.querySelector(".row-menu.show");
