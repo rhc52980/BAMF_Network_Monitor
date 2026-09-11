@@ -95,7 +95,9 @@ dashboard and applied on the next scan — no restart, no editing a file over SS
 Each network can run on **its own interval**, so a busy server VLAN and a mostly
 idle guest network no longer have to share one. A device is only judged offline
 by a scan that actually covered its network, so differing intervals don't
-produce false down-alerts.
+produce false down-alerts. The header counts down to whichever network is due
+next and names it; each network tab shows its own figure, and the Settings
+table reads `every 90s · next in 62s` per network.
 
 Every setting lives on this one tab — the instant toggles for active ARP,
 randomised-MAC filtering and update checks, and the notification webhook, all
