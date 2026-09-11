@@ -282,10 +282,11 @@ horizontal scrolling. The who's-home board and everything else adapt too.
 
 ## Notes
 
-Each device row has a **Details** button opening a panel with its session
-history and a **Notes** field — free text for remembering what a device is
-("garage ESP32 sensor", "kids' iPad, bedtime 9pm"). **Add note…** in the ⋯ menu
-opens the same panel with the cursor already in the field.
+Each device row has a **History** button opening a panel with its online/offline
+session timeline. Notes are separate: **Add note…** / **Edit note…** in the ⋯
+menu opens a small dialog with free text for remembering what a device is
+("garage ESP32 sensor", "kids' iPad, bedtime 9pm"). Ctrl+Enter saves, Escape
+cancels, and **Clear** removes the note.
 
 A 📝 appears next to the name when a note exists (hover to preview), and notes
 are included in search. Like custom names, notes are bound to the MAC and
