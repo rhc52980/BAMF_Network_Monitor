@@ -3,8 +3,9 @@
 #   powershell -ExecutionPolicy Bypass -File update.ps1 [-ZipPath C:\path\to\BAMF.zip]
 #
 # What it does:
-#   1. Finds the source: -ZipPath, else this script's own source tree, else the
-#      newest BAMF*.zip in Downloads
+#   1. Finds the source: -ZipPath, else the highest version among this script's
+#      own source tree and the BAMF*.zip packages in Downloads. Never installs
+#      a version older than the one running unless told to (-AllowDowngrade).
 #   2. Stops the BAMF service / process
 #   3. Migrates an old C:\BAMFApp install to C:\BAMF (folder move + service
 #      repoint + desktop shortcut fixup), once
@@ -16,7 +17,7 @@
 # The only folder that exists afterwards is C:\BAMF. You never need to extract
 # the zip yourself.
 
-param([string]$ZipPath)
+param([string]$ZipPath, [switch]$AllowDowngrade)
 
 $ErrorActionPreference = "Stop"
 # Needed to read a version out of a package without extracting it. Windows
@@ -28,6 +29,47 @@ $Service = "BAMF"
 $RepointService = $false
 
 function Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
+
+# The version a source declares in its BAMF.csproj, or $null if it predates
+# versioning. Works on a folder or on a zip without extracting it.
+function Get-SourceVersion([string]$path) {
+    $raw = $null
+    try {
+        if (Test-Path $path -PathType Container) {
+            $csproj = Join-Path $path "BAMF.csproj"
+            if (Test-Path $csproj) {
+                $m = [regex]::Match((Get-Content $csproj -Raw), '<Version>\s*([^<]+?)\s*</Version>')
+                if ($m.Success) { $raw = $m.Groups[1].Value }
+            }
+        }
+        else {
+            $z = [System.IO.Compression.ZipFile]::OpenRead($path)
+            try {
+                $entry = $z.Entries | Where-Object { $_.FullName -like "*BAMF.csproj" } | Select-Object -First 1
+                if ($entry) {
+                    $sr = New-Object System.IO.StreamReader($entry.Open())
+                    $text = $sr.ReadToEnd(); $sr.Close()
+                    $m = [regex]::Match($text, '<Version>\s*([^<]+?)\s*</Version>')
+                    if ($m.Success) { $raw = $m.Groups[1].Value }
+                }
+            }
+            finally { $z.Dispose() }
+        }
+    }
+    catch { }   # unreadable or not a zip: ranks last, never crashes the update
+    # Fall back to a version in the file name, e.g. BAMF-1.5.0.zip
+    if (-not $raw -and -not (Test-Path $path -PathType Container)) {
+        $fm = [regex]::Match((Split-Path $path -Leaf), '(\d+\.\d+(?:\.\d+)?)')
+        if ($fm.Success) { $raw = $fm.Groups[1].Value }
+    }
+    return $raw
+}
+
+function ConvertTo-VersionOrZero($raw) {
+    $parsed = [version]"0.0.0"
+    if ($raw) { [void][version]::TryParse($raw, [ref]$parsed) }
+    return $parsed
+}
 
 $tempSrc = Join-Path $env:TEMP "bamf-src"
 
@@ -55,77 +97,98 @@ try {
         }
     }
 
+    # --- what is running now? ---
+    # Known before the source is chosen, so the choice can be checked against
+    # it: an update must never install something older than what's running.
+    $installedVersion = $null
+    if (Test-Path (Join-Path $AppDir "BAMF.exe")) {
+        $pv = (Get-Item (Join-Path $AppDir "BAMF.exe")).VersionInfo.ProductVersion
+        if ($pv) { $installedVersion = ($pv -split '\+')[0].Trim() }
+    }
+    $installedParsed = ConvertTo-VersionOrZero $installedVersion
+
     # --- locate the source ---
-    # Priority: an explicit -ZipPath, then the source tree this script lives in,
-    # then the newest BAMF*.zip in Downloads. The middle case matters: running
-    # update.ps1 out of a freshly downloaded tree used to skip that tree
-    # entirely and rebuild from whatever stale zip was sitting in Downloads,
-    # which looks like a successful update that installs old code.
-    # linux/install.sh has always preferred its own tree; this matches it.
+    # An explicit -ZipPath is used as given. Otherwise every candidate is
+    # ranked by the version it declares, and the highest wins: the source tree
+    # this script lives in (if it is one) and each BAMF*.zip in Downloads.
+    #
+    # The tree used to win outright whenever the script sat inside one. That
+    # was meant to stop a stale zip in Downloads from beating a freshly
+    # downloaded tree, and it did - but it also meant a script run from an
+    # old extracted tree rebuilt that old tree every time, reported success,
+    # and ignored the newer package sitting right next to it. Ranking both by
+    # version handles both cases. Ties go to the tree, which needs no extract.
     $srcDir = $null
-    if (-not $ZipPath -and $PSScriptRoot) {
-        $treeRoot = Split-Path $PSScriptRoot -Parent   # ...\BAMF\update -> ...\BAMF
-        if ($treeRoot -and (Test-Path (Join-Path $treeRoot "BAMF.csproj"))) {
-            $srcDir = $treeRoot
+    $chosenVersionRaw = $null
+    $downloads = Join-Path $env:USERPROFILE "Downloads"
+    if ($ZipPath) {
+        if (-not (Test-Path $ZipPath)) { throw "Zip not found: $ZipPath" }
+        $chosenVersionRaw = Get-SourceVersion $ZipPath
+        Step "Using package: $ZipPath  (downloaded $((Get-Item $ZipPath).LastWriteTime))"
+    }
+    else {
+        $candidates = @()
+        if ($PSScriptRoot) {
+            $treeRoot = Split-Path $PSScriptRoot -Parent   # ...\BAMF\windows -> ...\BAMF
+            if ($treeRoot -and (Test-Path (Join-Path $treeRoot "BAMF.csproj"))) {
+                $raw = Get-SourceVersion $treeRoot
+                $candidates += [pscustomobject]@{
+                    Kind = 'tree'; Path = $treeRoot; Label = "source tree $treeRoot"
+                    Raw = $raw; Version = (ConvertTo-VersionOrZero $raw); Tie = 1; When = (Get-Item $treeRoot).LastWriteTime
+                }
+            }
+        }
+        foreach ($c in @(Get-ChildItem -Path $downloads -Filter "BAMF*.zip" -File -ErrorAction SilentlyContinue)) {
+            $raw = Get-SourceVersion $c.FullName
+            $candidates += [pscustomobject]@{
+                Kind = 'zip'; Path = $c.FullName; Label = $c.Name
+                Raw = $raw; Version = (ConvertTo-VersionOrZero $raw); Tie = 0; When = $c.LastWriteTime
+            }
+        }
+        if ($candidates.Count -eq 0) {
+            throw "No source found: this script is not inside a BAMF source tree and there is no BAMF*.zip in $downloads. Download the update zip first, or pass -ZipPath."
+        }
+
+        # Highest version wins; a tie goes to the tree, then to the newer file.
+        $ordered = $candidates | Sort-Object -Property Version, Tie, When -Descending
+        $best = $ordered | Select-Object -First 1
+        $chosenVersionRaw = $best.Raw
+
+        if ($ordered.Count -gt 1) {
+            Step "Found $($ordered.Count) sources; choosing the highest version"
+            foreach ($o in $ordered) {
+                $mark = if ($o.Path -eq $best.Path) { '->' } else { '  ' }
+                $shown = if ($o.Raw) { $o.Raw } else { 'unknown' }
+                Write-Host ("     {0} {1,-40} version {2}" -f $mark, $o.Label, $shown)
+            }
+        }
+
+        if ($best.Kind -eq 'tree') {
+            $srcDir = $best.Path
             Step "Using source tree: $srcDir"
+        }
+        else {
+            $ZipPath = $best.Path
+            Step "Using package: $ZipPath  (downloaded $($best.When))"
         }
     }
 
-    if (-not $srcDir) {
-        if (-not $ZipPath) {
-            $downloads = Join-Path $env:USERPROFILE "Downloads"
-            $candidates = @(Get-ChildItem -Path $downloads -Filter "BAMF*.zip" -File -ErrorAction SilentlyContinue)
-            if ($candidates.Count -eq 0) { throw "No BAMF*.zip found in $downloads. Download the update zip first, or pass -ZipPath." }
-
-            # Pick the HIGHEST VERSION, not the newest file. Downloading an older
-            # package after a newer one used to win purely on timestamp, which is
-            # how a stale zip can quietly reinstall old code.
-            $ranked = foreach ($c in $candidates) {
-                $raw = $null
-                # The version declared inside the package is authoritative - a
-                # filename can say anything.
-                try {
-                    $z = [System.IO.Compression.ZipFile]::OpenRead($c.FullName)
-                    try {
-                        $entry = $z.Entries | Where-Object { $_.FullName -like "*BAMF.csproj" } | Select-Object -First 1
-                        if ($entry) {
-                            $sr = New-Object System.IO.StreamReader($entry.Open())
-                            $text = $sr.ReadToEnd(); $sr.Close()
-                            $m = [regex]::Match($text, '<Version>\s*([^<]+?)\s*</Version>')
-                            if ($m.Success) { $raw = $m.Groups[1].Value }
-                        }
-                    }
-                    finally { $z.Dispose() }
-                }
-                catch { }   # unreadable or not a zip: ranks last, never crashes the update
-
-                # Fall back to a version in the filename, e.g. BAMF-1.5.0.zip
-                if (-not $raw) {
-                    $fm = [regex]::Match($c.Name, '(\d+\.\d+(?:\.\d+)?)')
-                    if ($fm.Success) { $raw = $fm.Groups[1].Value }
-                }
-
-                $parsed = [version]"0.0.0"
-                if ($raw) { [void][version]::TryParse($raw, [ref]$parsed) }
-                [pscustomobject]@{ File = $c; Version = $parsed; Raw = $raw }
-            }
-
-            # Highest version wins; same version falls back to the newer file.
-            $ordered = $ranked | Sort-Object -Property Version, { $_.File.LastWriteTime } -Descending
-            $best = $ordered | Select-Object -First 1
-            $ZipPath = $best.File.FullName
-
-            if ($ordered.Count -gt 1) {
-                Step "Found $($ordered.Count) packages in Downloads; choosing the highest version"
-                foreach ($o in $ordered) {
-                    $mark = if ($o.File.FullName -eq $ZipPath) { '->' } else { '  ' }
-                    $shown = if ($o.Raw) { $o.Raw } else { 'unknown' }
-                    Write-Host ("     {0} {1,-28} version {2}" -f $mark, $o.File.Name, $shown)
-                }
-            }
+    # --- never go backwards by accident ---
+    # Rebuilding the same version is fine (that is how a config-only change
+    # gets picked up). Installing an older one is almost always a stale zip or
+    # an old extracted tree, so stop and say what to do instead.
+    $chosenParsed = ConvertTo-VersionOrZero $chosenVersionRaw
+    if ($installedVersion -and $chosenVersionRaw -and $chosenParsed -lt $installedParsed) {
+        if ($AllowDowngrade) {
+            Step "Installing $chosenVersionRaw over the newer $installedVersion because -AllowDowngrade was given"
         }
-        if (-not (Test-Path $ZipPath)) { throw "Zip not found: $ZipPath" }
-        Step "Using package: $ZipPath  (downloaded $((Get-Item $ZipPath).LastWriteTime))"
+        else {
+            $what = if ($PSBoundParameters.ContainsKey('ZipPath')) { "The package given is" } else { "The newest source found is" }
+            throw ("$what $chosenVersionRaw, but $installedVersion is already installed. " +
+                   "Nothing was changed. Put the newer BAMF*.zip in $downloads (and remove older ones), " +
+                   "or run this script from the newer source tree. To install $chosenVersionRaw anyway, " +
+                   "pass -AllowDowngrade.")
+        }
     }
 
     if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
@@ -212,11 +275,6 @@ try {
     $srcVersion = "unknown (source predates versioning)"
     $vm = [regex]::Match((Get-Content (Join-Path $srcDir "BAMF.csproj") -Raw), '<Version>\s*([^<]+?)\s*</Version>')
     if ($vm.Success) { $srcVersion = $vm.Groups[1].Value }
-    $installedVersion = $null
-    if (Test-Path (Join-Path $AppDir "BAMF.exe")) {
-        $pv = (Get-Item (Join-Path $AppDir "BAMF.exe")).VersionInfo.ProductVersion
-        if ($pv) { $installedVersion = ($pv -split '\+')[0].Trim() }
-    }
     Step "Installing version $srcVersion$(if ($installedVersion) { " (replacing $installedVersion)" })"
 
     # --- preserve config ---

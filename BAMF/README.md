@@ -436,28 +436,33 @@ From then on, updating is:
    source, rebuilds, restores your `appsettings.json`, and restarts the service.
 3. Ctrl+F5 the dashboard.
 
-**Which source it builds** is decided in this order: an explicit `-ZipPath`, then
-the source tree the script is sitting in, then a `BAMF*.zip` from Downloads. So
-running `update.ps1` out of a freshly downloaded source tree uses *that* tree —
-it won't reach past it for a stale zip left in Downloads months ago.
-
-When it does fall through to Downloads it picks the **highest version**, not the
-newest file. Each package's version is read from the `BAMF.csproj` *inside* it,
-so a misleading filename can't win; a version in the filename is the fallback,
-and a package too old to declare one ranks last. With several packages present
-it lists them and marks its choice:
+**Which source it builds:** an explicit `-ZipPath` is used as given. Otherwise
+every candidate is ranked by the version it declares and the **highest wins**:
+the source tree the script is sitting in (if it is one) and each `BAMF*.zip`
+in Downloads. Versions are read from the `BAMF.csproj` inside each, so a
+misleading filename can't win; a version in the filename is the fallback, and
+a source too old to declare one ranks last. Ties go to the tree, which needs
+no extracting. With more than one candidate it lists them and marks its choice:
 
 ```
-==> Found 3 packages in Downloads; choosing the highest version
-     -> BAMF-1.5.0.zip               version 1.5.0
-        BAMF-1.2.0.zip               version 1.2.0
-        BAMF-old.zip                 version unknown
+==> Found 3 sources; choosing the highest version
+     -> BAMF-1.19.0.zip                         version 1.19.0
+        source tree C:\Users\you\Downloads\BAMF-1.17.0\BAMF   version 1.17.0
+        BAMF-old.zip                            version unknown
 ```
 
-Timestamp order used to decide this, which meant downloading an older package
-after a newer one silently reinstalled the older code. The script also prints
-the version it's about to install and the one it replaces, e.g.
-`Installing version 1.5.0 (replacing 1.2.0)`.
+Earlier versions of the script let the tree win outright whenever it sat
+inside one. That quietly rebuilt an old extracted tree every time, reported
+success, and ignored the newer package sitting next to it. Ranking by version
+closes that.
+
+**It never goes backwards by accident.** Rebuilding the version already
+installed is allowed (that's how a config-only change is picked up), but if
+the best source it can find is *older* than what's running it stops before
+touching anything and says where to put the newer zip. To install an older
+version on purpose, pass `-AllowDowngrade`. The script prints the version it's
+about to install and the one it replaces, e.g.
+`Installing version 1.19.0 (replacing 1.17.0)`.
 
 The updater **follows the installed service**: it reads the service's binary
 path and updates that folder, rather than assuming `C:\BAMF`. Older installs
