@@ -344,6 +344,33 @@
   }
   .tab + .tab { border-left: 1px solid var(--line); }
   .tab.active { background: var(--panel-2); color: var(--text); }
+
+  /* Device-type chips. One row under the status tabs, wrapping on narrow
+     screens. Deliberately not a second set of .tab segments: these are an
+     optional narrowing of what's already shown, not a mode. */
+  .chipbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 24px 14px; flex-wrap: wrap;
+  }
+  /* display:flex on the class would otherwise beat the hidden attribute */
+  .chipbar[hidden] { display: none; }
+  .chipbar-label {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
+    margin-right: 2px;
+  }
+  .chip-btn {
+    background: var(--panel); color: var(--text-dim);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 5px 12px; font: inherit; font-size: 12px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip-btn:hover { color: var(--text); border-color: var(--focus); }
+  .chip-btn.active { background: var(--panel-2); color: var(--text); border-color: var(--focus); }
+  .chip-btn .chip-cnt { color: var(--text-dim); font-size: 11px; }
+  .chip-btn.active .chip-cnt { color: var(--focus); }
+  .chip-btn.none { font-style: italic; }
+  .chip-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   .search {
     margin-left: auto; background: var(--panel);
     border: 1px solid var(--line); border-radius: var(--radius);
@@ -763,7 +790,7 @@
     .scanline { width: 100%; margin-left: 0; }
     .stats { padding: 12px 16px; }
     .stat { min-width: calc(50% - 6px); }
-    .viewbar, .controls, .table-wrap, .feed-wrap, .home-wrap, .portstrip-wrap, .netbar { padding-left: 16px; padding-right: 16px; }
+    .viewbar, .controls, .chipbar, .table-wrap, .feed-wrap, .home-wrap, .portstrip-wrap, .netbar { padding-left: 16px; padding-right: 16px; }
     .tools { width: 100%; margin-left: 0; }
     .search { flex: 1; }
 
@@ -906,6 +933,8 @@
     <button class="tab" data-filter="ignored">Ignored</button>
   </div>
 </div>
+
+<div class="chipbar" id="guessChips" hidden></div>
 
 <div class="home-wrap" id="homeWrap" hidden>
   <div class="home-grid" id="homeGrid"></div>
@@ -1151,6 +1180,7 @@ const POLL_MS = 10000;
 
 let hosts = [];
 let filter = "all";       // status filter within Devices view
+let guessFilter = null;   // device-type chip, e.g. "Apple device"; null = every type
 let view = "devices";     // devices | home | activity | forgotten
 let query = "";
 let network = "all";      // selected network, or "all"
@@ -1423,10 +1453,22 @@ function dispName(h) {
   return h.customName || (h.hostname && h.hostname !== "—" ? h.hostname : "") || h.mdnsName || "—";
 }
 
-function visible() {
+// A device guess reads "Apple device (vendor)" or "Windows (TTL 128, SMB)":
+// the name, then the evidence it rests on. The name alone is the type, and
+// grouping by it costs nothing - no new taxonomy, no second list to maintain.
+// Devices with no guess share the null family and get their own chip.
+function guessFamily(osGuess) {
+  if (!osGuess) return null;
+  const cut = osGuess.indexOf(" (");
+  return (cut > 0 ? osGuess.slice(0, cut) : osGuess).trim() || null;
+}
+
+function visible(opts) {
   if (view === "home" || view === "activity") return [];
+  const ignoreGuess = !!(opts && opts.ignoreGuess);
   return hosts.filter(h => {
     if (!inNetwork(h)) return false;
+    if (!ignoreGuess && guessFilter !== null && guessFamily(h.osGuess) !== (guessFilter === NO_GUESS ? null : guessFilter)) return false;
     if (view === "forgotten") { if (!h.forgotten) return false; }
     else {
       if (h.forgotten) return false;
@@ -1459,6 +1501,79 @@ function matchesQuery(h, query) {
     return fields.some(f => rx.test(String(f)));
   }
   return fields.join(" ").toLowerCase().includes(query.toLowerCase());
+}
+
+// Sentinel for "devices BAMF hasn't guessed at", which is a type worth
+// filtering to - it's the list of things to point Identify at.
+const NO_GUESS = "\u0000none";
+
+function renderGuessChips() {
+  const bar = $("guessChips");
+  // Counted from what the network and status filters already leave, but
+  // before this filter - so the numbers stay put as you move between chips
+  // instead of collapsing to one row the moment you pick something.
+  const pool = visible({ ignoreGuess: true });
+  const counts = new Map();
+  for (const h of pool) {
+    const key = guessFamily(h.osGuess) ?? NO_GUESS;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+
+  if (!(view === "devices" || view === "forgotten")) {
+    bar.hidden = true;
+    bar.innerHTML = "";
+    return;
+  }
+
+  // The chosen type can vanish - the last iPhone goes offline and is filtered
+  // out, or you switch to a network without one. Drop back to every type
+  // rather than showing an empty table with no way to tell why.
+  if (guessFilter !== null && !counts.has(guessFilter)) guessFilter = null;
+
+  // A chip bar with one chip says nothing the table doesn't - unless a chip is
+  // in use, in which case hiding the bar would strand the filter with nothing
+  // on screen to explain or undo it.
+  if (counts.size < 2 && guessFilter === null) {
+    bar.hidden = true;
+    bar.innerHTML = "";
+    return;
+  }
+
+  const families = [...counts.entries()]
+    .sort((a, b) => (a[0] === NO_GUESS) - (b[0] === NO_GUESS) || b[1] - a[1] || a[0].localeCompare(b[0]));
+
+  bar.hidden = false;
+  bar.innerHTML = "";
+  const label = document.createElement("span");
+  label.className = "chipbar-label";
+  label.textContent = "Device type";
+  bar.appendChild(label);
+
+  const mk = (key, text, count, title) => {
+    const b = document.createElement("button");
+    const active = guessFilter === key;
+    b.type = "button";
+    b.className = "chip-btn" + (active ? " active" : "") + (key === NO_GUESS ? " none" : "");
+    b.setAttribute("aria-pressed", active ? "true" : "false");
+    if (title) b.title = title;
+    b.textContent = text;
+    if (count !== null) {
+      const c = document.createElement("span");
+      c.className = "chip-cnt";
+      c.textContent = count;
+      b.appendChild(c);
+    }
+    // Clicking the chip already in use clears it, so the filter never needs
+    // hunting for an off switch.
+    b.onclick = () => { guessFilter = (key !== null && guessFilter === key) ? null : key; render(); };
+    bar.appendChild(b);
+  };
+
+  mk(null, "All", pool.length, "Every device type");
+  for (const [key, n] of families) {
+    if (key === NO_GUESS) mk(NO_GUESS, "no guess", n, "Devices BAMF has no guess for - Identify one from its \u22ef menu");
+    else mk(key, key, n, "Only " + key + " devices");
+  }
 }
 
 function renderNetTabs() {
@@ -1542,6 +1657,7 @@ function render() {
   $("homeWrap").hidden = view !== "home";
   $("settingsWrap").hidden = view !== "settings";
   $("statusFilters").style.display = view === "devices" ? "" : "none";
+  renderGuessChips();
   if (view === "activity") renderFeed();
   if (view === "home") renderHome();
   document.querySelectorAll("thead th[data-sort]").forEach(th => {
@@ -2485,6 +2601,7 @@ document.addEventListener("keydown", e => {
   const openMenu = document.querySelector(".row-menu.show");
   if (openMenu) { openMenu.classList.remove("show"); return; }
   if (toolsOpen) { toolsOpen = false; $("toolsMenu").classList.remove("show"); return; }
+  if (guessFilter !== null) { guessFilter = null; render(); return; }
   if (expandedId !== null) { expandedId = null; render(); }
 });
 
