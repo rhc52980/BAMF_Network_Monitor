@@ -2337,7 +2337,7 @@ function fillNotify() {
 // Tools ▾ → Notifications… used to open a dialog; it now goes to the card, so
 // the old habit still lands somewhere sensible.
 $("notifySetup").onclick = () => {
-  document.querySelector('.view-btn[data-view="settings"]').click();
+  showView("settings");
   setTimeout(() => {
     $("notifyUrl").scrollIntoView({ behavior: "smooth", block: "center" });
     $("notifyUrl").focus();
@@ -2477,11 +2477,9 @@ document.addEventListener("click", (e) => {
 });
 
 document.querySelectorAll(".stat.clickable").forEach(s => s.onclick = () => {
-  view = "devices";
-  document.querySelectorAll(".view-btn").forEach(x => x.classList.toggle("active", x.dataset.view === "devices"));
   filter = s.dataset.jump;
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.filter === filter));
-  render();
+  showView("devices");
 });
 
 let toolsOpen = false;
@@ -2688,13 +2686,24 @@ $("setReset").onclick = async () => {
   }
 };
 
-document.querySelectorAll(".view-btn").forEach(b => b.onclick = () => {
-  document.querySelectorAll(".view-btn").forEach(x => x.classList.remove("active"));
-  b.classList.add("active");
-  view = b.dataset.view;
+// Views are addressable: /#settings opens the Settings tab, /#activity the
+// feed, and so on, so a tab can be bookmarked or pinned and Back/Forward
+// walk between them. The Devices view is the bare URL, no hash.
+const VIEWS = ["devices", "home", "activity", "forgotten", "settings"];
+function showView(name, { fromHash = false } = {}) {
+  if (!VIEWS.includes(name)) name = "devices";
+  document.querySelectorAll(".view-btn").forEach(x => x.classList.toggle("active", x.dataset.view === name));
+  view = name;
+  if (!fromHash) {
+    const want = name === "devices" ? "" : "#" + name;
+    if ((location.hash || "") !== want)
+      history.pushState(null, "", want || location.pathname + location.search);
+  }
   if (view === "settings") loadSettings();
   render();
-});
+}
+document.querySelectorAll(".view-btn").forEach(b => b.onclick = () => showView(b.dataset.view));
+window.addEventListener("hashchange", () => showView(location.hash.slice(1) || "devices", { fromHash: true }));
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
   document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
   t.classList.add("active");
@@ -2703,6 +2712,9 @@ document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
 });
 $("search").oninput = e => { query = e.target.value; render(); };
 
+// Honour a view in the URL before the first paint. showView calls render(),
+// which is harmless with no data yet; refresh() re-renders when data lands.
+if (location.hash.length > 1) showView(location.hash.slice(1), { fromHash: true });
 refresh();
 setInterval(refresh, POLL_MS);
 </script>
