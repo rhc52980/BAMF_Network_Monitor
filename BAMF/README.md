@@ -338,6 +338,14 @@ A sun/moon button in the header toggles light and dark mode - and yes, every
 flip triggers a 1960s-Batman-style comic splat (BAMF!, POW!, ZAP!...). The
 choice persists across reloads. Respects prefers-reduced-motion.
 
+## Linking to a tab
+
+Each dashboard tab has its own address: `/#settings`, `/#activity`,
+`/#home`, `/#forgotten`. The Devices view is the bare URL. Bookmark or pin
+one and it opens straight to that tab; Back and Forward move between tabs
+you've visited. Handy for a phone home-screen shortcut that goes straight to
+**Who's home**, or a pinned Settings page.
+
 ## Desktop shortcut (Windows)
 
 Run `windows\Install-DesktopIcon.bat` once. It puts a **BAMF** shortcut on your
