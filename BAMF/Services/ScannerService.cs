@@ -38,6 +38,16 @@ public partial class ScannerService : BackgroundService
         new Dictionary<string, int>();
 
     public IReadOnlyList<string> SubnetLabels { get; private set; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Configured networks the dashboard has paused. Still listed in
+    /// <see cref="SubnetLabels"/> - they remain configured, so their hosts keep
+    /// their tab and last-known state - but never scanned and never judged
+    /// offline. Only a label already in Bamf:Subnets can appear here, so the
+    /// file stays the sole authority on which networks BAMF may touch at all.
+    /// </summary>
+    public IReadOnlySet<string> DisabledSubnets { get; private set; } =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     public IReadOnlyDictionary<string, string> SubnetModes { get; private set; } =
         new Dictionary<string, string>();
     private bool _npcapWarned;
@@ -149,12 +159,31 @@ public partial class ScannerService : BackgroundService
                     l => overrides.TryGetValue(l, out var secs) ? secs : ScanIntervalSeconds);
                 WarnAboutUnmatchedOverrides(overrides, labels);
 
-                // Forget schedules for networks that are no longer configured.
-                foreach (var gone in _dueAt.Keys.Where(k => !labels.Contains(k)).ToList())
+                // Paused networks: only labels that are actually configured count,
+                // so a stale entry for a removed network is simply ignored.
+                var disabled = new HashSet<string>(
+                    ReadDisabledSubnets().Where(d => labels.Contains(d, StringComparer.OrdinalIgnoreCase)),
+                    StringComparer.OrdinalIgnoreCase);
+                DisabledSubnets = disabled;
+
+                // Forget schedules for networks that are no longer configured, and
+                // for paused ones - so the loop doesn't wake on their account, and
+                // so re-enabling one makes it due straight away rather than at
+                // whatever time was pencilled in before it was paused.
+                foreach (var gone in _dueAt.Keys.Where(k => !labels.Contains(k) || disabled.Contains(k)).ToList())
                     _dueAt.Remove(gone);
+
+                // Carry modes forward, mark paused networks as such, and drop any
+                // network that has left the configuration.
+                var modes = new Dictionary<string, string>(SubnetModes);
+                foreach (var stale in modes.Keys.Where(k => !labels.Contains(k)).ToList())
+                    modes.Remove(stale);
+                foreach (var d in disabled) modes[d] = "paused";
+                SubnetModes = modes;
 
                 var startedAt = DateTime.UtcNow;
                 var due = subnets
+                    .Where(s => !disabled.Contains($"{s.Network}/{s.Prefix}"))
                     .Where(s => !_dueAt.TryGetValue($"{s.Network}/{s.Prefix}", out var at) || at <= startedAt)
                     .ToList();
 
@@ -168,7 +197,6 @@ public partial class ScannerService : BackgroundService
                                         "(https://npcap.com). Falling back to ping sweep.");
                     }
 
-                    var modes = new Dictionary<string, string>(SubnetModes);
                     var seenMacs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     var covered = new List<string>();
                     foreach (var (network, prefix) in due)
@@ -187,6 +215,9 @@ public partial class ScannerService : BackgroundService
                     // network is on the same interval a pass covers them all and this
                     // is the original whole-database sweep; when intervals differ, a
                     // pass that skipped a network must not declare its hosts down.
+                    // A paused network is never covered, so while one is paused this
+                    // always takes the scoped path and its hosts keep their last
+                    // known state instead of being declared offline unlooked-at.
                     var wentDown = _store.MarkOffline(seenMacs,
                         covered.Count == labels.Count ? null : covered);
                     foreach (var h in wentDown)
@@ -277,6 +308,29 @@ public partial class ScannerService : BackgroundService
                     "'{Value}' is not a whole number of seconds.", child.Key, child.Value);
         }
         return map;
+    }
+
+    /// <summary>
+    /// Networks the dashboard has paused, as saved. Filtered against the
+    /// configured list by the caller; anything else here is ignored.
+    /// </summary>
+    public HashSet<string> ReadDisabledSubnets()
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var db = _store.GetSetting("disabledSubnets");
+        if (db is null) return set;
+        try
+        {
+            var saved = System.Text.Json.JsonSerializer.Deserialize<List<string>>(db);
+            if (saved is not null)
+                foreach (var s in saved)
+                    if (!string.IsNullOrWhiteSpace(s)) set.Add(s.Trim());
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            _log.LogWarning(ex, "Saved paused-network list could not be read; treating every network as active.");
+        }
+        return set;
     }
 
     /// <summary>
