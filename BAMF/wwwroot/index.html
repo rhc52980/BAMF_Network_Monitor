@@ -475,6 +475,11 @@
   .set-table td { padding: 8px 0; border-top: 1px solid var(--line); vertical-align: middle; }
   .set-table td:last-child { text-align: right; }
   .set-table .set-net { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .set-table td:first-child { width: 1%; padding-right: 12px; white-space: nowrap; }
+  .set-table .set-net-toggle { padding: 4px 6px; }
+  .set-table tr.set-net-paused .set-net,
+  .set-table tr.set-net-paused .set-eff { color: var(--text-dim); }
+  .set-table tr.set-net-paused .set-net-input { opacity: .45; }
   .set-table .set-eff { color: var(--text-dim); font-size: 12px; }
   /* Same min-width override as above; left inherited, the 220px box shoves the
      whole table past the card's right edge. */
@@ -872,11 +877,13 @@
   </div>
 
   <div class="set-card">
-    <div class="set-card-title">Per-network intervals</div>
+    <div class="set-card-title">Networks</div>
     <p class="modal-help">
-      Watch a busy network closely and leave an idle one alone. Blank means the
-      default above. A network is only judged offline by a scan that actually
-      covered it, so differing intervals won't produce false down-alerts.
+      Switch a network off to stop scanning it entirely — its devices keep their
+      last known state and never get a false down-alert. Give a network its own
+      interval to watch it more or less closely than the default above; blank
+      means the default. A device is only judged offline by a scan that actually
+      covered its network.
     </p>
     <table class="set-table" id="setNetTable"></table>
     <div class="modal-note" id="setNetNote"></div>
@@ -1372,7 +1379,9 @@ function render() {
   $("statLast").textContent = lastScan
     ? new Date(lastScan).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : "—";
-  const modeVals = [...new Set(Object.values(scanModes))];
+  // A paused network has no scan mode of its own; leave it out so one paused
+  // network doesn't turn a perfectly uniform "ping sweep" into "mixed".
+  const modeVals = [...new Set(Object.values(scanModes).filter(m => m !== "paused"))];
   $("statLastLbl").textContent = "Last scan" +
     (modeVals.length === 1 ? " · " + modeVals[0] : modeVals.length > 1 ? " · mixed" : "");
 
@@ -2292,10 +2301,26 @@ async function loadSettings() {
     $("setNetNote").textContent = "No networks configured.";
   } else {
     $("setNetNote").textContent = "";
+    const paused = new Set(e.disabledSubnets || []);
     nets.forEach(net => {
       const override = e.subnetIntervalOverrides ? e.subnetIntervalOverrides[net] : undefined;
       const effective = e.subnetIntervalSeconds ? e.subnetIntervalSeconds[net] : undefined;
+      const isOn = !paused.has(net);
       const tr = document.createElement("tr");
+      tr.classList.toggle("set-net-paused", !isOn);
+
+      // Same pill switch as the header toggles, so "on" reads the same way
+      // everywhere. Only flips local state; nothing is sent until Save.
+      const tdOn = document.createElement("td");
+      const sw = document.createElement("button");
+      sw.type = "button";
+      sw.className = "arp-toggle set-net-toggle" + (isOn ? " on" : "");
+      sw.dataset.net = net;
+      sw.title = isOn ? "Scanning - click to pause this network" : "Paused - click to resume scanning";
+      sw.setAttribute("aria-pressed", isOn ? "true" : "false");
+      sw.innerHTML = '<span class="pill"></span>';
+      tdOn.appendChild(sw);
+      tr.appendChild(tdOn);
 
       const tdNet = document.createElement("td");
       tdNet.className = "set-net";
@@ -2304,7 +2329,7 @@ async function loadSettings() {
 
       const tdEff = document.createElement("td");
       tdEff.className = "set-eff";
-      tdEff.textContent = effective === undefined ? "" : "now every " + effective + "s";
+      tdEff.textContent = !isOn ? "paused" : (effective === undefined ? "" : "now every " + effective + "s");
       tr.appendChild(tdEff);
 
       const tdIn = document.createElement("td");
@@ -2315,9 +2340,22 @@ async function loadSettings() {
       input.step = "1";
       input.placeholder = "default";
       input.dataset.net = net;
+      input.disabled = !isOn;
       if (override !== undefined) input.value = override;
       tdIn.appendChild(input);
       tr.appendChild(tdIn);
+
+      sw.onclick = () => {
+        const nowOn = !sw.classList.contains("on");
+        sw.classList.toggle("on", nowOn);
+        sw.setAttribute("aria-pressed", nowOn ? "true" : "false");
+        sw.title = nowOn ? "Scanning - click to pause this network" : "Paused - click to resume scanning";
+        tr.classList.toggle("set-net-paused", !nowOn);
+        input.disabled = !nowOn;
+        tdEff.textContent = nowOn
+          ? (effective === undefined ? "" : "now every " + effective + "s")
+          : "paused";
+      };
 
       tbl.appendChild(tr);
     });
@@ -2356,6 +2394,11 @@ async function saveSettings() {
     const v = i.value.trim();
     if (v !== "") body.subnetIntervalSeconds[i.dataset.net] = Number(v);
   });
+  // Likewise the paused list is sent whole: switching a network back on means
+  // it is absent from the list, not present with a flag.
+  body.disabledSubnets = [...document.querySelectorAll(".set-net-toggle")]
+    .filter(b => !b.classList.contains("on"))
+    .map(b => b.dataset.net);
 
   setMsg("Saving…");
   try {

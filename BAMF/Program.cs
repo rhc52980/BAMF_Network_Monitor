@@ -325,7 +325,13 @@ app.MapGet("/api/portscan/pattern", async (string? ip, string? ports, HostStore 
         c == '*' ? ".*" : c == '?' ? "." : Regex.Escape(c.ToString()))) + "$");
 
     var targets = new List<(string Ip, string Subnet)>();
-    foreach (var label in scanner.SubnetLabels)
+    // A paused network is off-limits to a wildcard as well: pausing means
+    // "leave it alone", and a pattern reaching into it would be the one way
+    // BAMF still put packets there. Read the saved list rather than the
+    // scanner's cached copy so a pause takes effect here the moment it is
+    // saved, not up to a minute later when the loop next wakes.
+    var pausedNow = scanner.ReadDisabledSubnets();
+    foreach (var label in scanner.SubnetLabels.Where(l => !pausedNow.Contains(l)))
     {
         var parts = label.Split('/');
         if (parts.Length != 2 ||
@@ -348,7 +354,13 @@ app.MapGet("/api/portscan/pattern", async (string? ip, string? ports, HostStore 
     }
 
     if (targets.Count == 0)
-        return Results.BadRequest(new { error = $"'{ip}' matches no address on {(scanner.SubnetLabels.Count == 0 ? "any configured network" : string.Join(", ", scanner.SubnetLabels))}." });
+    {
+        // Name only the networks a pattern may actually reach. Listing a paused
+        // one here would claim the pattern matched nothing on it, when in fact
+        // it matched and was excluded because the network is switched off.
+        var active = scanner.SubnetLabels.Where(l => !pausedNow.Contains(l)).ToList();
+        return Results.BadRequest(new { error = $"'{ip}' matches no address on {(active.Count == 0 ? "any active network" : string.Join(", ", active))}." });
+    }
     if (targets.Count > maxTargets)
         return Results.BadRequest(new { error = $"'{ip}' expands past {maxTargets} addresses. Narrow it." });
 
@@ -523,6 +535,15 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             scanIntervalSeconds = scanner.ConfiguredDefaultInterval,
             subnetIntervalSeconds = scanner.SubnetIntervals,
             subnetIntervalOverrides = overrides,
+            // Paused networks as *saved*, read straight from the store the same way
+            // subnetIntervalOverrides is, so the form reflects a Save immediately.
+            // scanner.DisabledSubnets is the loop's view and only refreshes on its
+            // next pass; showing that here made a just-saved toggle appear to
+            // revert until the scanner woke up. Filtered to configured networks,
+            // so this is always a subset of readOnly.subnets.
+            disabledSubnets = scanner.ReadDisabledSubnets()
+                .Where(l => scanner.SubnetLabels.Contains(l, StringComparer.OrdinalIgnoreCase))
+                .ToList(),
             pingConcurrency = scanner.ConfiguredConcurrency,
             historyRetentionDays = store.RetentionDays,
             activeArpScan = scanner.ActiveArpEnabled,
@@ -544,7 +565,7 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
     });
 });
 
-app.MapPost("/api/settings/scan", (ScanSettingsRequest body, HostStore store) =>
+app.MapPost("/api/settings/scan", (ScanSettingsRequest body, HostStore store, ScannerService scanner) =>
 {
     var errors = new List<string>();
 
@@ -588,6 +609,26 @@ app.MapPost("/api/settings/scan", (ScanSettingsRequest body, HostStore store) =>
             store.SetSetting("subnetScanIntervalSeconds", JsonSerializer.Serialize(clean));
     }
 
+    // Pausing is the one network-level control the dashboard gets, and it only
+    // ever narrows: a label must already be in Bamf:Subnets to be accepted, so
+    // the file remains the sole authority on which networks BAMF may touch.
+    if (body.DisabledSubnets is { } paused)
+    {
+        var configured = new HashSet<string>(scanner.SubnetLabels, StringComparer.OrdinalIgnoreCase);
+        var clean = new List<string>();
+        foreach (var raw in paused)
+        {
+            var label = (raw ?? "").Trim();
+            if (label.Length == 0) continue;
+            if (!configured.Contains(label))
+                errors.Add($"{label} is not a configured network.");
+            else
+                clean.Add(label);
+        }
+        if (errors.Count == 0)
+            store.SetSetting("disabledSubnets", JsonSerializer.Serialize(clean));
+    }
+
     if (errors.Count > 0) return Results.BadRequest(new { error = string.Join(" ", errors) });
     return Results.Ok();
 });
@@ -600,7 +641,7 @@ app.MapPost("/api/settings/scan/reset", (HostStore store) =>
     foreach (var key in new[]
              {
                  "scanIntervalSeconds", "pingConcurrency",
-                 "historyRetentionDays", "subnetScanIntervalSeconds",
+                 "historyRetentionDays", "subnetScanIntervalSeconds", "disabledSubnets",
              })
         store.DeleteSetting(key);
     return Results.Ok();
@@ -717,4 +758,5 @@ record ScanSettingsRequest(
     int? ScanIntervalSeconds,
     int? PingConcurrency,
     int? HistoryRetentionDays,
-    Dictionary<string, int>? SubnetIntervalSeconds);
+    Dictionary<string, int>? SubnetIntervalSeconds,
+    List<string>? DisabledSubnets);
