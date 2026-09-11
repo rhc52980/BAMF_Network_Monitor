@@ -625,13 +625,21 @@ public partial class ScannerService : BackgroundService
 
     private static async Task<string> ResolveHostname(IPAddress ip)
     {
-        // 1. Reverse DNS first.
+        // 1. Reverse DNS first. Filtered the same way NetBIOS answers are: a
+        //    printer with no real name hands its MAC-derived one to DHCP, the
+        //    gateway registers it, and it comes back from here looking official.
+        //    Fall through to NetBIOS rather than returning "", in case that
+        //    path has something better; if not, the caller keeps what it had.
         try
         {
             var task = Dns.GetHostEntryAsync(ip);
             var done = await Task.WhenAny(task, Task.Delay(1500));
             if (done == task && task.IsCompletedSuccessfully)
-                return task.Result.HostName;
+            {
+                var dnsName = task.Result.HostName;
+                if (!string.IsNullOrEmpty(dnsName) && !NetBiosResolver.LooksMacDerived(dnsName))
+                    return dnsName;
+            }
         }
         catch { }
 
