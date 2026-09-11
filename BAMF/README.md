@@ -155,9 +155,10 @@ firewalls drop ICMP. This needs a packet-capture driver:
   sure the service can open raw sockets; the shipped systemd unit grants
   `CAP_NET_RAW`/`CAP_NET_ADMIN`.
 
-There's also a toggle switch in the dashboard header - flip it anytime and the
-new mode applies from the next scan cycle. The dashboard toggle is stored in
-the database and overrides the `ActiveArpScan` value in appsettings.json.
+There's also a toggle in the Settings tab (**Behaviour → Active ARP
+scanning**) - flip it anytime and the new mode applies from the next scan
+cycle. The dashboard toggle is stored in the database and overrides the
+`ActiveArpScan` value in appsettings.json.
 
 The "Last scan" card shows which mode ran (`active ARP` or `ping sweep`), and
 each network tab's tooltip shows its mode. If the capture driver is missing or
@@ -176,9 +177,10 @@ BAMF can check GitHub once a day for a newer release and show an **update
 
 It is **off by default and opt-in**, because BAMF often runs on isolated
 networks and this is the only outbound call it would make that you didn't ask
-for. Turn it on with the **update check** toggle in the header, or
-`Bamf:UpdateCheck` in `appsettings.json` — the toggle is stored in the database
-and overrides the config value, same as the other header toggles.
+for. Turn it on in the Settings tab (**Behaviour → Check GitHub daily for a
+newer release**), or with `Bamf:UpdateCheck` in `appsettings.json` — the
+dashboard value is stored in the database and overrides the config value, same
+as the other settings in that tab.
 
 What it does and doesn't do:
 
@@ -352,13 +354,14 @@ live in three places, and it helps to know which is which:
 | What | Where it lives | On update |
 |---|---|---|
 | Subnets, password, webhook URL, scan interval, ping tuning | `appsettings.json` | Copied aside and restored. The version's fresh defaults are written next to it as `appsettings.new.json` so you can merge in any new options. |
-| Custom names, notes, watch stars, ignored/known flags, all online-offline history, **and the dashboard's active-ARP and auto-ignore toggles** | `bamf.db` | Never touched, and snapshotted to `backups/` first (last 30 kept). |
+| Custom names, notes, watch stars, ignored/known flags, all online-offline and address history, **and everything saved from the Settings tab** | `bamf.db` | Never touched, and snapshotted to `backups/` first (last 30 kept). |
 | Theme choice | your browser's localStorage | Not on the server at all, so nothing can disturb it. |
 
-The second row is the one people don't expect: the header toggles are stored in
-the database, not the config file, and the database value **overrides**
-`appsettings.json`. So if a toggle seems to ignore your config after an update,
-that's why - flip it in the dashboard.
+The second row is the one people don't expect: settings changed in the
+dashboard are stored in the database, not the config file, and the database
+value **overrides** `appsettings.json`. So if a setting seems to ignore your
+config after an update, that's why - change it in the Settings tab, or use
+**Reset to file defaults** there to hand control back to the file.
 
 ### Rolling back
 
@@ -771,8 +774,9 @@ of the network. It respects `Bamf:Password` like every other route.
 
 ## Notifications
 
-**Tools ▾ → Notifications…** — paste a webhook URL, pick a format, hit
-**Save & test**. No config edit, no service restart.
+**Settings tab → Notifications** (or **Tools ▾ → Notifications…**, which takes
+you there) — paste a webhook URL, pick a format, hit **Save & test**. No config
+edit, no service restart.
 
 Four formats, chosen in the dialog (or with `Bamf:WebhookFormat`):
 
@@ -812,8 +816,8 @@ network's interval is; set it to 1 for the old first-miss-counts behaviour.
 Notes:
 
 - The URL is stored in the database and **overrides `Bamf:WebhookUrl`** in
-  `appsettings.json`, the same way the header toggles override their config
-  values. The config setting still works if you'd rather manage it that way.
+  `appsettings.json`, the same way every other Settings-tab value overrides its
+  config setting. The config setting still works if you'd rather manage it that way.
 - The dashboard only ever shows a **masked** form of the URL
   (`https://discord.com/api/webhooks/1234567890/AbC••••••••`). The token is the
   credential, and anyone who can load the dashboard could read it otherwise —
@@ -945,8 +949,8 @@ interface, the log warns you and that subnet's hosts will appear offline.
   own responder; if it can't be shared, the Settings tab says so and everything
   else carries on.
 - Phones with MAC randomization appear as new "(randomized MAC)" hosts each
-  time they rejoin. With auto-ignore enabled (default; toggle in the
-  dashboard header or via `AutoIgnoreRandomizedMacs`), these are auto-filed
+  time they rejoin. With auto-ignore enabled (default; toggle under
+  **Settings → Behaviour** or via `AutoIgnoreRandomizedMacs`), these are auto-filed
   under the Ignored tab and never alert. You can also manually
   Ignore/Unignore any host from the dashboard.
 - In ping-sweep mode, hosts that neither answer ping nor talk on the network

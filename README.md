@@ -88,7 +88,7 @@ optional daily update check you have to switch on, and your own webhook.
 
 ### Tune it without touching the server
 
-![The Settings tab: scan interval, probe concurrency, history retention, and an on/off switch and scan interval per network](docs/settings.png)
+![The Settings tab: scan interval, probe concurrency, history retention, an on/off switch and scan interval per network, and the instant toggles for active ARP, randomised MACs and update checks](docs/settings.png)
 
 Scan cadence, probe concurrency and history retention are editable from the
 dashboard and applied on the next scan — no restart, no editing a file over SSH.
@@ -96,6 +96,10 @@ Each network can run on **its own interval**, so a busy server VLAN and a mostly
 idle guest network no longer have to share one. A device is only judged offline
 by a scan that actually covered its network, so differing intervals don't
 produce false down-alerts.
+
+Every setting lives on this one tab — the instant toggles for active ARP,
+randomised-MAC filtering and update checks, and the notification webhook, all
+sit below the scan settings rather than scattered across the header and a menu.
 
 Which networks BAMF may touch stays in `appsettings.json`, shown read-only here
 on purpose: it is the boundary the wildcard port-scan guard relies on.
