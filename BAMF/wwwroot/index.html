@@ -901,6 +901,12 @@
       </span>
       <span class="set-field"><input id="setRetention" class="modal-input" type="number" min="1" step="1"> <span class="set-unit">days</span></span>
     </label>
+    <label class="set-row">
+      <span class="set-label">Offline after missed scans
+        <span class="set-hint">A device must be missed by this many scans of its network in a row before it's called offline. 1 means the first miss counts; 2 forgives a single hiccup like a laptop waking.</span>
+      </span>
+      <span class="set-field"><input id="setMisses" class="modal-input" type="number" min="1" max="20" step="1"> <span class="set-unit">scans</span></span>
+    </label>
   </div>
 
   <div class="set-card">
@@ -2397,6 +2403,7 @@ async function loadSettings() {
   $("setInterval").min = settingsData.minIntervalSeconds;
   $("setConcurrency").value = e.pingConcurrency;
   $("setRetention").value = e.historyRetentionDays;
+  $("setMisses").value = e.offlineAfterMissedScans;
 
   const nets = ro.subnets || [];
   const tbl = $("setNetTable");
@@ -2490,6 +2497,7 @@ async function saveSettings() {
     scanIntervalSeconds: Number($("setInterval").value),
     pingConcurrency: Number($("setConcurrency").value),
     historyRetentionDays: Number($("setRetention").value),
+    offlineAfterMissedScans: Number($("setMisses").value),
     subnetIntervalSeconds: {},
   };
   // Sent as a whole map, so clearing a box removes that override rather than
