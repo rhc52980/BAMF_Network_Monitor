@@ -130,7 +130,64 @@ public class HostStore
             settings.ExecuteNonQuery();
         }
 
+        // One row per address change, so "when did this device move, and from
+        // where" is answerable. Devices that predate the table get a single seed
+        // row - their current address, dated from first_seen - which is the most
+        // that can honestly be said about them; earlier changes were not kept.
+        using (var ih = conn.CreateCommand())
+        {
+            ih.CommandText = """
+                CREATE TABLE IF NOT EXISTS ip_history (
+                    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                    host_id INTEGER NOT NULL,
+                    ip      TEXT NOT NULL,
+                    at      TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_iphist_host ON ip_history(host_id, at);
+                INSERT INTO ip_history (host_id, ip, at)
+                    SELECT id, ip, first_seen FROM hosts
+                    WHERE ip <> '' AND id NOT IN (SELECT host_id FROM ip_history);
+                """;
+            ih.ExecuteNonQuery();
+        }
+
         ScrubSyntheticHostnames(conn);
+    }
+
+    /// <summary>Every address a host has been seen at, oldest first, with when each began.</summary>
+    public List<(string Ip, string At)> GetIpHistory(long hostId)
+    {
+        lock (_lock)
+        {
+            var list = new List<(string, string)>();
+            using var conn = Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT ip, at FROM ip_history WHERE host_id = $id ORDER BY at ASC, id ASC";
+            cmd.Parameters.AddWithValue("$id", hostId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) list.Add((r.GetString(0), r.GetString(1)));
+            return list;
+        }
+    }
+
+    private static void AddIpChange(SqliteConnection conn, long hostId, string ip, string at)
+    {
+        // The history is what was observed, so it must never say a device moved
+        // to the address it was already at. Normally the stored address and the
+        // latest row agree, but a hand-edited row or a database restored from a
+        // backup can put them out of step; the observation wins, not the column.
+        using (var last = conn.CreateCommand())
+        {
+            last.CommandText = "SELECT ip FROM ip_history WHERE host_id = $h ORDER BY id DESC LIMIT 1";
+            last.Parameters.AddWithValue("$h", hostId);
+            if (last.ExecuteScalar() is string prev && prev == ip) return;
+        }
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "INSERT INTO ip_history (host_id, ip, at) VALUES ($h, $ip, $at)";
+        cmd.Parameters.AddWithValue("$h", hostId);
+        cmd.Parameters.AddWithValue("$ip", ip);
+        cmd.Parameters.AddWithValue("$at", at);
+        cmd.ExecuteNonQuery();
     }
 
     /// <summary>
@@ -212,10 +269,24 @@ public class HostStore
     // table exists, so it can only use the value from appsettings.json.
     private void PruneEventsInternal(SqliteConnection conn, int retentionDays)
     {
-        using var prune = conn.CreateCommand();
-        prune.CommandText = "DELETE FROM events WHERE at < $cutoff";
-        prune.Parameters.AddWithValue("$cutoff", DateTime.UtcNow.AddDays(-retentionDays).ToString("o"));
-        prune.ExecuteNonQuery();
+        var cutoff = DateTime.UtcNow.AddDays(-retentionDays).ToString("o");
+        using (var prune = conn.CreateCommand())
+        {
+            prune.CommandText = "DELETE FROM events WHERE at < $cutoff";
+            prune.Parameters.AddWithValue("$cutoff", cutoff);
+            prune.ExecuteNonQuery();
+        }
+        // Address history ages out on the same window, except each host's most
+        // recent row, so the current address always has a known start.
+        using (var prune = conn.CreateCommand())
+        {
+            prune.CommandText = """
+                DELETE FROM ip_history WHERE at < $cutoff
+                  AND id NOT IN (SELECT MAX(id) FROM ip_history GROUP BY host_id)
+                """;
+            prune.Parameters.AddWithValue("$cutoff", cutoff);
+            try { prune.ExecuteNonQuery(); } catch (SqliteException) { /* table not created yet on first Init */ }
+        }
     }
 
     /// <summary>Recent events across all hosts (excluding ignored ones), newest first.</summary>
@@ -291,7 +362,7 @@ public class HostStore
 
             using (var check = conn.CreateCommand())
             {
-                check.CommandText = "SELECT id, hostname, online, ignored, watched FROM hosts WHERE mac = $mac";
+                check.CommandText = "SELECT id, hostname, online, ignored, watched, ip FROM hosts WHERE mac = $mac";
                 check.Parameters.AddWithValue("$mac", mac);
                 using var r = check.ExecuteReader();
                 if (r.Read())
@@ -301,6 +372,7 @@ public class HostStore
                     var wasOnline = r.GetInt64(2) == 1;
                     var isIgnored = r.GetInt64(3) == 1;
                     var isWatched = r.GetInt64(4) == 1;
+                    var oldIp = r.GetString(5);
                     // Keep an existing hostname if reverse DNS failed this time.
                     // Keep an existing hostname if reverse DNS/NetBIOS failed this
                     // time — UNLESS the stored name is MAC-derived junk (e.g. a
@@ -328,6 +400,11 @@ public class HostStore
                     upd.Parameters.AddWithValue("$mac", mac);
                     upd.ExecuteNonQuery();
 
+                    // A different address for a known MAC is the whole point of
+                    // the history table; the same address is not worth a row.
+                    if (!string.Equals(oldIp, ip, StringComparison.Ordinal))
+                        AddIpChange(conn, hostId, ip, now);
+
                     if (!wasOnline && !isIgnored)
                     {
                         AddEvent(conn, hostId, "online", now);
@@ -352,13 +429,17 @@ public class HostStore
             ins.Parameters.AddWithValue("$now", now);
             ins.ExecuteNonQuery();
 
-            if (!autoIgnore)
+            long newId;
+            using (var lastId = conn.CreateCommand())
             {
-                using var lastId = conn.CreateCommand();
                 lastId.CommandText = "SELECT last_insert_rowid()";
-                var newId = (long)lastId.ExecuteScalar()!;
-                AddEvent(conn, newId, "online", now);
+                newId = (long)lastId.ExecuteScalar()!;
             }
+            // The first address starts the history for every new device, ignored
+            // ones included: a randomised-MAC phone that someone later un-ignores
+            // should not have a hole where its history began.
+            AddIpChange(conn, newId, ip, now);
+            if (!autoIgnore) AddEvent(conn, newId, "online", now);
             return (true, autoIgnore);
         }
     }

@@ -444,6 +444,10 @@
     text-transform: uppercase; padding: 3px 10px; cursor: pointer;
   }
   .history-close:hover { color: var(--text); border-color: var(--focus); }
+  .history-sub {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim);
+    letter-spacing: 0.08em; text-transform: uppercase; margin: 14px 0 8px;
+  }
   .sessions { display: flex; flex-direction: column; gap: 6px; }
   .session {
     display: flex; align-items: center; gap: 10px;
@@ -1094,6 +1098,7 @@ let lastScan = null;
 let knownMacs = null; // for client-side "new host" toast
 let expandedId = null;       // host whose history is open
 let eventsCache = {};        // hostId -> events array
+let ipsCache = {};           // hostId -> [{ip, from, to}] oldest first
 let feedCache = [];          // network-wide activity feed
 
 function fmtExact(iso) {
@@ -1217,6 +1222,11 @@ function renderFeed() {
 
 async function loadEvents(id) {
   const r = await fetch(`/api/hosts/${id}/events`);
+  if (!r.ok) throw new Error("API " + r.status);
+  return r.json();
+}
+async function loadIps(id) {
+  const r = await fetch(`/api/hosts/${id}/ips`);
   if (!r.ok) throw new Error("API " + r.status);
   return r.json();
 }
@@ -1673,6 +1683,22 @@ function render() {
           return `<div class="session"><span class="dot off"></span>${esc(from)} → ${esc(fmtExact(s.to))}<span class="dur">(${fmtDur(new Date(s.to) - new Date(s.from))})</span></div>`;
         }).join("") + `</div>`;
       }
+      // Addresses: only worth showing once a device has actually moved. Most
+      // never do, and a one-line "same address since first seen" is noise.
+      const ips = ipsCache[h.id] || [];
+      if (ips.length > 1) {
+        inner += `<div class="history-sub">Addresses — newest first</div><div class="sessions">` +
+          ips.slice().reverse().map(a => {
+            const cur = a.to === null;
+            return `<div class="session"><span class="dot ${cur ? "on" : "off"}"></span>` +
+              `<span class="mono">${esc(a.ip)}</span> ` +
+              (cur
+                ? `<span class="ongoing">since ${esc(fmtExact(a.from))}</span>`
+                : `${esc(fmtExact(a.from))} → ${esc(fmtExact(a.to))}` +
+                  `<span class="dur">(${fmtDur(new Date(a.to) - new Date(a.from))})</span>`) +
+              `</div>`;
+          }).join("") + `</div>`;
+      }
       td.innerHTML = inner;
       detail.appendChild(td);
       tb.appendChild(detail);
@@ -1757,6 +1783,7 @@ async function openHistory(host) {
   if (expandedId !== host.id) {
     expandedId = host.id;
     try { eventsCache[host.id] = await loadEvents(host.id); } catch { eventsCache[host.id] = []; }
+    try { ipsCache[host.id] = await loadIps(host.id); } catch { ipsCache[host.id] = []; }
     render();
   }
 }

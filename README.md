@@ -69,6 +69,8 @@ optional daily update check you have to switch on, and your own webhook.
 - Per-device links, so a device's IP opens its actual admin UI —
   `8006` for Proxmox, `https://{ip}:8443`, whatever it happens to be
 - Session history per device, a 24-hour sparkline, and a network-wide activity feed
+- Address history per device — every IP it has held and when it moved, for
+  chasing DHCP squabbles and pool exhaustion
 
 **Operating it**
 - Version and build date in the header, the log and the API, so "which build is
