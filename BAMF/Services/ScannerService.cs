@@ -335,9 +335,14 @@ public partial class ScannerService : BackgroundService
                     // A paused network is never covered, so while one is paused this
                     // always takes the scoped path and its hosts keep their last
                     // known state instead of being declared offline unlooked-at.
+                    // Hosts on a network that has been removed from the config
+                    // are judged on every pass regardless: no pass can ever see
+                    // them again, and before this they only went offline on the
+                    // full sweep, which never comes while anything is paused.
                     var wentDown = _store.MarkOffline(seenMacs,
                         covered.Count == labels.Count ? null : covered,
-                        ConfiguredOfflineMisses);
+                        ConfiguredOfflineMisses,
+                        labels);
                     foreach (var h in wentDown)
                         await SendStatusAlert(h, up: false, CancellationToken.None);
 
