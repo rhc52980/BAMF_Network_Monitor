@@ -804,6 +804,20 @@ Press `/` anywhere on the page to jump to the search box. `Esc` in the box
 clears the filter; elsewhere it closes whatever is open — a dialog, a row
 menu, the Tools menu, an expanded row.
 
+## Filtering by device type
+
+Under the status tabs, a **Device type** row lists the guesses actually
+present in what you're looking at, each with a count: `Apple device 4`,
+`Printer 2`, `no guess 26`. Click one to show only those, click it again (or
+press `Esc`) to clear. The counts come from the network and status filters
+already applied, so they don't collapse as you move between chips.
+
+The chips are the guesses themselves with their evidence trimmed off -
+`Apple device (vendor)` and `Apple device (mDNS)` are one chip - so there's no
+separate category list to get out of step with what BAMF actually reports.
+The row is hidden when everything in view shares one type. **no guess** is the
+useful one: it's the list of devices worth pointing **Identify** at.
+
 ## Plain-text device list
 
 `GET /api/hosts.txt` returns the whole device table as fixed-width plain text —
