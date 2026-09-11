@@ -415,8 +415,17 @@
   .history-title {
     font-family: "IBM Plex Mono", monospace; font-size: 11px;
     color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
-    margin-bottom: 10px;
+    margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
   }
+  /* An explicit way out of the panel. The row's own button does close it, but
+     only after silently relabelling itself "Hide", which nobody thinks to look
+     for. Escape works too. */
+  .history-close {
+    background: none; border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--text-dim); font: inherit; font-size: 11px; letter-spacing: .08em;
+    text-transform: uppercase; padding: 3px 10px; cursor: pointer;
+  }
+  .history-close:hover { color: var(--text); border-color: var(--focus); }
   .sessions { display: flex; flex-direction: column; gap: 6px; }
   .session {
     display: flex; align-items: center; gap: 10px;
@@ -965,6 +974,26 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="noteModal" hidden>
+  <div class="modal">
+    <div class="modal-title" id="noteTitle">Note</div>
+    <div class="modal-note" id="noteSub"></div>
+    <div class="note-box">
+      <label for="noteText">Notes</label>
+      <textarea id="noteText" placeholder="e.g. garage ESP32 sensor · kids' iPad, bedtime 9pm" maxlength="500" rows="4"></textarea>
+    </div>
+    <p class="modal-help">
+      Free text, up to 500 characters. Bound to the MAC, so it follows the device
+      across IP changes, and included in search.
+    </p>
+    <div class="modal-actions">
+      <button class="toggle" id="noteClear">Clear</button>
+      <button class="toggle" id="noteCancel">Cancel</button>
+      <button class="export-btn" id="noteSave">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="scanModal" hidden>
   <div class="modal">
     <div class="modal-title">Port scan</div>
@@ -1493,13 +1522,14 @@ function render() {
 
     const hist = document.createElement("button");
     hist.className = "toggle";
-    // "Details", not "History": the panel holds the editable Notes field too,
-    // and nobody clicks a button labelled History looking for somewhere to type.
-    hist.textContent = expandedId === h.id ? "Hide" : "Details";
-    hist.title = "Session history and notes for this device";
+    // History is exactly what the panel holds now. Notes moved to their own
+    // dialog, reached from the ⋯ menu, so this button no longer has to hint at
+    // an editable field hiding inside a read-only-sounding label.
+    hist.textContent = expandedId === h.id ? "Hide" : "History";
+    hist.title = "Online/offline session history for this device";
     hist.onclick = async () => {
       if (expandedId === h.id) { expandedId = null; render(); return; }   // toggle closed
-      await openDetails(h);
+      await openHistory(h);
     };
     cell.appendChild(hist);
 
@@ -1530,7 +1560,7 @@ function render() {
         }
       }, { danger: true });
     } else {
-      addItem(h.note ? "Edit note…" : "Add note…", () => openDetails(h, { focusNote: true }));
+      addItem(h.note ? "Edit note…" : "Add note…", () => openNoteDialog(h));
       addItem(h.link ? "Change link…" : "Set link…", () => setHostLink(h));
       addItem("Identify device", () => identifyHost(h));
       addItem("Scan ports", () => scanPorts(h, more, null));
@@ -1578,7 +1608,8 @@ function render() {
       td.colSpan = 11;
 
       const sessions = buildSessions(eventsCache[h.id] || []);
-      let inner = `<div class="history-title">Recent sessions — ${esc(dispName(h))}</div>`;
+      let inner = `<div class="history-title"><span>Recent sessions — ${esc(dispName(h))}</span>` +
+        `<button type="button" class="history-close" title="Close (Esc)">Close ✕</button></div>`;
       inner += buildTimeline(sessions, h.online);
       if (sessions.length === 0) {
         inner += `<div class="history-empty">No history recorded yet. Sessions appear as this host comes and goes.</div>`;
@@ -1591,23 +1622,10 @@ function render() {
           return `<div class="session"><span class="dot off"></span>${esc(from)} → ${esc(fmtExact(s.to))}<span class="dur">(${fmtDur(new Date(s.to) - new Date(s.from))})</span></div>`;
         }).join("") + `</div>`;
       }
-      inner += `<div class="note-box">
-        <label>Notes</label>
-        <textarea id="note-${h.id}" placeholder="e.g. garage ESP32 sensor · kids' iPad, bedtime 9pm" maxlength="500">${esc(h.note || "")}</textarea>
-        <button class="note-save" id="notesave-${h.id}">Save note</button>
-      </div>`;
       td.innerHTML = inner;
       detail.appendChild(td);
       tb.appendChild(detail);
-      // wire note save
-      const ta = td.querySelector(`#note-${h.id}`);
-      const sv = td.querySelector(`#notesave-${h.id}`);
-      if (sv && ta) sv.onclick = async () => {
-        sv.disabled = true; sv.textContent = "Saving…";
-        await setNote(h, ta.value);
-        toast(ta.value.trim() ? `Note saved for ${esc(dispName(h))}` : `Note cleared for ${esc(dispName(h))}`);
-        await refresh();
-      };
+      td.querySelector(".history-close").onclick = () => { expandedId = null; render(); };
     }
   });
 }
@@ -1682,21 +1700,45 @@ async function setHostLink(host) {
   } catch { toast("Could not save the link — see server logs"); }
 }
 
-// Opens a device's Details panel (session history + notes). focusNote jumps
-// straight to the notes field, which is how the ... menu's Add note gets there.
-async function openDetails(host, opts = {}) {
+// Expands a device's History panel: the online/offline session timeline and
+// nothing else. Notes have their own dialog, openNoteDialog, below.
+async function openHistory(host) {
   if (expandedId !== host.id) {
     expandedId = host.id;
     try { eventsCache[host.id] = await loadEvents(host.id); } catch { eventsCache[host.id] = []; }
     render();
   }
-  if (opts.focusNote) {
-    const ta = document.getElementById("note-" + host.id);
-    if (ta) {
-      ta.scrollIntoView({ behavior: "smooth", block: "center" });
-      ta.focus();
-      ta.setSelectionRange(ta.value.length, ta.value.length);  // cursor at the end
-    }
+}
+
+// Notes live in a dialog rather than in the expandable row. The row is
+// rebuilt by every render(), which is why the old in-row textarea needed a
+// guard to stop the ten-second poll discarding half-typed text; a dialog sits
+// outside the table and needs no such thing.
+let noteHost = null;
+function openNoteDialog(host) {
+  noteHost = host;
+  $("noteTitle").textContent = (host.note ? "Edit note — " : "Add note — ") + dispName(host);
+  $("noteSub").textContent = host.ip + " · " + host.mac;
+  const ta = $("noteText");
+  ta.value = host.note || "";
+  $("noteClear").style.display = host.note ? "" : "none";
+  $("noteModal").hidden = false;
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);  // cursor at the end
+}
+function closeNoteDialog() { $("noteModal").hidden = true; noteHost = null; }
+async function saveNoteDialog(text) {
+  const h = noteHost;
+  if (!h) return;
+  const btn = $("noteSave");
+  btn.disabled = true;
+  try {
+    await setNote(h, text);
+    toast(text.trim() ? `Note saved for ${esc(dispName(h))}` : `Note cleared for ${esc(dispName(h))}`);
+    closeNoteDialog();
+    await refresh();
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -1749,12 +1791,10 @@ function toast(msg) {
 }
 
 async function refresh() {
-  // Don't redraw while the user is typing in the table. Both the rename input
-  // and the Details panel's notes field live in rows that render() rebuilds, so
-  // a redraw mid-sentence would throw away what they'd typed.
+  // Don't redraw while a rename is in progress: the input lives in a row that
+  // render() rebuilds, so a redraw mid-word would throw away what was typed.
+  // Notes no longer need this - they are edited in a dialog outside the table.
   if (document.querySelector(".name-input")) return;
-  const typing = document.activeElement;
-  if (typing && typing.tagName === "TEXTAREA" && (typing.id || "").startsWith("note-")) return;
   try {
     const data = await loadHosts();
     $("connDot").classList.remove("err");
@@ -2141,6 +2181,32 @@ $("notifySetup").onclick = openNotifyModal;
 $("notifyCancel").onclick = () => { $("notifyModal").hidden = true; };
 $("notifyModal").onclick = e => { if (e.target.id === "notifyModal") $("notifyModal").hidden = true; };
 $("notifyUrl").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("notifySave").click(); } };
+
+// Notes dialog. Same shape as the notifications one: backdrop click and
+// Cancel both close without saving, Clear saves an empty note.
+$("noteSave").onclick = () => saveNoteDialog($("noteText").value);
+$("noteClear").onclick = () => saveNoteDialog("");
+$("noteCancel").onclick = closeNoteDialog;
+$("noteModal").onclick = e => { if (e.target.id === "noteModal") closeNoteDialog(); };
+$("noteText").onkeydown = e => {
+  if (e.key === "Escape") { e.preventDefault(); closeNoteDialog(); }
+  // Enter inserts a newline as usual; Ctrl/Cmd+Enter saves.
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $("noteSave").click(); }
+};
+
+// One Escape to close whatever is open, innermost first: a dialog, then an
+// open ⋯ menu, then an expanded History panel. Bound on the document so it
+// works wherever focus happens to be, not only inside the note field.
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (!$("noteModal").hidden) { closeNoteDialog(); return; }
+  if (!$("notifyModal").hidden) { $("notifyModal").hidden = true; return; }
+  if (!$("scanModal").hidden) { $("scanModal").hidden = true; return; }
+  const openMenu = document.querySelector(".row-menu.show");
+  if (openMenu) { openMenu.classList.remove("show"); return; }
+  if (toolsOpen) { toolsOpen = false; $("toolsMenu").classList.remove("show"); return; }
+  if (expandedId !== null) { expandedId = null; render(); }
+});
 
 async function saveWebhook(url) {
   const r = await fetch("/api/settings/webhook", {
