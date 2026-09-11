@@ -175,6 +175,8 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         scanIntervalSeconds = scanner.ScanIntervalSeconds,
         // Effective interval per network, once per-network overrides are applied.
         subnetIntervalSeconds = scanner.SubnetIntervals,
+        // When each network is next due, ISO-8601 UTC. Paused networks are absent.
+        subnetNextDue = scanner.SubnetNextDue.ToDictionary(kv => kv.Key, kv => kv.Value.ToString("o")),
         hosts,
     });
 });

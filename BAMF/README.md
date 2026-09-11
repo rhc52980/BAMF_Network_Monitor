@@ -345,6 +345,17 @@ a busy network fits on one screen. Nothing is hidden; the secondary lines just
 get tighter. Like the theme, it's kept in the browser rather than on the
 server, so each device you open BAMF on can choose for itself.
 
+## Next scan, per network
+
+The header's **next scan** countdown is the scanner's own schedule, not an
+estimate. With several networks on different intervals it counts down to
+whichever is due soonest and names it; pick a network tab and it counts down
+to that one instead. Hover it for every network's figure. Each network tab
+shows its own `~40s`, and the Settings table reads `every 90s · next in 62s`
+per network, or `paused`. While a sweep is running it reads **scanning now**.
+`GET /api/hosts` exposes the same as `subnetNextDue`, ISO-8601 UTC per
+network.
+
 ## Linking to a tab
 
 Each dashboard tab has its own address: `/#settings`, `/#activity`,

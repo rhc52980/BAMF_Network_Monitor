@@ -269,6 +269,7 @@
   .nettab + .nettab { border-left: 1px solid var(--line); }
   .nettab.active { background: var(--panel-2); color: var(--text); }
   .nettab .cnt { color: var(--text-dim); margin-left: 6px; }
+  .nettab .due { color: var(--text-dim); margin-left: 8px; font-size: 11px; opacity: .8; }
   .nettab.active .cnt { color: var(--focus); }
   .nettab.paused { color: var(--text-dim); font-style: italic; }
   .nettab .paused-tag {
@@ -813,6 +814,7 @@
   @media (max-width: 640px) {
     .search { width: 100%; margin-left: 0; }
     .scanline .lbl-next { display: none; }
+    .nettab .due { display: none; }
   }
 </style>
 </head>
@@ -844,7 +846,7 @@
       <span id="themeIcon">☾</span>
     </button>
     <span class="conn-dot" id="connDot" title="API connection"></span>
-    <span class="lbl-next">next scan ~<span id="countdown">—</span>s</span>
+    <span class="lbl-next" id="nextScan" title="Next scan">next scan ~—s</span>
     <div class="scan-track"><div class="scan-fill" id="scanFill"></div></div>
   </div>
 </header>
@@ -1153,6 +1155,8 @@ let query = "";
 let network = "all";      // selected network, or "all"
 let subnets = [];         // networks reported by the scanner
 let scanModes = {};       // subnet -> 'active ARP' | 'ping sweep'
+let subnetIntervals = {};  // subnet -> effective interval in seconds
+let subnetNextDue = {};    // subnet -> ISO time the scanner will next run it (paused: absent)
 let activeArp = { enabled: false, npcapAvailable: false };
 let autoIgnoreRandom = false;
 let webhookConfigured = false;
@@ -1477,9 +1481,15 @@ function renderNetTabs() {
     // A paused network's devices never change, which looks like a fault unless
     // the tab says why. Switched off in Settings; the tab itself is untouched.
     if (paused) b.title = "Paused in Settings - not being scanned, devices keep their last known state";
-    else if (scanModes[value]) b.title = "scanned via " + scanModes[value];
+    else if (value !== "all") {
+      const bits = [];
+      if (subnetIntervals[value]) bits.push("every " + subnetIntervals[value] + "s");
+      if (scanModes[value]) bits.push("via " + scanModes[value]);
+      b.title = bits.join(" · ");
+    }
     b.innerHTML = `${esc(label)}<span class="cnt">${count}</span>` +
-      (paused ? `<span class="paused-tag">paused</span>` : "");
+      (paused ? `<span class="paused-tag">paused</span>` : "") +
+      (!paused && value !== "all" && subnetNextDue[value] ? `<span class="due" data-due-net="${esc(value)}"></span>` : "");
     b.onclick = () => { network = value; render(); };
     wrap.appendChild(b);
   };
@@ -1953,6 +1963,8 @@ async function refresh() {
     lastScan = data.lastScan;
     subnets = data.subnets || [];
     scanModes = data.scanModes || {};
+    subnetIntervals = data.subnetIntervalSeconds || {};
+    subnetNextDue = data.subnetNextDue || {};
     activeArp = data.activeArp || activeArp;
     autoIgnoreRandom = !!data.autoIgnoreRandom;
     updateInfo = data.update || null;
@@ -1997,13 +2009,45 @@ async function refresh() {
   }
 }
 
-// countdown estimate toward next backend scan
+// Countdown to the next scan. The scanner reports when each network is next
+// due, so this is its schedule, not a guess from the default interval - which
+// went wrong the moment networks had intervals of their own. The header shows
+// the selected network if one is, otherwise whichever is soonest, and names
+// it when there's more than one to choose from. Each network tab and the
+// Settings table carry their own figure from the same source.
+function secondsUntil(iso) {
+  return Math.max(0, Math.round((new Date(iso) - Date.now()) / 1000));
+}
+function dueText(iso, fmt) {
+  const s = secondsUntil(iso);
+  if (fmt === "in") return s === 0 ? "scanning now" : "next in " + s + "s";
+  return s === 0 ? "now" : "~" + s + "s";
+}
 setInterval(() => {
-  if (!lastScan) return;
-  const elapsed = (Date.now() - new Date(lastScan)) / 1000;
-  const left = Math.max(0, Math.round(scanInterval - (elapsed % scanInterval)));
-  $("countdown").textContent = left;
-  $("scanFill").style.width = (100 * (1 - left / scanInterval)) + "%";
+  const nets = Object.keys(subnetNextDue);
+  if (!nets.length) {
+    // Older backend, or nothing scheduled yet: the old estimate.
+    if (!lastScan) return;
+    const elapsed = (Date.now() - new Date(lastScan)) / 1000;
+    const left = Math.max(0, Math.round(scanInterval - (elapsed % scanInterval)));
+    $("nextScan").textContent = "next scan ~" + left + "s";
+    $("scanFill").style.width = (100 * (1 - left / scanInterval)) + "%";
+    return;
+  }
+  let pick = (network !== "all" && subnetNextDue[network]) ? network : null;
+  if (!pick) pick = nets.reduce((a, b) => new Date(subnetNextDue[a]) <= new Date(subnetNextDue[b]) ? a : b);
+  const left = secondsUntil(subnetNextDue[pick]);
+  const interval = subnetIntervals[pick] || scanInterval;
+  const who = nets.length > 1 ? " · " + pick : "";
+  $("nextScan").textContent = (left === 0 ? "scanning now" : "next scan ~" + left + "s") + who;
+  $("nextScan").title = nets.length > 1
+    ? nets.map(n => n + ": " + secondsUntil(subnetNextDue[n]) + "s").join("\n")
+    : "Next scan";
+  $("scanFill").style.width = (100 * (1 - Math.min(left, interval) / interval)) + "%";
+  document.querySelectorAll("[data-due-net]").forEach(el => {
+    const due = subnetNextDue[el.dataset.dueNet];
+    el.textContent = due ? dueText(due, el.dataset.dueFmt) : "";
+  });
 }, 1000);
 
 // Shared by the three instant-apply toggles in Settings: pill colour, the
@@ -2633,7 +2677,15 @@ async function loadSettings() {
 
       const tdEff = document.createElement("td");
       tdEff.className = "set-eff";
-      tdEff.textContent = !isOn ? "paused" : (effective === undefined ? "" : "now every " + effective + "s");
+      tdEff.textContent = !isOn ? "paused" : (effective === undefined ? "" : "every " + effective + "s");
+      if (isOn && subnetNextDue[net]) {
+        // Ticks along with the header countdown; see the interval near it.
+        const due = document.createElement("span");
+        due.dataset.dueNet = net; due.dataset.dueFmt = "in";
+        due.textContent = dueText(subnetNextDue[net], "in");
+        tdEff.appendChild(document.createTextNode(" \u00b7 "));
+        tdEff.appendChild(due);
+      }
       tr.appendChild(tdEff);
 
       const tdIn = document.createElement("td");
