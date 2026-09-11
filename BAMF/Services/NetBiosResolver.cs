@@ -64,10 +64,18 @@ public static class NetBiosResolver
     /// Detects synthetic names devices generate from their MAC when they have
     /// no real name (common on printers: e.g. "C22E4F700000"). Heuristic: the
     /// name is mostly hex digits with almost no wordlike letters.
+    ///
+    /// Judged on the first DNS label only. The same name can arrive as
+    /// "c22e4f700000.lan" when the printer hands it to DHCP and the gateway
+    /// registers it, and the suffix's letters would otherwise disguise it as
+    /// wordlike. Shared with reverse-DNS resolution and the startup scrub, so
+    /// every path a hostname can take is measured by the same rule.
     /// </summary>
-    private static bool LooksMacDerived(string name)
+    public static bool LooksMacDerived(string name)
     {
         var trimmed = name.Trim();
+        var dot = trimmed.IndexOf('.');
+        if (dot > 0) trimmed = trimmed[..dot];
         if (trimmed.Length < 8) return false; // short names are probably real
 
         int hexChars = 0, nonHex = 0;
