@@ -546,6 +546,7 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
                 .ToList(),
             pingConcurrency = scanner.ConfiguredConcurrency,
             historyRetentionDays = store.RetentionDays,
+            offlineAfterMissedScans = scanner.ConfiguredOfflineMisses,
             activeArpScan = scanner.ActiveArpEnabled,
             activeArpAvailable = scanner.NpcapAvailable,
             autoIgnoreRandomizedMacs = scanner.AutoIgnoreRandomEnabled,
@@ -591,6 +592,14 @@ app.MapPost("/api/settings/scan", (ScanSettingsRequest body, HostStore store, Sc
             errors.Add("History retention must be at least 1 day.");
         else
             store.SetSetting("historyRetentionDays", days.ToString());
+    }
+
+    if (body.OfflineAfterMissedScans is { } misses)
+    {
+        if (misses is < 1 or > 20)
+            errors.Add("Offline after missed scans must be between 1 and 20.");
+        else
+            store.SetSetting("offlineAfterMissedScans", misses.ToString());
     }
 
     // Sent whole rather than per-key, so clearing a row in the UI removes the
@@ -642,6 +651,7 @@ app.MapPost("/api/settings/scan/reset", (HostStore store) =>
              {
                  "scanIntervalSeconds", "pingConcurrency",
                  "historyRetentionDays", "subnetScanIntervalSeconds", "disabledSubnets",
+                 "offlineAfterMissedScans",
              })
         store.DeleteSetting(key);
     return Results.Ok();
@@ -758,5 +768,6 @@ record ScanSettingsRequest(
     int? ScanIntervalSeconds,
     int? PingConcurrency,
     int? HistoryRetentionDays,
+    int? OfflineAfterMissedScans,
     Dictionary<string, int>? SubnetIntervalSeconds,
     List<string>? DisabledSubnets);

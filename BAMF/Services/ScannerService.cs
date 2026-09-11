@@ -102,6 +102,22 @@ public partial class ScannerService : BackgroundService
         }
     }
 
+    /// <summary>
+    /// Consecutive scans of its network a host may be missed by before it is
+    /// declared offline. 1 reproduces the old single-miss behaviour. Dashboard
+    /// value wins over appsettings.json, same as the other scan settings.
+    /// </summary>
+    public int ConfiguredOfflineMisses
+    {
+        get
+        {
+            var db = _store.GetSetting("offlineAfterMissedScans");
+            if (db is not null && int.TryParse(db, out var n))
+                return Math.Clamp(n, 1, 20);
+            return Math.Clamp(_config.GetValue("Bamf:OfflineAfterMissedScans", 2), 1, 20);
+        }
+    }
+
     /// <summary>Probe concurrency, dashboard value winning over appsettings.json.</summary>
     public int ConfiguredConcurrency
     {
@@ -219,7 +235,8 @@ public partial class ScannerService : BackgroundService
                     // always takes the scoped path and its hosts keep their last
                     // known state instead of being declared offline unlooked-at.
                     var wentDown = _store.MarkOffline(seenMacs,
-                        covered.Count == labels.Count ? null : covered);
+                        covered.Count == labels.Count ? null : covered,
+                        ConfiguredOfflineMisses);
                     foreach (var h in wentDown)
                         await SendStatusAlert(h, up: false, CancellationToken.None);
 
