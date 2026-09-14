@@ -253,27 +253,41 @@
   .conn-dot.err { background: var(--danger); }
 
   .netbar {
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: flex-start; gap: 10px;
     padding: 14px 24px 0; flex-wrap: wrap;
   }
   .netbar .lbl {
     font-family: "IBM Plex Mono", monospace; font-size: 11px;
     color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
+    /* keeps the label on the first row's baseline when the chips wrap */
+    padding-top: 9px;
   }
-  .nettabs { display: flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  /* Separate chips rather than one segmented bar. A segmented control only
+     reads as one control while it fits on a line; with a dozen networks it
+     wrapped to three rows and the shared borders turned into a grid of
+     half-boxes. Chips wrap the way they look like they should. */
+  .nettabs { display: flex; flex-wrap: wrap; gap: 6px; }
   .nettab {
+    display: inline-flex; align-items: center; gap: 7px;
     background: var(--panel); color: var(--text-dim);
-    border: none; padding: 8px 14px; font: inherit; cursor: pointer;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 7px 11px; font: inherit; cursor: pointer;
     font-family: "IBM Plex Mono", monospace; font-size: 12px;
   }
-  .nettab + .nettab { border-left: 1px solid var(--line); }
-  .nettab.active { background: var(--panel-2); color: var(--text); }
-  .nettab .cnt { color: var(--text-dim); margin-left: 6px; }
-  .nettab .due { color: var(--text-dim); margin-left: 8px; font-size: 11px; opacity: .8; }
+  .nettab:hover { color: var(--text); border-color: var(--focus); }
+  .nettab.active { background: var(--panel-2); color: var(--text); border-color: var(--focus); }
+  .nettab .cnt { color: var(--text-dim); }
+  /* Fixed slot, lining figures: the seconds tick every second, and without
+     this every chip changed width on the digit boundaries and shoved the
+     rows around underneath them. */
+  .nettab .due {
+    color: var(--text-dim); font-size: 11px; opacity: .8;
+    font-variant-numeric: tabular-nums; min-width: 46px; text-align: right;
+  }
   .nettab.active .cnt { color: var(--focus); }
   .nettab.paused { color: var(--text-dim); font-style: italic; }
   .nettab .paused-tag, .nettab .noif-tag {
-    margin-left: 8px; padding: 1px 6px; border-radius: 999px; font-style: normal;
+    padding: 1px 6px; border-radius: 999px; font-style: normal;
     font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
     color: var(--led-warn); border: 1px solid var(--led-warn); opacity: .85;
   }
@@ -552,13 +566,20 @@
      the rows carrying a unit label ("seconds", "days") sit further left than
      the ones that don't. */
   .set-field { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; width: 180px; }
-  /* min-width as well as width: .modal-input carries min-width:220px, which
-     wins over a narrower width and leaves the box its full size. */
-  .set-field .modal-input { width: 110px; min-width: 0; }
+  /* Three overrides of the dialog input styling, all needed:
+     min-width, because .modal-input carries min-width:220px, which wins over
+     a narrower width and leaves the box its full size; width, for the box
+     itself; and margin-left, because .modal-input is pushed right by
+     margin-left:auto for dialogs. That last one was why these boxes never
+     lined up - each was shoved against its own unit word, so "seconds",
+     "days", "scans" and no unit at all each put the box somewhere different.
+     Flush left in the field instead, and the units line up as their own
+     column after them. */
+  .set-field .modal-input { width: 110px; min-width: 0; margin-left: 0; }
   /* In the Notifications card the URL is the point of the row: let it and the
      format picker take the width the dialog never had. */
   .set-card .modal-row .modal-input, .set-card .modal-row select { flex: 1 1 auto; min-width: 0; max-width: 560px; }
-  .set-unit { color: var(--text-dim); font-size: 12px; }
+  .set-unit { color: var(--text-dim); font-size: 12px; white-space: nowrap; }
   /* min-width:0 undoes the global `table { min-width: 880px }`, which exists so
      the devices grid scrolls horizontally. Inherited here it pushes this table
      clean past the card it sits in. */
@@ -751,6 +772,12 @@
   }
   .view-btn:hover { color: var(--text); }
   .view-btn.active { color: var(--text); border-bottom-color: var(--focus); }
+  /* Settings lives with the tools, not the views: it isn't a way of looking at
+     the devices, it's where the scanner is configured. Styled as a button
+     rather than a tab to say so, with a selected state so it still reads as
+     the current view when you're in it. */
+  .settings-btn { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+  .settings-btn.active { background: var(--panel-2); color: var(--text); border-color: var(--focus); }
   .tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
   .tools-menu-wrap { position: relative; }
   .tools-menu {
@@ -907,7 +934,6 @@
     <button class="view-btn" data-view="home">Who's home</button>
     <button class="view-btn" data-view="activity">Activity</button>
     <button class="view-btn" data-view="forgotten">Forgotten</button>
-    <button class="view-btn" data-view="settings">Settings</button>
   </div>
   <div class="tools">
     <input class="search" id="search" type="search" placeholder="Search… (* wildcards, e.g. *.245)" aria-label="Search hosts" title="Substring match, or use * / ? wildcards — *.245 matches any IP ending in .245">
@@ -921,6 +947,9 @@
         <button id="feedback">Feedback / report a bug…</button>
       </div>
     </div>
+    <button class="export-btn settings-btn" data-view="settings" title="Settings">
+      <span aria-hidden="true">⚙</span><span class="settings-lbl">Settings</span>
+    </button>
   </div>
 </div>
 
@@ -1576,6 +1605,37 @@ function renderGuessChips() {
   }
 }
 
+// What a network's chip looks like, as opposed to what it says. Only a change
+// here needs new DOM; counts and countdowns are just text on the existing one.
+//   paused: switched off in Settings - devices keep their last known state
+//   noif:   configured, but this machine has no interface on it, so a scan can
+//           never find anything. No countdown: counting down to a scan that
+//           does nothing misleads.
+function netTabKind(value) {
+  if (value === "all") return "all";
+  if (scanModes[value] === "paused") return "paused";
+  if (scanModes[value] === "skipped") return "noif";
+  return subnetNextDue[value] ? "due" : "plain";
+}
+
+function netTabTitle(net, kind) {
+  if (kind === "paused") return "Paused in Settings - not being scanned, devices keep their last known state";
+  if (kind === "noif") return "No interface on this machine for this network, so nothing can be found here. Remove it from Bamf:Subnets, or add a NIC on it.";
+  if (net === "all") return "";
+  const bits = [];
+  if (subnetIntervals[net]) bits.push("every " + subnetIntervals[net] + "s");
+  if (scanModes[net]) bits.push("via " + scanModes[net]);
+  return bits.join(" · ");
+}
+
+// Structure of the strip as last built. The whole strip used to be thrown away
+// and rebuilt on every 10s poll, which with a dozen networks was a visible
+// redraw - and worse, the rebuilt countdown slots came back empty, so the
+// seconds vanished and reappeared on the next tick, reflowing every row a
+// second after it had settled. The DOM is now rebuilt only when the networks
+// or their states actually change.
+let netTabSig = null;
+
 function renderNetTabs() {
   // Networks = what the scanner reports, plus any subnet still present on stored hosts.
   const cidrKey = c => {
@@ -1588,37 +1648,57 @@ function renderNetTabs() {
     .sort((a, b) => cidrKey(a) - cidrKey(b));
   if (network !== "all" && !all.includes(network)) network = "all";
 
-  const wrap = $("nettabs");
-  wrap.innerHTML = "";
-  const mk = (value, label, count) => {
-    const b = document.createElement("button");
-    const paused = scanModes[value] === "paused";
-    // "skipped": configured, but this machine has no interface on it, so a
-    // scan can never find anything there. Marked like paused, without a
-    // countdown - counting down to a scan that does nothing misleads.
-    const noIf = scanModes[value] === "skipped";
-    b.className = "nettab" + (network === value ? " active" : "") + (paused || noIf ? " paused" : "");
-    // A paused network's devices never change, which looks like a fault unless
-    // the tab says why. Switched off in Settings; the tab itself is untouched.
-    if (paused) b.title = "Paused in Settings - not being scanned, devices keep their last known state";
-    else if (noIf) b.title = "No interface on this machine for this network, so nothing can be found here. Remove it from Bamf:Subnets, or add a NIC on it.";
-    else if (value !== "all") {
-      const bits = [];
-      if (subnetIntervals[value]) bits.push("every " + subnetIntervals[value] + "s");
-      if (scanModes[value]) bits.push("via " + scanModes[value]);
-      b.title = bits.join(" · ");
-    }
-    b.innerHTML = `${esc(label)}<span class="cnt">${count}</span>` +
-      (paused ? `<span class="paused-tag">paused</span>` : "") +
-      (noIf ? `<span class="noif-tag">no interface</span>` : "") +
-      (!paused && !noIf && value !== "all" && subnetNextDue[value] ? `<span class="due" data-due-net="${esc(value)}"></span>` : "");
-    b.onclick = () => { network = value; render(); };
-    wrap.appendChild(b);
-  };
   const counted = hosts.filter(h => !h.ignored && !h.forgotten);
-  mk("all", "All networks", counted.length);
-  for (const s of all)
-    mk(s, s, counted.filter(h => h.subnet === s).length);
+  const rows = [{ net: "all", label: "All networks", count: counted.length }];
+  for (const n of all)
+    rows.push({ net: n, label: n, count: counted.filter(h => h.subnet === n).length });
+  for (const r of rows) r.kind = netTabKind(r.net);
+
+  const wrap = $("nettabs");
+  const sig = rows.map(r => r.net + "\u0001" + r.kind).join("\u0002");
+  if (sig !== netTabSig) {
+    netTabSig = sig;
+    wrap.innerHTML = "";
+    for (const r of rows) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "nettab";
+      b.dataset.net = r.net;
+      const nm = document.createElement("span");
+      nm.textContent = r.label;
+      const cnt = document.createElement("span");
+      cnt.className = "cnt";
+      b.append(nm, cnt);
+      if (r.kind === "paused" || r.kind === "noif") {
+        const tag = document.createElement("span");
+        tag.className = r.kind === "paused" ? "paused-tag" : "noif-tag";
+        tag.textContent = r.kind === "paused" ? "paused" : "no interface";
+        b.appendChild(tag);
+      } else if (r.kind === "due") {
+        const d = document.createElement("span");
+        d.className = "due";
+        d.dataset.dueNet = r.net;
+        b.appendChild(d);
+      }
+      b.onclick = () => { network = r.net; render(); };
+      wrap.appendChild(b);
+    }
+  }
+
+  // Everything that changes without changing the structure. The countdown is
+  // filled here as well as by the one-second ticker, so a strip that has just
+  // been rebuilt already carries its seconds instead of showing a blank slot
+  // until the next tick.
+  rows.forEach((r, i) => {
+    const b = wrap.children[i];
+    if (!b) return;
+    b.classList.toggle("active", network === r.net);
+    b.classList.toggle("paused", r.kind === "paused" || r.kind === "noif");
+    b.querySelector(".cnt").textContent = r.count;
+    b.title = netTabTitle(r.net, r.kind);
+    const d = b.querySelector(".due");
+    if (d && subnetNextDue[r.net]) d.textContent = dueText(subnetNextDue[r.net]);
+  });
 }
 
 const ipNum = ip => ip.split(".").reduce((a, o) => (a << 8) + (+o || 0), 0) >>> 0;
@@ -2941,7 +3021,7 @@ $("setReset").onclick = async () => {
 const VIEWS = ["devices", "home", "activity", "forgotten", "settings"];
 function showView(name, { fromHash = false } = {}) {
   if (!VIEWS.includes(name)) name = "devices";
-  document.querySelectorAll(".view-btn").forEach(x => x.classList.toggle("active", x.dataset.view === name));
+  document.querySelectorAll("[data-view]").forEach(x => x.classList.toggle("active", x.dataset.view === name));
   view = name;
   if (!fromHash) {
     const want = name === "devices" ? "" : "#" + name;
@@ -2951,7 +3031,7 @@ function showView(name, { fromHash = false } = {}) {
   if (view === "settings") loadSettings();
   render();
 }
-document.querySelectorAll(".view-btn").forEach(b => b.onclick = () => showView(b.dataset.view));
+document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => showView(b.dataset.view));
 window.addEventListener("hashchange", () => showView(location.hash.slice(1) || "devices", { fromHash: true }));
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
   document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
