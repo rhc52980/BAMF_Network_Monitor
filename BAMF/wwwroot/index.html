@@ -253,27 +253,41 @@
   .conn-dot.err { background: var(--danger); }
 
   .netbar {
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: flex-start; gap: 10px;
     padding: 14px 24px 0; flex-wrap: wrap;
   }
   .netbar .lbl {
     font-family: "IBM Plex Mono", monospace; font-size: 11px;
     color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
+    /* keeps the label on the first row's baseline when the chips wrap */
+    padding-top: 9px;
   }
-  .nettabs { display: flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  /* Separate chips rather than one segmented bar. A segmented control only
+     reads as one control while it fits on a line; with a dozen networks it
+     wrapped to three rows and the shared borders turned into a grid of
+     half-boxes. Chips wrap the way they look like they should. */
+  .nettabs { display: flex; flex-wrap: wrap; gap: 6px; }
   .nettab {
+    display: inline-flex; align-items: center; gap: 7px;
     background: var(--panel); color: var(--text-dim);
-    border: none; padding: 8px 14px; font: inherit; cursor: pointer;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 7px 11px; font: inherit; cursor: pointer;
     font-family: "IBM Plex Mono", monospace; font-size: 12px;
   }
-  .nettab + .nettab { border-left: 1px solid var(--line); }
-  .nettab.active { background: var(--panel-2); color: var(--text); }
-  .nettab .cnt { color: var(--text-dim); margin-left: 6px; }
-  .nettab .due { color: var(--text-dim); margin-left: 8px; font-size: 11px; opacity: .8; }
+  .nettab:hover { color: var(--text); border-color: var(--focus); }
+  .nettab.active { background: var(--panel-2); color: var(--text); border-color: var(--focus); }
+  .nettab .cnt { color: var(--text-dim); }
+  /* Fixed slot, lining figures: the seconds tick every second, and without
+     this every chip changed width on the digit boundaries and shoved the
+     rows around underneath them. */
+  .nettab .due {
+    color: var(--text-dim); font-size: 11px; opacity: .8;
+    font-variant-numeric: tabular-nums; min-width: 46px; text-align: right;
+  }
   .nettab.active .cnt { color: var(--focus); }
   .nettab.paused { color: var(--text-dim); font-style: italic; }
   .nettab .paused-tag, .nettab .noif-tag {
-    margin-left: 8px; padding: 1px 6px; border-radius: 999px; font-style: normal;
+    padding: 1px 6px; border-radius: 999px; font-style: normal;
     font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
     color: var(--led-warn); border: 1px solid var(--led-warn); opacity: .85;
   }
@@ -1576,6 +1590,37 @@ function renderGuessChips() {
   }
 }
 
+// What a network's chip looks like, as opposed to what it says. Only a change
+// here needs new DOM; counts and countdowns are just text on the existing one.
+//   paused: switched off in Settings - devices keep their last known state
+//   noif:   configured, but this machine has no interface on it, so a scan can
+//           never find anything. No countdown: counting down to a scan that
+//           does nothing misleads.
+function netTabKind(value) {
+  if (value === "all") return "all";
+  if (scanModes[value] === "paused") return "paused";
+  if (scanModes[value] === "skipped") return "noif";
+  return subnetNextDue[value] ? "due" : "plain";
+}
+
+function netTabTitle(net, kind) {
+  if (kind === "paused") return "Paused in Settings - not being scanned, devices keep their last known state";
+  if (kind === "noif") return "No interface on this machine for this network, so nothing can be found here. Remove it from Bamf:Subnets, or add a NIC on it.";
+  if (net === "all") return "";
+  const bits = [];
+  if (subnetIntervals[net]) bits.push("every " + subnetIntervals[net] + "s");
+  if (scanModes[net]) bits.push("via " + scanModes[net]);
+  return bits.join(" · ");
+}
+
+// Structure of the strip as last built. The whole strip used to be thrown away
+// and rebuilt on every 10s poll, which with a dozen networks was a visible
+// redraw - and worse, the rebuilt countdown slots came back empty, so the
+// seconds vanished and reappeared on the next tick, reflowing every row a
+// second after it had settled. The DOM is now rebuilt only when the networks
+// or their states actually change.
+let netTabSig = null;
+
 function renderNetTabs() {
   // Networks = what the scanner reports, plus any subnet still present on stored hosts.
   const cidrKey = c => {
@@ -1588,37 +1633,57 @@ function renderNetTabs() {
     .sort((a, b) => cidrKey(a) - cidrKey(b));
   if (network !== "all" && !all.includes(network)) network = "all";
 
-  const wrap = $("nettabs");
-  wrap.innerHTML = "";
-  const mk = (value, label, count) => {
-    const b = document.createElement("button");
-    const paused = scanModes[value] === "paused";
-    // "skipped": configured, but this machine has no interface on it, so a
-    // scan can never find anything there. Marked like paused, without a
-    // countdown - counting down to a scan that does nothing misleads.
-    const noIf = scanModes[value] === "skipped";
-    b.className = "nettab" + (network === value ? " active" : "") + (paused || noIf ? " paused" : "");
-    // A paused network's devices never change, which looks like a fault unless
-    // the tab says why. Switched off in Settings; the tab itself is untouched.
-    if (paused) b.title = "Paused in Settings - not being scanned, devices keep their last known state";
-    else if (noIf) b.title = "No interface on this machine for this network, so nothing can be found here. Remove it from Bamf:Subnets, or add a NIC on it.";
-    else if (value !== "all") {
-      const bits = [];
-      if (subnetIntervals[value]) bits.push("every " + subnetIntervals[value] + "s");
-      if (scanModes[value]) bits.push("via " + scanModes[value]);
-      b.title = bits.join(" · ");
-    }
-    b.innerHTML = `${esc(label)}<span class="cnt">${count}</span>` +
-      (paused ? `<span class="paused-tag">paused</span>` : "") +
-      (noIf ? `<span class="noif-tag">no interface</span>` : "") +
-      (!paused && !noIf && value !== "all" && subnetNextDue[value] ? `<span class="due" data-due-net="${esc(value)}"></span>` : "");
-    b.onclick = () => { network = value; render(); };
-    wrap.appendChild(b);
-  };
   const counted = hosts.filter(h => !h.ignored && !h.forgotten);
-  mk("all", "All networks", counted.length);
-  for (const s of all)
-    mk(s, s, counted.filter(h => h.subnet === s).length);
+  const rows = [{ net: "all", label: "All networks", count: counted.length }];
+  for (const n of all)
+    rows.push({ net: n, label: n, count: counted.filter(h => h.subnet === n).length });
+  for (const r of rows) r.kind = netTabKind(r.net);
+
+  const wrap = $("nettabs");
+  const sig = rows.map(r => r.net + "\u0001" + r.kind).join("\u0002");
+  if (sig !== netTabSig) {
+    netTabSig = sig;
+    wrap.innerHTML = "";
+    for (const r of rows) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "nettab";
+      b.dataset.net = r.net;
+      const nm = document.createElement("span");
+      nm.textContent = r.label;
+      const cnt = document.createElement("span");
+      cnt.className = "cnt";
+      b.append(nm, cnt);
+      if (r.kind === "paused" || r.kind === "noif") {
+        const tag = document.createElement("span");
+        tag.className = r.kind === "paused" ? "paused-tag" : "noif-tag";
+        tag.textContent = r.kind === "paused" ? "paused" : "no interface";
+        b.appendChild(tag);
+      } else if (r.kind === "due") {
+        const d = document.createElement("span");
+        d.className = "due";
+        d.dataset.dueNet = r.net;
+        b.appendChild(d);
+      }
+      b.onclick = () => { network = r.net; render(); };
+      wrap.appendChild(b);
+    }
+  }
+
+  // Everything that changes without changing the structure. The countdown is
+  // filled here as well as by the one-second ticker, so a strip that has just
+  // been rebuilt already carries its seconds instead of showing a blank slot
+  // until the next tick.
+  rows.forEach((r, i) => {
+    const b = wrap.children[i];
+    if (!b) return;
+    b.classList.toggle("active", network === r.net);
+    b.classList.toggle("paused", r.kind === "paused" || r.kind === "noif");
+    b.querySelector(".cnt").textContent = r.count;
+    b.title = netTabTitle(r.net, r.kind);
+    const d = b.querySelector(".due");
+    if (d && subnetNextDue[r.net]) d.textContent = dueText(subnetNextDue[r.net]);
+  });
 }
 
 const ipNum = ip => ip.split(".").reduce((a, o) => (a << 8) + (+o || 0), 0) >>> 0;
