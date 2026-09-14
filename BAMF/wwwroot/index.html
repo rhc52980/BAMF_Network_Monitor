@@ -765,6 +765,12 @@
   }
   .view-btn:hover { color: var(--text); }
   .view-btn.active { color: var(--text); border-bottom-color: var(--focus); }
+  /* Settings lives with the tools, not the views: it isn't a way of looking at
+     the devices, it's where the scanner is configured. Styled as a button
+     rather than a tab to say so, with a selected state so it still reads as
+     the current view when you're in it. */
+  .settings-btn { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+  .settings-btn.active { background: var(--panel-2); color: var(--text); border-color: var(--focus); }
   .tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
   .tools-menu-wrap { position: relative; }
   .tools-menu {
@@ -921,7 +927,6 @@
     <button class="view-btn" data-view="home">Who's home</button>
     <button class="view-btn" data-view="activity">Activity</button>
     <button class="view-btn" data-view="forgotten">Forgotten</button>
-    <button class="view-btn" data-view="settings">Settings</button>
   </div>
   <div class="tools">
     <input class="search" id="search" type="search" placeholder="Search… (* wildcards, e.g. *.245)" aria-label="Search hosts" title="Substring match, or use * / ? wildcards — *.245 matches any IP ending in .245">
@@ -935,6 +940,9 @@
         <button id="feedback">Feedback / report a bug…</button>
       </div>
     </div>
+    <button class="export-btn settings-btn" data-view="settings" title="Settings">
+      <span aria-hidden="true">⚙</span><span class="settings-lbl">Settings</span>
+    </button>
   </div>
 </div>
 
@@ -3006,7 +3014,7 @@ $("setReset").onclick = async () => {
 const VIEWS = ["devices", "home", "activity", "forgotten", "settings"];
 function showView(name, { fromHash = false } = {}) {
   if (!VIEWS.includes(name)) name = "devices";
-  document.querySelectorAll(".view-btn").forEach(x => x.classList.toggle("active", x.dataset.view === name));
+  document.querySelectorAll("[data-view]").forEach(x => x.classList.toggle("active", x.dataset.view === name));
   view = name;
   if (!fromHash) {
     const want = name === "devices" ? "" : "#" + name;
@@ -3016,7 +3024,7 @@ function showView(name, { fromHash = false } = {}) {
   if (view === "settings") loadSettings();
   render();
 }
-document.querySelectorAll(".view-btn").forEach(b => b.onclick = () => showView(b.dataset.view));
+document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => showView(b.dataset.view));
 window.addEventListener("hashchange", () => showView(location.hash.slice(1) || "devices", { fromHash: true }));
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
   document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
