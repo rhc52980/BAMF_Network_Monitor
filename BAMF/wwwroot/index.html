@@ -205,6 +205,14 @@
     color: var(--text-dim); white-space: nowrap;
   }
   .brand .chip.ver { color: var(--text); }
+  /* Feedback: a quiet text link at the end of the brand row, beside the
+     version it will report. Deliberately not a chip, so it doesn't read as
+     status the way the version and network count do. */
+  .brand .fb-link {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; line-height: 1;
+    color: var(--text-dim); text-decoration: none; margin-left: 4px; white-space: nowrap;
+  }
+  .brand .fb-link:hover, .brand .fb-link:focus-visible { color: var(--focus); text-decoration: underline; }
   .os-guess { display: block; font-size: 10px; color: var(--text-dim); opacity: 0.85; }
   .link-flag { font-size: 10px; opacity: 0.7; margin-left: 3px; }
   .modal-help { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin: 0 0 12px; }
@@ -891,6 +899,9 @@
       <span class="chip ver" id="version" title="BAMF version"></span>
       <span class="chip" id="subnetLabel">—</span>
       <a class="update-badge" id="updateBadge" target="_blank" rel="noopener" hidden></a>
+      <a class="fb-link" id="feedbackLink" href="https://github.com/rhc52980/BAMF_Network_Monitor/issues/new"
+         target="_blank" rel="noopener noreferrer"
+         title="Report a bug or suggest an idea on GitHub (opens in a new tab)">Feedback</a>
     </div>
   </div>
   <div class="scanline">
@@ -2189,6 +2200,7 @@ async function refresh() {
       el.textContent = "v" + data.version + (data.buildDate ? " · " + data.buildDate.slice(0, 10) : "");
       el.title = "BAMF " + data.version + (data.buildDate ? " — built " + data.buildDate + " UTC" : "");
     }
+    $("feedbackLink").href = feedbackHref();
 
     const incoming = data.hosts || [];
 
@@ -2732,9 +2744,12 @@ $("notifyClear").onclick = async () => {
 
 // Opens a new GitHub issue with the version details already filled in, so a
 // report arrives with the one fact that's always needed and always forgotten.
-// Deliberately carries nothing about the network being monitored - no device
-// names, addresses or counts.
-$("feedback").onclick = () => {
+// The Feedback address, shared by the header link and Tools > Feedback: a new
+// issue on this build's own tracker (it follows Bamf:UpdateRepo, so a fork's
+// reports go to the fork), pre-filled with a skeleton, the version and build
+// stamp, and the browser. Deliberately carries nothing about the network being
+// monitored - no device names, addresses or counts.
+function feedbackHref() {
   const base = repoUrl || "https://github.com/rhc52980/BAMF_Network_Monitor";
   const body = [
     "**What happened?**", "", "",
@@ -2744,8 +2759,9 @@ $("feedback").onclick = () => {
     `BAMF ${appVersion || "?"}${buildDate ? ` (built ${buildDate} UTC)` : ""}`,
     navigator.userAgent,
   ].join("\n");
-  window.open(`${base}/issues/new?body=${encodeURIComponent(body)}`, "_blank", "noopener");
-};
+  return `${base}/issues/new?body=${encodeURIComponent(body)}`;
+}
+$("feedback").onclick = () => window.open(feedbackHref(), "_blank", "noopener");
 
 $("testWebhook").onclick = async () => {
   const btn = $("testWebhook");
