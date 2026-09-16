@@ -948,9 +948,10 @@ Stop the service, copy a snapshot over `bamf.db`, start it again - see
 
 ## Feedback and bug reports
 
-**Tools ▾ → Feedback / report a bug…** opens a new GitHub issue with the
-version and build date already filled in — the one fact every bug report needs
-and everyone forgets.
+The **Feedback** link beside the version in the header, and **Tools ▾ →
+Feedback / report a bug…**, both open a new GitHub issue with the version and
+build date already filled in — the one fact every bug report needs and everyone
+forgets.
 
 It carries **nothing about your network**: no device names, addresses, MACs or
 counts. Just the BAMF version, the build stamp, and your browser string.
