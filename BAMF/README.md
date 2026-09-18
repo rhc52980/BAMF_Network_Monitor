@@ -643,6 +643,9 @@ scan, or delete a thing.
 | POST | `/api/switches` | Body `{"name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch to the recorded layout. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
 | POST | `/api/switches/{id}` | Same body — update a switch. Refuses loops and ports that would strand recorded devices |
 | DELETE | `/api/switches/{id}` | Delete a switch. Devices recorded on it go back to unrecorded; switches plugged into it lose that uplink |
+| POST | `/api/switches/{id}/ports` | Body `{"ports": [{"hostId": 3, "port": 1}, {"hostId": 4, "port": 2}]}` — set everything on one switch at once. Hosts listed are placed on it (moving off any other switch; `port` 0 = not recorded), and hosts on it that aren't listed come off it |
+| POST | `/api/hosts/{id}/blink` | Body `{"seconds": 30}` (optional, 5–60) — "Find port": send the device bursts of UDP traffic, one second on and one second off, so its switch-port light pulses. Private addresses only; replaces any blink already running. Returns `until` |
+| DELETE | `/api/blink` | Stop a running Find port blink |
 | POST | `/api/hosts/{id}/plug` | Body `{"switchId": 1, "port": 3}` — record which switch port a device is plugged into. `switchId` 0 clears it; `port` 0 means "port not recorded". `GET /api/hosts` returns each host's `switchId` and `switchPort`, and the layout as `switches` |
 
 ## Device links and port check
@@ -836,9 +839,34 @@ What BAMF can't discover, you can tell it. Add your switches under
 **Settings → Switches**: a name, how many ports, and what each one is plugged
 into, which is the router, a port on another switch, or not recorded. If a
 switch has an address BAMF sees, pick it as the switch's device, and the map
-shows the switch online or offline. Then use **Plugged into…** in any device's
-⋯ menu to record its switch and port. A device that is itself a switch has
-**Make this a switch…** in the same menu.
+shows the switch online or offline. A device that is itself a switch has
+**Make this a switch…** in its ⋯ menu.
+
+To say what's plugged in where, **click a switch on the map**, or use **Ports**
+next to it in Settings. Its Ports dialog lists every port with a picker of your
+devices, grouped by network, and saves the whole switch at once. A device
+already on another switch is labelled with where it is, and moves when you
+save. Picking one device on two ports is caught before anything is saved. A
+new switch opens its Ports dialog as soon as you add it.
+
+For one device at a time, **click it on the map**, or use **Plugged into…** in
+its ⋯ menu, to pick its switch and port. **Find in list** in that dialog jumps
+to the device.
+
+**Don't know which port it's on?** Use **Find port** in the Plugged into dialog,
+**Find port…** in the device's ⋯ menu, or the picker at the top of a switch's
+Ports dialog. For 30 seconds BAMF sends that device bursts of traffic, one
+second on and one second off. A switch sends a device's traffic only out of
+that device's own port, so its activity light pulses in a steady rhythm you
+can spot against normal flicker. Pick that port and save.
+
+Two things to know. The port BAMF's own machine is plugged into, and any cable
+towards the router or another switch, pulse too, because the traffic passes
+through them. And a Wi-Fi device pulses its access point's port. This works on
+any switch with activity lights, unmanaged ones included, and needs no switch
+password. It's small UDP packets to the device's discard port (9), a few hundred
+a second, and only while a Find port is running. Only devices on a private
+address can be blinked, one at a time, and closing the dialog stops it.
 
 On the map, switches sit inside the ring, and every device you've recorded sits
 in its switch's arc in port order, joined by a heavier **cable** line. Devices
