@@ -65,6 +65,56 @@ public partial class ScannerService : BackgroundService
     public IReadOnlyDictionary<string, DateTime> SubnetNextDue { get; private set; } =
         new Dictionary<string, DateTime>();
 
+    /// <summary>
+    /// Where this machine sits on one configured network: its own address and
+    /// MAC there (null when it has no interface on it), and the default gateway
+    /// if one is on that network.
+    /// </summary>
+    public sealed record NetworkPlace(string? SelfIp, string? SelfMac, string? Gateway);
+
+    private IReadOnlyDictionary<string, NetworkPlace>? _places;
+    private DateTime _placesAt;
+    private readonly object _placesLock = new();
+
+    /// <summary>
+    /// <see cref="NetworkPlace"/> for every configured network. These are the two
+    /// things the dashboard's map can state rather than guess: ARP shows who is on
+    /// a network, not how anything is cabled, but the machine does know its own
+    /// address and its routing table does know the gateway. Cached for a minute,
+    /// because enumerating interfaces isn't free and the dashboard asks every ten
+    /// seconds.
+    /// </summary>
+    public IReadOnlyDictionary<string, NetworkPlace> NetworkPlaces()
+    {
+        lock (_placesLock)
+        {
+            if (_places is not null && DateTime.UtcNow - _placesAt < TimeSpan.FromMinutes(1))
+                return _places;
+
+            var gateways = PortChecker.DefaultGateways();
+            var result = new Dictionary<string, NetworkPlace>(StringComparer.OrdinalIgnoreCase);
+            foreach (var label in SubnetLabels)
+            {
+                var parts = label.Split('/');
+                if (parts.Length != 2 || !IPAddress.TryParse(parts[0], out var net)
+                    || !int.TryParse(parts[1], out var prefix)) continue;
+
+                var local = FindLocalEndpoint(net, prefix);
+                string? gateway = null;
+                foreach (var g in gateways)
+                    if (IPAddress.TryParse(g, out var a) && InSubnet(a, net, prefix)) { gateway = g; break; }
+
+                result[label] = new NetworkPlace(
+                    local?.Ip.ToString(),
+                    local is null ? null : FormatMac(local.Value.Mac),
+                    gateway);
+            }
+            _places = result;
+            _placesAt = DateTime.UtcNow;
+            return result;
+        }
+    }
+
     /// <summary>Override keys already warned about, so the log says it once.</summary>
     private readonly HashSet<string> _warnedIntervalKeys = new(StringComparer.OrdinalIgnoreCase);
 
