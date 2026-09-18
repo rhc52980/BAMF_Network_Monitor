@@ -117,6 +117,22 @@ if (!string.IsNullOrEmpty(password))
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+// ---------- drop-in themes ----------
+// Each folder in <install>/themes with a theme.json is a theme; see DropInThemes.
+var themesDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, app.Configuration["Bamf:ThemesPath"] ?? "themes"));
+app.MapGet("/api/themes", () => Results.Json(DropInThemes.List(themesDir).Select(t => new
+{
+    id = t.Id, name = t.Name, swatch = t.Swatch, css = t.HasCss, js = t.HasJs,
+})));
+app.MapGet("/themes/{id}/{file}", (string id, string file, HttpContext ctx) =>
+{
+    var hit = DropInThemes.Resolve(themesDir, id, file);
+    if (hit is null) return Results.NotFound();
+    // Edits to a theme should show on the next reload, not after a cache expires.
+    ctx.Response.Headers.CacheControl = "no-cache";
+    return Results.File(hit.Value.Path, hit.Value.ContentType);
+});
+
 // ---------- API ----------
 
 app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker updates, PortBlinker blinker) =>
