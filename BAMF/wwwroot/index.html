@@ -1244,13 +1244,6 @@
     animation: st-drift linear infinite alternate;
   }
   @keyframes st-drift { from { transform: translateX(-12vw); } to { transform: translateX(12vw); } }
-  .st-rainbow {
-    position: absolute; left: 5vw; right: 5vw; bottom: -45vw; height: 90vw; border-radius: 50%; opacity: 0;
-    background: radial-gradient(circle at 50% 50%, transparent 54%, rgba(255, 70, 70, .5) 54.5% 56%, rgba(255, 160, 50, .5) 56% 57.5%,
-      rgba(255, 230, 80, .5) 57.5% 59%, rgba(90, 220, 110, .5) 59% 60.5%, rgba(80, 160, 255, .5) 60.5% 62%, rgba(150, 100, 255, .45) 62% 63.5%, transparent 64%);
-  }
-  .st-rainbow.on { animation: st-rainbow 9s ease-in-out 1; }
-  @keyframes st-rainbow { 0% { opacity: 0; } 25%, 70% { opacity: .55; } 100% { opacity: 0; } }
   header.st-rumble { animation: st-rumble .7s linear 1; }
   @keyframes st-rumble {
     0%, 100% { transform: none; } 10% { transform: translate(-2px, 1px); } 25% { transform: translate(2px, -1px); }
@@ -1268,7 +1261,7 @@
   [data-theme="storm"] .map-svg .tnode.off .t-drip { display: inline; fill: #7fb8e6; animation: st-drip 2.6s ease-in infinite; }
   @keyframes st-drip { 0% { transform: translate(0, 0); opacity: 0; } 20% { opacity: .9; } 100% { transform: translate(0, 26px); opacity: 0; } }
   @media (prefers-reduced-motion: reduce) {
-    .st-cloud, .st-flash.on, .st-rainbow.on, header.st-rumble, [data-theme="storm"] tr.st-flicker td,
+    .st-cloud, .st-flash.on, header.st-rumble, [data-theme="storm"] tr.st-flicker td,
     [data-theme="storm"] .map-svg .tnode.off .t-drip { animation: none !important; }
     [data-theme="storm"] .map-svg .pkt.st-spark { display: none; }
   }
@@ -5543,8 +5536,8 @@ function buildCottonCandy(root) {
 // Thunderstorm: rain behind the page, forked lightning with a soft flash of
 // the sky and a rumble a moment later, drifting clouds, and splashes along
 // the bottom. The storm follows the network: every device that goes offline
-// makes it heavier and the lightning more frequent, and once they're all back
-// the rain eases and a rainbow shows. The lightning never flashes the screen:
+// makes it heavier and the lightning more frequent, and it eases as they
+// come back. The lightning never flashes the screen:
 // one soft brightening, at most every 20 seconds, and none at all under
 // reduced motion.
 function buildStorm(root) {
@@ -5556,10 +5549,9 @@ function buildStorm(root) {
   bg.innerHTML = `<div class="st-flash"></div><canvas></canvas>
     <div class="st-cloud" style="top:-40px;left:-10vw;width:48vw;animation-duration:140s"></div>
     <div class="st-cloud" style="top:-70px;left:40vw;width:60vw;animation-duration:190s;animation-delay:-60s"></div>
-    <div class="st-cloud" style="top:-30px;left:75vw;width:40vw;animation-duration:160s;animation-delay:-110s"></div>
-    <div class="st-rainbow"></div>`;
+    <div class="st-cloud" style="top:-30px;left:75vw;width:40vw;animation-duration:160s;animation-delay:-110s"></div>`;
   document.body.prepend(bg);
-  const cv = bg.querySelector("canvas"), flash = bg.querySelector(".st-flash"), bow = bg.querySelector(".st-rainbow");
+  const cv = bg.querySelector("canvas"), flash = bg.querySelector(".st-flash");
   const ctx = cv.getContext("2d");
   const W = innerWidth, H = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
   cv.width = W * dpr; cv.height = H * dpr;
@@ -5568,7 +5560,7 @@ function buildStorm(root) {
   // How hard it's raining, 0.35 to 1: devices that went offline this session
   // and haven't come back push it up.
   const down = new Set();
-  let intensity = .4, hadOutage = false;
+  let intensity = .4;
   const MAX = Math.round(Math.min(520, W * H / 2600));
   const drop = () => ({ x: rnd(-W * .2, W * 1.1), y: rnd(-H, 0), len: rnd(10, 22), v: rnd(11, 17) });
   const drops = Array.from({ length: MAX }, drop);
@@ -5694,17 +5686,11 @@ function buildStorm(root) {
   }, 9000));
 
   festiveHooks.newDevice = () => strike(rnd(W * .55, W * .9));
+  // As devices come back, the storm eases again.
   festiveHooks.netChange = (off, back) => {
     off.forEach(id => down.add(id));
-    const had = down.size;
     back.forEach(id => down.delete(id));
-    if (off.length) hadOutage = true;
     intensity = Math.min(1, .4 + .15 * down.size);
-    // Everything that went down is back: the storm eases and a rainbow shows.
-    if (hadOutage && had && !down.size) {
-      hadOutage = false;
-      bow.classList.remove("on"); void bow.offsetWidth; bow.classList.add("on");
-    }
   };
   // Rows whose device just went offline flicker like a power cut.
   festiveHooks.rendered = () => {

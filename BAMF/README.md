@@ -364,9 +364,9 @@ Some themes have a little life in them:
   60 seconds a forked bolt of lightning cracks across the sky, which brightens
   softly, and the header shakes with the thunder a moment later. It never
   flashes the whole screen. The storm follows your network: each device that
-  goes offline makes it heavier and the lightning more frequent, its row
-  flickers like a power cut, and when they're all back the rain eases and a
-  rainbow shows. A new device brings a bolt of lightning. On the Map, sparks run
+  goes offline makes it heavier and the lightning more frequent, and its row
+  flickers like a power cut. As they come back, the storm eases. A new device
+  brings a bolt of lightning. On the Map, sparks run
   along your cables and offline devices drip.
 
 None of it runs while the tab is in the background. With reduced motion switched
