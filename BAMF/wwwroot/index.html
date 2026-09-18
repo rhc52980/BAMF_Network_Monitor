@@ -184,8 +184,12 @@
   }
   .mono { font-family: "IBM Plex Mono", monospace; }
 
+  /* Wraps at every width, not just under 700px: between roughly 700 and 915px
+     the brand and the scan countdown don't fit on one line, and without wrap
+     the countdown's fixed-width track pushed the page into sideways scrolling.
+     When it wraps, margin-left: auto keeps the countdown on the right. */
   header {
-    display: flex; align-items: center; gap: 20px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px;
     padding: 14px 24px;
     border-bottom: 1px solid var(--line);
     background: var(--panel);
@@ -887,7 +891,7 @@
   @media (max-width: 700px) {
     header { flex-wrap: wrap; gap: 10px; padding: 12px 16px; }
     .brand { flex-wrap: wrap; }
-    .brand .meta { margin-left: 0; padding-left: 0; border-left: 0; width: 100%; }
+    .brand .meta { margin-left: 0; padding-left: 0; border-left: 0; width: 100%; flex-wrap: wrap; row-gap: 6px; }
     .scanline { width: 100%; margin-left: 0; }
     .stats { padding: 12px 16px; }
     .stat { min-width: calc(50% - 6px); }
@@ -927,6 +931,15 @@
     .home-grid { grid-template-columns: 1fr 1fr; }
   }
   @media (max-width: 420px) {
+    /* The five view tabs and the five status tabs are each wider than a phone
+       screen at their normal padding, and pushed the page into sideways
+       scrolling. The view tabs wrap onto a second line; the status tabs are
+       one bordered group, so they get less padding and, on the narrowest
+       screens, scroll within their own box instead of moving the page. */
+    .views { flex-wrap: wrap; }
+    .view-btn { padding: 8px 10px; white-space: nowrap; }
+    .tab { padding: 8px 10px; white-space: nowrap; }
+    .tabs { min-width: 0; max-width: 100%; overflow-x: auto; }
     .home-grid { grid-template-columns: 1fr; }
     .stat { min-width: 100%; }
   }
