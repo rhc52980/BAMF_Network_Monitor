@@ -906,7 +906,10 @@ cable.
 - **On the map** it hangs off its machine with a dashed link. Its VMs are listed
   underneath and labelled **VM**, so a Proxmox box plugged into your switch
   reads `switch → port 3 → proxmox → vmbr0 → VMs`.
-- **Its VMs dialog** is a checklist, not a port list.
+- **Its VMs dialog** is a checklist, not a port list. It lists devices from
+  every network, the machine's own first: a hypervisor often bridges VMs onto
+  other networks or VLANs. A VM on another network is drawn on that network's
+  Map under the virtual switch, labelled with the machine it runs on.
 - **Find port** on a VM pulses the port of the machine it runs on, which is the
   physically true answer.
 
