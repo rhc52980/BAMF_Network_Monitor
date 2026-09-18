@@ -186,7 +186,7 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         // gateway on it. What the map marks as known rather than inferred.
         networkPlaces = scanner.NetworkPlaces(),
         // The switch layout as the user described it. Not discovered: see HostStore.Switches.cs.
-        switches = store.GetSwitches().Select(SwitchJson),
+        switches = SwitchesJson(store),
         // A running "Find port", so every open dashboard pulses the device in
         // step with its switch light; serverTime lets a browser whose clock
         // differs line itself up. Bursts are on for [2k, 2k+1) s after started.
@@ -209,10 +209,14 @@ app.MapGet("/api/hosts.txt", (HostStore store, ScannerService scanner) =>
         .ToList();
     var switchNames = store.GetSwitches().ToDictionary(s => s.Id, s => s.Name);
     var placements = store.GetPlacements();
-    string PluggedInto(long id) =>
-        placements.TryGetValue(id, out var p) && switchNames.TryGetValue(p.SwitchId, out var sw)
-            ? (p.Port > 0 ? $"{sw} port {p.Port}" : sw)
-            : "-";
+    var portLabels = store.GetPortLabels();
+    string PluggedInto(long id)
+    {
+        if (!placements.TryGetValue(id, out var p) || !switchNames.TryGetValue(p.SwitchId, out var sw)) return "-";
+        if (p.Port <= 0) return sw;
+        var where = portLabels.TryGetValue(p.SwitchId, out var l) && l.TryGetValue(p.Port, out var t) ? $" ({t})" : "";
+        return $"{sw} port {p.Port}{where}";
+    }
 
     var rows = hosts.Select(h => new[]
     {
@@ -778,13 +782,13 @@ app.MapDelete("/api/hosts/{id:long}", (long id, HostStore store) =>
 app.MapPost("/api/switches", (SwitchInput body, HostStore store) =>
 {
     var (saved, error) = store.SaveSwitch(null, body);
-    return saved is null ? Results.BadRequest(new { error }) : Results.Json(SwitchJson(saved));
+    return saved is null ? Results.BadRequest(new { error }) : Results.Json(SwitchJson(saved, store.GetPortLabels()));
 });
 
 app.MapPost("/api/switches/{id:long}", (long id, SwitchInput body, HostStore store) =>
 {
     var (saved, error) = store.SaveSwitch(id, body);
-    return saved is null ? Results.BadRequest(new { error }) : Results.Json(SwitchJson(saved));
+    return saved is null ? Results.BadRequest(new { error }) : Results.Json(SwitchJson(saved, store.GetPortLabels()));
 });
 
 app.MapDelete("/api/switches/{id:long}", (long id, HostStore store) =>
@@ -795,7 +799,8 @@ app.MapDelete("/api/switches/{id:long}", (long id, HostStore store) =>
 app.MapPost("/api/switches/{id:long}/ports", (long id, SwitchPortsRequest body, HostStore store) =>
 {
     var entries = (body.Ports ?? new()).Select(p => (p.HostId, p.Port)).ToList();
-    var error = store.SetSwitchPorts(id, entries);
+    var labels = body.Labels?.Select(l => (l.Port, l.Label ?? "")).ToList();
+    var error = store.SetSwitchPorts(id, entries, labels);
     return error is null ? Results.Ok() : Results.BadRequest(new { error });
 });
 
@@ -831,11 +836,19 @@ app.MapPost("/api/hosts/{id:long}/plug", (long id, PlugRequest body, HostStore s
 
 app.Run();
 
-static object SwitchJson(SwitchRecord s) => new
+static object SwitchJson(SwitchRecord s, Dictionary<long, Dictionary<int, string>> labels) => new
 {
     id = s.Id, name = s.Name, ports = s.Ports, subnet = s.Subnet, hostId = s.HostId,
     uplink = s.Uplink, uplinkSwitch = s.UplinkSwitch, uplinkPort = s.UplinkPort,
+    // Where each port's cable goes, keyed by port number: { "3": "Living Room" }.
+    portLabels = labels.TryGetValue(s.Id, out var l) ? l : new Dictionary<int, string>(),
 };
+
+static List<object> SwitchesJson(HostStore store)
+{
+    var labels = store.GetPortLabels();
+    return store.GetSwitches().Select(s => SwitchJson(s, labels)).ToList();
+}
 
 // Enough of the URL to recognise which webhook is saved, never enough to use it.
 // A Discord URL ends /webhooks/<id>/<token>; the token is the secret.
@@ -891,7 +904,8 @@ record LinkRequest(string? Link);
 record PlugRequest(long SwitchId, int Port);
 record PortEntry(long HostId, int Port);
 record BlinkRequest(int? Seconds);
-record SwitchPortsRequest(List<PortEntry>? Ports);
+record PortLabel(int Port, string? Label);
+record SwitchPortsRequest(List<PortEntry>? Ports, List<PortLabel>? Labels);
 record WebhookRequest(string? Url, string? Format);
 record IgnoreRequest(bool Ignored);
 record WatchRequest(bool Watched);

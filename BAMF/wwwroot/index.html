@@ -629,6 +629,22 @@
     border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 8px; font: inherit; font-size: 13px;
   }
   .ports-table select.dup { border-color: var(--danger); }
+  /* Location: where the port's cable goes, e.g. "Living Room". */
+  .ports-table td.loc { width: 36%; padding-left: 8px; }
+  .ports-table input.loc-input {
+    width: 100%; min-width: 0; box-sizing: border-box; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 8px; font: inherit; font-size: 13px;
+  }
+  .ports-table th { text-align: left; font-weight: 400; color: var(--text-dim); font-size: 11px;
+    font-family: "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .05em; padding: 0 0 4px; }
+  .ports-table th.loc { padding-left: 8px; }
+  /* Stays a table on phones. The phone layout turns every table, thead, tr and
+     td into stacked cards for the device list; these class selectors outrank
+     those bare ones, and undo the card styling that comes with them. */
+  .ports-table { display: table; }
+  .ports-table tbody { display: table-row-group; }
+  .ports-table tr { display: table-row; background: none; border: 0; border-radius: 0; margin: 0; padding: 0; position: static; }
+  .ports-table td, .ports-table th { display: table-cell; border: 0; }
   .ports-table .sub-sw { font-size: 13px; color: var(--text-dim); padding: 6px 0; }
   /* Find port: BAMF pulses a device's traffic so its switch-port light blinks. */
   .blink-box {
@@ -1395,8 +1411,9 @@
     <table class="ports-table" id="portsTable"></table>
     <div class="modal-note" id="portsExtra"></div>
     <p class="modal-help">
-      Pick what's plugged into each port and save once. A device already recorded on another
-      switch moves here when you save. A switch plugged into this one is shown on its port; change
+      Pick what's plugged into each port and save once. <strong>Location</strong> is where that
+      port's cable goes, like "Living Room"; it stays with the port if the device moves. A device
+      already recorded on another switch moves here when you save. A switch plugged into this one is shown on its port; change
       that in its own settings.
     </p>
     <div class="set-result" id="portsErr"></div>
@@ -2104,7 +2121,7 @@ function mapTitle(h, role) {
   if (h.vendor) lines.push(h.vendor);
   lines.push(h.osGuess ? "Guess: " + h.osGuess : "No guess yet");
   const sw = h.switchId ? switches.find(s => s.id === h.switchId) : null;
-  if (sw) lines.push(`Plugged into ${sw.name}` + (h.switchPort ? `, port ${h.switchPort}` : "") + " (your record)");
+  if (sw) lines.push(`Plugged into ${sw.name}` + (h.switchPort ? `, ${portText(sw, h.switchPort)}` : "") + " (your record)");
   if (role === "gw") lines.push("Default gateway for this network");
   if (role === "self") lines.push("This machine, running BAMF");
   lines.push((h.online ? "Online" : "Offline, last seen " + fmtAgo(h.lastSeen)) + (h.known ? "" : " · unknown device"));
@@ -2324,11 +2341,18 @@ function buildClusterSvg(c) {
   return svg;
 }
 
+// "port 3 · Living Room", or "port 3" when the port has no location.
+function portLabel(sw, port) { return (sw && sw.portLabels && sw.portLabels[port]) || ""; }
+function portText(sw, port) {
+  const where = portLabel(sw, port);
+  return `port ${port}` + (where ? ` · ${where}` : "");
+}
+
 function uplinkText(sw) {
   if (sw.uplink === "router") return "Plugged into the router";
   if (sw.uplink === "switch") {
     const up = switches.find(s => s.id === sw.uplinkSwitch);
-    return up ? `Plugged into ${up.name}` + (sw.uplinkPort ? `, port ${sw.uplinkPort}` : "") : "Uplink not recorded";
+    return up ? `Plugged into ${up.name}` + (sw.uplinkPort ? `, ${portText(up, sw.uplinkPort)}` : "") : "Uplink not recorded";
   }
   return "Uplink not recorded";
 }
@@ -2848,7 +2872,8 @@ function fillPortSelect(sel, sw, current, skip = {}) {
       ...hosts.filter(h => h.switchId === sw.id && h.switchPort === p && h.id !== skip.hostId && !h.forgotten).map(nameOrIp),
       ...switches.filter(s => s.uplink === "switch" && s.uplinkSwitch === sw.id && s.uplinkPort === p && s.id !== skip.switchId).map(s => s.name),
     ];
-    add(p, `Port ${p}` + (on.length ? " — " + on.join(", ") : ""));
+    const where = portLabel(sw, p);
+    add(p, `Port ${p}` + (where ? ` · ${where}` : "") + (on.length ? " — " + on.join(", ") : ""));
   }
   sel.value = String(current > sw.ports ? 0 : current || 0);
 }
@@ -3203,7 +3228,7 @@ function openPortsDialog(sw) {
         let where = "";
         if (h.switchId && h.switchId !== sw.id) {
           const other = switches.find(s => s.id === h.switchId);
-          if (other) where = ` — on ${other.name}` + (h.switchPort ? ` port ${h.switchPort}` : "");
+          if (other) where = ` — on ${other.name}` + (h.switchPort ? ` ${portText(other, h.switchPort)}` : "");
         }
         const n = nameOrIp(h);
         o.textContent = (n === h.ip ? h.ip : `${n} · ${h.ip}`) + where;
@@ -3220,13 +3245,30 @@ function openPortsDialog(sw) {
 
   const table = $("portsTable");
   table.innerHTML = "";
-  const addRow = (label, cell) => {
+  const head = document.createElement("tr");
+  head.innerHTML = `<th></th><th>Device</th><th class="loc">Location</th>`;
+  table.appendChild(head);
+  // The Location box goes on a port's first row only; a port with several
+  // recorded devices still has one location.
+  const addRow = (label, cell, port) => {
     const tr = document.createElement("tr");
     const pn = document.createElement("td");
     pn.className = "pn"; pn.textContent = label;
     const td = document.createElement("td");
     td.appendChild(cell);
-    tr.append(pn, td);
+    const loc = document.createElement("td");
+    loc.className = "loc";
+    if (port) {
+      const input = document.createElement("input");
+      input.className = "loc-input";
+      input.dataset.port = port;
+      input.maxLength = 40;
+      input.placeholder = port === 1 ? "e.g. Living Room" : "";
+      input.value = portLabel(sw, port);
+      input.setAttribute("aria-label", `Port ${port} location`);
+      loc.appendChild(input);
+    }
+    tr.append(pn, td, loc);
     table.appendChild(tr);
   };
   const picker = (port, hostId) => {
@@ -3239,17 +3281,19 @@ function openPortsDialog(sw) {
   for (let p = 1; p <= sw.ports; p++) {
     const label = "Port " + p;
     const subs = switches.filter(s => s.uplink === "switch" && s.uplinkSwitch === sw.id && s.uplinkPort === p);
+    let first = true;
+    const row = cell => { addRow(first ? label : "", cell, first ? p : 0); first = false; };
     for (const s of subs) {
       const d = document.createElement("div");
       d.className = "sub-sw";
       d.textContent = `${s.name} (switch)`;
-      addRow(label, d);
+      row(d);
     }
     // A port can hold more than one recorded device (an unmanaged switch or
     // an access point behind it); keep every one rather than dropping any.
     const here = onThis.filter(h => h.switchPort === p);
-    if (here.length) here.forEach(h => addRow(label, picker(p, h.id)));
-    else if (!subs.length) addRow(label, picker(p, 0));
+    if (here.length) here.forEach(h => row(picker(p, h.id)));
+    else if (!subs.length) row(picker(p, 0));
   }
   portsUnrecorded = onThis.filter(h => !h.switchPort || h.switchPort > sw.ports);
   $("portsExtra").textContent = portsUnrecorded.length
@@ -3289,7 +3333,10 @@ async function savePortsDialog() {
   try {
     const r = await fetch(`/api/switches/${sw.id}/ports`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ports: [...chosen].map(([hostId, port]) => ({ hostId, port })) }),
+      body: JSON.stringify({
+        ports: [...chosen].map(([hostId, port]) => ({ hostId, port })),
+        labels: [...$("portsTable").querySelectorAll(".loc-input")].map(i => ({ port: Number(i.dataset.port), label: i.value.trim() })),
+      }),
     });
     if (!r.ok) {
       const d = await r.json().catch(() => ({}));
@@ -3297,7 +3344,7 @@ async function savePortsDialog() {
       return;
     }
     const n = [...chosen.values()].length;
-    toast(`${esc(sw.name)}: ${n} device${n === 1 ? "" : "s"} recorded`);
+    toast(`${esc(sw.name)} saved: ${n} device${n === 1 ? "" : "s"} recorded`);
     closePortsDialog();
     await refresh();
   } catch {
@@ -4036,7 +4083,7 @@ $("testWebhook").onclick = async () => {
 
 $("exportCsv").onclick = () => {
   const rows = applySort(visible());
-  const cols = ["name","dnsHostname","ip","mac","vendor","deviceGuess","network","online","known","ignored","firstSeen","lastSeen","switch","switchPort"];
+  const cols = ["name","dnsHostname","ip","mac","vendor","deviceGuess","network","online","known","ignored","firstSeen","lastSeen","switch","switchPort","portLocation"];
   const cell = v => {
     v = String(v ?? "");
     return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
@@ -4046,7 +4093,8 @@ $("exportCsv").onclick = () => {
     lines.push([
       dispName(h), h.hostname === "\u2014" ? "" : h.hostname, h.ip, h.mac, h.vendor,
       h.osGuess || "", h.subnet, h.online, h.known, h.ignored, h.firstSeen, h.lastSeen,
-      switches.find(s => s.id === h.switchId)?.name || "", h.switchId && h.switchPort ? h.switchPort : ""
+      switches.find(s => s.id === h.switchId)?.name || "", h.switchId && h.switchPort ? h.switchPort : "",
+      h.switchId && h.switchPort ? portLabel(switches.find(s => s.id === h.switchId), h.switchPort) : ""
     ].map(cell).join(","));
   }
   const blob = new Blob([lines.join("\r\n")], { type: "text/csv" });
