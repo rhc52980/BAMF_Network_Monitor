@@ -611,6 +611,9 @@
   .set-result { font-size: 13px; }
   .set-result.ok { color: var(--led-on); }
   .set-result.err { color: var(--danger); }
+  .set-table .sw-name { font-weight: 600; }
+  #swDelete { color: var(--danger); margin-right: auto; }
+  #plugNewSwitch { margin-right: auto; }
   @media (max-width: 620px) {
     .set-row { flex-direction: column; gap: 6px; }
     .set-ro { grid-template-columns: 1fr; }
@@ -665,6 +668,18 @@
   .map-legend .lg-gw { fill: var(--led-on); stroke: var(--focus); stroke-width: 2; }
   .map-legend .lg-self { fill: var(--panel); stroke: var(--focus); stroke-width: 2.5; }
   .map-legend .lg-self-core { fill: var(--focus); }
+  /* Switches and the cabling the user recorded. A cable is drawn heavier than
+     the thin "on this network" spoke, because it says more: where something
+     is plugged in, as the user described it. */
+  .map-svg .spoke.cable { stroke: var(--text-dim); stroke-width: 1.6; }
+  .map-svg .sw-shape { fill: var(--panel-2); stroke: var(--text-dim); stroke-width: 1.5; }
+  .map-svg .sw-port { fill: var(--text-dim); }
+  .map-svg .node.sw.on .sw-shape { stroke: var(--led-on); }
+  .map-svg .node.sw.on .sw-port { fill: var(--led-on); }
+  .map-svg .lbl.sw-lbl { fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--panel); stroke-width: 3px; stroke-linejoin: round; }
+  .map-legend .lg-sw { fill: var(--panel-2); stroke: var(--text-dim); stroke-width: 1.5; }
+  .map-legend .lg-cable { stroke: var(--text-dim); stroke-width: 1.6; }
+  .map-legend .lg-spoke { stroke: var(--line); stroke-width: 1.5; }
   .home-card {
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
     padding: 16px; display: flex; flex-direction: column; gap: 8px; align-items: center;
@@ -1030,11 +1045,13 @@
 
 <div class="map-wrap" id="mapWrap" hidden>
   <p class="map-note">
-    Each network is drawn around itself, and a line means <strong>on this network</strong>.
-    BAMF sees which devices are present, not how they're cabled, so nothing here claims
-    one device plugs into another. The <strong>gateway</strong> comes from this machine's
-    routing table, and <strong>BAMF</strong> marks this machine. Devices are grouped by type.
-    Hover one for details; click it to find it in the device list.
+    Each network is drawn around itself, and a thin line means <strong>on this network</strong>.
+    BAMF sees which devices are present, not how they're cabled. The heavier
+    <strong>cables</strong> are yours: switches you add in Settings, and ports you record with
+    <strong>Plugged into…</strong> in a device's ⋯ menu. BAMF can't check them. The
+    <strong>gateway</strong> comes from this machine's routing table, and <strong>BAMF</strong>
+    marks this machine. Other devices are grouped by type. Hover one for details; click it to
+    find it in the device list.
   </p>
   <div class="map-legend" aria-hidden="true">
     <span><svg viewBox="-8 -8 16 16"><circle r="6" class="lg-dot on"/></svg>online</span>
@@ -1043,6 +1060,9 @@
     <span><svg viewBox="-9 -9 18 18"><circle r="5" class="lg-dot on"/><circle r="8" class="lg-watch"/></svg>watched</span>
     <span><svg viewBox="-9 -9 18 18"><rect x="-6" y="-6" width="12" height="12" transform="rotate(45)" class="lg-gw"/></svg>gateway</span>
     <span><svg viewBox="-9 -9 18 18"><circle r="7" class="lg-self"/><circle r="3" class="lg-self-core"/></svg>this machine</span>
+    <span><svg viewBox="-10 -9 20 18"><rect x="-9" y="-6" width="18" height="12" rx="2" class="lg-sw"/></svg>switch</span>
+    <span><svg viewBox="-10 -9 20 18"><line x1="-9" y1="0" x2="9" y2="0" class="lg-cable"/></svg>cable you recorded</span>
+    <span><svg viewBox="-10 -9 20 18"><line x1="-9" y1="0" x2="9" y2="0" class="lg-spoke"/></svg>on this network</span>
   </div>
   <div class="map-clusters" id="mapClusters"></div>
   <div class="empty" id="mapEmpty" hidden>No networks to draw yet.</div>
@@ -1110,6 +1130,22 @@
     <button class="toggle" id="setReset">Reset to file defaults</button>
     <button class="export-btn" id="setSave">Save</button>
     <span class="set-result" id="setResult"></span>
+  </div>
+
+  <div class="set-card" id="switchCard">
+    <div class="set-card-title">Switches</div>
+    <p class="modal-help">
+      How your network is cabled, for the Map. BAMF can't find this out itself: ARP shows which
+      devices are on a network, not which port they're plugged into, and budget smart switches
+      don't share their MAC table. So this is your own record, and nothing here connects to a
+      switch. Changes apply straight away. To say where a device is plugged in, use
+      <strong>Plugged into…</strong> in its ⋯ menu.
+    </p>
+    <table class="set-table" id="swTable"></table>
+    <div class="modal-note" id="swEmpty">No switches yet.</div>
+    <div class="modal-actions">
+      <button class="export-btn" id="swAdd">Add a switch</button>
+    </div>
   </div>
 
   <div class="set-card">
@@ -1254,6 +1290,64 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="plugModal" hidden>
+  <div class="modal">
+    <div class="modal-title" id="plugTitle">Plugged into</div>
+    <div class="modal-note" id="plugSub"></div>
+    <label class="modal-row">Switch
+      <select id="plugSwitch"></select>
+    </label>
+    <label class="modal-row" id="plugPortRow">Port
+      <select id="plugPort"></select>
+    </label>
+    <p class="modal-help" id="plugHelp">
+      Where this device is cabled, as you know it. The Map draws it as a cable to that switch.
+      BAMF can't check this; it's your record.
+    </p>
+    <div class="set-result" id="plugErr"></div>
+    <div class="modal-actions">
+      <button class="toggle" id="plugNewSwitch">Add a switch…</button>
+      <button class="toggle" id="plugCancel">Cancel</button>
+      <button class="export-btn" id="plugSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="swModal" hidden>
+  <div class="modal">
+    <div class="modal-title" id="swTitle">Switch</div>
+    <label class="modal-row">Name
+      <input id="swName" class="modal-input" maxlength="60" placeholder="e.g. Office SG1016DE" autocomplete="off">
+    </label>
+    <label class="modal-row">Ports
+      <input id="swPorts" class="modal-input" type="number" min="1" max="128" step="1">
+    </label>
+    <label class="modal-row">Its device in BAMF
+      <select id="swHost"></select>
+    </label>
+    <label class="modal-row" id="swNetRow">Network
+      <select id="swNet"></select>
+    </label>
+    <label class="modal-row">Plugged into
+      <select id="swUp"></select>
+    </label>
+    <label class="modal-row" id="swUpPortRow">Port
+      <select id="swUpPort"></select>
+    </label>
+    <p class="modal-help">
+      If the switch has an address BAMF sees, pick it as its device: the Map then shows the
+      switch online or offline, and its network comes from that device. Leave it at None for an
+      unmanaged switch, or one on an address BAMF doesn't scan.
+    </p>
+    <div class="set-result" id="swErr"></div>
+    <div class="modal-actions">
+      <button class="toggle" id="swDelete">Delete</button>
+      <button class="toggle" id="swCancel">Cancel</button>
+      <button class="export-btn" id="swSave">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="scanModal" hidden>
   <div class="modal">
     <div class="modal-title">Port scan</div>
@@ -1301,6 +1395,7 @@ let scanModes = {};       // subnet -> 'active ARP' | 'ping sweep'
 let subnetIntervals = {};  // subnet -> effective interval in seconds
 let subnetNextDue = {};    // subnet -> ISO time the scanner will next run it (paused: absent)
 let networkPlaces = {};    // subnet -> { selfIp, selfMac, gateway }: what the map knows for certain
+let switches = [];         // the switch layout the user recorded: [{ id, name, ports, subnet, hostId, uplink, uplinkSwitch, uplinkPort }]
 let activeArp = { enabled: false, npcapAvailable: false };
 let autoIgnoreRandom = false;
 let webhookConfigured = false;
@@ -1830,6 +1925,10 @@ const MAP = {
   LABEL_PAD: 124,   // room outside the ring for rotated names
   MAX_SINGLE: 60,   // beyond this, several rings and names move to tooltips
   WEDGE: 20,        // degrees kept clear either side of the gateway and this machine
+  WEDGE_SW: 30,     // wider when switches are drawn, so none crowds the gateway
+  SW_R0: 92,        // ring of switches plugged into the router (or not recorded)
+  SW_STEP: 44,      // each switch further down a chain sits this much further out
+  SW_GAP: 78,       // room between the outermost switch and its devices
 };
 
 // Structure of the map as last drawn. As with the network strip, the drawing
@@ -1855,12 +1954,28 @@ function mapClusters() {
     // sweep never sees its own host, and a gateway can be slow to answer.
     if (!self && place.selfIp) self = { synthetic: true, ip: place.selfIp, mac: place.selfMac || "" };
     if (!gw && place.gateway && place.gateway !== place.selfIp) gw = { synthetic: true, ip: place.gateway };
-    const ring = members.filter(h => h !== self && h !== gw).sort((a, b) => {
+    // The switch layout the user recorded. A switch is drawn on its own
+    // network, and on any other network with a device recorded on it; every
+    // switch above a drawn one is drawn too, so no chain floats unattached.
+    const swById = new Map(switches.map(s => [s.id, s]));
+    const placed = members.filter(h => h !== self && h !== gw && swById.has(h.switchId));
+    const shown = new Set(switches.filter(s => s.subnet === subnet).map(s => s.id));
+    placed.forEach(h => shown.add(h.switchId));
+    for (const id of [...shown]) {
+      let sw = swById.get(id);
+      while (sw && sw.uplink === "switch" && swById.has(sw.uplinkSwitch) && !shown.has(sw.uplinkSwitch)) {
+        shown.add(sw.uplinkSwitch);
+        sw = swById.get(sw.uplinkSwitch);
+      }
+    }
+    const sws = switches.filter(s => shown.has(s.id));
+    const swHosts = new Set(sws.map(s => s.hostId).filter(Boolean));
+    const ring = members.filter(h => h !== self && h !== gw && !placed.includes(h) && !swHosts.has(h.id)).sort((a, b) => {
       const fa = guessFamily(a.osGuess), fb = guessFamily(b.osGuess);
       if ((fa === null) !== (fb === null)) return fa === null ? 1 : -1;
       return (fa || "").localeCompare(fb || "") || dispName(a).localeCompare(dispName(b)) || ipNum(a.ip) - ipNum(b.ip);
     });
-    return { subnet, place, members, self, gw, ring, mode: scanModes[subnet] || "" };
+    return { subnet, place, members, self, gw, ring, placed, switches: sws, mode: scanModes[subnet] || "" };
   });
 }
 
@@ -1869,6 +1984,8 @@ function mapSignature(clusters) {
   return JSON.stringify([network, clusters.map(c => [
     c.subnet, c.mode, key(c.self), key(c.gw),
     c.ring.map(h => [h.id, guessFamily(h.osGuess), dispName(h), h.ip]),
+    c.switches.map(s => [s.id, s.name, s.ports, s.hostId, s.uplink, s.uplinkSwitch, s.uplinkPort]),
+    c.placed.map(h => [h.id, h.switchId, h.switchPort, dispName(h), h.ip]),
   ])]);
 }
 
@@ -1886,6 +2003,8 @@ function mapTitle(h, role) {
   const lines = [dispName(h) === "—" ? h.ip : dispName(h), `${h.ip} · ${h.mac}`];
   if (h.vendor) lines.push(h.vendor);
   lines.push(h.osGuess ? "Guess: " + h.osGuess : "No guess yet");
+  const sw = h.switchId ? switches.find(s => s.id === h.switchId) : null;
+  if (sw) lines.push(`Plugged into ${sw.name}` + (h.switchPort ? `, port ${h.switchPort}` : "") + " (your record)");
   if (role === "gw") lines.push("Default gateway for this network");
   if (role === "self") lines.push("This machine, running BAMF");
   lines.push((h.online ? "Online" : "Offline, last seen " + fmtAgo(h.lastSeen)) + (h.known ? "" : " · unknown device"));
@@ -1899,19 +2018,45 @@ function mapLabel(h) {
 }
 
 function buildClusterSvg(c) {
-  // Devices go round the ring in type order, with an empty slot between two
-  // types so each type reads as its own arc.
-  const slots = [];
+  // Slots round the outer ring, in order. Devices recorded on a switch come
+  // first, switch by switch in port order, so each switch's devices form one
+  // arc with the switch sitting inside it. Then the rest in type order, with
+  // an empty slot between two types so each type reads as its own arc.
+  const slots = [];                 // { h, sw } a device; { stub } an empty switch's place; null a gap
+  const swSpan = new Map();         // switch id -> [first, last] slot of everything under it
+  const swDepth = new Map();        // switch id -> 0 for a top switch, 1 below that, ...
+  if (c.switches.length) {
+    const shownIds = new Set(c.switches.map(s => s.id));
+    const under = id => [
+      ...c.placed.filter(h => h.switchId === id).map(h => ({ port: h.switchPort, name: dispName(h), h })),
+      ...c.switches.filter(s => s.uplink === "switch" && s.uplinkSwitch === id).map(s => ({ port: s.uplinkPort, name: s.name, s })),
+    ].sort((a, b) => (a.port || 1e9) - (b.port || 1e9) || a.name.localeCompare(b.name));
+    const visit = (sw, depth) => {
+      if (swDepth.has(sw.id)) return;   // the server refuses loops; this is only a backstop
+      swDepth.set(sw.id, depth);
+      const first = slots.length;
+      for (const k of under(sw.id)) {
+        if (k.h) slots.push({ h: k.h, sw });
+        else visit(k.s, depth + 1);
+      }
+      if (slots.length === first) slots.push({ stub: sw });   // a switch with nothing recorded still needs a place
+      swSpan.set(sw.id, [first, slots.length - 1]);
+    };
+    c.switches.filter(s => !(s.uplink === "switch" && shownIds.has(s.uplinkSwitch)))
+      .forEach((sw, i) => { if (i) slots.push(null); visit(sw, 0); });
+    if (c.ring.length) slots.push(null);
+  }
   let prev;
   c.ring.forEach((h, i) => {
     const f = guessFamily(h.osGuess);
     if (i > 0 && f !== prev) slots.push(null);
-    slots.push(h);
+    slots.push({ h });
     prev = f;
   });
   // Keep a clear wedge above the hub for the gateway and below it for this
   // machine, so no device's line runs through either of them or their labels.
-  const wedgeTop = c.gw ? MAP.WEDGE : 0, wedgeBottom = c.self ? MAP.WEDGE : 0;
+  const wedge = c.switches.length ? MAP.WEDGE_SW : MAP.WEDGE;
+  const wedgeTop = c.gw ? wedge : 0, wedgeBottom = c.self ? wedge : 0;
   const availDeg = 360 - 2 * wedgeTop - 2 * wedgeBottom;
   const availRad = availDeg * Math.PI / 180;
   const angleAt = (k, count) => {
@@ -1919,21 +2064,31 @@ function buildClusterSvg(c) {
     if (wedgeBottom && a >= 90 - wedgeBottom) a += 2 * wedgeBottom;   // step over the bottom wedge
     return a * Math.PI / 180;
   };
+  const swR = depth => MAP.SW_R0 + depth * MAP.SW_STEP;
+  const minR = c.switches.length ? Math.max(MAP.MIN_R, swR(Math.max(...swDepth.values())) + MAP.SW_GAP) : MAP.MIN_R;
   const single = slots.length <= MAP.MAX_SINGLE;
-  const rings = [];
+  const at = [];   // per slot: [radius, angle]
   if (single) {
-    rings.push({ r: Math.max(MAP.MIN_R, slots.length * MAP.SPACING / availRad), slots });
-  } else {
+    const r = Math.max(minR, slots.length * MAP.SPACING / availRad);
+    slots.forEach((_, i) => at.push([r, angleAt(i, slots.length)]));
+  } else if (!c.switches.length) {
     // Too many to name legibly on one ring: stack rings, names in tooltips.
-    const rest = slots.slice();
     let r = MAP.MIN_R;
-    while (rest.length) {
+    for (let i = 0; i < slots.length; r += 30) {
       const cap = Math.max(8, Math.floor(availRad * r / (MAP.SPACING * 0.8)));
-      rings.push({ r, slots: rest.splice(0, cap) });
-      r += 30;
+      const n = Math.min(cap, slots.length - i);
+      for (let k = 0; k < n; k++) at.push([r, angleAt(k, n)]);
+      i += n;
     }
+  } else {
+    // Too many for one ring, and each switch's devices have to stay in its
+    // own arc: so the slots keep a single order round the circle and step in
+    // and out across a few rings instead of filling one ring after another.
+    const k = Math.min(4, Math.ceil(slots.length / 40));
+    const r = Math.max(minR, slots.length * MAP.SPACING * 0.8 / (availRad * k));
+    slots.forEach((_, i) => at.push([r + (i % k) * 30, angleAt(i, slots.length)]));
   }
-  const outer = rings.length ? rings[rings.length - 1].r : MAP.MIN_R;
+  const outer = at.length ? Math.max(...at.map(p => p[0])) : minR;
   const half = outer + MAP.NODE_R + (single ? MAP.LABEL_PAD : 30);
   const svg = svgEl("svg", {
     viewBox: `${-half} ${-half} ${2 * half} ${2 * half}`, class: "map-svg",
@@ -1950,12 +2105,13 @@ function buildClusterSvg(c) {
   hubTxt.textContent = `${on}/${c.members.length}`;
   hub.appendChild(hubTxt);
 
-  const addNode = (h, x, y, role, labelMode, angle) => {
+  const addNode = (h, x, y, role, labelMode, angle, from = null) => {
     const line = svgEl("line", {
-      x1: 0, y1: 0, x2: x.toFixed(1), y2: y.toFixed(1),
+      x1: from ? from[0].toFixed(1) : 0, y1: from ? from[1].toFixed(1) : 0, x2: x.toFixed(1), y2: y.toFixed(1),
       // Dashed means "not confirmed right now": an offline device, or a
-      // gateway no scan has recorded. This machine is always present.
-      class: "spoke" + ((h.synthetic ? role !== "self" : !h.online) ? " off" : ""),
+      // gateway no scan has recorded. This machine is always present. A line
+      // from a switch rather than the hub is a cable the user recorded.
+      class: "spoke" + (from ? " cable" : "") + ((h.synthetic ? role !== "self" : !h.online) ? " off" : ""),
     });
     const g = svgEl("g", { class: mapNodeClass(h, role), transform: `translate(${x.toFixed(1)},${y.toFixed(1)})` });
     if (!h.synthetic) {
@@ -2005,17 +2161,86 @@ function buildClusterSvg(c) {
     nodes.appendChild(g);
   };
 
-  rings.forEach(ring => {
-    const n = ring.slots.length;
-    ring.slots.forEach((h, i) => {
-      if (!h) return;   // the gap between two types
-      const a = angleAt(i, n);
-      addNode(h, ring.r * Math.cos(a), ring.r * Math.sin(a), "dev", single ? "radial" : "none", a);
+  // Switches sit inside the arc of everything under them, further out the
+  // further down a chain they are.
+  const swPos = new Map();
+  for (const sw of c.switches) {
+    const span = swSpan.get(sw.id);
+    if (!span) continue;
+    const a = angleAt((span[0] + span[1]) / 2, slots.length);
+    const r = swR(swDepth.get(sw.id));
+    swPos.set(sw.id, [r * Math.cos(a), r * Math.sin(a)]);
+  }
+  const gwPos = c.gw ? [0, -MAP.INNER] : null;
+  for (const sw of c.switches) {
+    const p = swPos.get(sw.id);
+    if (!p) continue;
+    // Its uplink: a cable to the switch above it or to the router, or the
+    // plain "on this network" line to the hub when nothing is recorded.
+    const up = sw.uplink === "switch" ? swPos.get(sw.uplinkSwitch)
+      : sw.uplink === "router" ? (gwPos || [0, 0]) : null;
+    spokes.appendChild(svgEl("line", {
+      x1: (up ? up[0] : 0).toFixed(1), y1: (up ? up[1] : 0).toFixed(1), x2: p[0].toFixed(1), y2: p[1].toFixed(1),
+      class: "spoke" + (up ? " cable" : ""),
+    }));
+    const host = sw.hostId ? hosts.find(h => h.id === sw.hostId) : null;
+    const g = svgEl("g", {
+      class: host ? mapNodeClass(host, "sw") : "node sw", transform: `translate(${p[0].toFixed(1)},${p[1].toFixed(1)})`,
+      tabindex: "0", role: "button", "data-sw": sw.id, "aria-label": "Switch " + sw.name,
     });
+    if (host) g.setAttribute("data-id", host.id);
+    const title = svgEl("title", {});
+    title.textContent = switchTitle(sw);
+    g.appendChild(title);
+    g.appendChild(svgEl("rect", { x: -14, y: -8, width: 28, height: 16, rx: 3, class: "shape sw-shape" }));
+    for (const dx of [-8, -2, 4]) g.appendChild(svgEl("rect", { x: dx, y: -2, width: 4, height: 4, class: "sw-port" }));
+    const t = svgEl("text", { class: "lbl sw-lbl", x: 0, y: 20, "text-anchor": "middle" });
+    t.textContent = sw.name.length > 18 ? sw.name.slice(0, 17) + "…" : sw.name;
+    g.appendChild(t);
+    // A switch BAMF can see opens in the device list like any device; one it
+    // can't opens its settings, the only place there is anything to see.
+    const open = () => host ? jumpToHost(host.id) : openSwitchDialog(sw);
+    g.addEventListener("click", open);
+    g.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+    });
+    nodes.appendChild(g);
+  }
+
+  slots.forEach((slot, i) => {
+    if (!slot || !slot.h) return;   // a gap, or an empty switch's place
+    const [r, a] = at[i];
+    addNode(slot.h, r * Math.cos(a), r * Math.sin(a), "dev", single ? "radial" : "none", a,
+      slot.sw ? swPos.get(slot.sw.id) : null);
   });
   if (c.gw) addNode(c.gw, 0, -MAP.INNER, "gw", "above");
   if (c.self) addNode(c.self, 0, MAP.INNER, "self", "below");
   return svg;
+}
+
+function uplinkText(sw) {
+  if (sw.uplink === "router") return "Plugged into the router";
+  if (sw.uplink === "switch") {
+    const up = switches.find(s => s.id === sw.uplinkSwitch);
+    return up ? `Plugged into ${up.name}` + (sw.uplinkPort ? `, port ${sw.uplinkPort}` : "") : "Uplink not recorded";
+  }
+  return "Uplink not recorded";
+}
+
+function switchTitle(sw) {
+  const host = sw.hostId ? hosts.find(h => h.id === sw.hostId) : null;
+  const n = hosts.filter(h => h.switchId === sw.id && !h.forgotten).length;
+  const lines = [sw.name, `${sw.ports}-port switch · your record`];
+  if (host) {
+    lines.push(`${host.ip} · ${host.mac}`);
+    lines.push(host.online ? "Online" : "Offline, last seen " + fmtAgo(host.lastSeen));
+  } else {
+    lines.push("No address BAMF sees");
+  }
+  lines.push(uplinkText(sw));
+  lines.push(`${n} device${n === 1 ? "" : "s"} recorded on it`);
+  lines.push(host ? "Click to find it in the device list" : "Click to edit");
+  return lines.join("\n");
 }
 
 function buildClusterCard(c) {
@@ -2034,7 +2259,7 @@ function buildClusterCard(c) {
   tag.textContent = c.mode === "skipped" ? "no interface" : c.mode === "paused" ? "paused" : c.mode ? "via " + c.mode : "";
   head.append(name, cnt, tag);
   card.appendChild(head);
-  if (!c.members.length && !c.self && !c.gw) {
+  if (!c.members.length && !c.self && !c.gw && !c.switches.length) {
     const e = document.createElement("div");
     e.className = "map-empty";
     e.textContent = c.mode === "skipped"
@@ -2064,13 +2289,15 @@ function renderMap() {
   wrap.querySelectorAll(".node[data-id]").forEach(g => {
     const h = byId.get(g.getAttribute("data-id"));
     if (!h) return;
-    const role = g.classList.contains("gw") ? "gw" : g.classList.contains("self") ? "self" : "dev";
+    const swId = g.getAttribute("data-sw");
+    const sw = swId ? switches.find(s => String(s.id) === swId) : null;
+    const role = sw ? "sw" : g.classList.contains("gw") ? "gw" : g.classList.contains("self") ? "self" : "dev";
     g.setAttribute("class", mapNodeClass(h, role));
-    g.querySelector("title").textContent = mapTitle(h, role);
+    g.querySelector("title").textContent = sw ? switchTitle(sw) : mapTitle(h, role);
   });
   wrap.querySelectorAll(".spoke[data-id]").forEach(l => {
     const h = byId.get(l.getAttribute("data-id"));
-    if (h) l.setAttribute("class", "spoke" + (h.online ? "" : " off"));
+    if (h) l.classList.toggle("off", !h.online);
   });
   clusters.forEach(c => {
     const card = wrap.querySelector(`.map-card[data-subnet="${CSS.escape(c.subnet)}"]`);
@@ -2286,6 +2513,13 @@ function render() {
     } else {
       addItem(h.note ? "Edit note…" : "Add note…", () => openNoteDialog(h));
       addItem(h.link ? "Change link…" : "Set link…", () => setHostLink(h));
+      const ownSwitch = switches.find(s => s.hostId === h.id);
+      if (ownSwitch) {
+        addItem("Edit switch…", () => openSwitchDialog(ownSwitch));
+      } else {
+        addItem(h.switchId ? "Change plugged into…" : "Plugged into…", () => openPlugDialog(h));
+        addItem("Make this a switch…", () => openSwitchDialog(null, h));
+      }
       addItem("Identify device", () => identifyHost(h));
       addItem("Scan ports", () => scanPorts(h, more, null));
       addItem("Scan custom ports…", () => {
@@ -2486,6 +2720,225 @@ async function saveNoteDialog(text) {
   }
 }
 
+// ---- switch layout ----
+// The user's own record of how things are cabled; the Map draws it. BAMF has
+// no way to check it, and nothing here talks to a switch.
+function nameOrIp(h) { const n = dispName(h); return n && n !== "—" ? n : h.ip; }
+
+// Port choices for a switch, each showing what's already recorded on it, so
+// picking a port doubles as seeing what's plugged in where.
+function fillPortSelect(sel, sw, current, skip = {}) {
+  sel.innerHTML = "";
+  const add = (value, label) => {
+    const o = document.createElement("option");
+    o.value = value; o.textContent = label;
+    sel.appendChild(o);
+  };
+  add(0, "Not recorded");
+  for (let p = 1; p <= sw.ports; p++) {
+    const on = [
+      ...hosts.filter(h => h.switchId === sw.id && h.switchPort === p && h.id !== skip.hostId && !h.forgotten).map(nameOrIp),
+      ...switches.filter(s => s.uplink === "switch" && s.uplinkSwitch === sw.id && s.uplinkPort === p && s.id !== skip.switchId).map(s => s.name),
+    ];
+    add(p, `Port ${p}` + (on.length ? " — " + on.join(", ") : ""));
+  }
+  sel.value = String(current > sw.ports ? 0 : current || 0);
+}
+
+function showErr(id, msg) {
+  const el = $(id);
+  el.textContent = msg || "";
+  el.className = "set-result" + (msg ? " err" : "");
+}
+
+let plugHost = null;
+function openPlugDialog(host, preselect = null) {
+  plugHost = host;
+  $("plugTitle").textContent = "Plugged into — " + nameOrIp(host);
+  $("plugSub").textContent = host.ip + " · " + host.mac;
+  const sel = $("plugSwitch");
+  sel.innerHTML = "";
+  const none = document.createElement("option");
+  none.value = "0"; none.textContent = switches.length ? "Not recorded" : "No switches yet";
+  sel.appendChild(none);
+  for (const sw of switches) {
+    const o = document.createElement("option");
+    o.value = sw.id;
+    o.textContent = `${sw.name} (${sw.ports} ports)` + (sw.subnet && sw.subnet !== host.subnet ? " · " + sw.subnet : "");
+    sel.appendChild(o);
+  }
+  sel.value = String(preselect ?? host.switchId ?? 0);
+  if (!sel.value) sel.value = "0";
+  syncPlugPort(preselect ? 0 : host.switchPort);
+  showErr("plugErr", "");
+  $("plugModal").hidden = false;
+  sel.focus();
+}
+function syncPlugPort(current) {
+  const sw = switches.find(s => String(s.id) === $("plugSwitch").value);
+  $("plugPortRow").style.display = sw ? "" : "none";
+  if (sw) fillPortSelect($("plugPort"), sw, current, { hostId: plugHost?.id });
+}
+function closePlugDialog() { $("plugModal").hidden = true; plugHost = null; }
+async function savePlugDialog() {
+  const h = plugHost;
+  if (!h) return;
+  const switchId = Number($("plugSwitch").value) || 0;
+  const port = switchId ? Number($("plugPort").value) || 0 : 0;
+  const btn = $("plugSave");
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/api/hosts/${h.id}/plug`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ switchId, port }),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      showErr("plugErr", d.error || "Couldn't save (HTTP " + r.status + ").");
+      return;
+    }
+    const sw = switches.find(s => s.id === switchId);
+    toast(sw ? `${esc(nameOrIp(h))} recorded on ${esc(sw.name)}` + (port ? `, port ${port}` : "")
+             : `Cleared where ${esc(nameOrIp(h))} is plugged in`);
+    closePlugDialog();
+    await refresh();
+  } catch {
+    showErr("plugErr", "Couldn't reach BAMF.");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+let swEditing = null;    // the switch being edited; null when adding one
+let swReturnTo = null;   // a device whose "Plugged into" dialog sent us here
+function openSwitchDialog(sw, fromHost = null, returnTo = null) {
+  swEditing = sw;
+  swReturnTo = returnTo;
+  $("swTitle").textContent = sw ? "Edit switch — " + sw.name : "Add a switch";
+  $("swName").value = sw ? sw.name : fromHost ? nameOrIp(fromHost) : "";
+  $("swPorts").value = sw ? sw.ports : 8;
+
+  const hostSel = $("swHost");
+  hostSel.innerHTML = "";
+  const addOpt = (sel, value, label) => {
+    const o = document.createElement("option");
+    o.value = value; o.textContent = label;
+    sel.appendChild(o);
+  };
+  addOpt(hostSel, 0, "None — unmanaged, or not seen by BAMF");
+  const taken = new Set(switches.filter(s => s !== sw).map(s => s.hostId).filter(Boolean));
+  hosts.filter(h => !h.forgotten && !taken.has(h.id))
+    .sort((a, b) => (a.subnet || "").localeCompare(b.subnet || "") || ipNum(a.ip) - ipNum(b.ip))
+    .forEach(h => addOpt(hostSel, h.id, `${nameOrIp(h)} · ${h.ip}` + (h.vendor ? " · " + h.vendor : "")));
+  hostSel.value = String(sw ? sw.hostId : fromHost ? fromHost.id : 0);
+  if (!hostSel.value) hostSel.value = "0";
+
+  const netSel = $("swNet");
+  netSel.innerHTML = "";
+  const nets = [...new Set([...subnets, ...hosts.map(h => h.subnet).filter(Boolean), ...(sw && sw.subnet ? [sw.subnet] : [])])]
+    .sort((a, b) => ipNum(a.split("/")[0]) - ipNum(b.split("/")[0]));
+  nets.forEach(n => addOpt(netSel, n, n));
+  netSel.value = sw && sw.subnet ? sw.subnet : (network !== "all" && nets.includes(network) ? network : nets[0] || "");
+
+  // Everything below this switch can't be what it's plugged into.
+  const below = new Set();
+  if (sw) {
+    const walk = id => switches.filter(s => s.uplink === "switch" && s.uplinkSwitch === id)
+      .forEach(s => { if (!below.has(s.id)) { below.add(s.id); walk(s.id); } });
+    walk(sw.id);
+  }
+  const upSel = $("swUp");
+  upSel.innerHTML = "";
+  addOpt(upSel, "", "Not recorded");
+  addOpt(upSel, "router", "The router");
+  switches.filter(s => s !== sw && !below.has(s.id))
+    .forEach(s => addOpt(upSel, "sw:" + s.id, `${s.name} (${s.ports} ports)`));
+  upSel.value = !sw ? "" : sw.uplink === "switch" ? "sw:" + sw.uplinkSwitch : sw.uplink;
+
+  $("swDelete").style.display = sw ? "" : "none";
+  syncSwitchDialog(sw ? sw.uplinkPort : 0);
+  showErr("swErr", "");
+  $("plugModal").hidden = true;
+  $("swModal").hidden = false;
+  $("swName").focus();
+  $("swName").select();
+}
+function syncSwitchDialog(upPort) {
+  $("swNetRow").style.display = Number($("swHost").value) ? "none" : "";
+  const v = $("swUp").value;
+  const parent = v.startsWith("sw:") ? switches.find(s => s.id === Number(v.slice(3))) : null;
+  $("swUpPortRow").style.display = parent ? "" : "none";
+  if (parent) fillPortSelect($("swUpPort"), parent, upPort, { switchId: swEditing?.id });
+}
+function closeSwitchDialog() {
+  $("swModal").hidden = true;
+  const back = swReturnTo;
+  swEditing = null; swReturnTo = null;
+  return back;
+}
+async function saveSwitchDialog() {
+  const v = $("swUp").value;
+  const body = {
+    name: $("swName").value.trim(),
+    ports: Number($("swPorts").value) || 0,
+    subnet: $("swNet").value,
+    hostId: Number($("swHost").value) || 0,
+    uplink: v.startsWith("sw:") ? "switch" : v,
+    uplinkSwitch: v.startsWith("sw:") ? Number(v.slice(3)) : 0,
+    uplinkPort: v.startsWith("sw:") ? Number($("swUpPort").value) || 0 : 0,
+  };
+  const btn = $("swSave");
+  btn.disabled = true;
+  try {
+    const r = await fetch(swEditing ? `/api/switches/${swEditing.id}` : "/api/switches", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { showErr("swErr", d.error || "Couldn't save (HTTP " + r.status + ")."); return; }
+    toast(`Switch ${esc(d.name)} saved`);
+    const back = closeSwitchDialog();
+    await refresh();
+    if (back) {
+      const h = hosts.find(x => x.id === back.id);
+      if (h) openPlugDialog(h, d.id);
+    }
+  } catch {
+    showErr("swErr", "Couldn't reach BAMF.");
+  } finally {
+    btn.disabled = false;
+  }
+}
+async function deleteSwitchDialog() {
+  const sw = swEditing;
+  if (!sw) return;
+  if (!confirm(`Delete the switch "${sw.name}"? Anything recorded as plugged into it goes back to unrecorded. The devices themselves aren't affected.`)) return;
+  const r = await fetch(`/api/switches/${sw.id}`, { method: "DELETE" });
+  if (!r.ok) { showErr("swErr", "Couldn't delete (HTTP " + r.status + ")."); return; }
+  toast(`Switch ${esc(sw.name)} deleted`);
+  closeSwitchDialog();
+  await refresh();
+}
+
+function renderSwitchList() {
+  const table = $("swTable");
+  if (!table) return;
+  table.innerHTML = "";
+  $("swEmpty").hidden = switches.length > 0;
+  for (const sw of switches) {
+    const host = sw.hostId ? hosts.find(h => h.id === sw.hostId) : null;
+    const n = hosts.filter(h => h.switchId === sw.id && !h.forgotten).length;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="sw-name"></td><td class="set-eff"></td><td><button class="toggle">Edit</button></td>`;
+    tr.children[0].textContent = sw.name;
+    tr.children[1].textContent = [
+      `${sw.ports} ports`, sw.subnet || "no network", host ? host.ip : "no address BAMF sees",
+      uplinkText(sw), `${n} device${n === 1 ? "" : "s"} recorded`,
+    ].join(" · ");
+    tr.querySelector("button").onclick = () => openSwitchDialog(sw);
+    table.appendChild(tr);
+  }
+}
+
 // On-demand device identification. Results land in the scan panel alongside
 // port scans, so there's one place to read everything BAMF probed.
 async function identifyHost(host) {
@@ -2550,6 +3003,7 @@ async function refresh() {
     subnetIntervals = data.subnetIntervalSeconds || {};
     subnetNextDue = data.subnetNextDue || {};
     networkPlaces = data.networkPlaces || {};
+    switches = data.switches || [];
     activeArp = data.activeArp || activeArp;
     autoIgnoreRandom = !!data.autoIgnoreRandom;
     updateInfo = data.update || null;
@@ -2589,6 +3043,7 @@ async function refresh() {
     loadedOnce = true;
     try { feedCache = await loadFeed(); } catch { /* keep old feed */ }
     render();
+    renderSwitchList();
   } catch (e) {
     $("connDot").classList.add("err");
     console.error("refresh failed", e);
@@ -3042,6 +3497,29 @@ $("noteText").onkeydown = e => {
   if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $("noteSave").click(); }
 };
 
+// Switch layout dialogs: same shape as the notes one.
+$("plugSwitch").onchange = () => syncPlugPort(0);
+$("plugSave").onclick = savePlugDialog;
+$("plugCancel").onclick = closePlugDialog;
+$("plugNewSwitch").onclick = () => { const h = plugHost; closePlugDialog(); openSwitchDialog(null, null, h); };
+$("plugModal").onclick = e => { if (e.target.id === "plugModal") closePlugDialog(); };
+$("swHost").onchange = () => {
+  // Picking the switch's own device names it after that device, unless a name was typed.
+  const h = hosts.find(x => x.id === Number($("swHost").value));
+  if (h && !$("swName").value.trim()) $("swName").value = nameOrIp(h);
+  syncSwitchDialog(0);
+};
+$("swUp").onchange = () => syncSwitchDialog(0);
+$("swSave").onclick = saveSwitchDialog;
+$("swDelete").onclick = deleteSwitchDialog;
+$("swCancel").onclick = () => {
+  const back = closeSwitchDialog();
+  if (back) { const h = hosts.find(x => x.id === back.id); if (h) openPlugDialog(h); }
+};
+$("swModal").onclick = e => { if (e.target.id === "swModal") closeSwitchDialog(); };
+$("swName").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); saveSwitchDialog(); } };
+$("swAdd").onclick = () => openSwitchDialog(null);
+
 // One Escape to close whatever is open, innermost first: a dialog, then an
 // open ⋯ menu, then an expanded History panel. Bound on the document so it
 // works wherever focus happens to be, not only inside the note field.
@@ -3060,6 +3538,8 @@ document.addEventListener("keydown", e => {
     return;
   }
   if (!$("noteModal").hidden) { closeNoteDialog(); return; }
+  if (!$("swModal").hidden) { closeSwitchDialog(); return; }
+  if (!$("plugModal").hidden) { closePlugDialog(); return; }
   if (!$("scanModal").hidden) { $("scanModal").hidden = true; return; }
   const openMenu = document.querySelector(".row-menu.show");
   if (openMenu) { openMenu.classList.remove("show"); return; }
@@ -3153,7 +3633,7 @@ $("testWebhook").onclick = async () => {
 
 $("exportCsv").onclick = () => {
   const rows = applySort(visible());
-  const cols = ["name","dnsHostname","ip","mac","vendor","deviceGuess","network","online","known","ignored","firstSeen","lastSeen"];
+  const cols = ["name","dnsHostname","ip","mac","vendor","deviceGuess","network","online","known","ignored","firstSeen","lastSeen","switch","switchPort"];
   const cell = v => {
     v = String(v ?? "");
     return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
@@ -3162,7 +3642,8 @@ $("exportCsv").onclick = () => {
   for (const h of rows) {
     lines.push([
       dispName(h), h.hostname === "\u2014" ? "" : h.hostname, h.ip, h.mac, h.vendor,
-      h.osGuess || "", h.subnet, h.online, h.known, h.ignored, h.firstSeen, h.lastSeen
+      h.osGuess || "", h.subnet, h.online, h.known, h.ignored, h.firstSeen, h.lastSeen,
+      switches.find(s => s.id === h.switchId)?.name || "", h.switchId && h.switchPort ? h.switchPort : ""
     ].map(cell).join(","));
   }
   const blob = new Blob([lines.join("\r\n")], { type: "text/csv" });
