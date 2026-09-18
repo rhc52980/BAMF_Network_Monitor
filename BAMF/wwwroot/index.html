@@ -997,12 +997,11 @@
   #festive > svg { position: absolute; overflow: visible; }
   .xl-wire { fill: none; stroke: #1f3b2c; stroke-width: 1.6; }
   .xl-cap { fill: #3a3a2e; }
-  .xl .glass { fill: var(--c); filter: drop-shadow(0 0 3px var(--c)); }
-  .xl.twinkle { animation: xl-twinkle var(--d) ease-in-out var(--o) infinite alternate; }
-  .xl.blink { animation: xl-blink var(--d) steps(1) var(--o) infinite; }
-  .xl.spark .glass { fill: #fff; filter: drop-shadow(0 0 8px #fff); }
-  @keyframes xl-twinkle { from { opacity: 1; } to { opacity: .25; } }
-  @keyframes xl-blink { 0% { opacity: 1; } 50% { opacity: .15; } }
+  /* Lit: bright glass with a glow. Unlit: the same coloured glass, dull and
+     glowless, the way a dark bulb still shows on a real string. The short
+     transition is a filament warming up and cooling down. */
+  .xl .glass { fill: var(--c); filter: drop-shadow(0 0 3px var(--c)) drop-shadow(0 0 7px var(--c)); transition: opacity .09s ease-out, filter .09s ease-out; }
+  .xl.off .glass { opacity: .28; filter: none; }
   .orn { animation: orn-swing var(--d) ease-in-out var(--o) infinite alternate; }
   .orn line { stroke: #c8b98a; stroke-width: 1; }
   @keyframes orn-swing { from { transform: rotate(-7deg); } to { transform: rotate(7deg); } }
@@ -4929,17 +4928,18 @@ window.addEventListener("resize", () => {
   festiveResize = setTimeout(() => festive(festiveTheme), 250);
 });
 
-const BULB_COLORS = ["#ff3b3b", "#3ddc6f", "#3fa9ff", "#ffd23f", "#ff8c1a", "#c86bff"];
+// Classic multicolour strings repeat their colours in a fixed order.
+const BULB_COLORS = ["#ff2e2e", "#ffae1a", "#2fd65a", "#2f8bff", "#e04cff"];
+let bulbIndex = 0;
 function bulbSvg(x, y, angle) {
-  const c = BULB_COLORS[Math.floor(Math.random() * BULB_COLORS.length)];
-  const blink = Math.random() < 0.3;
-  return `<g class="xl ${blink ? "blink" : "twinkle"}" style="--c:${c};--d:${rnd(blink ? 1.2 : .7, blink ? 3.2 : 2.6).toFixed(2)}s;--o:-${rnd(0, 3).toFixed(2)}s"
-    transform="translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${angle})">
+  const c = BULB_COLORS[bulbIndex++ % BULB_COLORS.length];
+  return `<g class="xl" style="--c:${c}" transform="translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${angle})">
     <rect class="xl-cap" x="-2.6" y="-1" width="5.2" height="4" rx="1"/>
     <ellipse class="glass" cx="0" cy="8.5" rx="3.7" ry="5.8"/></g>`;
 }
 function buildChristmas(root) {
   const W = window.innerWidth, H = window.innerHeight, NS = "http://www.w3.org/2000/svg";
+  bulbIndex = 0;
   // The top string: scallops between hooks, bulbs along each scallop.
   const span = W < 700 ? 120 : 170, sag = 16;
   let wire = "", bulbs = "", orns = "";
@@ -4984,13 +4984,27 @@ function buildChristmas(root) {
     root.appendChild(svg);
   }
   if (calmMotion()) return;
-  // Every so often, one bulb flashes white.
-  const all = [...root.querySelectorAll(".xl")];
+  // Every bulb twinkles on its own clock, like the old twinkle bulbs: lit most
+  // of the time, dark for a moment at uneven intervals, now and then a quick
+  // double blink or a longer rest. One ticker drives them all.
+  const lamps = [...root.querySelectorAll(".xl")].map(el => {
+    const off = Math.random() < 0.2;
+    if (off) el.classList.add("off");
+    return { el, off, next: performance.now() + rnd(0, 3000) };
+  });
   festiveTimers.push(setInterval(() => {
-    const el = all[Math.floor(Math.random() * all.length)];
-    el.classList.add("spark");
-    setTimeout(() => el.classList.remove("spark"), 160);
-  }, 450));
+    const now = performance.now();
+    for (const b of lamps) {
+      if (now < b.next) continue;
+      b.off = !b.off;
+      b.el.classList.toggle("off", b.off);
+      if (b.off) {
+        b.next = now + (Math.random() < 0.15 ? rnd(900, 2200) : rnd(120, 650));   // mostly a blink, sometimes a rest
+      } else {
+        b.next = now + (Math.random() < 0.2 ? rnd(90, 260) : rnd(700, 4500));    // sometimes straight back off: a double blink
+      }
+    }
+  }, 50));
   // A little snow.
   for (let i = 0; i < 26; i++) {
     const f = document.createElement("div");
