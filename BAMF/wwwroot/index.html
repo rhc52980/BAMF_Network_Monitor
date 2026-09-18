@@ -1345,8 +1345,8 @@
     <strong>cables</strong> are yours: switches you add in Settings, and ports you record with
     <strong>Plugged into…</strong> in a device's ⋯ menu. BAMF can't check them. The
     <strong>gateway</strong> comes from this machine's routing table, and <strong>BAMF</strong>
-    marks this machine. Hover anything for details. Click a device to record where it's plugged
-    in, or a switch to fill in all its ports at once. In the <strong>Topology</strong> layout you
+    marks this machine. Hover anything for details. Click a device's name to record where it's
+    plugged in, or its icon to change its type; click a switch to fill in all its ports at once. In the <strong>Topology</strong> layout you
     can drag things where you like (it's saved), drop a device on a switch to plug it in, drop it
     in the <strong>On this network</strong> box to unplug it, and zoom with Ctrl + scroll, a pinch or
     the − / + buttons.
@@ -3153,7 +3153,7 @@ function topoNodeEl(m, key, n) {
   } else if (n.type === "self") {
     cls = mapNodeClass(h, "self"); kind = "server"; name = "BAMF"; sub = h.ip; tip = mapTitle(h, "self");
   } else {
-    cls = mapNodeClass(h, "dev"); kind = deviceKind(h); name = nameOrIp(h); tip = mapTitle(h, "dev");
+    cls = mapNodeClass(h, "dev"); kind = deviceKind(h); name = nameOrIp(h); tip = topoDevTip(h);
     // An unnamed device is already labelled by its address: say what it is instead.
     sub = name === h.ip ? (guessFamily(h.osGuess) || h.vendor || "") : h.ip;
   }
@@ -3201,10 +3201,19 @@ function topoNodeEl(m, key, n) {
 }
 
 // What a click on a node does: the same dialogs as everywhere else.
-function topoActivate(m, key) {
+// Where a click lands on a device decides what opens: its icon tile opens
+// the Type / icon picker, anywhere else (its name) opens Plugged into.
+const TOPO_ICON_PARTS = ".t-tile, .t-icon, .t-ghost, .t-gift, .t-hat, .t-pk, .t-watch, .blink-ring";
+const TOPO_DEV_HINT = "Click the icon to change its type · click the name to record where it's plugged in";
+function topoDevTip(h) { return mapTitle(h, "dev") + "\n" + TOPO_DEV_HINT; }
+function topoActivate(m, key, target = null) {
   const n = m.nodes.get(key);
   if (!n) return;
-  if (n.type === "dev") openPlugDialog(hosts.find(x => x.id === n.host.id) || n.host);
+  if (n.type === "dev") {
+    const h = hosts.find(x => x.id === n.host.id) || n.host;
+    if (target && target.closest && target.closest(TOPO_ICON_PARTS)) openTypeDialog(h);
+    else openPlugDialog(h);
+  }
   else if (n.type === "switch") openPortsDialog(switches.find(s => s.id === n.sw.id) || n.sw);
   else if ((n.type === "root" || n.type === "self") && n.host && !n.host.synthetic) jumpToHost(n.host.id);
 }
@@ -3314,7 +3323,7 @@ function topoWire(m) {
     if (g) {
       const key = g.getAttribute("data-key");
       mode = "node";
-      st = { key, el: g, sx: e.clientX, sy: e.clientY, start: m.final.get(key).slice(), p0: toSvg(e), moved: false };
+      st = { key, el: g, target: e.target, sx: e.clientX, sy: e.clientY, start: m.final.get(key).slice(), p0: toSvg(e), moved: false };
     } else {
       mode = "pan";
       st = { sx: e.clientX, sy: e.clientY, view: m.view.slice() };
@@ -3359,7 +3368,7 @@ function topoWire(m) {
       const s = st;
       s.el.classList.remove("dragging");
       markTarget(null);
-      if (!s.moved) topoActivate(m, s.key);
+      if (!s.moved) topoActivate(m, s.key, s.target);
       else {
         try { await topoDrop(m, s.key); } finally { mapDragging = false; }
       }
@@ -3388,6 +3397,11 @@ function topoWire(m) {
   svg.addEventListener("keydown", e => {
     const g = e.target.closest && e.target.closest(".tnode");
     if (g && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); topoActivate(m, g.getAttribute("data-key")); }
+    // T on a focused device: its type / icon.
+    if (g && (e.key === "t" || e.key === "T") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const n = m.nodes.get(g.getAttribute("data-key"));
+      if (n && n.type === "dev") { e.preventDefault(); openTypeDialog(hosts.find(x => x.id === n.host.id) || n.host); }
+    }
   });
 }
 
@@ -3481,7 +3495,8 @@ function renderMap() {
     const role = sw ? "sw" : g.classList.contains("gw") ? "gw" : g.classList.contains("self") ? "self" : "dev";
     const cls = mapNodeClass(h, role);
     g.setAttribute("class", g.classList.contains("tnode") ? "tnode " + cls : cls);
-    g.querySelector("title").textContent = sw ? switchTitle(sw) : mapTitle(h, role);
+    g.querySelector("title").textContent = sw ? switchTitle(sw)
+      : role === "dev" && g.classList.contains("tnode") ? topoDevTip(h) : mapTitle(h, role);
   });
   wrap.querySelectorAll(".spoke[data-id]").forEach(l => {
     const h = byId.get(l.getAttribute("data-id"));
