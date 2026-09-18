@@ -89,9 +89,20 @@ optional daily update check you have to switch on, and your own webhook.
 - Every route that changes anything is a POST or DELETE, so a consumer limited
   to that one GET is inherently read-only
 
+### See how it's laid out
+
+![The Map tab: each network drawn around itself, with the gateway and BAMF marked, two recorded switches with their devices in port order joined by cables, and the rest on thin "on this network" lines](docs/map.png)
+
+The **Map** draws each network around itself. The gateway and BAMF's own
+machine are facts, so they're marked. Cabling isn't something ARP can see, so
+BAMF doesn't guess it. Record your switches under **Settings → Switches** and
+which port each device is on, and the map draws those as cables. Anything you
+haven't recorded, like the Wi-Fi devices above, stays on a thin "on this
+network" line. It works with any switch, including unmanaged ones.
+
 ### Tune it without touching the server
 
-![The Settings tab: scan interval, probe concurrency, history retention, an on/off switch and scan interval per network, and the instant toggles for active ARP, randomised MACs and update checks](docs/settings.png)
+![The Settings tab: scan interval, probe concurrency, history retention, an on/off switch and scan interval per network, the recorded switches, and the instant toggles for active ARP, randomised MACs and update checks](docs/settings.png)
 
 Scan cadence, probe concurrency and history retention are editable from the
 dashboard and applied on the next scan — no restart, no editing a file over SSH.
