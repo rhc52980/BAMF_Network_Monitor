@@ -340,7 +340,8 @@ your subnets and, if configured, the vendor-registry download and your webhook.
 
 The ◑ button in the header opens the theme menu: Dark, Light, Terminal, Amber
 CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
-Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red and Cotton Candy. Your
+Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy and
+Thunderstorm. Your
 choice is remembered in your browser.
 
 Some themes have a little life in them:
@@ -358,6 +359,15 @@ Some themes have a little life in them:
 - **Blueprint**: drawn on grid paper.
 - **Hacker Red**: the header glitches now and then.
 - **Cotton Candy**: a few bubbles drift up.
+- **Thunderstorm**: rain falls behind the page, in gusts that swing its angle,
+  with clouds drifting along the top and splashes along the bottom. Every 20 to
+  60 seconds a forked bolt of lightning cracks across the sky, which brightens
+  softly, and the header shakes with the thunder a moment later. It never
+  flashes the whole screen. The storm follows your network: each device that
+  goes offline makes it heavier and the lightning more frequent, its row
+  flickers like a power cut, and when they're all back the rain eases and a
+  rainbow shows. A new device brings a bolt of lightning. On the Map, sparks run
+  along your cables and offline devices drip.
 
 None of it runs while the tab is in the background. With reduced motion switched
 on in your system settings, it all holds still: Matrix shows a still wall of

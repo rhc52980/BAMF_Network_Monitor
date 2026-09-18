@@ -167,6 +167,12 @@
   [data-theme="hackerred"] *, [data-theme="hackerred"] { font-family:"IBM Plex Mono",monospace !important; }
   [data-theme="hackerred"] .brand h1 { text-shadow:0 0 8px #ff3333; }
 
+  [data-theme="storm"] {
+    --bg:#0e1319; --panel:rgba(24, 32, 43, .88); --panel-2:rgba(33, 44, 58, .92); --line:#2c3a4d;
+    --text:#d7e2ee; --text-dim:#8395aa; --led-on:#6fe3ff; --led-warn:#ffd23f;
+    --led-off:#3a4758; --danger:#ff6b6b; --focus:#9fd8ff; --radius:8px;
+  }
+
   [data-theme="cottoncandy"] {
     --bg:#fdeef7; --panel:#ffffff; --panel-2:#fbe4f2; --line:#f4cbe4;
     --text:#7a4a68; --text-dim:#c48fb3; --led-on:#7ececa; --led-warn:#f7b955;
@@ -1221,6 +1227,50 @@
     .map-svg .pkt, [data-theme="matrix"] .map-svg .pkt { display: none; }
     [data-theme="terminal"] .brand h1::after, .m-intro div::after, .sw-grid, [data-theme="amber"]::after,
     header.hr-glitch, header.hr-glitch .brand h1, [data-theme="matrix"] tr.m-glitch td { animation: none !important; }
+  }
+
+  /* Thunderstorm: rain behind slightly see-through panels, soft lightning, a rumble. */
+  [data-theme="storm"] table, [data-theme="storm"] .feed { background: rgba(14, 19, 25, .9); }
+  [data-theme="storm"] header, [data-theme="storm"] .modal, [data-theme="storm"] .theme-menu,
+  [data-theme="storm"] .row-menu, [data-theme="storm"] .tools-menu { background-color: #18202b; }
+  .st-bg { overflow: hidden; background: linear-gradient(#141b24, #0e1319 60%); }
+  .st-bg canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .st-flash { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, rgba(200, 225, 255, .5), rgba(160, 190, 230, .12) 60%, transparent); opacity: 0; }
+  .st-flash.on { animation: st-flash .7s ease-out 1; }
+  @keyframes st-flash { 0% { opacity: 0; } 12% { opacity: .55; } 30% { opacity: .2; } 45% { opacity: .38; } 100% { opacity: 0; } }
+  .st-cloud {
+    position: absolute; height: 150px; border-radius: 50%; opacity: .55; filter: blur(18px);
+    background: radial-gradient(ellipse at 50% 60%, #3a4a5e, #26313f 55%, transparent 72%);
+    animation: st-drift linear infinite alternate;
+  }
+  @keyframes st-drift { from { transform: translateX(-12vw); } to { transform: translateX(12vw); } }
+  .st-rainbow {
+    position: absolute; left: 5vw; right: 5vw; bottom: -45vw; height: 90vw; border-radius: 50%; opacity: 0;
+    background: radial-gradient(circle at 50% 50%, transparent 54%, rgba(255, 70, 70, .5) 54.5% 56%, rgba(255, 160, 50, .5) 56% 57.5%,
+      rgba(255, 230, 80, .5) 57.5% 59%, rgba(90, 220, 110, .5) 59% 60.5%, rgba(80, 160, 255, .5) 60.5% 62%, rgba(150, 100, 255, .45) 62% 63.5%, transparent 64%);
+  }
+  .st-rainbow.on { animation: st-rainbow 9s ease-in-out 1; }
+  @keyframes st-rainbow { 0% { opacity: 0; } 25%, 70% { opacity: .55; } 100% { opacity: 0; } }
+  header.st-rumble { animation: st-rumble .7s linear 1; }
+  @keyframes st-rumble {
+    0%, 100% { transform: none; } 10% { transform: translate(-2px, 1px); } 25% { transform: translate(2px, -1px); }
+    40% { transform: translate(-1px, 1px); } 60% { transform: translate(1px, 0); } 80% { transform: translate(-1px, 0); }
+  }
+  [data-theme="storm"] tr.st-flicker td { animation: st-flicker 1s steps(1) 1; }
+  @keyframes st-flicker { 0% { opacity: .15; } 15% { opacity: 1; } 30% { opacity: .25; } 45% { opacity: .9; } 60% { opacity: .2; } 100% { opacity: 1; } }
+  /* The Map: a spark runs along a cable now and then, and offline devices drip. */
+  [data-theme="storm"] .map-svg .pkt.st-spark {
+    display: inline; fill: none; stroke: #eef8ff; stroke-width: 2.5; stroke-linecap: round;
+    stroke-dasharray: 8 2000; animation: st-spark 1.2s ease-in 1; filter: drop-shadow(0 0 4px #9fd8ff);
+  }
+  @keyframes st-spark { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -900; } }
+  .map-svg .t-drip { display: none; }
+  [data-theme="storm"] .map-svg .tnode.off .t-drip { display: inline; fill: #7fb8e6; animation: st-drip 2.6s ease-in infinite; }
+  @keyframes st-drip { 0% { transform: translate(0, 0); opacity: 0; } 20% { opacity: .9; } 100% { transform: translate(0, 26px); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .st-cloud, .st-flash.on, .st-rainbow.on, header.st-rumble, [data-theme="storm"] tr.st-flicker td,
+    [data-theme="storm"] .map-svg .tnode.off .t-drip { animation: none !important; }
+    [data-theme="storm"] .map-svg .pkt.st-spark { display: none; }
   }
 
   /* ---- the secret ---- */
@@ -3333,6 +3383,8 @@ function topoNodeEl(m, key, n) {
   title.textContent = tip;
   g.appendChild(title);
   if (n.type === "dev") g.appendChild(svgEl("circle", { r: 26, class: "blink-ring" }));
+  // Hidden unless it's the Thunderstorm theme: an offline device drips.
+  if (n.type === "dev") g.appendChild(svgEl("path", { class: "t-drip", d: "M0 17c-2 3-3 4.5-3 6a3 3 0 0 0 6 0c0-1.5-1-3-3-6z" }));
   g.appendChild(svgEl("rect", { x: -20, y: -20, width: 40, height: 40, rx: 11, class: "t-watch" }));
   g.appendChild(svgEl("rect", { x: -TOPO.T, y: -TOPO.T, width: 2 * TOPO.T, height: 2 * TOPO.T, rx: 8, class: "t-tile shape" }));
   const icon = svgEl("path", { d: TOPO_ICONS[kind] || TOPO_ICONS.device, class: "t-icon", transform: "translate(-12,-12)" });
@@ -5002,6 +5054,10 @@ async function refresh() {
     // For the Matrix glitch: devices that just went offline or moved address.
     const before = new Map(hosts.map(h => [h.id, h]));
     glitchIds = loadedOnce ? incoming.filter(h => { const b = before.get(h.id); return b && ((b.online && !h.online) || b.ip !== h.ip); }).map(h => h.id) : [];
+    const watching = h => !h.ignored && !h.forgotten;
+    wentOffIds = loadedOnce ? incoming.filter(h => { const b = before.get(h.id); return b && watching(h) && b.online && !h.online; }).map(h => h.id) : [];
+    const cameBack = loadedOnce ? incoming.filter(h => { const b = before.get(h.id); return b && !b.online && h.online; }).map(h => h.id) : [];
+    if (wentOffIds.length || cameBack.length) festiveHooks.netChange?.(wentOffIds, cameBack);
     hosts = incoming;
     loadedOnce = true;
     try { feedCache = await loadFeed(); } catch { /* keep old feed */ }
@@ -5144,6 +5200,7 @@ const THEMES = [
   { id: "blueprint",   name: "Blueprint",    sw: ["#0d2b52", "#7fffd4", "#a0d8ff"] },
   { id: "hackerred",   name: "Hacker Red",   sw: ["#0a0000", "#ff3333", "#ff8833"] },
   { id: "cottoncandy", name: "Cotton Candy", sw: ["#fdeef7", "#f47ca0", "#7ececa"] },
+  { id: "storm",       name: "Thunderstorm", sw: ["#0e1319", "#9fd8ff", "#ffd23f"] },
   // Hidden until unlocked: type BAMF anywhere, or tap the logo five times.
   { id: "christmas",   name: "Christmas",    sw: ["#0b1712", "#ff3b3b", "#3ddc6f"], secret: true },
   { id: "halloween",   name: "Halloween",    sw: ["#0f0913", "#ff8c1a", "#8cff4f"], secret: true },
@@ -5233,7 +5290,7 @@ let festiveHooks = {};
 let festiveStops = [];
 let festivePrev = null;
 const THEME_FX = { christmas: (r, sw) => buildChristmas(r, sw), halloween: (r, sw) => buildHalloween(r, sw),
-  matrix: buildMatrix, synthwave: buildSynthwave, hackerred: buildHackerRed, cottoncandy: buildCottonCandy };
+  matrix: buildMatrix, synthwave: buildSynthwave, hackerred: buildHackerRed, cottoncandy: buildCottonCandy, storm: buildStorm };
 const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
@@ -5273,6 +5330,8 @@ window.addEventListener("resize", () => {
 // Hosts changed since the last poll, for the Matrix row glitch: gone offline
 // or moved address. Set by refresh(), used once by the next render.
 let glitchIds = [];
+// Devices that just went offline, for the Thunderstorm's flickering rows.
+let wentOffIds = [];
 
 // Half-width katakana, drawn mirrored, with digits and a few symbols.
 const RAIN_GLYPHS = "ｦｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789Z:.=*+-<>¦|";
@@ -5479,6 +5538,184 @@ function buildCottonCandy(root) {
   };
   bubble();
   festiveTimers.push(setInterval(bubble, 4200));
+}
+
+// Thunderstorm: rain behind the page, forked lightning with a soft flash of
+// the sky and a rumble a moment later, drifting clouds, and splashes along
+// the bottom. The storm follows the network: every device that goes offline
+// makes it heavier and the lightning more frequent, and once they're all back
+// the rain eases and a rainbow shows. The lightning never flashes the screen:
+// one soft brightening, at most every 20 seconds, and none at all under
+// reduced motion.
+function buildStorm(root) {
+  const calm = calmMotion();
+  const bg = document.createElement("div");
+  bg.id = "themeBg";
+  bg.className = "theme-bg st-bg";
+  bg.setAttribute("aria-hidden", "true");
+  bg.innerHTML = `<div class="st-flash"></div><canvas></canvas>
+    <div class="st-cloud" style="top:-40px;left:-10vw;width:48vw;animation-duration:140s"></div>
+    <div class="st-cloud" style="top:-70px;left:40vw;width:60vw;animation-duration:190s;animation-delay:-60s"></div>
+    <div class="st-cloud" style="top:-30px;left:75vw;width:40vw;animation-duration:160s;animation-delay:-110s"></div>
+    <div class="st-rainbow"></div>`;
+  document.body.prepend(bg);
+  const cv = bg.querySelector("canvas"), flash = bg.querySelector(".st-flash"), bow = bg.querySelector(".st-rainbow");
+  const ctx = cv.getContext("2d");
+  const W = innerWidth, H = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.scale(dpr, dpr);
+
+  // How hard it's raining, 0.35 to 1: devices that went offline this session
+  // and haven't come back push it up.
+  const down = new Set();
+  let intensity = .4, hadOutage = false;
+  const MAX = Math.round(Math.min(520, W * H / 2600));
+  const drop = () => ({ x: rnd(-W * .2, W * 1.1), y: rnd(-H, 0), len: rnd(10, 22), v: rnd(11, 17) });
+  const drops = Array.from({ length: MAX }, drop);
+  let wind = -1.5, windTo = -1.5;
+  const splashes = [];
+  let bolt = null;
+
+  const drawRain = n => {
+    ctx.strokeStyle = "rgba(175, 205, 235, .38)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const d = drops[i];
+      ctx.moveTo(d.x, d.y);
+      ctx.lineTo(d.x + wind * d.len / d.v * 1.6, d.y + d.len);
+    }
+    ctx.stroke();
+  };
+
+  if (calm) {
+    // Reduced motion: still streaks, no lightning.
+    drops.forEach(d => { d.y = rnd(0, H); });
+    drawRain(Math.round(MAX * .5));
+    return;
+  }
+
+  const jag = (x, y, x2, y2, rough) => {
+    const pts = [[x, y]];
+    const steps = 10 + Math.floor(Math.random() * 6);
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      pts.push([x + (x2 - x) * t + rnd(-rough, rough), y + (y2 - y) * t + rnd(-rough * .3, rough * .3)]);
+    }
+    pts.push([x2, y2]);
+    return pts;
+  };
+  const strike = (atX) => {
+    if (document.hidden) return;
+    const x = atX ?? rnd(W * .08, W * .92), end = rnd(H * .35, H * .7);
+    const main = jag(x, -10, x + rnd(-120, 120), end, 34);
+    const forks = [];
+    for (let f = 0; f < 1 + Math.floor(Math.random() * 2); f++) {
+      const from = main[3 + Math.floor(Math.random() * (main.length - 6))];
+      forks.push(jag(from[0], from[1], from[0] + rnd(-160, 160), from[1] + rnd(60, 180), 22));
+    }
+    bolt = { paths: [main, ...forks], born: performance.now() };
+    // One soft brightening of the sky, never a white screen.
+    flash.classList.remove("on"); void flash.offsetWidth; flash.classList.add("on");
+    // Thunder follows, later the further away it struck.
+    festiveTimers.push(setTimeout(() => {
+      const hd = document.querySelector("header");
+      if (!hd) return;
+      hd.classList.remove("st-rumble"); void hd.offsetWidth; hd.classList.add("st-rumble");
+    }, rnd(700, 2600)));
+  };
+  // Lightning every 20-60 s in a light storm, more often in a heavy one; never under 20 s.
+  const nextStrike = () => festiveTimers.push(setTimeout(() => { strike(); nextStrike(); },
+    Math.max(20e3, rnd(20e3, 60e3) * (1.45 - intensity))));
+  nextStrike();
+  // Gusts swing the rain's angle.
+  festiveTimers.push(setInterval(() => { windTo = rnd(-4.5, 1.5); }, 6500));
+
+  let raf = 0, last = 0;
+  const frame = now => {
+    raf = requestAnimationFrame(frame);
+    if (now - last < 33) return;
+    last = now;
+    ctx.clearRect(0, 0, W, H);
+    wind += (windTo - wind) * .02;
+    const n = Math.round(MAX * intensity);
+    for (let i = 0; i < n; i++) {
+      const d = drops[i];
+      d.y += d.v; d.x += wind * 1.6;
+      if (d.y > H) {
+        if (Math.random() < .25) splashes.push({ x: d.x, y: H - rnd(2, 8), t: 0 });
+        Object.assign(d, drop(), { y: rnd(-60, 0) });
+      }
+    }
+    drawRain(n);
+    // Splashes: two tiny arcs that grow and fade.
+    ctx.strokeStyle = "rgba(175, 205, 235, .45)";
+    for (let i = splashes.length - 1; i >= 0; i--) {
+      const s = splashes[i];
+      s.t += 1;
+      if (s.t > 7) { splashes.splice(i, 1); continue; }
+      ctx.globalAlpha = 1 - s.t / 7;
+      ctx.beginPath();
+      ctx.arc(s.x - 3, s.y, 1 + s.t * .6, Math.PI * 1.1, Math.PI * 1.6);
+      ctx.moveTo(s.x + 3 + 1 + s.t * .6, s.y);
+      ctx.arc(s.x + 3, s.y, 1 + s.t * .6, Math.PI * 1.9, Math.PI * 1.4, true);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    if (bolt) {
+      const age = now - bolt.born;
+      if (age > 450) bolt = null;
+      else {
+        ctx.save();
+        ctx.globalAlpha = age < 90 ? 1 : 1 - (age - 90) / 360;
+        ctx.shadowColor = "#9fd8ff"; ctx.shadowBlur = 18;
+        bolt.paths.forEach((pts, i) => {
+          ctx.strokeStyle = i ? "rgba(220, 240, 255, .7)" : "#f2faff";
+          ctx.lineWidth = i ? 1.2 : 2.4;
+          ctx.beginPath();
+          pts.forEach(([x, y], j) => j ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+          ctx.stroke();
+        });
+        ctx.restore();
+      }
+    }
+  };
+  raf = requestAnimationFrame(frame);
+  festiveStops.push(() => cancelAnimationFrame(raf));
+
+  // A spark now and then along one of the cables on the Map.
+  festiveTimers.push(setInterval(() => {
+    if (document.hidden) return;
+    const cables = [...document.querySelectorAll(".map-svg .pkt")];
+    if (!cables.length) return;
+    const c = pick(cables);
+    c.classList.remove("st-spark"); void c.getBoundingClientRect(); c.classList.add("st-spark");
+    festiveTimers.push(setTimeout(() => c.classList.remove("st-spark"), 1300));
+  }, 9000));
+
+  festiveHooks.newDevice = () => strike(rnd(W * .55, W * .9));
+  festiveHooks.netChange = (off, back) => {
+    off.forEach(id => down.add(id));
+    const had = down.size;
+    back.forEach(id => down.delete(id));
+    if (off.length) hadOutage = true;
+    intensity = Math.min(1, .4 + .15 * down.size);
+    // Everything that went down is back: the storm eases and a rainbow shows.
+    if (hadOutage && had && !down.size) {
+      hadOutage = false;
+      bow.classList.remove("on"); void bow.offsetWidth; bow.classList.add("on");
+    }
+  };
+  // Rows whose device just went offline flicker like a power cut.
+  festiveHooks.rendered = () => {
+    for (const id of wentOffIds) {
+      const tr = document.querySelector(`tr[data-id="${id}"]`);
+      if (!tr) continue;
+      tr.classList.add("st-flicker");
+      festiveTimers.push(setTimeout(() => tr.classList.remove("st-flicker"), 1000));
+    }
+    wentOffIds = [];
+  };
 }
 
 // Classic multicolour strings repeat their colours in a fixed order.
