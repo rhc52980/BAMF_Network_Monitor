@@ -311,6 +311,10 @@ survive IP changes.
   Amber CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized (dark
   + light), Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy.
   CRT themes get scanlines; each pick triggers a BAMF! splat. Choice persists.
+  There are also two seasonal themes you won't find in the list. They unlock the
+  way a friendly program would: just tell it its name. (On a phone, the logo is
+  listening.) With reduced motion turned on in your system settings, their
+  decorations stay still.
 
 ## Fonts and offline use
 

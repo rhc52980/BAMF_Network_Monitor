@@ -173,6 +173,22 @@
     --led-off:#f4cbe4; --danger:#f47ca0; --focus:#b39ddb; --radius:12px;
   }
 
+  /* ---- secret holiday themes (type BAMF to unlock) ---- */
+  [data-theme="christmas"] {
+    --bg:#0b1712; --panel:#11241a; --panel-2:#173022; --line:#25483a;
+    --text:#f6f1e4; --text-dim:#a8c3b0; --led-on:#3ddc6f; --led-warn:#ffcb3d;
+    --led-off:#35493e; --danger:#ff4d4d; --focus:#ff5f5f; --radius:10px;
+  }
+  [data-theme="christmas"] .brand h1 { color:#ff5f5f; text-shadow:0 0 10px rgba(255,95,95,.55); }
+  [data-theme="christmas"] .brand h1::after { content:" 🎄"; text-shadow:none; }
+  [data-theme="halloween"] {
+    --bg:#0f0913; --panel:#1a1020; --panel-2:#24162c; --line:#3e2749;
+    --text:#f5e9d8; --text-dim:#b39bbd; --led-on:#8cff4f; --led-warn:#ff8c1a;
+    --led-off:#4a3553; --danger:#ff3b6b; --focus:#ff8c1a; --radius:10px;
+  }
+  [data-theme="halloween"] .brand h1 { color:#ff8c1a; text-shadow:0 0 10px rgba(255,140,26,.6); }
+  [data-theme="halloween"] .brand h1::after { content:" 🎃"; text-shadow:none; }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
@@ -951,16 +967,22 @@
     .splat.fade .burst-group { animation: none; opacity: 0; transition: opacity .2s; }
   }
 
+  /* minmax(0, 1fr) and min-width: 0 let a long name shrink to "…" instead
+     of pushing the grid wider than the menu, which made it scroll sideways. */
   .theme-menu {
     position: fixed; z-index: 10000; display: none;
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-    padding: 8px; width: 260px; max-height: 70vh; overflow-y: auto;
+    padding: 8px; width: min(300px, calc(100vw - 16px)); max-height: 70vh; overflow-y: auto; overflow-x: hidden;
     box-shadow: 0 12px 40px rgba(0,0,0,.4);
-    grid-template-columns: 1fr 1fr; gap: 4px;
+    grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px;
+  }
+  .theme-menu .theme-head {
+    grid-column: 1 / -1; font: 600 10.5px "IBM Plex Mono", monospace; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: .08em; padding: 8px 8px 2px;
   }
   .theme-menu.show { display: grid; }
   .theme-item {
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: center; gap: 8px; min-width: 0;
     background: none; border: 1px solid transparent; border-radius: 8px;
     padding: 8px; cursor: pointer; font: inherit; color: var(--text); text-align: left;
   }
@@ -968,7 +990,58 @@
   .theme-item.active { border-color: var(--focus); }
   .theme-item .sw { display: inline-flex; gap: 2px; flex-shrink: 0; }
   .theme-item .sw i { width: 9px; height: 16px; border-radius: 2px; display: block; }
-  .theme-item .tn { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .theme-item .tn { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+  /* ---- holiday decorations: drawn over the page, never in the way ---- */
+  #festive { position: fixed; inset: 0; pointer-events: none; z-index: 45; overflow: hidden; }
+  #festive > svg { position: absolute; overflow: visible; }
+  .xl-wire { fill: none; stroke: #1f3b2c; stroke-width: 1.6; }
+  .xl-cap { fill: #3a3a2e; }
+  .xl .glass { fill: var(--c); filter: drop-shadow(0 0 3px var(--c)); }
+  .xl.twinkle { animation: xl-twinkle var(--d) ease-in-out var(--o) infinite alternate; }
+  .xl.blink { animation: xl-blink var(--d) steps(1) var(--o) infinite; }
+  .xl.spark .glass { fill: #fff; filter: drop-shadow(0 0 8px #fff); }
+  @keyframes xl-twinkle { from { opacity: 1; } to { opacity: .25; } }
+  @keyframes xl-blink { 0% { opacity: 1; } 50% { opacity: .15; } }
+  .orn { animation: orn-swing var(--d) ease-in-out var(--o) infinite alternate; }
+  .orn line { stroke: #c8b98a; stroke-width: 1; }
+  @keyframes orn-swing { from { transform: rotate(-7deg); } to { transform: rotate(7deg); } }
+  .snow { position: absolute; top: -12px; border-radius: 50%; background: #fff; opacity: .7;
+    animation: snow-fall var(--d) linear var(--o) infinite; }
+  @keyframes snow-fall { to { transform: translate(var(--x), 108vh); } }
+  .web line, .web path { stroke: rgba(255,255,255,.2); stroke-width: 1; fill: none; }
+  .spider-wrap { position: absolute; top: -220px; width: 30px; animation: spider-drop 5s ease-in-out infinite alternate; }
+  .spider-thread { position: absolute; left: 14px; top: 0; width: 1px; height: 220px; background: rgba(255,255,255,.35); }
+  @keyframes spider-drop { from { transform: translateY(60px); } to { transform: translateY(170px); } }
+  .pumpkin .face { fill: #ffd23f; animation: pumpkin-flicker 2.4s steps(6) infinite; }
+  @keyframes pumpkin-flicker { 0%, 100% { opacity: 1; } 30% { opacity: .55; } 50% { opacity: .9; } 70% { opacity: .65; } }
+  .bat { position: absolute; left: 0; width: 46px; animation: bat-fly var(--d) linear forwards; }
+  .bat.rtl { animation-name: bat-fly-rtl; }
+  .bat svg { position: static; width: 46px; animation: bat-flap .22s ease-in-out infinite alternate; }
+  .bat path { fill: #0a0508; stroke: #ff8c1a; stroke-width: .6; }
+  @keyframes bat-flap { from { transform: scaleY(1); } to { transform: scaleY(.45); } }
+  @keyframes bat-fly {
+    0% { transform: translate(-60px, 0); } 25% { transform: translate(25vw, -40px); }
+    50% { transform: translate(50vw, 20px); } 75% { transform: translate(75vw, -30px); } 100% { transform: translate(105vw, 10px); }
+  }
+  @keyframes bat-fly-rtl {
+    0% { transform: translate(105vw, 0) scaleX(-1); } 25% { transform: translate(75vw, -40px) scaleX(-1); }
+    50% { transform: translate(50vw, 20px) scaleX(-1); } 75% { transform: translate(25vw, -30px) scaleX(-1); } 100% { transform: translate(-60px, 10px) scaleX(-1); }
+  }
+  .ghost { position: absolute; bottom: -90px; width: 54px; opacity: 0; animation: ghost-rise 11s ease-in-out forwards; }
+  .ghost svg { position: static; width: 54px; }
+  @keyframes ghost-rise {
+    0% { transform: translate(0, 0); opacity: 0; } 15% { opacity: .75; }
+    50% { transform: translate(30px, -45vh); } 85% { opacity: .6; } 100% { transform: translate(-20px, -95vh); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { #festive, #festive * { animation: none !important; } }
+
+  /* ---- the secret ---- */
+  .secret-modal { text-align: center; }
+  .secret-emoji { font-size: 52px; line-height: 1.1; margin-bottom: 6px; animation: secret-pop .6s cubic-bezier(.18,1.4,.4,1); }
+  @keyframes secret-pop { from { transform: scale(.2) rotate(-20deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  .secret-picks { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 12px 0 6px; }
+  .secret-picks button { font-size: 15px; padding: 10px 16px; }
 
   .stat.clickable { cursor: pointer; transition: border-color .15s; }
   .stat.clickable:hover { border-color: var(--focus); }
@@ -1483,6 +1556,23 @@
       <button class="toggle" id="plugFind">Find in list</button>
       <button class="toggle" id="plugCancel">Cancel</button>
       <button class="export-btn" id="plugSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="secretModal" hidden>
+  <div class="modal secret-modal">
+    <div class="secret-emoji" id="secretEmoji">🎁</div>
+    <div class="modal-title" id="secretTitle">You found the secret!</div>
+    <p class="modal-help" id="secretText">
+      Typing BAMF unlocked two holiday themes. They're in the theme menu from now on, under Secret.
+    </p>
+    <div class="secret-picks">
+      <button class="export-btn" data-secret="christmas">🎄 Christmas</button>
+      <button class="export-btn" data-secret="halloween">🎃 Halloween</button>
+    </div>
+    <div class="modal-actions" style="justify-content:center">
+      <button class="toggle" id="secretClose">Maybe later</button>
     </div>
   </div>
 </div>
@@ -4734,7 +4824,11 @@ const THEMES = [
   { id: "blueprint",   name: "Blueprint",    sw: ["#0d2b52", "#7fffd4", "#a0d8ff"] },
   { id: "hackerred",   name: "Hacker Red",   sw: ["#0a0000", "#ff3333", "#ff8833"] },
   { id: "cottoncandy", name: "Cotton Candy", sw: ["#fdeef7", "#f47ca0", "#7ececa"] },
+  // Hidden until unlocked: type BAMF anywhere, or tap the logo five times.
+  { id: "christmas",   name: "Christmas",    sw: ["#0b1712", "#ff3b3b", "#3ddc6f"], secret: true },
+  { id: "halloween",   name: "Halloween",    sw: ["#0f0913", "#ff8c1a", "#8cff4f"], secret: true },
 ];
+function secretUnlocked() { try { return localStorage.getItem("bamf-secret") === "1"; } catch { return false; } }
 
 let themeMenuOpen = false;
 
@@ -4748,7 +4842,17 @@ function buildThemeMenu() {
   }
   menu.innerHTML = "";
   const cur = currentTheme();
+  const unlocked = secretUnlocked();
+  let headed = false;
   for (const t of THEMES) {
+    if (t.secret && !unlocked) continue;
+    if (t.secret && !headed) {
+      const h = document.createElement("div");
+      h.className = "theme-head";
+      h.textContent = "Secret";
+      menu.appendChild(h);
+      headed = true;
+    }
     const item = document.createElement("button");
     item.className = "theme-item" + (t.id === cur ? " active" : "");
     item.innerHTML = `
@@ -4761,10 +4865,10 @@ function buildThemeMenu() {
     };
     menu.appendChild(item);
   }
-  // position under the toggle button
+  // Under the toggle button, kept inside the screen on a narrow one.
   const r = $("themeToggle").getBoundingClientRect();
   menu.style.top = (r.bottom + 8) + "px";
-  menu.style.right = (window.innerWidth - r.right) + "px";
+  menu.style.right = Math.max(8, window.innerWidth - r.right) + "px";
 }
 
 function openThemeMenu() { buildThemeMenu(); $("themeMenu").classList.add("show"); themeMenuOpen = true; }
@@ -4790,7 +4894,221 @@ function applyTheme(theme) {
   // for a browser that blocks storage (private mode, strict site settings).
   try { localStorage.setItem("bamf-theme", theme); } catch {}
   try { window.name = "bamf-theme:" + theme; } catch {}
+  festive(theme);
 }
+
+// ---- holiday decorations ----
+// Drawn in a fixed layer over the page that never takes a click. Christmas:
+// multicoloured bulbs along the top and down both sides, twinkling at random
+// with the odd bright sparkle, ornaments swinging from the top string, and a
+// little snow. Halloween: cobwebs, a spider on its thread, flickering
+// jack-o'-lanterns, and now and then a bat or a ghost. With reduced motion
+// asked for, it all holds still and nothing new flies in.
+let festiveTimers = [];
+let festiveTheme = null;
+const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+function festive(theme) {
+  festiveTimers.forEach(t => { clearInterval(t); clearTimeout(t); });
+  festiveTimers = [];
+  $("festive")?.remove();
+  festiveTheme = theme === "christmas" || theme === "halloween" ? theme : null;
+  if (!festiveTheme) return;
+  const root = document.createElement("div");
+  root.id = "festive";
+  root.setAttribute("aria-hidden", "true");
+  document.body.appendChild(root);
+  if (festiveTheme === "christmas") buildChristmas(root); else buildHalloween(root);
+}
+// The lights are laid out for the window's width and height; redo them when it changes.
+let festiveResize = null;
+window.addEventListener("resize", () => {
+  if (!festiveTheme) return;
+  clearTimeout(festiveResize);
+  festiveResize = setTimeout(() => festive(festiveTheme), 250);
+});
+
+const BULB_COLORS = ["#ff3b3b", "#3ddc6f", "#3fa9ff", "#ffd23f", "#ff8c1a", "#c86bff"];
+function bulbSvg(x, y, angle) {
+  const c = BULB_COLORS[Math.floor(Math.random() * BULB_COLORS.length)];
+  const blink = Math.random() < 0.3;
+  return `<g class="xl ${blink ? "blink" : "twinkle"}" style="--c:${c};--d:${rnd(blink ? 1.2 : .7, blink ? 3.2 : 2.6).toFixed(2)}s;--o:-${rnd(0, 3).toFixed(2)}s"
+    transform="translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${angle})">
+    <rect class="xl-cap" x="-2.6" y="-1" width="5.2" height="4" rx="1"/>
+    <ellipse class="glass" cx="0" cy="8.5" rx="3.7" ry="5.8"/></g>`;
+}
+function buildChristmas(root) {
+  const W = window.innerWidth, H = window.innerHeight, NS = "http://www.w3.org/2000/svg";
+  // The top string: scallops between hooks, bulbs along each scallop.
+  const span = W < 700 ? 120 : 170, sag = 16;
+  let wire = "", bulbs = "", orns = "";
+  for (let x0 = 0, i = 0; x0 < W; x0 += span, i++) {
+    const x1 = x0 + span, cx = (x0 + x1) / 2;
+    wire += `M${x0} 2 Q${cx} ${2 * sag} ${x1} 2 `;
+    const n = Math.max(3, Math.round(span / 34));
+    for (let k = 0; k < n; k++) {
+      const t = (k + .5) / n, u = 1 - t;
+      const bx = u * u * x0 + 2 * u * t * cx + t * t * x1, by = u * u * 2 + 2 * u * t * 2 * sag + t * t * 2;
+      bulbs += bulbSvg(bx, by, Math.round((t - .5) * -40));
+    }
+    // Ornaments hang only over the header's empty middle stretch, clear of the
+    // version chips on the left and the scan status on the right.
+    if (i % 2 === 1 && x1 > W * 0.36 && x1 < W * 0.62) {
+      const len = rnd(16, 30), c = BULB_COLORS[(i * 7) % BULB_COLORS.length];
+      orns += `<g class="orn" style="transform-origin:${x1}px 2px;--d:${rnd(2.2, 3.6).toFixed(2)}s;--o:-${rnd(0, 3).toFixed(2)}s">
+        <line x1="${x1}" y1="2" x2="${x1}" y2="${(2 + len).toFixed(1)}"/>
+        <rect x="${x1 - 2.5}" y="${(len).toFixed(1)}" width="5" height="4" rx="1" fill="#c8b98a"/>
+        <circle cx="${x1}" cy="${(len + 12).toFixed(1)}" r="8.5" fill="${c}"/>
+        <circle cx="${(x1 - 3).toFixed(1)}" cy="${(len + 9).toFixed(1)}" r="2.4" fill="#fff" opacity=".55"/></g>`;
+    }
+  }
+  const top = document.createElementNS(NS, "svg");
+  top.setAttribute("width", W); top.setAttribute("height", 90);
+  top.style.left = "0"; top.style.top = "0";
+  top.innerHTML = `<path class="xl-wire" d="${wire}"/>${orns}${bulbs}`;
+  root.appendChild(top);
+  // Down both sides, a gently wavy string with the bulbs pointing inward.
+  for (const side of ["left", "right"]) {
+    let d = "", b = "";
+    const x = side === "left" ? 7 : 19;
+    for (let y = 30, k = 0; y < H; y += 38, k++) {
+      const wx = x + Math.sin(k) * 3;
+      d += (k ? "L" : "M") + wx.toFixed(1) + " " + y + " ";
+      b += bulbSvg(wx, y, side === "left" ? -90 : 90);
+    }
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("width", 26); svg.setAttribute("height", H);
+    svg.style.top = "0"; svg.style[side] = "0";
+    svg.innerHTML = `<path class="xl-wire" d="${d}"/>${b}`;
+    root.appendChild(svg);
+  }
+  if (calmMotion()) return;
+  // Every so often, one bulb flashes white.
+  const all = [...root.querySelectorAll(".xl")];
+  festiveTimers.push(setInterval(() => {
+    const el = all[Math.floor(Math.random() * all.length)];
+    el.classList.add("spark");
+    setTimeout(() => el.classList.remove("spark"), 160);
+  }, 450));
+  // A little snow.
+  for (let i = 0; i < 26; i++) {
+    const f = document.createElement("div");
+    const size = rnd(2, 5);
+    f.className = "snow";
+    f.style.cssText = `left:${rnd(0, 100).toFixed(1)}vw;width:${size}px;height:${size}px;--d:${rnd(9, 20).toFixed(1)}s;--o:-${rnd(0, 20).toFixed(1)}s;--x:${rnd(-40, 40).toFixed(0)}px`;
+    root.appendChild(f);
+  }
+}
+
+function cobweb(size) {
+  let d = "";
+  const spokes = [0, 15, 30, 45, 60, 75, 90].map(a => a * Math.PI / 180);
+  for (const a of spokes) d += `M0 0 L${(Math.cos(a) * size).toFixed(1)} ${(Math.sin(a) * size).toFixed(1)} `;
+  for (const r of [size * .22, size * .42, size * .64, size * .86]) {
+    spokes.forEach((a, i) => {
+      if (!i) { d += `M${(Math.cos(a) * r).toFixed(1)} ${(Math.sin(a) * r).toFixed(1)} `; return; }
+      const b = spokes[i - 1], m = (a + b) / 2, rr = r * .86;
+      d += `Q${(Math.cos(m) * rr).toFixed(1)} ${(Math.sin(m) * rr).toFixed(1)} ${(Math.cos(a) * r).toFixed(1)} ${(Math.sin(a) * r).toFixed(1)} `;
+    });
+  }
+  return `<path d="${d}"/>`;
+}
+const PUMPKIN = `<svg class="pumpkin" viewBox="0 0 60 52" width="52"><path d="M30 12c-2-6 1-10 6-11" stroke="#4d7a2a" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <ellipse cx="18" cy="31" rx="15" ry="19" fill="#e0680f"/><ellipse cx="42" cy="31" rx="15" ry="19" fill="#e0680f"/><ellipse cx="30" cy="31" rx="14" ry="20" fill="#f07818"/>
+  <path class="face" d="M17 25l6-6 5 6z M33 25l6-6 5 6z M16 34l5 4 4-3 5 4 5-4 4 3 5-4c-2 8-8 12-14 12s-12-4-14-12z"/></svg>`;
+const BAT = `<svg viewBox="0 0 64 28"><path d="M32 10c2-3 2-6 1-8l-1 4-1-4c-1 2-1 5 1 8-6-6-14-9-22-6 4 2 6 5 6 9-4-2-9-2-13 1 5 1 8 4 9 8 3-3 9-4 12-2 2 1 4 4 8 6 4-2 6-5 8-6 3-2 9-1 12 2 1-4 4-7 9-8-4-3-9-3-13-1 0-4 2-7 6-9-8-3-16 0-22 6z"/></svg>`;
+const GHOST = `<svg viewBox="0 0 54 64"><path d="M27 2C13 2 5 13 5 27v33l7-6 7 6 8-6 8 6 7-6 7 6V27C49 13 41 2 27 2z" fill="#f4eefa" opacity=".92"/>
+  <ellipse cx="19" cy="26" rx="4" ry="6" fill="#1a1020"/><ellipse cx="35" cy="26" rx="4" ry="6" fill="#1a1020"/><ellipse cx="27" cy="40" rx="5" ry="3.5" fill="#1a1020"/></svg>`;
+const SPIDER = `<svg viewBox="0 0 30 30" width="30" style="position:absolute;left:0;top:214px"><g stroke="#1a0d1f" stroke-width="1.6" fill="none" stroke-linecap="round">
+  <path d="M15 14L4 6M15 16L2 15M15 18L4 25M15 20L7 29M15 14L26 6M15 16L28 15M15 18L26 25M15 20L23 29"/></g>
+  <circle cx="15" cy="12" r="4" fill="#1a0d1f"/><ellipse cx="15" cy="19" rx="6" ry="7" fill="#1a0d1f"/><circle cx="13.5" cy="11" r="1" fill="#ff3b3b"/><circle cx="16.5" cy="11" r="1" fill="#ff3b3b"/></svg>`;
+
+function buildHalloween(root) {
+  const NS = "http://www.w3.org/2000/svg";
+  // Cobwebs in the top corners.
+  for (const corner of ["left", "right"]) {
+    const w = document.createElementNS(NS, "svg");
+    w.setAttribute("width", 170); w.setAttribute("height", 170);
+    w.setAttribute("class", "web");
+    w.style.top = "0"; w.style[corner] = "0";
+    if (corner === "right") w.style.transform = "scaleX(-1)";
+    w.innerHTML = cobweb(165);
+    root.appendChild(w);
+  }
+  // A spider on its thread.
+  const sp = document.createElement("div");
+  sp.className = "spider-wrap";
+  sp.style.left = rnd(28, 72).toFixed(1) + "vw";
+  sp.innerHTML = `<div class="spider-thread"></div>${SPIDER}`;
+  root.appendChild(sp);
+  // Jack-o'-lanterns in the bottom corners.
+  for (const corner of ["left", "right"]) {
+    const p = document.createElement("div");
+    p.style.cssText = `position:absolute;bottom:6px;${corner}:10px`;
+    p.innerHTML = PUMPKIN;
+    root.appendChild(p);
+  }
+  if (calmMotion()) return;
+  // Now and then, a bat flutters across; less often, a ghost drifts up.
+  const bat = () => {
+    const b = document.createElement("div");
+    b.className = "bat" + (Math.random() < .5 ? " rtl" : "");
+    b.style.cssText = `top:${rnd(12, 60).toFixed(0)}vh;--d:${rnd(7, 12).toFixed(1)}s`;
+    b.innerHTML = BAT;
+    b.addEventListener("animationend", e => { if (e.target === b) b.remove(); });
+    root.appendChild(b);
+    festiveTimers.push(setTimeout(bat, rnd(9000, 26000)));
+  };
+  const ghost = () => {
+    const g = document.createElement("div");
+    g.className = "ghost";
+    g.style.left = rnd(10, 85).toFixed(0) + "vw";
+    g.innerHTML = GHOST;
+    g.addEventListener("animationend", e => { if (e.target === g) g.remove(); });
+    root.appendChild(g);
+    festiveTimers.push(setTimeout(ghost, rnd(30000, 55000)));
+  };
+  festiveTimers.push(setTimeout(bat, 2500));
+  festiveTimers.push(setTimeout(ghost, rnd(12000, 20000)));
+}
+
+// ---- the secret ----
+// Type B-A-M-F anywhere that isn't a text box, or tap the logo five times
+// quickly (for phones), and the holiday themes unlock.
+function revealSecret() {
+  const first = !secretUnlocked();
+  try { localStorage.setItem("bamf-secret", "1"); } catch {}
+  $("secretEmoji").textContent = first ? "🎁" : ["🎄", "🎃", "🦇", "⭐", "👻"][Math.floor(Math.random() * 5)];
+  $("secretTitle").textContent = first ? "You found the secret!" : "Still a secret 🤫";
+  $("secretText").textContent = first
+    ? "BAMF unlocked two holiday themes. They're in the theme menu from now on, under Secret."
+    : "The holiday themes are already yours. Pick one:";
+  $("secretModal").hidden = false;
+  if (first) showSplat();
+}
+function closeSecret() { $("secretModal").hidden = true; }
+let secretTyped = "";
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey || !e.key || e.key.length !== 1) return;
+  const t = e.target;
+  if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+  secretTyped = (secretTyped + e.key.toLowerCase()).slice(-4);
+  if (secretTyped === "bamf") { secretTyped = ""; revealSecret(); }
+});
+let logoTaps = [];
+document.querySelector(".brand h1").addEventListener("click", () => {
+  const now = Date.now();
+  logoTaps = logoTaps.filter(t => now - t < 2500).concat(now);
+  if (logoTaps.length >= 5) { logoTaps = []; revealSecret(); }
+});
+$("secretClose").onclick = closeSecret;
+$("secretModal").onclick = e => { if (e.target.id === "secretModal") closeSecret(); };
+document.querySelectorAll("[data-secret]").forEach(b => b.onclick = () => {
+  applyTheme(b.dataset.secret);
+  closeSecret();
+  showSplat();
+});
 
 // Row density: a class on <html> so the head script can apply it before the
 // first paint, the same way the theme is handled.
@@ -4812,7 +5130,7 @@ renderDensityToggle();
 // before storage was used, then dark. Each read is guarded separately so a
 // browser that throws on storage access still gets a theme.
 (function initTheme() {
-  const valid = t => THEMES.some(x => x.id === t);
+  const valid = t => THEMES.some(x => x.id === t && (!x.secret || secretUnlocked()));
   let saved = null;
   try {
     const t = localStorage.getItem("bamf-theme");
@@ -5120,6 +5438,7 @@ document.addEventListener("keydown", e => {
   if (!$("plugModal").hidden) { closePlugDialog(); return; }
   if (!$("portsModal").hidden) { closePortsDialog(); return; }
   if (!$("typeModal").hidden) { closeTypeDialog(); return; }
+  if (!$("secretModal").hidden) { closeSecret(); return; }
   if (!$("scanModal").hidden) { $("scanModal").hidden = true; return; }
   if (blink) { stopBlink(); return; }
   const openMenu = document.querySelector(".row-menu.show");
