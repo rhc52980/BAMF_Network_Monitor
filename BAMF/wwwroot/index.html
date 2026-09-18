@@ -179,6 +179,12 @@
     --led-off:#9a7a00; --danger:#d00000; --focus:#ff0000; --radius:0px;
   }
 
+  [data-theme="steampunk"] {
+    --bg:#150e08; --panel:rgba(40, 28, 17, .92); --panel-2:rgba(58, 41, 22, .94); --line:#5a4020;
+    --text:#ecd9b0; --text-dim:#a88d63; --led-on:#52c3a4; --led-warn:#e8893a;
+    --led-off:#5a4630; --danger:#d8503a; --focus:#e8b04b; --radius:6px;
+  }
+
   [data-theme="cottoncandy"] {
     --bg:#fdeef7; --panel:#ffffff; --panel-2:#fbe4f2; --line:#f4cbe4;
     --text:#7a4a68; --text-dim:#c48fb3; --led-on:#7ececa; --led-warn:#f7b955;
@@ -1363,6 +1369,107 @@
   @media (prefers-reduced-motion: reduce) {
     [data-theme="hotdog"] .stat::after, .hd-order, .hd-ding, .hd-86, .hd-squig path { animation: none !important; }
     .hd-squig path { stroke-dashoffset: 0; }
+  }
+
+  /* Steampunk: walnut and leather, brass and copper, rivets, gears turning
+     behind the page, and nixie-tube numbers. */
+  [data-theme="steampunk"] body { background: radial-gradient(ellipse at 50% 0%, #2a1d12, #150e08 70%) fixed; }
+  [data-theme="steampunk"] .brand h1, [data-theme="steampunk"] .tab, [data-theme="steampunk"] thead th,
+  [data-theme="steampunk"] .modal-title, [data-theme="steampunk"] .set-card-title, [data-theme="steampunk"] .map-net,
+  [data-theme="steampunk"] .stat .lbl {
+    font-family: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif; letter-spacing: .06em;
+  }
+  [data-theme="steampunk"] thead th, [data-theme="steampunk"] .stat .lbl { text-transform: uppercase; font-size: 11px; }
+  [data-theme="steampunk"] header {
+    background: linear-gradient(#3a2716, #24180d); border-bottom: 0; position: relative;
+    box-shadow: inset 0 -1px 0 #6b4a22;
+  }
+  /* A copper steam pipe under the header, with a joint every so often. */
+  [data-theme="steampunk"] header::after {
+    content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 9px; z-index: 5; pointer-events: none;
+    background:
+      repeating-linear-gradient(90deg, transparent 0 236px, #5b3515 236px 240px, #d99a5a 240px 243px, #5b3515 243px 252px, transparent 252px 260px),
+      linear-gradient(#e0a067, #b87333 35%, #7a4418 80%, #4e2a0e);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, .5);
+  }
+  /* The name on a riveted brass plate. */
+  [data-theme="steampunk"] .brand h1 {
+    color: #2a1a08; text-shadow: 0 1px 0 rgba(255, 230, 170, .6); padding: 5px 16px 4px 15px; border-radius: 4px;
+    background:
+      radial-gradient(circle at 5px 50%, #5b3d18 1.6px, transparent 2.2px),
+      radial-gradient(circle at calc(100% - 5px) 50%, #5b3d18 1.6px, transparent 2.2px),
+      linear-gradient(#f0cf7c, #c99a3f 55%, #9b7128);
+    box-shadow: inset 0 0 0 1px #6b4a1a, 0 2px 3px rgba(0, 0, 0, .5);
+  }
+  /* Rivets in the corners of every panel. */
+  [data-theme="steampunk"] .stat, [data-theme="steampunk"] .map-card, [data-theme="steampunk"] .set-card,
+  [data-theme="steampunk"] .modal {
+    border: 1px solid #8a6a33;
+    box-shadow: inset 0 0 0 1px rgba(255, 214, 140, .08), 0 2px 8px rgba(0, 0, 0, .45);
+    background-image:
+      radial-gradient(circle at 7px 7px, #d9b06a 1.4px, #6b4a1a 2.6px, transparent 3.2px),
+      radial-gradient(circle at calc(100% - 7px) 7px, #d9b06a 1.4px, #6b4a1a 2.6px, transparent 3.2px),
+      radial-gradient(circle at 7px calc(100% - 7px), #d9b06a 1.4px, #6b4a1a 2.6px, transparent 3.2px),
+      radial-gradient(circle at calc(100% - 7px) calc(100% - 7px), #d9b06a 1.4px, #6b4a1a 2.6px, transparent 3.2px);
+  }
+  /* Nixie tubes. */
+  [data-theme="steampunk"] .stat .num { color: #ffb45c; text-shadow: 0 0 4px #ff8c1a, 0 0 12px rgba(255, 106, 0, .7); }
+  [data-theme="steampunk"] .stat.alert .num { color: #ff9b52; }
+  [data-theme="steampunk"] thead th { color: #d9b06a; border-bottom-color: #8a6a33; }
+  [data-theme="steampunk"] .tab.active { background: linear-gradient(#5a3f20, #3b2913); color: #f0cf7c; }
+  [data-theme="steampunk"] table, [data-theme="steampunk"] .feed { background: rgba(21, 14, 8, .82); }
+  /* The next-scan bar: a glass pressure tube filling with glowing amber. */
+  [data-theme="steampunk"] .scan-track {
+    height: 10px; border-radius: 5px; background: rgba(255, 230, 190, .08); padding: 1.5px;
+    box-shadow: inset 0 0 0 1px #b8894a, 0 0 0 2px #3a2716, 0 0 0 3px #8a6a33;
+  }
+  [data-theme="steampunk"] .scan-fill { border-radius: 4px; background: linear-gradient(#ffd27a, #ff9a1f 55%, #c25b00); box-shadow: 0 0 6px #ff8c1a; }
+  /* The Map: copper pipes for cables, brass tiles, a cog on everything running, a top hat on the router. */
+  [data-theme="steampunk"] .map-svg .spoke.cable { stroke: #b87333; stroke-width: 3.2; }
+  [data-theme="steampunk"] .map-svg .t-tile { stroke: #a8823f; }
+  .map-svg .t-cog, .map-svg .t-tophat { display: none; }
+  [data-theme="steampunk"] .map-svg .tnode.dev.on .t-cog { display: inline; }
+  [data-theme="steampunk"] .map-svg .t-tophat { display: inline; }
+  .map-svg .t-cog path { fill: #c99a3f; stroke: #4e3412; stroke-width: .6; transform-box: fill-box; transform-origin: center; animation: sp-turn 6s linear infinite; }
+
+  .sp-bg { overflow: hidden; }
+  .sp-gear { position: absolute; opacity: .2; }
+  .sp-gear svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .sp-gear .spin { transform-box: fill-box; transform-origin: center; animation: sp-turn var(--t) linear infinite; }
+  .sp-gear .spin.rev { animation-direction: reverse; }
+  .sp-gear .kick { transform-box: fill-box; transform-origin: center; }
+  .sp-bg.burst .sp-gear .kick { animation: sp-kick 1.8s cubic-bezier(.2, .9, .3, 1) 1; }
+  .sp-bg.burst .sp-gear .rev .kick { animation-name: sp-kick-rev; }
+  @keyframes sp-turn { to { transform: rotate(360deg); } }
+  @keyframes sp-kick { to { transform: rotate(40deg); } }
+  @keyframes sp-kick-rev { to { transform: rotate(-40deg); } }
+  .sp-airship { position: absolute; top: 9vh; left: 0; width: 220px; opacity: .32; animation: sp-fly 70s linear forwards; }
+  .sp-airship svg { display: block; width: 100%; }
+  .sp-airship .prop { transform-box: fill-box; transform-origin: center; animation: sp-prop .35s linear infinite; }
+  @keyframes sp-fly { from { transform: translate(-240px, 0); } 50% { transform: translate(50vw, 14px); } to { transform: translate(calc(100vw + 40px), -6px); } }
+  @keyframes sp-prop { 50% { transform: scaleY(.2); } }
+  .sp-valve { position: absolute; width: 26px; height: 22px; }
+  .sp-puff { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: rgba(235, 225, 210, .8); filter: blur(1.5px); opacity: 0; animation: sp-puff 2.2s ease-out forwards; }
+  @keyframes sp-puff { 0% { opacity: 0; transform: translate(0, 0) scale(.5); } 15% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx), -60px) scale(3); } }
+  .sp-ticker {
+    position: absolute; right: 0; max-width: 70vw; padding: 7px 22px 7px 16px; color: #2a1a08; white-space: nowrap; overflow: hidden;
+    font: 600 14px "Courier New", Courier, monospace; letter-spacing: .08em; text-transform: uppercase;
+    padding: 11px 22px 11px 16px; box-shadow: 0 3px 8px rgba(0, 0, 0, .5);
+    /* Paper tape, punched along both edges. */
+    background:
+      radial-gradient(circle at 6px 4px, #7a6440 1.5px, transparent 2px) 0 0 / 12px 100% repeat-x,
+      radial-gradient(circle at 6px calc(100% - 4px), #7a6440 1.5px, transparent 2px) 0 0 / 12px 100% repeat-x,
+      #efe2c0;
+    animation: sp-ticker 5.5s ease-in-out forwards;
+  }
+  @keyframes sp-ticker { 0% { transform: translateX(105%); } 14%, 84% { transform: translateX(-24px); } 100% { transform: translateX(105%); } }
+  [data-theme="steampunk"] td.hostname { position: relative; }
+  .sp-hiss { position: absolute; left: 4px; top: 50%; pointer-events: none; font: italic 600 12px Georgia, serif; color: #efe2c0; animation: sp-hiss 1.8s ease-out forwards; }
+  .sp-hiss::before, .sp-hiss::after { content: ""; position: absolute; left: -2px; top: -8px; width: 14px; height: 14px; border-radius: 50%; background: rgba(235, 225, 210, .7); filter: blur(2px); animation: sp-puff 1.8s ease-out forwards; --dx: -10px; }
+  .sp-hiss::after { left: 10px; animation-delay: .2s; --dx: 12px; }
+  @keyframes sp-hiss { 0% { opacity: 0; transform: translateY(-50%) translateX(-6px); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-50%) translateX(14px); } }
+  @media (prefers-reduced-motion: reduce) {
+    .sp-gear .spin, .sp-bg.burst .sp-gear .kick, .map-svg .t-cog path, .sp-ticker, .sp-hiss, .sp-hiss::before, .sp-hiss::after { animation: none !important; }
   }
 
   /* ---- the secret ---- */
@@ -3578,7 +3685,19 @@ function topoNodeEl(m, key, n) {
     hd.textContent = "🌭";
     g.appendChild(hd);
   }
+  // Steampunk: a turning cog on anything running.
+  if (n.type === "dev") {
+    const cog = svgEl("g", { class: "t-cog", transform: "translate(14,-14)" });
+    cog.appendChild(svgEl("path", { d: gearPath(8, 6, 1.8) }));
+    cog.appendChild(svgEl("circle", { r: 1.6, fill: "#2a1d12" }));
+    g.appendChild(cog);
+  }
   if (n.type === "root" || n.isRoot) {
+    // Steampunk: a top hat on the router.
+    const top = svgEl("g", { class: "t-tophat", transform: "translate(0,-17)" });
+    top.appendChild(svgEl("path", { d: "M-15 0h30v-2.5h-30z M-9 -2.5v-14h18v14z", fill: "#3b2a1a", stroke: "#e8c27a", "stroke-width": 1.2 }));
+    top.appendChild(svgEl("rect", { x: -9, y: -7, width: 18, height: 4, fill: "#c2371f" }));
+    g.appendChild(top);
     const hat = svgEl("g", { class: "t-paperhat", transform: "translate(0,-17)" });
     hat.appendChild(svgEl("path", { d: "M-15 0Q-12-13 0-14Q12-13 15 0Z", fill: "#fff", stroke: "#000", "stroke-width": 1.2 }));
     hat.appendChild(svgEl("rect", { x: -15, y: -4, width: 30, height: 4, fill: "#ff0000", stroke: "#000", "stroke-width": 1 }));
@@ -5438,6 +5557,7 @@ const THEMES = [
   { id: "cottoncandy", name: "Cotton Candy", sw: ["#fdeef7", "#f47ca0", "#7ececa"] },
   { id: "storm",       name: "Thunderstorm", sw: ["#0e1319", "#9fd8ff", "#ffd23f"] },
   { id: "hotdog",      name: "Hotdog Stand", sw: ["#ffff00", "#ff0000", "#000000"] },
+  { id: "steampunk",   name: "Steampunk",    sw: ["#150e08", "#c99a3f", "#52c3a4"] },
   // Hidden until unlocked: type BAMF anywhere, or tap the logo five times.
   { id: "christmas",   name: "Christmas",    sw: ["#0b1712", "#ff3b3b", "#3ddc6f"], secret: true },
   { id: "halloween",   name: "Halloween",    sw: ["#0f0913", "#ff8c1a", "#8cff4f"], secret: true },
@@ -5527,7 +5647,7 @@ let festiveHooks = {};
 let festiveStops = [];
 let festivePrev = null;
 const THEME_FX = { christmas: (r, sw) => buildChristmas(r, sw), halloween: (r, sw) => buildHalloween(r, sw),
-  matrix: buildMatrix, synthwave: buildSynthwave, hackerred: buildHackerRed, cottoncandy: buildCottonCandy, storm: buildStorm, hotdog: buildHotdog };
+  matrix: buildMatrix, synthwave: buildSynthwave, hackerred: buildHackerRed, cottoncandy: buildCottonCandy, storm: buildStorm, hotdog: buildHotdog, steampunk: buildSteampunk };
 const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
@@ -6036,6 +6156,123 @@ function buildHotdog(root) {
       s.title = "Diner slang: gone, out of stock. This device just went offline.";
       cell.appendChild(s);
       festiveTimers.push(setTimeout(() => s.remove(), 2900));
+    }
+    wentOffIds = [];
+  };
+}
+
+// Steampunk: brass gears turning behind the page (they lurch forward when a
+// scan finishes), an airship drifting past now and then, steam from the pipe
+// under the header, a telegraph ticker for a new device, and a hiss of steam
+// on the row of a device that goes offline.
+function gearPath(teeth, r, depth) {
+  // Trapezoid teeth round a circle of radius r, depth deep, centred on 0,0.
+  const pts = [], step = Math.PI * 2 / teeth;
+  for (let i = 0; i < teeth; i++) {
+    const a = i * step;
+    for (const [da, rr] of [[-.30, r - depth], [-.18, r], [.18, r], [.30, r - depth]])
+      pts.push([Math.cos(a + da * step * 1.6) * rr, Math.sin(a + da * step * 1.6) * rr]);
+  }
+  return "M" + pts.map(p => p.map(v => v.toFixed(1)).join(" ")).join("L") + "Z";
+}
+function gearSvg(teeth, r, rev, secs) {
+  const hub = r * .28, rim = r - r * .2;
+  const spokes = Array.from({ length: 5 }, (_, i) => {
+    const a = i * Math.PI * 2 / 5;
+    return `M${(Math.cos(a) * hub).toFixed(1)} ${(Math.sin(a) * hub).toFixed(1)}L${(Math.cos(a) * rim * .82).toFixed(1)} ${(Math.sin(a) * rim * .82).toFixed(1)}`;
+  }).join("");
+  return `<svg viewBox="${-r} ${-r} ${2 * r} ${2 * r}"><g class="spin${rev ? " rev" : ""}" style="--t:${secs}s"><g class="kick">
+    <path d="${gearPath(teeth, r, r * .12)}" fill="#b8894a"/>
+    <circle r="${rim * .86}" fill="#5a3d1c"/><path d="${spokes}" stroke="#b8894a" stroke-width="${(r * .09).toFixed(1)}" stroke-linecap="round"/>
+    <circle r="${hub}" fill="#b8894a"/><circle r="${hub * .45}" fill="#2a1d12"/></g></g></svg>`;
+}
+const SP_AIRSHIP = `<svg viewBox="0 0 220 100" aria-hidden="true"><g fill="#c9a36a" stroke="#3a2716" stroke-width="2">
+  <ellipse cx="110" cy="38" rx="92" ry="30"/><path d="M26 38h168M40 20q70-10 140 0M40 56q70 10 140 0" fill="none"/>
+  <path d="M8 38l-6-18 26 8M8 38l-6 18 26-8"/>
+  <path d="M84 66l6 14h40l6-14" fill="#8a6a33"/><rect x="88" y="80" width="44" height="12" rx="3"/>
+  <circle cx="98" cy="86" r="2.5" fill="#ffcc66"/><circle cx="110" cy="86" r="2.5" fill="#ffcc66"/><circle cx="122" cy="86" r="2.5" fill="#ffcc66"/>
+  <rect class="prop" x="202" y="26" width="5" height="24" rx="2"/></g></svg>`;
+
+function buildSteampunk(root) {
+  const calm = calmMotion();
+  const bg = document.createElement("div");
+  bg.id = "themeBg";
+  bg.className = "theme-bg sp-bg";
+  bg.setAttribute("aria-hidden", "true");
+  // Two meshed pairs: bottom left and top right. A gear turns in time with
+  // its tooth count, and each turns against the one it meshes with.
+  const gears = [
+    { t: 24, r: 150, x: -90, y: "calc(100vh - 210px)", rev: false },
+    { t: 12, r: 78, x: 196, y: "calc(100vh - 156px)", rev: true },
+    { t: 18, r: 110, x: "calc(100vw - 150px)", y: 90, rev: true },
+    { t: 10, r: 62, x: "calc(100vw - 250px)", y: 70, rev: false },
+  ];
+  bg.innerHTML = gears.map(g => {
+    const px = v => typeof v === "number" ? v + "px" : v;
+    return `<div class="sp-gear" style="left:${px(g.x)};top:${px(g.y)};width:${2 * g.r}px;height:${2 * g.r}px">${gearSvg(g.t, g.r, g.rev, g.t * 2.5)}</div>`;
+  }).join("");
+  document.body.prepend(bg);
+
+  const pipeY = () => (document.querySelector("header")?.getBoundingClientRect().bottom || 60);
+  // The valve on the pipe, and the steam it lets off.
+  const valveX = Math.round(innerWidth * .5);
+  const valve = document.createElement("div");
+  valve.className = "sp-valve";
+  valve.style.cssText = `left:${valveX}px;top:${pipeY() - 6}px`;
+  valve.innerHTML = `<svg viewBox="0 0 26 22" width="26" height="22"><rect x="10" y="0" width="6" height="10" fill="#8a6a33" stroke="#3a2716"/>
+    <circle cx="13" cy="4" r="7" fill="none" stroke="#c99a3f" stroke-width="2.5"/><path d="M6 4h14M13 -3v14" stroke="#c99a3f" stroke-width="1.6"/></svg>`;
+  root.appendChild(valve);
+  const steam = n => {
+    if (calm || document.hidden) return;
+    for (let i = 0; i < n; i++) {
+      const p = document.createElement("i");
+      p.className = "sp-puff";
+      p.style.cssText = `left:${valveX + 6}px;top:${pipeY() - 12}px;--dx:${rnd(-30, 30).toFixed(0)}px;animation-delay:${(i * .18).toFixed(2)}s`;
+      p.addEventListener("animationend", () => p.remove());
+      root.appendChild(p);
+    }
+  };
+  if (!calm) {
+    festiveTimers.push(setInterval(() => steam(3), 38e3));
+    // An airship drifts past, behind everything.
+    const ship = () => {
+      if (document.hidden) return;
+      const a = document.createElement("div");
+      a.className = "sp-airship";
+      a.innerHTML = SP_AIRSHIP;
+      a.addEventListener("animationend", e => { if (e.target === a) a.remove(); });
+      bg.appendChild(a);
+    };
+    const nextShip = first => festiveTimers.push(setTimeout(() => { ship(); nextShip(false); }, first ? rnd(15e3, 40e3) : rnd(120e3, 240e3)));
+    nextShip(true);
+  }
+
+  // A scan finishes: the gears lurch forward and the valve lets off steam.
+  festiveHooks.scanDone = () => {
+    bg.classList.remove("burst"); void bg.offsetWidth; bg.classList.add("burst");
+    festiveTimers.push(setTimeout(() => bg.classList.remove("burst"), 1900));
+    steam(5);
+  };
+  // A new device: a telegraph ticker tape.
+  festiveHooks.newDevice = h => {
+    if (document.hidden) return;
+    const t = document.createElement("div");
+    t.className = "sp-ticker";
+    t.style.top = (pipeY() + 22) + "px";
+    t.textContent = `⚙ Telegram — new arrival: ${h ? nameOrIp(h) : "unknown device"} — stop`;
+    root.appendChild(t);
+    festiveTimers.push(setTimeout(() => t.remove(), 5600));
+  };
+  // A device goes offline: a hiss of steam on its row.
+  festiveHooks.rendered = () => {
+    for (const id of wentOffIds) {
+      const cell = document.querySelector(`tr[data-id="${id}"] td.hostname`);
+      if (!cell) continue;
+      const s = document.createElement("span");
+      s.className = "sp-hiss";
+      s.textContent = "hsss";
+      cell.appendChild(s);
+      festiveTimers.push(setTimeout(() => s.remove(), 1900));
     }
     wentOffIds = [];
   };
