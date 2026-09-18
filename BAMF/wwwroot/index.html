@@ -637,8 +637,26 @@
   }
   .blink-line { display: flex; align-items: center; gap: 10px; }
   .blink-text { flex: 1; min-width: 0; }
-  .blink-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--led-on); flex: 0 0 auto; }
-  .blink-box.done .blink-dot, .blink-box.err .blink-dot { background: var(--led-off); }
+  /* The dots pulse in step with the switch light: bright while a burst is
+     going out, dim between bursts. */
+  .blink-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--led-off); flex: 0 0 auto; }
+  .blink-on .blink-dot { background: var(--led-on); box-shadow: 0 0 8px var(--led-on); }
+  .blink-box.done .blink-dot, .blink-box.err .blink-dot { background: var(--led-off); box-shadow: none; }
+  .blink-bar {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 450;
+    display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px);
+    background: var(--panel); border: 1px solid var(--focus); border-radius: 999px;
+    padding: 8px 10px 8px 14px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
+  .blink-bar[hidden] { display: none; }
+  /* The device being blinked, on the Map and in the list: a dashed ring for
+     the whole run, filled while each burst goes out. */
+  .map-svg .blink-ring { fill: none; stroke: none; }
+  .map-svg .node.blinking .blink-ring { stroke: var(--focus); stroke-width: 2; stroke-dasharray: 3 3; }
+  .map-svg .node.blink-on .blink-ring { fill: var(--focus); fill-opacity: .35; stroke-width: 2.5; stroke-dasharray: none; }
+  .map-svg .node.blink-on .dot { fill: var(--focus); }
+  tr.blinking td:first-child { box-shadow: inset 3px 0 0 var(--focus); }
+  tr.blink-on td { background: color-mix(in srgb, var(--focus) 16%, transparent); }
   .blink-box.err .blink-text { color: var(--danger); }
   .blink-help { color: var(--text-dim); font-size: 12px; margin-top: 6px; line-height: 1.5; }
   .ports-find { display: flex; gap: 8px; margin-bottom: 8px; }
@@ -1458,6 +1476,11 @@
 
 <div class="toast" id="toast" role="status"></div>
 
+<div class="blink-bar" id="blinkBar" role="status" hidden>
+  <span class="blink-dot"></span><span id="blinkBarText"></span>
+  <button class="toggle" id="blinkBarStop">Stop</button>
+</div>
+
 <script>
 const POLL_MS = 10000;
 
@@ -2218,6 +2241,7 @@ function buildClusterSvg(c) {
       g.appendChild(svgEl("circle", { r: MAP.SPECIAL_R, class: "shape self-shape" }));
       g.appendChild(svgEl("circle", { r: 4, class: "self-core" }));
     } else {
+      g.appendChild(svgEl("circle", { r: MAP.NODE_R + 8, class: "blink-ring" }));
       g.appendChild(svgEl("circle", { r: MAP.NODE_R + 4, class: "watch" }));
       g.appendChild(svgEl("circle", { r: MAP.NODE_R, class: "shape dot" }));
     }
@@ -2864,7 +2888,7 @@ function syncPlugPort(current) {
   $("plugPortRow").style.display = sw ? "" : "none";
   if (sw) fillPortSelect($("plugPort"), sw, current, { hostId: plugHost?.id });
 }
-function closePlugDialog() { $("plugModal").hidden = true; plugHost = null; stopBlink(); }
+function closePlugDialog() { $("plugModal").hidden = true; plugHost = null; blinkTick(); }
 async function savePlugDialog() {
   const h = plugHost;
   if (!h) return;
@@ -3012,67 +3036,139 @@ async function deleteSwitchDialog() {
 // ---- Find port ----
 // BAMF sends the device bursts of traffic, a second on and a second off, so
 // its switch-port light pulses in a rhythm the user can pick out. The server
-// runs the pattern; this only starts it, counts down, and stops it.
-let blinkTimer = null;
-let blinkBoxId = null;
+// runs the bursts on a fixed schedule - on for [2k, 2k+1) seconds after it
+// started - and reports that start, so every open dashboard pulses the same
+// device in step with the light: its Map dot, its row, and the dots here,
+// with no message per burst. Closing a dialog leaves the blink running, with
+// a floating bar to stop it, so the Map can be watched while it runs.
+let blink = null;        // { hostId, started, until } in server milliseconds, or null
+let blinkOffset = 0;     // the server's clock minus this browser's, in ms
+let blinkBoxId = null;   // the dialog box showing this blink's countdown, if any
+let blinkTicker = null;
+
+function serverNow() { return Date.now() + blinkOffset; }
+
+function setBlink(b, serverTime) {
+  if (serverTime) blinkOffset = new Date(serverTime).getTime() - Date.now();
+  blink = { hostId: b.hostId, started: new Date(b.started).getTime(), until: new Date(b.until).getTime() };
+  if (!blinkTicker) blinkTicker = setInterval(blinkTick, 100);
+  blinkTick();
+}
+
+// "on" while a burst is going out, "off" between bursts, null when none runs.
+function blinkPhase() {
+  if (!blink) return null;
+  const t = serverNow() - blink.started;
+  if (t < 0 || serverNow() >= blink.until) return null;
+  return Math.floor(t / 1000) % 2 === 0 ? "on" : "off";
+}
+
+function blinkTick() {
+  if (blink && serverNow() >= blink.until) finishBlink();
+  const phase = blinkPhase();
+  const id = blink && phase ? String(blink.hostId) : null;
+  document.querySelectorAll(".blinking").forEach(e => {
+    if (e.getAttribute("data-id") !== id) e.classList.remove("blinking", "blink-on");
+  });
+  if (id) {
+    document.querySelectorAll(`.map-svg .node.dev[data-id="${id}"], tr[data-id="${id}"]`).forEach(e => {
+      e.classList.add("blinking");
+      e.classList.toggle("blink-on", phase === "on");
+    });
+  }
+  const host = blink ? hosts.find(h => h.id === blink.hostId) : null;
+  const left = blink ? Math.max(0, Math.ceil((blink.until - serverNow()) / 1000)) : 0;
+  const name = host ? nameOrIp(host) : "a device";
+  const msg = `Pulsing ${name}'s port light — ${left} s left` + (host && !host.online ? " (it's offline, so it may not show)" : "");
+  let boxShown = false;
+  if (blinkBoxId && blink) {
+    const box = $(blinkBoxId);
+    box.querySelector(".blink-text").textContent = msg;
+    box.classList.toggle("blink-on", phase === "on");
+    boxShown = !box.closest(".modal-backdrop").hidden;
+  }
+  // The floating bar covers every other case: the dialog closed to watch the
+  // Map, or a blink started from another browser.
+  const bar = $("blinkBar");
+  bar.hidden = !blink || boxShown;
+  if (blink) {
+    $("blinkBarText").textContent = msg;
+    bar.classList.toggle("blink-on", phase === "on");
+  }
+}
+
+function finishBlink(msg) {
+  const host = blink ? hosts.find(h => h.id === blink.hostId) : null;
+  blink = null;
+  if (blinkTicker) { clearInterval(blinkTicker); blinkTicker = null; }
+  if (blinkBoxId) {
+    const box = $(blinkBoxId);
+    box.classList.remove("blink-on");
+    box.classList.add("done");
+    box.querySelector(".blink-text").textContent = msg ||
+      `Finished. Didn't spot it? Run it again${host && !host.online ? ", though the device is offline, so nothing may reach it" : ""}.`;
+    box.querySelector(".blink-stop").hidden = true;
+    blinkBoxId = null;
+  }
+  blinkTick();
+}
+
+function stopBlink() {
+  if (!blink) return;
+  fetch("/api/blink", { method: "DELETE" }).catch(() => {});
+  finishBlink("Stopped.");
+}
+
+// What /api/hosts says is running. A poll answered just before a blink we
+// started here can't know about it yet, so a brand-new blink isn't ended by it.
+function syncBlink(b, serverTime) {
+  if (b) {
+    if (!blink || blink.hostId !== b.hostId || blink.started !== new Date(b.started).getTime()) setBlink(b, serverTime);
+  } else if (blink && serverNow() > blink.started + 3000) {
+    finishBlink();
+  }
+}
+
 function resetBlinkBox(id) {
+  if (blinkBoxId === id) blinkBoxId = null;
   const box = $(id);
   box.hidden = true;
   box.className = "blink-box";
   box.innerHTML = "";
+  blinkTick();
 }
-function stopBlink() {
-  if (blinkTimer) { clearInterval(blinkTimer); blinkTimer = null; }
-  if (blinkBoxId) {
-    blinkBoxId = null;
-    fetch("/api/blink", { method: "DELETE" }).catch(() => {});
-  }
-}
+
 async function startBlink(host, boxId) {
-  stopBlink();
+  if (blinkBoxId && blinkBoxId !== boxId) resetBlinkBox(blinkBoxId);
   const box = $(boxId);
   box.className = "blink-box";
   box.innerHTML = `
     <div class="blink-line"><span class="blink-dot"></span><span class="blink-text">Starting…</span>
       <button class="toggle blink-stop">Stop</button></div>
-    <div class="blink-help">Look at the switch for a port light pulsing on and off once a second.
-      The port this BAMF machine is plugged into, and any cable towards the router or another
-      switch, pulse too because the traffic passes through them: ignore those. A Wi-Fi device
-      pulses its access point's port instead.</div>`;
+    <div class="blink-help">Look at the switch for a port light pulsing on and off once a second,
+      in step with the dot here. The device's dot on the Map and its row in the list pulse with
+      it, so you can close this and watch the Map; the blink keeps going until it ends or you
+      press Stop. The port this BAMF machine is plugged into, and any cable towards the router or
+      another switch, pulse too because the traffic passes through them: ignore those. A Wi-Fi
+      device pulses its access point's port instead.</div>`;
   box.hidden = false;
-  const text = box.querySelector(".blink-text");
-  const stopBtn = box.querySelector(".blink-stop");
-  const finish = (msg, cls) => {
-    if (blinkTimer) { clearInterval(blinkTimer); blinkTimer = null; }
-    box.classList.add(cls);
-    text.textContent = msg;
-    stopBtn.hidden = true;
-  };
-  stopBtn.onclick = () => { stopBlink(); finish("Stopped.", "done"); };
+  box.querySelector(".blink-stop").onclick = stopBlink;
   blinkBoxId = boxId;
+  const fail = msg => {
+    if (blinkBoxId === boxId) blinkBoxId = null;
+    box.classList.add("err");
+    box.querySelector(".blink-text").textContent = msg;
+    box.querySelector(".blink-stop").hidden = true;
+  };
   try {
     const r = await fetch(`/api/hosts/${host.id}/blink`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seconds: 30 }),
     });
     const d = await r.json().catch(() => ({}));
-    if (!r.ok) { blinkBoxId = null; finish(d.error || "Couldn't start (HTTP " + r.status + ").", "err"); return; }
-    const until = new Date(d.until).getTime();
-    const name = nameOrIp(host);
-    const tick = () => {
-      if (blinkBoxId !== boxId) return;
-      const left = Math.round((until - Date.now()) / 1000);
-      if (left <= 0) {
-        blinkBoxId = null;
-        finish(`Finished. Didn't spot it? Run it again${host.online ? "" : ", though the device is offline, so nothing may reach it"}.`, "done");
-        return;
-      }
-      text.textContent = `Pulsing ${name}'s port light — ${left} s left` + (host.online ? "" : " (it's offline, so it may not show)");
-    };
-    tick();
-    blinkTimer = setInterval(tick, 500);
+    if (!r.ok) { fail(d.error || "Couldn't start (HTTP " + r.status + ")."); return; }
+    setBlink({ hostId: d.hostId, started: d.started, until: d.until }, d.serverTime);
   } catch {
-    blinkBoxId = null;
-    finish("Couldn't reach BAMF.", "err");
+    fail("Couldn't reach BAMF.");
   }
 }
 
@@ -3171,7 +3267,7 @@ function markPortDuplicates() {
   sels.forEach(s => s.classList.toggle("dup", s.value !== "0" && count.get(s.value) > 1));
   return sels;
 }
-function closePortsDialog() { $("portsModal").hidden = true; portsSwitch = null; stopBlink(); }
+function closePortsDialog() { $("portsModal").hidden = true; portsSwitch = null; blinkTick(); }
 async function savePortsDialog() {
   const sw = portsSwitch;
   if (!sw) return;
@@ -3297,6 +3393,7 @@ async function refresh() {
     subnetNextDue = data.subnetNextDue || {};
     networkPlaces = data.networkPlaces || {};
     switches = data.switches || [];
+    syncBlink(data.blink, data.serverTime);
     activeArp = data.activeArp || activeArp;
     autoIgnoreRandom = !!data.autoIgnoreRandom;
     updateInfo = data.update || null;
@@ -3814,6 +3911,7 @@ $("swName").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); save
 $("swAdd").onclick = () => openSwitchDialog(null);
 $("plugFind").onclick = () => { const h = plugHost; closePlugDialog(); if (h) jumpToHost(h.id); };
 $("plugBlinkBtn").onclick = () => { if (plugHost) startBlink(plugHost, "plugBlink"); };
+$("blinkBarStop").onclick = stopBlink;
 $("portsFindBtn").onclick = () => {
   const h = hosts.find(x => x.id === Number($("portsFindHost").value));
   if (h) startBlink(h, "portsBlink");
@@ -3845,6 +3943,7 @@ document.addEventListener("keydown", e => {
   if (!$("plugModal").hidden) { closePlugDialog(); return; }
   if (!$("portsModal").hidden) { closePortsDialog(); return; }
   if (!$("scanModal").hidden) { $("scanModal").hidden = true; return; }
+  if (blink) { stopBlink(); return; }
   const openMenu = document.querySelector(".row-menu.show");
   if (openMenu) { openMenu.classList.remove("show"); return; }
   if (toolsOpen) { toolsOpen = false; $("toolsMenu").classList.remove("show"); return; }

@@ -32,24 +32,32 @@ public class PortBlinker
     public PortBlinker(ILogger<PortBlinker> log) => _log = log;
 
     public long? ActiveHostId { get; private set; }
+    public DateTime? ActiveStartedUtc { get; private set; }
     public DateTime? ActiveUntilUtc { get; private set; }
 
-    /// <summary>Starts blinking, replacing any blink already running.</summary>
-    public DateTime Start(long hostId, IPAddress ip, int seconds)
+    /// <summary>
+    /// Starts blinking, replacing any blink already running. Bursts run on a
+    /// fixed schedule from the returned start time - on for [2k, 2k+1) seconds,
+    /// off for [2k+1, 2k+2) - so the dashboard can pulse in step with the
+    /// switch light from nothing more than the start time.
+    /// </summary>
+    public (DateTime Started, DateTime Until) Start(long hostId, IPAddress ip, int seconds)
     {
         seconds = Math.Clamp(seconds, 5, MaxSeconds);
-        var until = DateTime.UtcNow.AddSeconds(seconds);
+        var started = DateTime.UtcNow;
+        var until = started.AddSeconds(seconds);
         CancellationTokenSource cts;
         lock (_lock)
         {
             _cts?.Cancel();
             cts = _cts = new CancellationTokenSource(TimeSpan.FromSeconds(seconds));
             ActiveHostId = hostId;
+            ActiveStartedUtc = started;
             ActiveUntilUtc = until;
         }
         _log.LogInformation("Blinking the switch port of {Ip} for {Seconds} s", ip, seconds);
-        _ = Task.Run(() => RunAsync(ip, cts));
-        return until;
+        _ = Task.Run(() => RunAsync(ip, started, cts));
+        return (started, until);
     }
 
     public void Stop()
@@ -59,11 +67,12 @@ public class PortBlinker
             _cts?.Cancel();
             _cts = null;
             ActiveHostId = null;
+            ActiveStartedUtc = null;
             ActiveUntilUtc = null;
         }
     }
 
-    private async Task RunAsync(IPAddress ip, CancellationTokenSource cts)
+    private async Task RunAsync(IPAddress ip, DateTime started, CancellationTokenSource cts)
     {
         var ct = cts.Token;
         var payload = new byte[PayloadBytes];
@@ -71,10 +80,15 @@ public class PortBlinker
         try
         {
             using var udp = new UdpClient(ip.AddressFamily);
-            while (!ct.IsCancellationRequested)
+            // Each burst is timed from the start, not from the end of the last
+            // one, so small delays never add up and the rhythm stays in step
+            // with the dashboard for the whole run.
+            for (var k = 0; !ct.IsCancellationRequested; k++)
             {
-                // One second on...
-                var onUntil = DateTime.UtcNow.AddSeconds(1);
+                var onFrom = started.AddSeconds(2 * k);
+                var onUntil = onFrom.AddSeconds(1);
+                var wait = onFrom - DateTime.UtcNow;
+                if (wait > TimeSpan.Zero) await Task.Delay(wait, ct);
                 while (DateTime.UtcNow < onUntil && !ct.IsCancellationRequested)
                 {
                     for (var i = 0; i < PacketsPerTick; i++)
@@ -84,8 +98,6 @@ public class PortBlinker
                     }
                     await Task.Delay(10, ct);
                 }
-                // ...one second off.
-                await Task.Delay(1000, ct);
             }
         }
         catch (OperationCanceledException) { }
@@ -98,6 +110,7 @@ public class PortBlinker
                 {
                     _cts = null;
                     ActiveHostId = null;
+                    ActiveStartedUtc = null;
                     ActiveUntilUtc = null;
                 }
             }

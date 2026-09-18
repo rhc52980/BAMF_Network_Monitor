@@ -645,7 +645,7 @@ scan, or delete a thing.
 | DELETE | `/api/switches/{id}` | Delete a switch. Devices recorded on it go back to unrecorded; switches plugged into it lose that uplink |
 | POST | `/api/switches/{id}/ports` | Body `{"ports": [{"hostId": 3, "port": 1}, {"hostId": 4, "port": 2}]}` — set everything on one switch at once. Hosts listed are placed on it (moving off any other switch; `port` 0 = not recorded), and hosts on it that aren't listed come off it |
 | POST | `/api/hosts/{id}/blink` | Body `{"seconds": 30}` (optional, 5–60) — "Find port": send the device bursts of UDP traffic, one second on and one second off, so its switch-port light pulses. Private addresses only; replaces any blink already running. Returns `until` |
-| DELETE | `/api/blink` | Stop a running Find port blink |
+| DELETE | `/api/blink` | Stop a running Find port blink. While one runs, `GET /api/hosts` reports it as `blink` (`hostId`, `started`, `until`) with the server's `serverTime`; bursts are on for [2k, 2k+1) seconds after `started` |
 | POST | `/api/hosts/{id}/plug` | Body `{"switchId": 1, "port": 3}` — record which switch port a device is plugged into. `switchId` 0 clears it; `port` 0 means "port not recorded". `GET /api/hosts` returns each host's `switchId` and `switchPort`, and the layout as `switches` |
 
 ## Device links and port check
@@ -866,7 +866,17 @@ through them. And a Wi-Fi device pulses its access point's port. This works on
 any switch with activity lights, unmanaged ones included, and needs no switch
 password. It's small UDP packets to the device's discard port (9), a few hundred
 a second, and only while a Find port is running. Only devices on a private
-address can be blinked, one at a time, and closing the dialog stops it.
+address can be blinked, one at a time.
+
+**The dashboard pulses in step.** The bursts run on a fixed schedule from the
+moment the blink starts, and BAMF tells every open dashboard when that was. So
+while the switch light pulses, the device's dot on the Map gets a ring that
+fills on each burst, its row in the list pulses the same way, and so does the
+dot next to the countdown. Look from the switch to the screen, and if they
+pulse together, you're looking at the right port. Closing the dialog leaves
+the blink running so you can watch the Map. A small bar at the bottom of the
+screen keeps the countdown and a **Stop** button, and Esc stops it too. A blink
+started from another browser, like your phone, pulses here as well.
 
 On the map, switches sit inside the ring, and every device you've recorded sits
 in its switch's arc in port order, joined by a heavier **cable** line. Devices

@@ -119,7 +119,7 @@ app.UseStaticFiles();
 
 // ---------- API ----------
 
-app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker updates) =>
+app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker updates, PortBlinker blinker) =>
 {
     var linkTemplate = app.Configuration["Bamf:DeviceLinkTemplate"];
     var placements = store.GetPlacements();
@@ -187,6 +187,13 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         networkPlaces = scanner.NetworkPlaces(),
         // The switch layout as the user described it. Not discovered: see HostStore.Switches.cs.
         switches = store.GetSwitches().Select(SwitchJson),
+        // A running "Find port", so every open dashboard pulses the device in
+        // step with its switch light; serverTime lets a browser whose clock
+        // differs line itself up. Bursts are on for [2k, 2k+1) s after started.
+        blink = blinker.ActiveHostId is long bh && blinker.ActiveStartedUtc is DateTime bs && blinker.ActiveUntilUtc is DateTime bu
+            ? new { hostId = bh, started = bs.ToString("o"), until = bu.ToString("o") }
+            : null,
+        serverTime = DateTime.UtcNow.ToString("o"),
         hosts,
     });
 });
@@ -801,8 +808,12 @@ app.MapPost("/api/hosts/{id:long}/blink", (long id, BlinkRequest? body, HostStor
     if (host is null) return Results.NotFound();
     if (!System.Net.IPAddress.TryParse(host.Ip, out var ip) || !IsPrivateAddress(ip))
         return Results.BadRequest(new { error = "Only devices on a private address can be blinked." });
-    var until = blinker.Start(id, ip, body?.Seconds ?? PortBlinker.DefaultSeconds);
-    return Results.Json(new { ok = true, ip = host.Ip, until = until.ToString("o") });
+    var (started, until) = blinker.Start(id, ip, body?.Seconds ?? PortBlinker.DefaultSeconds);
+    return Results.Json(new
+    {
+        ok = true, hostId = id, ip = host.Ip,
+        started = started.ToString("o"), until = until.ToString("o"), serverTime = DateTime.UtcNow.ToString("o"),
+    });
 });
 
 app.MapDelete("/api/blink", (PortBlinker blinker) =>
