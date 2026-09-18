@@ -49,6 +49,7 @@ builder.Services.AddSingleton(sp => new UpdateChecker(
     sp.GetRequiredService<ILogger<UpdateChecker>>(),
     version));
 builder.Services.AddSingleton<MdnsListener>();
+builder.Services.AddSingleton<PortBlinker>();
 builder.Services.AddSingleton<ScannerService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ScannerService>());
 builder.Services.AddHttpClient();
@@ -791,6 +792,25 @@ app.MapPost("/api/switches/{id:long}/ports", (long id, SwitchPortsRequest body, 
     return error is null ? Results.Ok() : Results.BadRequest(new { error });
 });
 
+// "Find port": pulse a device's switch-port light so the user can see which
+// port it's on. On demand, one device at a time, known private hosts only -
+// the same boundary as the port checks, since the dashboard may have no password.
+app.MapPost("/api/hosts/{id:long}/blink", (long id, BlinkRequest? body, HostStore store, PortBlinker blinker) =>
+{
+    var host = store.GetAll().FirstOrDefault(h => h.Id == id);
+    if (host is null) return Results.NotFound();
+    if (!System.Net.IPAddress.TryParse(host.Ip, out var ip) || !IsPrivateAddress(ip))
+        return Results.BadRequest(new { error = "Only devices on a private address can be blinked." });
+    var until = blinker.Start(id, ip, body?.Seconds ?? PortBlinker.DefaultSeconds);
+    return Results.Json(new { ok = true, ip = host.Ip, until = until.ToString("o") });
+});
+
+app.MapDelete("/api/blink", (PortBlinker blinker) =>
+{
+    blinker.Stop();
+    return Results.Ok();
+});
+
 // Switch 0 clears the placement; port 0 means "on this switch, port not recorded".
 app.MapPost("/api/hosts/{id:long}/plug", (long id, PlugRequest body, HostStore store) =>
 {
@@ -859,6 +879,7 @@ record NoteRequest(string? Note);
 record LinkRequest(string? Link);
 record PlugRequest(long SwitchId, int Port);
 record PortEntry(long HostId, int Port);
+record BlinkRequest(int? Seconds);
 record SwitchPortsRequest(List<PortEntry>? Ports);
 record WebhookRequest(string? Url, string? Format);
 record IgnoreRequest(bool Ignored);

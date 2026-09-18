@@ -644,6 +644,8 @@ scan, or delete a thing.
 | POST | `/api/switches/{id}` | Same body — update a switch. Refuses loops and ports that would strand recorded devices |
 | DELETE | `/api/switches/{id}` | Delete a switch. Devices recorded on it go back to unrecorded; switches plugged into it lose that uplink |
 | POST | `/api/switches/{id}/ports` | Body `{"ports": [{"hostId": 3, "port": 1}, {"hostId": 4, "port": 2}]}` — set everything on one switch at once. Hosts listed are placed on it (moving off any other switch; `port` 0 = not recorded), and hosts on it that aren't listed come off it |
+| POST | `/api/hosts/{id}/blink` | Body `{"seconds": 30}` (optional, 5–60) — "Find port": send the device bursts of UDP traffic, one second on and one second off, so its switch-port light pulses. Private addresses only; replaces any blink already running. Returns `until` |
+| DELETE | `/api/blink` | Stop a running Find port blink |
 | POST | `/api/hosts/{id}/plug` | Body `{"switchId": 1, "port": 3}` — record which switch port a device is plugged into. `switchId` 0 clears it; `port` 0 means "port not recorded". `GET /api/hosts` returns each host's `switchId` and `switchPort`, and the layout as `switches` |
 
 ## Device links and port check
@@ -850,6 +852,21 @@ new switch opens its Ports dialog as soon as you add it.
 For one device at a time, **click it on the map**, or use **Plugged into…** in
 its ⋯ menu, to pick its switch and port. **Find in list** in that dialog jumps
 to the device.
+
+**Don't know which port it's on?** Use **Find port** in the Plugged into dialog,
+**Find port…** in the device's ⋯ menu, or the picker at the top of a switch's
+Ports dialog. For 30 seconds BAMF sends that device bursts of traffic, one
+second on and one second off. A switch sends a device's traffic only out of
+that device's own port, so its activity light pulses in a steady rhythm you
+can spot against normal flicker. Pick that port and save.
+
+Two things to know. The port BAMF's own machine is plugged into, and any cable
+towards the router or another switch, pulse too, because the traffic passes
+through them. And a Wi-Fi device pulses its access point's port. This works on
+any switch with activity lights, unmanaged ones included, and needs no switch
+password. It's small UDP packets to the device's discard port (9), a few hundred
+a second, and only while a Find port is running. Only devices on a private
+address can be blinked, one at a time, and closing the dialog stops it.
 
 On the map, switches sit inside the ring, and every device you've recorded sits
 in its switch's arc in port order, joined by a heavier **cable** line. Devices
