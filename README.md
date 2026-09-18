@@ -91,11 +91,12 @@ optional daily update check you have to switch on, and your own webhook.
 
 ### See how it's laid out
 
-![The Map tab as a network diagram: the gateway at the top with BAMF beside it, two recorded switches below it with their devices listed in port order and each port's location, an icon for each kind of device, and the Wi-Fi devices in an "On this network" box](docs/map.png)
+![The Map tab as a network diagram: the home router at the top with a device on its own port and BAMF beside it, a 16-port switch on the router's port 1 with its devices in port order and each port's location, an access point with its Wi-Fi clients, an office switch chained further along, and an icon for each kind of device](docs/map.png)
 
-The **Map** draws each network as a diagram: the router at the top, your
-switches under it, each switch's devices in port order with where the cable
-goes (`6 · Living Room`), and an icon for each kind of device. Cabling isn't
+The **Map** draws each network as a diagram: your router at the top with its own
+ports, your switches and access points under it, each one's devices in port
+order with where the cable goes (`6 · Living Room`), and an icon for each kind
+of device. Cabling isn't
 something ARP can see, so BAMF doesn't guess it. Record your switches under
 **Settings → Switches**, or just drag a device onto a switch on the map, and
 the map draws it as a cable. Anything you haven't recorded, like the Wi-Fi
