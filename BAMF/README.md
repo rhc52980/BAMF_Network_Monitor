@@ -993,8 +993,9 @@ ask them.
 ## Setting a device's type and icon
 
 BAMF's device type is a guess, and so is the icon the Map draws from it. To
-overrule it, use **Type / icon…** in a device's ⋯ menu, or in the dialog you get
-by clicking it on the Map. Pick from Router, Switch, Access point, Camera,
+overrule it, click the device's **icon** on the topology Map (clicking its name
+still opens Plugged into; with the device focused, **T** does the same), or use
+**Type / icon…** in its ⋯ menu. Pick from Router, Switch, Access point, Camera,
 Printer, TV / media, Speaker, Phone, Tablet, Laptop, Desktop, Server, NAS,
 Virtual machine, Game console, Smart home, Light, Smart plug or Other.
 **Automatic** goes back to the guess.
