@@ -617,6 +617,54 @@
   }
   .home-wrap { padding: 8px 24px 32px; }
   .home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+
+  /* Network map. One card per network; the drawing scales with its viewBox,
+     so a card never scrolls sideways. */
+  .map-wrap { padding: 4px 24px 32px; }
+  .map-note { color: var(--text-dim); font-size: 12.5px; line-height: 1.55; margin: 8px 0 10px; max-width: 900px; }
+  .map-note strong { color: var(--text); font-weight: 600; }
+  .map-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; margin-bottom: 14px;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim); }
+  .map-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .map-legend svg { width: 16px; height: 16px; overflow: visible; }
+  .map-clusters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 14px; }
+  .map-clusters.single { grid-template-columns: minmax(0, 1fr); max-width: 900px; }
+  .map-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px 8px; min-width: 0; }
+  .map-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+  .map-net { color: var(--text); font-weight: 600; }
+  .map-cnt { color: var(--text-dim); }
+  .map-tag { margin-left: auto; color: var(--text-dim); font-size: 11px; }
+  .map-empty { color: var(--text-dim); font-size: 13px; padding: 28px 4px; text-align: center; }
+  .map-svg { display: block; width: 100%; height: auto; }
+  .map-svg .spoke { stroke: var(--line); stroke-width: 1; }
+  .map-svg .spoke.off { stroke-dasharray: 3 3; }
+  .map-svg .hub { fill: var(--panel-2); stroke: var(--line); stroke-width: 1.5; }
+  .map-svg .hub-txt { font: 600 11px "IBM Plex Mono", monospace; fill: var(--text); text-anchor: middle; dominant-baseline: central; }
+  .map-svg .node { cursor: pointer; }
+  .map-svg .node:focus { outline: none; }
+  .map-svg .dot { fill: var(--led-off); stroke: var(--panel); stroke-width: 1.5; }
+  .map-svg .node.on .dot { fill: var(--led-on); }
+  .map-svg .node.unknown .dot { stroke: var(--led-warn); stroke-width: 2.5; }
+  .map-svg .watch { fill: none; stroke: var(--focus); stroke-width: 1.5; display: none; }
+  .map-svg .node.watched .watch { display: inline; }
+  .map-svg .gw-shape { fill: var(--led-off); stroke: var(--focus); stroke-width: 2; }
+  .map-svg .node.on .gw-shape { fill: var(--led-on); }
+  .map-svg .self-shape { fill: var(--panel); stroke: var(--focus); stroke-width: 2.5; }
+  .map-svg .self-core { fill: var(--focus); }
+  .map-svg .node:hover .shape, .map-svg .node:focus-visible .shape { stroke: var(--focus); stroke-width: 3; }
+  .map-svg .node.synthetic { cursor: default; }
+  .map-svg .node.synthetic.gw { opacity: .75; }
+  .map-svg .lbl { font: 10px "IBM Plex Mono", monospace; fill: var(--text-dim); }
+  .map-svg .node.on .lbl { fill: var(--text); }
+  .map-svg .lbl.special { font-size: 10.5px; fill: var(--focus); }
+  .map-legend .lg-dot { fill: var(--led-off); stroke: var(--panel); stroke-width: 1.5; }
+  .map-legend .lg-dot.on { fill: var(--led-on); }
+  .map-legend .lg-dot.unknown { stroke: var(--led-warn); stroke-width: 2.5; }
+  .map-legend .lg-watch { fill: none; stroke: var(--focus); stroke-width: 1.5; }
+  .map-legend .lg-gw { fill: var(--led-on); stroke: var(--focus); stroke-width: 2; }
+  .map-legend .lg-self { fill: var(--panel); stroke: var(--focus); stroke-width: 2.5; }
+  .map-legend .lg-self-core { fill: var(--focus); }
   .home-card {
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
     padding: 16px; display: flex; flex-direction: column; gap: 8px; align-items: center;
@@ -825,7 +873,7 @@
     .scanline { width: 100%; margin-left: 0; }
     .stats { padding: 12px 16px; }
     .stat { min-width: calc(50% - 6px); }
-    .viewbar, .controls, .chipbar, .table-wrap, .feed-wrap, .home-wrap, .portstrip-wrap, .netbar { padding-left: 16px; padding-right: 16px; }
+    .viewbar, .controls, .chipbar, .table-wrap, .feed-wrap, .home-wrap, .map-wrap, .portstrip-wrap, .netbar { padding-left: 16px; padding-right: 16px; }
     .tools { width: 100%; margin-left: 0; }
     .search { flex: 1; }
 
@@ -942,6 +990,7 @@
 <div class="viewbar">
   <div class="views" role="tablist">
     <button class="view-btn active" data-view="devices">Devices</button>
+    <button class="view-btn" data-view="map">Map</button>
     <button class="view-btn" data-view="home">Who's home</button>
     <button class="view-btn" data-view="activity">Activity</button>
     <button class="view-btn" data-view="forgotten">Forgotten</button>
@@ -975,6 +1024,26 @@
 </div>
 
 <div class="chipbar" id="guessChips" hidden></div>
+
+<div class="map-wrap" id="mapWrap" hidden>
+  <p class="map-note">
+    Each network is drawn around itself, and a line means <strong>on this network</strong>.
+    BAMF sees which devices are present, not how they're cabled, so nothing here claims
+    one device plugs into another. The <strong>gateway</strong> comes from this machine's
+    routing table, and <strong>BAMF</strong> marks this machine. Devices are grouped by type.
+    Hover one for details; click it to find it in the device list.
+  </p>
+  <div class="map-legend" aria-hidden="true">
+    <span><svg viewBox="-8 -8 16 16"><circle r="6" class="lg-dot on"/></svg>online</span>
+    <span><svg viewBox="-8 -8 16 16"><circle r="6" class="lg-dot"/></svg>offline</span>
+    <span><svg viewBox="-8 -8 16 16"><circle r="5" class="lg-dot on unknown"/></svg>unknown device</span>
+    <span><svg viewBox="-9 -9 18 18"><circle r="5" class="lg-dot on"/><circle r="8" class="lg-watch"/></svg>watched</span>
+    <span><svg viewBox="-9 -9 18 18"><rect x="-6" y="-6" width="12" height="12" transform="rotate(45)" class="lg-gw"/></svg>gateway</span>
+    <span><svg viewBox="-9 -9 18 18"><circle r="7" class="lg-self"/><circle r="3" class="lg-self-core"/></svg>this machine</span>
+  </div>
+  <div class="map-clusters" id="mapClusters"></div>
+  <div class="empty" id="mapEmpty" hidden>No networks to draw yet.</div>
+</div>
 
 <div class="home-wrap" id="homeWrap" hidden>
   <div class="home-grid" id="homeGrid"></div>
@@ -1228,6 +1297,7 @@ let subnets = [];         // networks reported by the scanner
 let scanModes = {};       // subnet -> 'active ARP' | 'ping sweep'
 let subnetIntervals = {};  // subnet -> effective interval in seconds
 let subnetNextDue = {};    // subnet -> ISO time the scanner will next run it (paused: absent)
+let networkPlaces = {};    // subnet -> { selfIp, selfMac, gateway }: what the map knows for certain
 let activeArp = { enabled: false, npcapAvailable: false };
 let autoIgnoreRandom = false;
 let webhookConfigured = false;
@@ -1736,6 +1806,298 @@ function applySort(rows) {
   });
 }
 
+// ---- network map ----
+// One card per network, drawn around the network itself. BAMF learns from ARP
+// who is present on a segment, never how anything is cabled, so a line here
+// means "on this network" and nothing more. Two things it does know for
+// certain are marked: the default gateway, from this machine's routing table,
+// and this machine itself, from its own address on the network.
+const SVGNS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+const MAP = {
+  SPACING: 26,      // arc length between neighbours on a single ring
+  MIN_R: 120,       // smallest device ring
+  NODE_R: 7, SPECIAL_R: 10, HUB_R: 22,
+  INNER: 56,        // gateway above the hub, this machine below it
+  LABEL_PAD: 124,   // room outside the ring for rotated names
+  MAX_SINGLE: 60,   // beyond this, several rings and names move to tooltips
+  WEDGE: 20,        // degrees kept clear either side of the gateway and this machine
+};
+
+// Structure of the map as last drawn. As with the network strip, the drawing
+// is rebuilt only when that changes; status and tooltips update in place, so
+// a poll never redraws the map under the pointer.
+let mapSig = null;
+
+function mapClusters() {
+  const nets = network === "all"
+    ? [...new Set([...subnets, ...hosts.map(h => h.subnet).filter(Boolean)])]
+        .sort((a, b) => ipNum(a.split("/")[0]) - ipNum(b.split("/")[0]))
+    : [network];
+  return nets.map(subnet => {
+    const place = networkPlaces[subnet] || {};
+    const members = hosts.filter(h => h.subnet === subnet && !h.ignored && !h.forgotten);
+    const selfMac = (place.selfMac || "").toUpperCase();
+    let self = selfMac ? members.find(h => (h.mac || "").toUpperCase() === selfMac) || null : null;
+    let gw = place.gateway
+      ? members.filter(h => h.ip === place.gateway).sort((a, b) => Number(b.online) - Number(a.online))[0] || null
+      : null;
+    if (gw && self && gw.id === self.id) gw = null;   // this machine is the router: show it once
+    // Known from the machine itself even when no scan has recorded it: a ping
+    // sweep never sees its own host, and a gateway can be slow to answer.
+    if (!self && place.selfIp) self = { synthetic: true, ip: place.selfIp, mac: place.selfMac || "" };
+    if (!gw && place.gateway && place.gateway !== place.selfIp) gw = { synthetic: true, ip: place.gateway };
+    const ring = members.filter(h => h !== self && h !== gw).sort((a, b) => {
+      const fa = guessFamily(a.osGuess), fb = guessFamily(b.osGuess);
+      if ((fa === null) !== (fb === null)) return fa === null ? 1 : -1;
+      return (fa || "").localeCompare(fb || "") || dispName(a).localeCompare(dispName(b)) || ipNum(a.ip) - ipNum(b.ip);
+    });
+    return { subnet, place, members, self, gw, ring, mode: scanModes[subnet] || "" };
+  });
+}
+
+function mapSignature(clusters) {
+  const key = n => n ? (n.synthetic ? "~" + n.ip : n.id) : null;
+  return JSON.stringify([network, clusters.map(c => [
+    c.subnet, c.mode, key(c.self), key(c.gw),
+    c.ring.map(h => [h.id, guessFamily(h.osGuess), dispName(h), h.ip]),
+  ])]);
+}
+
+function mapNodeClass(h, role) {
+  if (h.synthetic) return "node synthetic " + role;
+  return "node " + role + (h.online ? " on" : " off") + (h.known ? "" : " unknown") + (h.watched ? " watched" : "");
+}
+
+function mapTitle(h, role) {
+  if (h.synthetic) {
+    return role === "self"
+      ? `This machine, running BAMF\n${h.ip}`
+      : `Default gateway\n${h.ip}\nNot recorded by a scan yet`;
+  }
+  const lines = [dispName(h) === "—" ? h.ip : dispName(h), `${h.ip} · ${h.mac}`];
+  if (h.vendor) lines.push(h.vendor);
+  lines.push(h.osGuess ? "Guess: " + h.osGuess : "No guess yet");
+  if (role === "gw") lines.push("Default gateway for this network");
+  if (role === "self") lines.push("This machine, running BAMF");
+  lines.push((h.online ? "Online" : "Offline, last seen " + fmtAgo(h.lastSeen)) + (h.known ? "" : " · unknown device"));
+  return lines.join("\n");
+}
+
+function mapLabel(h) {
+  const n = h.synthetic ? "" : dispName(h);
+  const s = n && n !== "—" ? n : h.ip;
+  return s.length > 18 ? s.slice(0, 17) + "…" : s;
+}
+
+function buildClusterSvg(c) {
+  // Devices go round the ring in type order, with an empty slot between two
+  // types so each type reads as its own arc.
+  const slots = [];
+  let prev;
+  c.ring.forEach((h, i) => {
+    const f = guessFamily(h.osGuess);
+    if (i > 0 && f !== prev) slots.push(null);
+    slots.push(h);
+    prev = f;
+  });
+  // Keep a clear wedge above the hub for the gateway and below it for this
+  // machine, so no device's line runs through either of them or their labels.
+  const wedgeTop = c.gw ? MAP.WEDGE : 0, wedgeBottom = c.self ? MAP.WEDGE : 0;
+  const availDeg = 360 - 2 * wedgeTop - 2 * wedgeBottom;
+  const availRad = availDeg * Math.PI / 180;
+  const angleAt = (k, count) => {
+    let a = -90 + wedgeTop + (k + 0.5) * availDeg / count;
+    if (wedgeBottom && a >= 90 - wedgeBottom) a += 2 * wedgeBottom;   // step over the bottom wedge
+    return a * Math.PI / 180;
+  };
+  const single = slots.length <= MAP.MAX_SINGLE;
+  const rings = [];
+  if (single) {
+    rings.push({ r: Math.max(MAP.MIN_R, slots.length * MAP.SPACING / availRad), slots });
+  } else {
+    // Too many to name legibly on one ring: stack rings, names in tooltips.
+    const rest = slots.slice();
+    let r = MAP.MIN_R;
+    while (rest.length) {
+      const cap = Math.max(8, Math.floor(availRad * r / (MAP.SPACING * 0.8)));
+      rings.push({ r, slots: rest.splice(0, cap) });
+      r += 30;
+    }
+  }
+  const outer = rings.length ? rings[rings.length - 1].r : MAP.MIN_R;
+  const half = outer + MAP.NODE_R + (single ? MAP.LABEL_PAD : 30);
+  const svg = svgEl("svg", {
+    viewBox: `${-half} ${-half} ${2 * half} ${2 * half}`, class: "map-svg",
+    role: "group", "aria-label": `Network ${c.subnet}`,
+  });
+  const spokes = svgEl("g", { class: "spokes" });
+  const hub = svgEl("g", { class: "hub-g" });
+  const nodes = svgEl("g", { class: "nodes" });
+  svg.append(spokes, hub, nodes);
+
+  const on = c.members.filter(h => h.online).length;
+  hub.appendChild(svgEl("circle", { r: MAP.HUB_R, class: "hub" }));
+  const hubTxt = svgEl("text", { class: "hub-txt", x: 0, y: 0 });
+  hubTxt.textContent = `${on}/${c.members.length}`;
+  hub.appendChild(hubTxt);
+
+  const addNode = (h, x, y, role, labelMode, angle) => {
+    const line = svgEl("line", {
+      x1: 0, y1: 0, x2: x.toFixed(1), y2: y.toFixed(1),
+      // Dashed means "not confirmed right now": an offline device, or a
+      // gateway no scan has recorded. This machine is always present.
+      class: "spoke" + ((h.synthetic ? role !== "self" : !h.online) ? " off" : ""),
+    });
+    const g = svgEl("g", { class: mapNodeClass(h, role), transform: `translate(${x.toFixed(1)},${y.toFixed(1)})` });
+    if (!h.synthetic) {
+      line.setAttribute("data-id", h.id);
+      g.setAttribute("data-id", h.id);
+      g.setAttribute("tabindex", "0");
+      g.setAttribute("role", "button");
+      g.setAttribute("aria-label", mapTitle(h, role).split("\n")[0]);
+      g.addEventListener("click", () => jumpToHost(h.id));
+      g.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jumpToHost(h.id); }
+      });
+    }
+    spokes.appendChild(line);
+    const title = svgEl("title", {});
+    title.textContent = mapTitle(h, role);
+    g.appendChild(title);
+    if (role === "gw") {
+      g.appendChild(svgEl("rect", { x: -8, y: -8, width: 16, height: 16, transform: "rotate(45)", class: "shape gw-shape" }));
+    } else if (role === "self") {
+      g.appendChild(svgEl("circle", { r: MAP.SPECIAL_R, class: "shape self-shape" }));
+      g.appendChild(svgEl("circle", { r: 4, class: "self-core" }));
+    } else {
+      g.appendChild(svgEl("circle", { r: MAP.NODE_R + 4, class: "watch" }));
+      g.appendChild(svgEl("circle", { r: MAP.NODE_R, class: "shape dot" }));
+    }
+    if (labelMode === "radial") {
+      // Names point outward along their spoke; on the left half they are
+      // turned the other way round so none read upside down.
+      const deg = angle * 180 / Math.PI;
+      const right = Math.cos(angle) >= 0;
+      const t = svgEl("text", {
+        class: "lbl", x: right ? MAP.NODE_R + 8 : -(MAP.NODE_R + 8), y: 0,
+        "text-anchor": right ? "start" : "end", "dominant-baseline": "central",
+        transform: `rotate(${(right ? deg : deg + 180).toFixed(1)})`,
+      });
+      t.textContent = mapLabel(h);
+      g.appendChild(t);
+    } else if (labelMode === "above" || labelMode === "below") {
+      const t = svgEl("text", {
+        class: "lbl special", x: 0,
+        y: labelMode === "above" ? -(MAP.SPECIAL_R + 8) : MAP.SPECIAL_R + 15, "text-anchor": "middle",
+      });
+      t.textContent = role === "self" ? "BAMF" : "gateway";
+      g.appendChild(t);
+    }
+    nodes.appendChild(g);
+  };
+
+  rings.forEach(ring => {
+    const n = ring.slots.length;
+    ring.slots.forEach((h, i) => {
+      if (!h) return;   // the gap between two types
+      const a = angleAt(i, n);
+      addNode(h, ring.r * Math.cos(a), ring.r * Math.sin(a), "dev", single ? "radial" : "none", a);
+    });
+  });
+  if (c.gw) addNode(c.gw, 0, -MAP.INNER, "gw", "above");
+  if (c.self) addNode(c.self, 0, MAP.INNER, "self", "below");
+  return svg;
+}
+
+function buildClusterCard(c) {
+  const card = document.createElement("section");
+  card.className = "map-card";
+  card.setAttribute("data-subnet", c.subnet);
+  const head = document.createElement("div");
+  head.className = "map-head";
+  const name = document.createElement("span");
+  name.className = "map-net";
+  name.textContent = c.subnet;
+  const cnt = document.createElement("span");
+  cnt.className = "map-cnt";
+  const tag = document.createElement("span");
+  tag.className = "map-tag";
+  tag.textContent = c.mode === "skipped" ? "no interface" : c.mode === "paused" ? "paused" : c.mode ? "via " + c.mode : "";
+  head.append(name, cnt, tag);
+  card.appendChild(head);
+  if (!c.members.length && !c.self && !c.gw) {
+    const e = document.createElement("div");
+    e.className = "map-empty";
+    e.textContent = c.mode === "skipped"
+      ? "This machine has no interface on this network, so nothing on it can be seen."
+      : "No devices seen on this network yet.";
+    card.appendChild(e);
+  } else {
+    card.appendChild(buildClusterSvg(c));
+  }
+  return card;
+}
+
+function renderMap() {
+  const wrap = $("mapClusters");
+  const clusters = mapClusters();
+  wrap.classList.toggle("single", clusters.length === 1);
+  const sig = mapSignature(clusters);
+  if (sig !== mapSig) {
+    mapSig = sig;
+    wrap.innerHTML = "";
+    clusters.forEach(c => wrap.appendChild(buildClusterCard(c)));
+    $("mapEmpty").hidden = clusters.length > 0;
+  }
+  // What changes between polls without moving anything: status, tooltips,
+  // the dashed spoke of an offline device, and the counts.
+  const byId = new Map(hosts.map(h => [String(h.id), h]));
+  wrap.querySelectorAll(".node[data-id]").forEach(g => {
+    const h = byId.get(g.getAttribute("data-id"));
+    if (!h) return;
+    const role = g.classList.contains("gw") ? "gw" : g.classList.contains("self") ? "self" : "dev";
+    g.setAttribute("class", mapNodeClass(h, role));
+    g.querySelector("title").textContent = mapTitle(h, role);
+  });
+  wrap.querySelectorAll(".spoke[data-id]").forEach(l => {
+    const h = byId.get(l.getAttribute("data-id"));
+    if (h) l.setAttribute("class", "spoke" + (h.online ? "" : " off"));
+  });
+  clusters.forEach(c => {
+    const card = wrap.querySelector(`.map-card[data-subnet="${CSS.escape(c.subnet)}"]`);
+    if (!card) return;
+    const on = c.members.filter(h => h.online).length;
+    card.querySelector(".map-cnt").textContent = `${on} of ${c.members.length} online`;
+    const hubTxt = card.querySelector(".hub-txt");
+    if (hubTxt) hubTxt.textContent = `${on}/${c.members.length}`;
+  });
+}
+
+// From the map: show the device in the list. If a filter would hide it, clear
+// the filters rather than land on a list it isn't in.
+function jumpToHost(id) {
+  showView("devices");
+  const find = () => document.querySelector(`tr[data-id="${id}"]`);
+  let row = find();
+  if (!row) {
+    network = "all"; filter = "all"; guessFilter = null; query = "";
+    $("search").value = "";
+    document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.filter === "all"));
+    render();
+    row = find();
+  }
+  if (!row) return;
+  row.scrollIntoView({ behavior: "smooth", block: "center" });
+  row.style.background = "var(--panel-2)";
+  setTimeout(() => { row.style.background = ""; }, 1200);
+}
+
 function render() {
   // The 10s auto-refresh rebuilds the table, which used to destroy any open ⋯
   // menu — it looked like the menu closed itself on a timer. Remember which
@@ -1747,10 +2109,12 @@ function render() {
   $("feedWrap").hidden = view !== "activity";
   $("homeWrap").hidden = view !== "home";
   $("settingsWrap").hidden = view !== "settings";
+  $("mapWrap").hidden = view !== "map";
   $("statusFilters").style.display = view === "devices" ? "" : "none";
   renderGuessChips();
   if (view === "activity") renderFeed();
   if (view === "home") renderHome();
+  if (view === "map") renderMap();
   document.querySelectorAll("thead th[data-sort]").forEach(th => {
     th.classList.toggle("sorted", th.dataset.sort === sortKey);
     th.classList.toggle("desc", th.dataset.sort === sortKey && sortDir === -1);
@@ -2179,6 +2543,7 @@ async function refresh() {
     scanModes = data.scanModes || {};
     subnetIntervals = data.subnetIntervalSeconds || {};
     subnetNextDue = data.subnetNextDue || {};
+    networkPlaces = data.networkPlaces || {};
     activeArp = data.activeArp || activeArp;
     autoIgnoreRandom = !!data.autoIgnoreRandom;
     updateInfo = data.update || null;
@@ -3034,7 +3399,7 @@ $("setReset").onclick = async () => {
 // Views are addressable: /#settings opens the Settings tab, /#activity the
 // feed, and so on, so a tab can be bookmarked or pinned and Back/Forward
 // walk between them. The Devices view is the bare URL, no hash.
-const VIEWS = ["devices", "home", "activity", "forgotten", "settings"];
+const VIEWS = ["devices", "map", "home", "activity", "forgotten", "settings"];
 function showView(name, { fromHash = false } = {}) {
   if (!VIEWS.includes(name)) name = "devices";
   document.querySelectorAll("[data-view]").forEach(x => x.classList.toggle("active", x.dataset.view === name));

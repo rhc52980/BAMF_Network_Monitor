@@ -99,6 +99,9 @@ public static class PortChecker
         }
     }
 
+    /// <summary>The default gateways this machine routes through, for the dashboard's map.</summary>
+    internal static IReadOnlyCollection<string> DefaultGateways() => Gateways();
+
     /// <summary>True if the address is a default gateway on this machine.</summary>
     public static bool IsGateway(string ip) => Gateways().Contains(ip);
 

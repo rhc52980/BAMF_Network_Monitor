@@ -177,6 +177,9 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         subnetIntervalSeconds = scanner.SubnetIntervals,
         // When each network is next due, ISO-8601 UTC. Paused networks are absent.
         subnetNextDue = scanner.SubnetNextDue.ToDictionary(kv => kv.Key, kv => kv.Value.ToString("o")),
+        // Per network: this machine's own address and MAC there, and the default
+        // gateway on it. What the map marks as known rather than inferred.
+        networkPlaces = scanner.NetworkPlaces(),
         hosts,
     });
 });

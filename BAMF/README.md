@@ -804,6 +804,31 @@ Press `/` anywhere on the page to jump to the search box. `Esc` in the box
 clears the filter; elsewhere it closes whatever is open — a dialog, a row
 menu, the Tools menu, an expanded row.
 
+## Network map
+
+The **Map** tab draws each network around itself: the network in the middle,
+every device BAMF has seen on it around the edge, grouped by device type and
+coloured by whether it's online. Pick a network tab to see just that one. Hover
+a device for its details; click it to find it in the device list. It has its
+own address, `/#map`, like the other tabs.
+
+It is deliberately honest about what BAMF knows. ARP says which devices are
+**present** on a network, not how they're cabled, so a line on the map means
+"on this network" and nothing more. It never claims one device plugs into
+another. Two things are known for certain, and marked:
+
+- **the gateway**, from this machine's own routing table, and
+- **this machine** (BAMF), from its own address on the network. It's drawn even
+  when a ping sweep never sees it, which it usually doesn't.
+
+A network with more than sixty devices switches to several rings and moves the
+names into the tooltips, so the drawing stays readable. `GET /api/hosts` carries
+the same facts as `networkPlaces`: per network, this machine's `selfIp` and
+`selfMac` there, and the `gateway` on it.
+
+Real topology, meaning which switch port a device is on, would need BAMF to ask
+your switches over SNMP or listen for LLDP. It does neither today.
+
 ## Filtering by device type
 
 Under the status tabs, a **Device type** row lists the guesses actually

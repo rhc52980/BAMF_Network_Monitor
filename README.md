@@ -71,6 +71,8 @@ optional daily update check you have to switch on, and your own webhook.
 - Session history per device, a 24-hour sparkline, and a network-wide activity feed
 - Address history per device — every IP it has held and when it moved, for
   chasing DHCP squabbles and pool exhaustion
+- A map of each network, with the gateway and BAMF's own machine marked, and
+  honest about its limits: it shows who is present, not how things are cabled
 
 **Operating it**
 - Version and build date in the header, the log and the API, so "which build is
