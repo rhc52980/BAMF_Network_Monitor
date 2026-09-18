@@ -45,6 +45,14 @@ public partial class HostStore
                 switch_id INTEGER NOT NULL,
                 port      INTEGER NOT NULL DEFAULT 0
             );
+            -- Where each port's cable goes, e.g. "Living Room". Belongs to the
+            -- port, not the device, so it stays when a device moves.
+            CREATE TABLE IF NOT EXISTS port_labels (
+                switch_id INTEGER NOT NULL,
+                port      INTEGER NOT NULL,
+                label     TEXT NOT NULL,
+                PRIMARY KEY (switch_id, port)
+            );
             """;
         cmd.ExecuteNonQuery();
     }
@@ -68,6 +76,27 @@ public partial class HostStore
             list.Add(new SwitchRecord(r.GetInt64(0), r.GetString(1), r.GetInt32(2), r.GetString(3),
                 r.GetInt64(4), r.GetString(5), r.GetInt64(6), r.GetInt32(7)));
         return list;
+    }
+
+    public const int MaxPortLabel = 40;
+
+    /// <summary>switch id -> port -> location label.</summary>
+    public Dictionary<long, Dictionary<int, string>> GetPortLabels()
+    {
+        lock (_lock)
+        {
+            using var conn = Open();
+            var map = new Dictionary<long, Dictionary<int, string>>();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT switch_id, port, label FROM port_labels";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                if (!map.TryGetValue(r.GetInt64(0), out var ports)) map[r.GetInt64(0)] = ports = new();
+                ports[r.GetInt32(1)] = r.GetString(2);
+            }
+            return map;
+        }
     }
 
     /// <summary>host id -> (switch id, port), port 0 meaning "port not recorded".</summary>
@@ -206,6 +235,7 @@ public partial class HostStore
             cmd.Transaction = tx;
             cmd.CommandText = """
                 DELETE FROM placements WHERE switch_id = $id;
+                DELETE FROM port_labels WHERE switch_id = $id;
                 UPDATE switches SET uplink = '', uplink_switch = 0, uplink_port = 0
                     WHERE uplink = 'switch' AND uplink_switch = $id;
                 DELETE FROM switches WHERE id = $id;
@@ -264,7 +294,10 @@ public partial class HostStore
     /// not recorded), moving off any other switch; hosts on it that aren't
     /// listed are unplaced. Returns an error for the user, or null.
     /// </summary>
-    public string? SetSwitchPorts(long switchId, IReadOnlyList<(long HostId, int Port)> entries)
+    /// <param name="labels">When not null, replaces the location labels on
+    /// the switch's ports; blank labels are dropped. Null leaves them alone.</param>
+    public string? SetSwitchPorts(long switchId, IReadOnlyList<(long HostId, int Port)> entries,
+        IReadOnlyList<(int Port, string Label)>? labels = null)
     {
         lock (_lock)
         {
@@ -281,6 +314,14 @@ public partial class HostStore
                 var own = all.FirstOrDefault(s => s.HostId == hostId);
                 if (own is not null) return $"\"{own.Name}\" is a switch. Plug it in from its own settings.";
                 if (port < 0 || port > sw.Ports) return $"\"{sw.Name}\" has ports 1 to {sw.Ports}.";
+            }
+            var cleanLabels = new Dictionary<int, string>();
+            foreach (var (port, label) in labels ?? Array.Empty<(int, string)>())
+            {
+                if (port < 1 || port > sw.Ports) return $"\"{sw.Name}\" has ports 1 to {sw.Ports}.";
+                var text = (label ?? "").Trim();
+                if (text.Length > MaxPortLabel) text = text[..MaxPortLabel];
+                if (text.Length > 0) cleanLabels[port] = text;
             }
 
             using var tx = conn.BeginTransaction();
@@ -303,6 +344,29 @@ public partial class HostStore
                 put.Parameters.AddWithValue("$s", switchId);
                 put.Parameters.AddWithValue("$p", port);
                 put.ExecuteNonQuery();
+            }
+            if (labels is not null)
+            {
+                // Only the ports the dialog showed are replaced: labels above a
+                // lowered port count are kept, and come back if it's raised again.
+                using (var drop = conn.CreateCommand())
+                {
+                    drop.Transaction = tx;
+                    drop.CommandText = "DELETE FROM port_labels WHERE switch_id = $s AND port <= $n";
+                    drop.Parameters.AddWithValue("$s", switchId);
+                    drop.Parameters.AddWithValue("$n", sw.Ports);
+                    drop.ExecuteNonQuery();
+                }
+                foreach (var (port, text) in cleanLabels)
+                {
+                    using var put = conn.CreateCommand();
+                    put.Transaction = tx;
+                    put.CommandText = "INSERT INTO port_labels (switch_id, port, label) VALUES ($s, $p, $l)";
+                    put.Parameters.AddWithValue("$s", switchId);
+                    put.Parameters.AddWithValue("$p", port);
+                    put.Parameters.AddWithValue("$l", text);
+                    put.ExecuteNonQuery();
+                }
             }
             tx.Commit();
             return null;
