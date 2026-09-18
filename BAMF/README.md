@@ -340,8 +340,8 @@ your subnets and, if configured, the vendor-registry download and your webhook.
 
 The ◑ button in the header opens the theme menu: Dark, Light, Terminal, Amber
 CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
-Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy and
-Thunderstorm. Your
+Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
+Thunderstorm, Hotdog Stand and Steampunk. Your
 choice is remembered in your browser.
 
 Some themes have a little life in them:
@@ -368,6 +368,24 @@ Some themes have a little life in them:
   flickers like a power cut. As they come back, the storm eases. A new device
   brings a bolt of lightning. On the Map, sparks run
   along your cables and offline devices drip.
+- **Hotdog Stand**: a tribute to Windows 3.1's loudest colour scheme. It's
+  mustard yellow with ketchup-red title bars, in the bold system font, with a
+  striped awning under the header. The next-scan bar is a sausage sliding into
+  its bun, and steam rises off the stats. Now and then a squeeze of ketchup and
+  mustard zigzags across the page, and a hot dog cart rolls along the bottom. A
+  new device calls "Order up!", a finished scan rings "Ding!", and a device that
+  goes offline gets its row stamped **86'd** (diner slang for "we're out"). On
+  the Map, online devices get a squiggle of mustard, unknown ones a 🌭, and the
+  router a paper hat.
+- **Steampunk**: walnut and leather, brass and copper. The name sits on a
+  riveted brass nameplate, the panels have rivets in their corners, and the
+  counts glow like nixie tubes. A copper steam pipe runs under the header, and
+  the next-scan bar is a glass pressure tube filling with amber. Brass gears
+  turn slowly behind the page, and now and then an airship drifts past. When a
+  scan finishes, the gears lurch forward and the valve lets off steam. A new
+  device arrives by telegraph ticker tape, and a device that goes offline
+  gets a hiss of steam on its row. On the Map, cables become copper pipes,
+  running devices get a little turning cog, and the router wears a top hat.
 
 None of it runs while the tab is in the background. With reduced motion switched
 on in your system settings, it all holds still: Matrix shows a still wall of
