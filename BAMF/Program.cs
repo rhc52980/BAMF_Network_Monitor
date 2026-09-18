@@ -124,6 +124,7 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
     var linkTemplate = app.Configuration["Bamf:DeviceLinkTemplate"];
     var placements = store.GetPlacements();
     var deviceTypes = store.GetDeviceTypes();
+    var addresses = store.GetAddresses();
     var hosts = store.GetAll().Select(h => new
     {
         id = h.Id,
@@ -151,6 +152,18 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         switchPort = placements.TryGetValue(h.Id, out var pp) ? pp.Port : 0,
         // The type the user set, overriding the guess for its icon and type chip; "" = BAMF's guess.
         deviceType = deviceTypes.TryGetValue(h.Id, out var dt) ? dt : "",
+        // Every address the device answers on, the main one (ip) first. More
+        // than one current entry means it's on several at once, like a router
+        // with an address on each network. Old ones stay listed until they age out.
+        addresses = (addresses.TryGetValue(h.Id, out var al) ? al : new List<HostAddress>()).Select(a => new
+        {
+            ip = a.Ip,
+            subnet = a.Subnet,
+            firstSeen = a.FirstSeen,
+            lastSeen = a.LastSeen,
+            current = a.Current,
+            linkUrl = DeviceLink.Resolve(h.Link, a.Ip, linkTemplate),
+        }),
     });
     return Results.Json(new
     {
@@ -218,6 +231,12 @@ app.MapGet("/api/hosts.txt", (HostStore store, ScannerService scanner) =>
     var placements = store.GetPlacements();
     var portLabels = store.GetPortLabels();
     var deviceTypes = store.GetDeviceTypes();
+    var addresses = store.GetAddresses();
+    string IpCell(HostRecord h)
+    {
+        var also = addresses.TryGetValue(h.Id, out var al) ? al.Count(a => a.Current && a.Ip != h.Ip) : 0;
+        return also > 0 ? $"{h.Ip} (+{also})" : h.Ip;
+    }
     string PluggedInto(long id)
     {
         if (!placements.TryGetValue(id, out var p) || !switchNames.TryGetValue(p.SwitchId, out var sw)) return "-";
@@ -229,7 +248,7 @@ app.MapGet("/api/hosts.txt", (HostStore store, ScannerService scanner) =>
     var rows = hosts.Select(h => new[]
     {
         h.CustomName != "" ? h.CustomName : (h.Hostname != "" ? h.Hostname : "-"),
-        h.Ip,
+        IpCell(h),
         h.Mac,
         h.Vendor == "" ? "-" : h.Vendor,
         h.Subnet == "" ? "-" : h.Subnet,

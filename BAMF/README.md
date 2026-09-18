@@ -621,7 +621,7 @@ scan, or delete a thing.
 
 | Method | Route | Purpose |
 |---|---|---|
-| GET | `/api/hosts` | All hosts + scan metadata (includes the running `version`) |
+| GET | `/api/hosts` | All hosts + scan metadata (includes the running `version`). Each host has `addresses`: every address it answers on, main first, each with `subnet`, `firstSeen`, `lastSeen`, `current` and `linkUrl` |
 | GET | `/api/hosts.txt` | The same devices as a plain-text fixed-width table — no JSON, no markup. For `curl`, a terminal, or pointing a read-only agent at |
 | POST | `/api/hosts/{id}/identify` | On-demand device fingerprint: one ICMP echo for the TTL plus a short fingerprint-port probe. Returns the guess, TTL, and open ports, and saves the guess |
 | POST | `/api/hosts/{id}/known` | Body `{"known": true}` — approve/unapprove a host |
@@ -642,6 +642,7 @@ scan, or delete a thing.
 | GET | `/api/portscan/pattern` | Wildcard scan: `?ip=*.245`, optional `?ports=...`. Expands only across configured subnets, capped at 256 addresses |
 | GET | `/api/events` | Network-wide activity feed (recent online/offline events, all hosts) |
 | GET | `/api/hosts/{id}/events` | One host's online/offline event history |
+| GET | `/api/hosts/{id}/ips` | One host's address history: each main address it has had, with when it began and ended |
 | POST | `/api/hosts/{id}/forget` | Body `{"forgotten": true}` — soft-delete to the Forgotten tab (reversible) |
 | DELETE | `/api/hosts/{id}` | Permanently delete a host and its history (from the Forgotten tab) |
 | POST | `/api/switches` | Body `{"kind": "switch", "name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch, router or access point to the recorded layout. `kind` is `switch` (the default), `router`, `ap` or `virtual`; a virtual switch takes `runsOn` (the id of the machine it runs on) instead of a device, uplink or port count. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
@@ -1192,6 +1193,30 @@ subnets. To watch multiple networks the server needs an interface on each one
 to the correct local interface per subnet, so a multi-homed host scans every
 network on every cycle. If a subnet in your config has no matching local
 interface, the log warns you and that subnet's hosts will appear offline.
+
+### One device, several addresses
+
+A router usually has an address on every network it routes, and a server can
+have a second IP. That's one MAC answering on several addresses at once, and
+BAMF keeps them all:
+
+- The device keeps one **main address**, the one it was first seen at. It stays
+  put while it still answers, so the device no longer flips between addresses
+  on every scan.
+- Its other addresses show as a **+N** chip beside the IP. Click it for the
+  full list: each address, its network, and when it last answered. Each one
+  opens the device's link on that address.
+- The device is listed on **every network tab** it has an address on, and drawn
+  on each network's **Map** at its address there. Search finds it by any of
+  its addresses.
+- Its **History** panel lists the addresses it answers on now.
+- An address stops counting after as many missed scans as it takes a device to
+  go offline (`Bamf:OfflineAfterMissedScans`). Only then does the main address
+  move to one that still answers, and only that is recorded as a change of
+  address. An ordinary DHCP move looks the same: the new address appears, the
+  old one stops answering, and the device moves.
+- Six or more addresses on one MAC usually means **proxy ARP**, a router
+  answering on behalf of other devices, and the list says so.
 
 ## Limitations to be aware of
 
