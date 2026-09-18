@@ -342,7 +342,7 @@ your subnets and, if configured, the vendor-registry download and your webhook.
 The ◑ button in the header opens the theme menu: Dark, Light, Terminal, Amber
 CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
-Thunderstorm, Hotdog Stand and Steampunk. Your
+Thunderstorm, Hotdog Stand, Steampunk, Waterworks and Aquarium. Your
 choice is remembered in your browser.
 
 Some themes have a little life in them:
@@ -360,6 +360,25 @@ Some themes have a little life in them:
 - **Blueprint**: drawn on grid paper.
 - **Hacker Red**: the header glitches now and then.
 - **Cotton Candy**: a few bubbles drift up.
+- **Waterworks**: pipes, valves and water. A steel main runs under the
+  header with water shimmering through it, and steel pipes line the sides.
+  The counts sit in water-meter windows that roll when they change, and the
+  next-scan bar is a glass sight tube filling with water. A tank in the header
+  shows how much of your network is up, against the most seen online this
+  session, with a ripple on top when everything's on. Water pulses along the
+  Map's pipes to each device and stands still to one that's offline, and the
+  Map fills from the bottom when you open it. A finished scan surges the
+  water. A new device spins a valve open and hangs a name tag. A device going
+  offline springs a leak on its row, and watched devices carry a red shut-off
+  valve that closes when they drop. Unknown devices get an inspection tag.
+  Rows ripple when you point at them, the search box is a drain port, and
+  rows get a wash as you type.
+- **Aquarium**: fish, bubbles, swaying weed and gravel behind the glass, with
+  light rays drifting through. A new device swims in as a fish carrying its
+  name, a finished scan sends up a column of bubbles, and a device going
+  offline sinks for a moment. Watched devices have a pet fish that swims
+  beside their name and floats still when they're down. On the Map, bubbles
+  drift up the pipes and a shell marks unknown devices.
 - **Thunderstorm**: rain falls behind the page, in gusts that swing its angle,
   with clouds drifting along the top and splashes along the bottom. Every 20 to
   60 seconds a forked bolt of lightning cracks across the sky, which brightens
