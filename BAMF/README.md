@@ -133,6 +133,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:Subnets` | List of CIDRs to scan, e.g. `["192.168.1.0/24", "192.168.2.0/24"]`. Empty list = auto-detect every active IPv4 interface. (`Bamf:Subnet` as a single string still works for back-compat.) |
 | `Bamf:DeviceLinkTemplate` | Where a device's IP link points when it has no link of its own. `{ip}` is the device address. Default `http://{ip}`. |
 | `Bamf:HistoryRetentionDays` | Days of online/offline history to keep (default 90, pruned daily). |
+| `Bamf:ThemesPath` | Folder for drop-in themes, relative to the exe (default `themes`). See [Drop-in themes](#drop-in-themes). |
 | `Bamf:AutoDownloadOui` | Download the IEEE vendor registry on first run (default true). |
 | `Bamf:UpdateCheck` | Check GitHub daily for a newer release and show a badge (default **false**). Read-only — never downloads or installs. Header toggle overrides this. |
 | `Bamf:UpdateRepo` | Repository the update check reads. Change it if you run a fork. |
@@ -341,7 +342,7 @@ your subnets and, if configured, the vendor-registry download and your webhook.
 The ◑ button in the header opens the theme menu: Dark, Light, Terminal, Amber
 CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
-Thunderstorm, Hotdog Stand, Steampunk and Mushroom. Your
+Thunderstorm, Hotdog Stand and Steampunk. Your
 choice is remembered in your browser.
 
 Some themes have a little life in them:
@@ -359,17 +360,6 @@ Some themes have a little life in them:
 - **Blueprint**: drawn on grid paper.
 - **Hacker Red**: the header glitches now and then.
 - **Cotton Candy**: a few bubbles drift up.
-- **Mushroom**: an 8-bit platformer, all drawn from scratch. A sky with pixel
-  clouds and green hills, a brick header, chunky blocks with hard shadows, and
-  a strip of brick ground along the bottom with two green pipes. Now and then
-  a little walking mushroom hops the first pipe and ducks down the second. The
-  next-scan bar fills with coins, and a coin spins over each stats card
-  (point at one and it bumps and pays out). A new device pops a mushroom out
-  of a block with **1-UP!**, each finished scan pops a coin and adds to a coin
-  counter in the header, a row whose device goes offline falls off the ledge,
-  and unknown devices get a **?** block. On the Map, cables are green pipes,
-  devices sit on brick blocks, and the router's flag runs up its pole while
-  every device is online.
 - **Thunderstorm**: rain falls behind the page, in gusts that swing its angle,
   with clouds drifting along the top and splashes along the bottom. Every 20 to
   60 seconds a forked bolt of lightning cracks across the sky, which brightens
@@ -416,6 +406,60 @@ Some themes have a little life in them:
 None of it runs while the tab is in the background. With reduced motion switched
 on in your system settings, it all holds still: Matrix shows a still wall of
 glyphs instead of rain.
+
+### Drop-in themes
+
+A theme can also be a folder of its own, added without rebuilding BAMF. Put it
+in the `themes` folder of the install (`C:\BAMF\themes\<name>\` on Windows,
+`/opt/bamf/themes/<name>/` on Linux) and reload the dashboard. It appears in the
+theme menu under **Installed**. Delete the folder and it's gone. Updates leave
+`themes` alone.
+
+```
+themes/
+  my-theme/          the folder name is the theme's id: a-z, 0-9 and -, up to 40
+    theme.json       {"name": "My Theme", "swatch": ["#101820", "#f2aa4c", "#ffffff"]}
+    theme.css        optional: its colours and styles
+    theme.js         optional: its animations and reactions
+```
+
+**theme.css** sets the same colour variables the built-in themes use, scoped to
+the theme's id:
+
+```css
+[data-theme="my-theme"] {
+  --bg:#101820; --panel:#18222e; --panel-2:#1f2b3a; --line:#2c3a4d;
+  --text:#e8eef5; --text-dim:#8a9bb0; --led-on:#4cd98a; --led-warn:#f2aa4c;
+  --led-off:#3a4758; --danger:#ff6b6b; --focus:#f2aa4c; --radius:8px;
+}
+```
+
+**theme.js** registers the theme and gets a small context to work with.
+Everything it starts through the context stops when someone picks another
+theme:
+
+```js
+BAMF.registerTheme("my-theme", ctx => {
+  // ctx.root: a layer over the page that never takes a click
+  // ctx.background(el): put an element behind the page
+  // ctx.later(fn, ms), ctx.every(fn, ms), ctx.onStop(fn)
+  // ctx.calm: true when reduced motion is on, so hold still
+  // ctx.switched: true if the user just switched to this theme
+  // ctx.hosts(), ctx.view(), ctx.headerBottom(), ctx.wentOffline()
+  // helpers: ctx.svg(tag, attrs), ctx.rnd(a, b), ctx.pick(list), ctx.esc(text), ctx.nameOrIp(host)
+  ctx.on("newDevice", host => { /* a new device appeared */ });
+  ctx.on("scanDone", () => { /* a scan finished */ });
+  ctx.on("rendered", () => { /* the dashboard redrew */ });
+  ctx.on("netChange", (offIds, backIds) => { /* devices went offline or came back */ });
+  ctx.on("decorateNode", (g, node) => { /* add SVG to a Map node as it's drawn */ });
+});
+```
+
+A theme can't take a built-in theme's name. BAMF serves only those three files,
+and only from folders with a valid name. A theme's script runs in the
+dashboard, so adding one takes the same access to the server as editing
+`appsettings.json`: it can't be done from the browser. The folder can be moved
+with `Bamf:ThemesPath`.
 
 ## Compact rows
 
