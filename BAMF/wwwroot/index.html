@@ -680,8 +680,20 @@
   .map-tools { display: inline-flex; gap: 6px; margin-left: 8px; }
   .map-tools button { padding: 3px 9px; font-size: 12px; }
   .map-clusters.single.topo { max-width: none; }
-  .topo-frame { height: min(640px, 76vh); border-top: 1px solid var(--line); margin: 8px -14px -8px; overflow: hidden; }
-  .map-svg.topo { width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+  .topo-frame { position: relative; height: min(640px, 76vh); border-top: 1px solid var(--line); margin: 8px -14px -8px; overflow: hidden; }
+  /* The wheel and a one-finger swipe scroll the page past a map; zooming is
+     Ctrl + wheel, a pinch, or the buttons. On touch, pan-y hands vertical
+     swipes on the background to the page; nodes keep every gesture so they
+     can still be dragged. */
+  .map-svg.topo { width: 100%; height: 100%; touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
+  .map-svg.topo .tnode, .map-svg.topo .tbox { touch-action: none; }
+  .topo-hint {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 8px 14px; font-size: 13px; color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    opacity: 0; transition: opacity .2s;
+  }
+  .topo-hint.show { opacity: 1; }
   .map-svg.topo.panning { cursor: grabbing; }
   .map-svg path.spoke { fill: none; }
   .map-svg .tnode { cursor: pointer; }
@@ -1167,7 +1179,8 @@
     marks this machine. Hover anything for details. Click a device to record where it's plugged
     in, or a switch to fill in all its ports at once. In the <strong>Topology</strong> layout you
     can drag things where you like (it's saved), drop a device on a switch to plug it in, drop it
-    in the <strong>On this network</strong> box to unplug it, and scroll or pinch to zoom.
+    in the <strong>On this network</strong> box to unplug it, and zoom with Ctrl + scroll, a pinch or
+    the − / + buttons.
   </p>
   <div class="map-style" role="group" aria-label="Map layout">
     <button type="button" data-style="topology">Topology</button>
@@ -2978,7 +2991,20 @@ function topoWire(m) {
   };
   svg.addEventListener("pointerup", end);
   svg.addEventListener("pointercancel", end);
+  // A plain wheel scrolls the page, so scrolling down past several maps
+  // doesn't get caught zooming each one. Ctrl (or Cmd) + wheel zooms, and so
+  // does a trackpad pinch, which browsers report as Ctrl + wheel.
+  let hintTimer = null;
   svg.addEventListener("wheel", e => {
+    if (!e.ctrlKey && !e.metaKey) {
+      const hint = svg.parentElement && svg.parentElement.querySelector(".topo-hint");
+      if (hint) {
+        hint.classList.add("show");
+        clearTimeout(hintTimer);
+        hintTimer = setTimeout(() => hint.classList.remove("show"), 1200);
+      }
+      return;
+    }
     e.preventDefault();
     topoZoomBy(m.subnet, e.deltaY < 0 ? 1 / 1.15 : 1.15, toSvg(e));
   }, { passive: false });
@@ -3042,6 +3068,10 @@ function buildClusterCard(c) {
     const frame = document.createElement("div");
     frame.className = "topo-frame";
     frame.appendChild(buildTopologySvg(c));
+    const hint = document.createElement("div");
+    hint.className = "topo-hint";
+    hint.textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? "Hold ⌘ or Ctrl and scroll to zoom" : "Hold Ctrl and scroll to zoom";
+    frame.appendChild(hint);
     card.appendChild(frame);
   } else {
     card.appendChild(buildClusterSvg(c));

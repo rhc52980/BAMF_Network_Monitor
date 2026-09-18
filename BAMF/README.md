@@ -836,7 +836,9 @@ or a switch to open its Ports dialog.
 **Arranging the topology.** Drag anything wherever you like. It's saved on the
 server per network, so the layout is the same in every browser. Anything you
 haven't moved by hand follows the node it hangs from, so dragging a switch
-brings its devices along. Scroll or pinch to zoom, drag the background to pan,
+brings its devices along. Zoom with Ctrl + scroll, a pinch or the − / +
+buttons; a plain scroll wheel keeps scrolling the page, so you can scroll past
+one network's map to the next. Drag the background to pan,
 **Fit** shows everything, and **Auto-arrange** forgets the positions you set on
 that network.
 
