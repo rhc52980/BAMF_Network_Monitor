@@ -640,7 +640,7 @@ scan, or delete a thing.
 | GET | `/api/hosts/{id}/events` | One host's online/offline event history |
 | POST | `/api/hosts/{id}/forget` | Body `{"forgotten": true}` — soft-delete to the Forgotten tab (reversible) |
 | DELETE | `/api/hosts/{id}` | Permanently delete a host and its history (from the Forgotten tab) |
-| POST | `/api/switches` | Body `{"name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch to the recorded layout. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
+| POST | `/api/switches` | Body `{"kind": "switch", "name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch, router or access point to the recorded layout. `kind` is `switch` (the default), `router` or `ap`. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
 | POST | `/api/switches/{id}` | Same body — update a switch. Refuses loops and ports that would strand recorded devices |
 | DELETE | `/api/switches/{id}` | Delete a switch. Devices recorded on it go back to unrecorded; switches plugged into it lose that uplink |
 | POST | `/api/switches/{id}/ports` | Body `{"ports": [{"hostId": 3, "port": 1}, {"hostId": 4, "port": 2}], "labels": [{"port": 1, "label": "Living Room"}]}` — set everything on one switch at once. Hosts listed are placed on it (moving off any other switch; `port` 0 = not recorded), and hosts on it that aren't listed come off it. `labels`, when given, replaces the ports' locations (up to 40 characters; blank clears one); leave it out to keep them. Each switch in `GET /api/hosts` carries them as `portLabels` |
@@ -836,7 +836,9 @@ or a switch to open its Ports dialog.
 **Arranging the topology.** Drag anything wherever you like. It's saved on the
 server per network, so the layout is the same in every browser. Anything you
 haven't moved by hand follows the node it hangs from, so dragging a switch
-brings its devices along. Scroll or pinch to zoom, drag the background to pan,
+brings its devices along. Zoom with Ctrl + scroll, a pinch or the − / +
+buttons; a plain scroll wheel keeps scrolling the page, so you can scroll past
+one network's map to the next. Drag the background to pan,
 **Fit** shows everything, and **Auto-arrange** forgets the positions you set on
 that network.
 
@@ -866,12 +868,28 @@ the same facts as `networkPlaces`: per network, this machine's `selfIp` and
 
 ### Switches and cabling, as you record them
 
-What BAMF can't discover, you can tell it. Add your switches under
-**Settings → Switches**: a name, how many ports, and what each one is plugged
-into, which is the router, a port on another switch, or not recorded. If a
-switch has an address BAMF sees, pick it as the switch's device, and the map
-shows the switch online or offline. A device that is itself a switch has
-**Make this a switch…** in its ⋯ menu.
+What BAMF can't discover, you can tell it. Add your switches, and your router
+and access points, under **Settings → Switches and routers**, or with
+**+ Switch / router** on a network's card on the map, which picks that network
+for you. Each one has:
+
+- a **type**: switch, router or access point;
+- a name, and how many ports it has;
+- what it's plugged into: the router, a port on another switch or router, or
+  not recorded.
+
+They all work the same way, with ports, locations, the Ports dialog and Find
+port. The type sets the icon, and one thing more:
+
+- **A router linked to the network's gateway becomes the top of the map,** with
+  its own LAN ports. Devices and switches plugged straight into it get their
+  port and location on the cable, like a switch's. Pick **Router** in the dialog
+  and the gateway device BAMF sees is filled in for you.
+- **An access point's devices with no port** are drawn as its Wi-Fi clients.
+
+If one has an address BAMF sees, pick it as its device, and the map shows it
+online or offline. A device that is itself one of these has
+**Make this a switch or router…** in its ⋯ menu.
 
 To say what's plugged in where, **click a switch on the map**, or use **Ports**
 next to it in Settings. Its Ports dialog lists every port with a picker of your

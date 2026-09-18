@@ -856,7 +856,7 @@ app.Run();
 
 static object SwitchJson(SwitchRecord s, Dictionary<long, Dictionary<int, string>> labels) => new
 {
-    id = s.Id, name = s.Name, ports = s.Ports, subnet = s.Subnet, hostId = s.HostId,
+    id = s.Id, name = s.Name, kind = s.Kind, ports = s.Ports, subnet = s.Subnet, hostId = s.HostId,
     uplink = s.Uplink, uplinkSwitch = s.UplinkSwitch, uplinkPort = s.UplinkPort,
     // Where each port's cable goes, keyed by port number: { "3": "Living Room" }.
     portLabels = labels.TryGetValue(s.Id, out var l) ? l : new Dictionary<int, string>(),

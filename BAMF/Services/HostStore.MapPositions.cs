@@ -108,9 +108,10 @@ public partial class HostStore
         }
     }
 
-    private static void ForgetMapNode(SqliteConnection conn, string key)
+    private static void ForgetMapNode(SqliteConnection conn, string key, SqliteTransaction? tx = null)
     {
         using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
         cmd.CommandText = "DELETE FROM map_positions WHERE node = $n";
         cmd.Parameters.AddWithValue("$n", key);
         cmd.ExecuteNonQuery();
