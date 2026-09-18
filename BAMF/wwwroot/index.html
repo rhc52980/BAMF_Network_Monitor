@@ -1009,9 +1009,44 @@
     animation: snow-fall var(--d) linear var(--o) infinite; }
   @keyframes snow-fall { to { transform: translate(var(--x), 108vh); } }
   .web line, .web path { stroke: rgba(255,255,255,.2); stroke-width: 1; fill: none; }
-  .spider-wrap { position: absolute; top: -220px; width: 30px; animation: spider-drop 5s ease-in-out infinite alternate; }
+  /* The spider travels: JS moves it with transitions (drop, climb, crawl along the top). */
+  .spider-wrap { position: absolute; left: 0; top: -220px; width: 30px; }
   .spider-thread { position: absolute; left: 14px; top: 0; width: 1px; height: 220px; background: rgba(255,255,255,.35); }
-  @keyframes spider-drop { from { transform: translateY(60px); } to { transform: translateY(170px); } }
+  .pumpkin { transition: transform .3s ease-out; transform-origin: 50% 100%; }
+  .pumpkin.flare { transform: scale(1.3); }
+  .pumpkin.flare .face { animation: none; fill: #fff6b0; filter: drop-shadow(0 0 6px #ffb000) drop-shadow(0 0 14px #ff8c1a); }
+  .moon { position: absolute; top: 6px; width: 46px; }
+  .moon svg { position: static; width: 46px; filter: drop-shadow(0 0 10px rgba(243,236,200,.45)); }
+  .fog { position: absolute; left: -25%; bottom: -4vh; width: 150%; height: 20vh; opacity: .33;
+    background: radial-gradient(ellipse 30% 55% at 20% 70%, #b9a6c9, transparent 70%),
+                radial-gradient(ellipse 28% 50% at 55% 75%, #a894b8, transparent 70%),
+                radial-gradient(ellipse 32% 60% at 85% 70%, #b9a6c9, transparent 70%);
+    animation: fog-drift 38s ease-in-out infinite alternate; }
+  .fog.fog1 { bottom: -7vh; opacity: .22; animation-duration: 52s; animation-direction: alternate-reverse; }
+  @keyframes fog-drift { from { transform: translateX(-8%); } to { transform: translateX(8%); } }
+  .eyes { position: absolute; display: flex; gap: 6px; opacity: 0; animation: eyes-life 3.4s ease-in-out forwards; }
+  .eyes i { width: 7px; height: 5px; border-radius: 50%; background: #d7ff3f; box-shadow: 0 0 6px #d7ff3f;
+    animation: eye-blink 3.4s linear forwards; }
+  @keyframes eyes-life { 0% { opacity: 0; } 15%, 80% { opacity: .9; } 100% { opacity: 0; } }
+  @keyframes eye-blink { 0%, 38% { transform: scaleY(1); } 40%, 43% { transform: scaleY(.1); } 45%, 60% { transform: scaleY(1); } 62%, 64% { transform: scaleY(.1); } 66%, 100% { transform: scaleY(1); } }
+  .leaf { position: absolute; top: -24px; animation: snow-fall var(--d) linear var(--o) infinite; }
+  .leaf svg { position: static; width: 14px; animation: leaf-spin var(--s) ease-in-out infinite alternate; }
+  @keyframes leaf-spin { from { transform: rotate(-50deg); } to { transform: rotate(70deg); } }
+  .witch { position: absolute; top: 4px; left: 0; width: 64px; animation: witch-fly 7s linear forwards; }
+  .witch svg { position: static; width: 64px; }
+  @keyframes witch-fly { 0% { transform: translate(-80px, 10px); } 50% { transform: translate(50vw, 0); } 100% { transform: translate(calc(100vw + 80px), 12px); } }
+  /* On the map, an offline device becomes a ghost and an unknown one gets a pumpkin. */
+  .map-svg .t-ghost, .map-svg .t-pk { display: none; }
+  [data-theme="halloween"] .map-svg .tnode.dev.off .t-icon { display: none; }
+  [data-theme="halloween"] .map-svg .tnode.dev.off .t-ghost { display: inline; fill: #f4eefa; opacity: .85; animation: ghost-bob 2.4s ease-in-out infinite alternate; }
+  @keyframes ghost-bob { from { transform: translate(-12px, -12px); } to { transform: translate(-12px, -15px); } }
+  [data-theme="halloween"] .map-svg .tnode.dev.unknown .t-pk { display: inline; }
+  [data-theme="halloween"] .map-svg .node.off .dot { fill: #f4eefa; opacity: .55; }
+  /* ...and in the device list, the offline dot is a ghost and "unknown" wears a pumpkin. */
+  [data-theme="halloween"] .led:not(.on) { background: none; width: auto; height: auto; }
+  [data-theme="halloween"] .led:not(.on)::before { content: "👻"; font-size: 11px; }
+  [data-theme="halloween"] .badge.unknown::before { content: "🎃 "; }
+  @media (prefers-reduced-motion: reduce) { [data-theme="halloween"] .map-svg .t-ghost { animation: none !important; } }
   .pumpkin .face { fill: #ffd23f; animation: pumpkin-flicker 2.4s steps(6) infinite; }
   @keyframes pumpkin-flicker { 0%, 100% { opacity: 1; } 30% { opacity: .55; } 50% { opacity: .9; } 70% { opacity: .65; } }
   .bat { position: absolute; left: 0; width: 46px; animation: bat-fly var(--d) linear forwards; }
@@ -3097,6 +3132,16 @@ function topoNodeEl(m, key, n) {
   g.appendChild(svgEl("rect", { x: -TOPO.T, y: -TOPO.T, width: 2 * TOPO.T, height: 2 * TOPO.T, rx: 8, class: "t-tile shape" }));
   const icon = svgEl("path", { d: TOPO_ICONS[kind] || TOPO_ICONS.device, class: "t-icon", transform: "translate(-12,-12)" });
   g.appendChild(icon);
+  if (n.type === "dev") {
+    // Hidden unless it's Halloween: offline devices turn into ghosts, unknown ones get a pumpkin.
+    g.appendChild(svgEl("path", { class: "t-ghost", "fill-rule": "evenodd", transform: "translate(-12,-12)",
+      d: "M12 2C7.6 2 5 5.4 5 9.5V21l2.3-1.8L9.6 21l2.4-1.8 2.4 1.8 2.3-1.8L19 21V9.5C19 5.4 16.4 2 12 2z M9.2 8.3a1.2 1.7 0 1 0 .01 0z M14.8 8.3a1.2 1.7 0 1 0 .01 0z" }));
+    const pk = svgEl("g", { class: "t-pk", transform: "translate(14,-14)" });
+    pk.appendChild(svgEl("circle", { r: 6, fill: "#f07818" }));
+    pk.appendChild(svgEl("rect", { x: -1, y: -8.5, width: 2, height: 3, fill: "#4d7a2a" }));
+    pk.appendChild(svgEl("path", { d: "M-3.4 -1.2l1.4-1.6 1.4 1.6z M.6 -1.2l1.4-1.6 1.4 1.6z M-3 1.6q3 2.6 6 0", fill: "#ffd23f", stroke: "#ffd23f", "stroke-width": ".6" }));
+    g.appendChild(pk);
+  }
   const t1 = svgEl("text", { class: "t-name", x: TOPO.T + 8, y: -2 });
   t1.textContent = name;
   const t2 = svgEl("text", { class: "t-sub", x: TOPO.T + 8, y: 12 });
@@ -4676,6 +4721,7 @@ async function refresh() {
       for (const h of incoming) {
         if (!knownMacs.has(h.mac) && !h.known && !h.ignored && !h.forgotten) {
           toast(`New host on <span class="mono">${esc(h.subnet)}</span>: <span class="mono">${esc(h.mac)}</span> at <span class="mono">${esc(h.ip)}</span>`);
+          if (festiveTheme === "halloween") flareLanterns();
         }
       }
     }
@@ -5038,8 +5084,37 @@ const SPIDER = `<svg viewBox="0 0 30 30" width="30" style="position:absolute;lef
   <path d="M15 14L4 6M15 16L2 15M15 18L4 25M15 20L7 29M15 14L26 6M15 16L28 15M15 18L26 25M15 20L23 29"/></g>
   <circle cx="15" cy="12" r="4" fill="#1a0d1f"/><ellipse cx="15" cy="19" rx="6" ry="7" fill="#1a0d1f"/><circle cx="13.5" cy="11" r="1" fill="#ff3b3b"/><circle cx="16.5" cy="11" r="1" fill="#ff3b3b"/></svg>`;
 
+const MOON = `<svg viewBox="0 0 46 46"><circle cx="23" cy="23" r="21" fill="#f3ecc8"/>
+  <circle cx="15" cy="17" r="4" fill="#e2d9ae"/><circle cx="29" cy="28" r="5.5" fill="#e2d9ae"/><circle cx="27" cy="13" r="2.5" fill="#e2d9ae"/></svg>`;
+const WITCH = `<svg viewBox="0 0 64 34"><g fill="#0a0508" stroke="#ff8c1a" stroke-width=".5">
+  <path d="M2 26L44 20l1 2L3 28z"/><path d="M44 19l16-6-4 8 6 1-17 4z"/>
+  <path d="M18 22l6-10 5 1 2 8z"/><circle cx="25" cy="10" r="3.2"/><path d="M20 9l6-9 3 8 5 1-14 2z"/><path d="M24 21l-2 7h3l2-6z"/></g></svg>`;
+const LEAF_COLORS = ["#e0680f", "#c2410c", "#b45309", "#a16207", "#9a3412"];
+function flareLanterns() {
+  document.querySelectorAll("#festive .pumpkin").forEach(p => {
+    p.classList.add("flare");
+    setTimeout(() => p.classList.remove("flare"), 2200);
+  });
+}
+
 function buildHalloween(root) {
   const NS = "http://www.w3.org/2000/svg";
+  const W = window.innerWidth, H = window.innerHeight, calm = calmMotion();
+  const later = (fn, ms) => festiveTimers.push(setTimeout(fn, ms));
+  // A hidden tab doesn't run animations, so nothing that flies in would ever
+  // finish and leave; skip the spawn and just keep the schedule ticking.
+  const shown = () => !document.hidden;
+  // A full moon in the header's empty middle, low fog along the bottom.
+  const moon = document.createElement("div");
+  moon.className = "moon";
+  moon.style.left = Math.round(W * 0.56) + "px";
+  moon.innerHTML = MOON;
+  root.appendChild(moon);
+  for (const k of [0, 1]) {
+    const f = document.createElement("div");
+    f.className = "fog fog" + k;
+    root.appendChild(f);
+  }
   // Cobwebs in the top corners.
   for (const corner of ["left", "right"]) {
     const w = document.createElementNS(NS, "svg");
@@ -5050,12 +5125,6 @@ function buildHalloween(root) {
     w.innerHTML = cobweb(165);
     root.appendChild(w);
   }
-  // A spider on its thread.
-  const sp = document.createElement("div");
-  sp.className = "spider-wrap";
-  sp.style.left = rnd(28, 72).toFixed(1) + "vw";
-  sp.innerHTML = `<div class="spider-thread"></div>${SPIDER}`;
-  root.appendChild(sp);
   // Jack-o'-lanterns in the bottom corners.
   for (const corner of ["left", "right"]) {
     const p = document.createElement("div");
@@ -5063,28 +5132,107 @@ function buildHalloween(root) {
     p.innerHTML = PUMPKIN;
     root.appendChild(p);
   }
-  if (calmMotion()) return;
-  // Now and then, a bat flutters across; less often, a ghost drifts up.
-  const bat = () => {
+  // The spider: drops down, hangs a moment, climbs back up, and crawls along
+  // the top to somewhere else before dropping again.
+  const sp = document.createElement("div");
+  sp.className = "spider-wrap";
+  sp.innerHTML = `<div class="spider-thread"></div>${SPIDER}`;
+  root.appendChild(sp);
+  let spx = rnd(0.3, 0.7) * W;
+  const move = (x, y, secs) => {
+    sp.style.transition = secs ? `transform ${secs}s ease-in-out` : "none";
+    sp.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+  };
+  move(spx, calm ? 110 : 12, 0);
+  if (calm) return;
+  const spider = () => {
+    move(spx, rnd(90, 190), 2.6);
+    later(() => {
+      move(spx, 12, 2.2);
+      later(() => {
+        const to = Math.min(W * 0.85, Math.max(W * 0.15, spx + (Math.random() < .5 ? -1 : 1) * rnd(0.2, 0.4) * W));
+        const secs = Math.abs(to - spx) / 120;
+        spx = to;
+        move(spx, 12, secs);
+        later(spider, secs * 1000 + rnd(800, 2500));
+      }, 2400);
+    }, 2600 + rnd(1500, 3500));
+  };
+  later(spider, 1200);
+
+  // Glowing eyes that open in a quiet spot, blink, and close again.
+  const eyes = () => {
+    const zones = [
+      () => [rnd(3, 10), rnd(0.25, 0.85) * H],                  // the left edge
+      () => [W - rnd(24, 32), rnd(0.25, 0.85) * H],             // the right edge
+      () => [rnd(0.36, 0.52) * W, rnd(12, 32)],                 // the header's empty middle
+      () => [rnd(0.15, 0.85) * W, H - rnd(28, 60)],             // down in the fog
+    ];
+    if (!shown()) return later(eyes, rnd(4000, 9000));
+    const [x, y] = zones[Math.floor(Math.random() * zones.length)]();
+    const e = document.createElement("div");
+    e.className = "eyes";
+    e.style.left = Math.round(x) + "px";
+    e.style.top = Math.round(y) + "px";
+    e.innerHTML = "<i></i><i></i>";
+    e.addEventListener("animationend", ev => { if (ev.target === e) e.remove(); });
+    root.appendChild(e);
+    later(eyes, rnd(4000, 9000));
+  };
+  later(eyes, 2000);
+
+  // A few autumn leaves drifting down.
+  for (let i = 0; i < 12; i++) {
+    const l = document.createElement("div");
+    l.className = "leaf";
+    l.style.cssText = `left:${rnd(0, 100).toFixed(1)}vw;--d:${rnd(12, 22).toFixed(1)}s;--o:-${rnd(0, 22).toFixed(1)}s;--x:${rnd(-80, 80).toFixed(0)}px;--s:${rnd(1.6, 3.2).toFixed(1)}s`;
+    l.innerHTML = `<svg viewBox="0 0 20 20"><path d="M10 1C5 5 3 10 5 15l5 4 5-4c2-5 0-10-5-14z M10 3v16" fill="${LEAF_COLORS[i % LEAF_COLORS.length]}" stroke="#5a2a0a" stroke-width=".6"/></svg>`;
+    root.appendChild(l);
+  }
+
+  // Bats: one every so often, and now and then a whole swarm.
+  const oneBat = (topVh, rtl, secs) => {
     const b = document.createElement("div");
-    b.className = "bat" + (Math.random() < .5 ? " rtl" : "");
-    b.style.cssText = `top:${rnd(12, 60).toFixed(0)}vh;--d:${rnd(7, 12).toFixed(1)}s`;
+    b.className = "bat" + (rtl ? " rtl" : "");
+    b.style.cssText = `top:${topVh.toFixed(0)}vh;--d:${secs.toFixed(1)}s`;
     b.innerHTML = BAT;
     b.addEventListener("animationend", e => { if (e.target === b) b.remove(); });
     root.appendChild(b);
-    festiveTimers.push(setTimeout(bat, rnd(9000, 26000)));
+  };
+  const bat = () => {
+    if (shown()) oneBat(rnd(12, 60), Math.random() < .5, rnd(7, 12));
+    later(bat, rnd(6000, 15000));
+  };
+  const swarm = () => {
+    if (!shown()) return later(swarm, rnd(60000, 100000));
+    const rtl = Math.random() < .5, base = rnd(18, 50), n = 5 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < n; i++) later(() => oneBat(base + rnd(-8, 8), rtl, rnd(6, 8)), i * rnd(120, 320));
+    later(swarm, rnd(60000, 100000));
+  };
+  // Now and then a witch crosses the moon; less often, a ghost drifts up.
+  const witch = () => {
+    if (!shown()) return later(witch, rnd(45000, 80000));
+    const w = document.createElement("div");
+    w.className = "witch";
+    w.innerHTML = WITCH;
+    w.addEventListener("animationend", e => { if (e.target === w) w.remove(); });
+    root.appendChild(w);
+    later(witch, rnd(45000, 80000));
   };
   const ghost = () => {
+    if (!shown()) return later(ghost, rnd(30000, 55000));
     const g = document.createElement("div");
     g.className = "ghost";
     g.style.left = rnd(10, 85).toFixed(0) + "vw";
     g.innerHTML = GHOST;
     g.addEventListener("animationend", e => { if (e.target === g) g.remove(); });
     root.appendChild(g);
-    festiveTimers.push(setTimeout(ghost, rnd(30000, 55000)));
+    later(ghost, rnd(30000, 55000));
   };
-  festiveTimers.push(setTimeout(bat, 2500));
-  festiveTimers.push(setTimeout(ghost, rnd(12000, 20000)));
+  later(bat, 2500);
+  later(swarm, rnd(20000, 35000));
+  later(witch, rnd(10000, 18000));
+  later(ghost, rnd(14000, 24000));
 }
 
 // ---- the secret ----
