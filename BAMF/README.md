@@ -386,6 +386,21 @@ Some themes have a little life in them:
   device arrives by telegraph ticker tape, and a device that goes offline
   gets a hiss of steam on its row. On the Map, cables become copper pipes,
   running devices get a little turning cog, and the router wears a top hat.
+  More brass fittings:
+  - a **pressure gauge** in the header shows how much of your network is up,
+    against the most seen online this session, and falls into the red and
+    trembles if a lot drops off;
+  - a **brass clock** keeps time on the Last scan card and chimes when a scan
+    lands;
+  - watched devices carry a **wind-up key** that turns while they run, and
+    winds down when they go offline;
+  - **Identify** feeds a punch card while it works, and a **port scan** spins a
+    little orrery;
+  - pointing at an address or MAC puts a **brass lens** over it;
+  - the search box is a **telescope eyepiece**, and rows glint as you type;
+  - **oil lamps** flicker softly in the corners;
+  - the **Map** unrolls like drafting paper when you open it, and brass
+    capsules shoot along its pipes with a thunk of air.
 
 None of it runs while the tab is in the background. With reduced motion switched
 on in your system settings, it all holds still: Matrix shows a still wall of
