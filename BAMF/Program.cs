@@ -782,6 +782,15 @@ app.MapPost("/api/switches/{id:long}", (long id, SwitchInput body, HostStore sto
 app.MapDelete("/api/switches/{id:long}", (long id, HostStore store) =>
     store.DeleteSwitch(id) ? Results.Ok() : Results.NotFound());
 
+// Everything on one switch at once, from its Ports dialog: the hosts listed
+// are placed on it (moving off any other switch), the rest come off it.
+app.MapPost("/api/switches/{id:long}/ports", (long id, SwitchPortsRequest body, HostStore store) =>
+{
+    var entries = (body.Ports ?? new()).Select(p => (p.HostId, p.Port)).ToList();
+    var error = store.SetSwitchPorts(id, entries);
+    return error is null ? Results.Ok() : Results.BadRequest(new { error });
+});
+
 // Switch 0 clears the placement; port 0 means "on this switch, port not recorded".
 app.MapPost("/api/hosts/{id:long}/plug", (long id, PlugRequest body, HostStore store) =>
 {
@@ -849,6 +858,8 @@ record NameRequest(string? Name);
 record NoteRequest(string? Note);
 record LinkRequest(string? Link);
 record PlugRequest(long SwitchId, int Port);
+record PortEntry(long HostId, int Port);
+record SwitchPortsRequest(List<PortEntry>? Ports);
 record WebhookRequest(string? Url, string? Format);
 record IgnoreRequest(bool Ignored);
 record WatchRequest(bool Watched);

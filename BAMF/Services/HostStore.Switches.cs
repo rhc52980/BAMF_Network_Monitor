@@ -258,6 +258,57 @@ public partial class HostStore
         }
     }
 
+    /// <summary>
+    /// Replaces everything recorded on one switch in a single step, from its
+    /// Ports dialog. Hosts listed are placed on it at the given port (0 = port
+    /// not recorded), moving off any other switch; hosts on it that aren't
+    /// listed are unplaced. Returns an error for the user, or null.
+    /// </summary>
+    public string? SetSwitchPorts(long switchId, IReadOnlyList<(long HostId, int Port)> entries)
+    {
+        lock (_lock)
+        {
+            using var conn = Open();
+            var all = GetSwitchesInternal(conn);
+            var sw = all.FirstOrDefault(s => s.Id == switchId);
+            if (sw is null) return "That switch no longer exists.";
+            var seen = new HashSet<long>();
+            foreach (var (hostId, port) in entries)
+            {
+                if (!seen.Add(hostId)) return "The same device is listed on two ports.";
+                var host = GetByIdInternal(conn, hostId);
+                if (host is null) return "A device in the list no longer exists.";
+                var own = all.FirstOrDefault(s => s.HostId == hostId);
+                if (own is not null) return $"\"{own.Name}\" is a switch. Plug it in from its own settings.";
+                if (port < 0 || port > sw.Ports) return $"\"{sw.Name}\" has ports 1 to {sw.Ports}.";
+            }
+
+            using var tx = conn.BeginTransaction();
+            using (var clear = conn.CreateCommand())
+            {
+                clear.Transaction = tx;
+                clear.CommandText = "DELETE FROM placements WHERE switch_id = $s";
+                clear.Parameters.AddWithValue("$s", switchId);
+                clear.ExecuteNonQuery();
+            }
+            foreach (var (hostId, port) in entries)
+            {
+                using var put = conn.CreateCommand();
+                put.Transaction = tx;
+                put.CommandText = """
+                    INSERT INTO placements (host_id, switch_id, port) VALUES ($h, $s, $p)
+                    ON CONFLICT(host_id) DO UPDATE SET switch_id = $s, port = $p
+                    """;
+                put.Parameters.AddWithValue("$h", hostId);
+                put.Parameters.AddWithValue("$s", switchId);
+                put.Parameters.AddWithValue("$p", port);
+                put.ExecuteNonQuery();
+            }
+            tx.Commit();
+            return null;
+        }
+    }
+
     /// <summary>Removes what the switch layout says about a host that is being deleted for good.</summary>
     private static void ForgetHostInLayout(SqliteConnection conn, long hostId)
     {
