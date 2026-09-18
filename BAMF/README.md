@@ -374,7 +374,7 @@ Some themes have a little life in them:
   Rows ripple when you point at them, the search box is a drain port, and
   rows get a wash as you type.
 - **Aquarium**: fish, bubbles, swaying weed and gravel behind the glass, with
-  light rays drifting through. A new device swims in as a fish carrying its
+  light rays drifting through, and now and then a shark cruising past. A new device swims in as a fish carrying its
   name, a finished scan sends up a column of bubbles, and a device going
   offline sinks for a moment. Watched devices have a pet fish that swims
   beside their name and floats still when they're down. On the Map, bubbles

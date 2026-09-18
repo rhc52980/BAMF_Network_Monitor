@@ -1142,6 +1142,9 @@
   .aq-fish { position: absolute; left: 0; animation: aq-swim linear forwards; }
   .aq-fish svg { display: block; }
   .aq-fish .tail { transform-box: fill-box; transform-origin: right center; animation: aq-tail .5s ease-in-out infinite alternate; }
+  .aq-shark { opacity: .72; }
+  .aq-shark svg { width: 250px; height: auto; }
+  .aq-shark .tail { animation-duration: 1s; }
   .aq-fish.rtl { animation-name: aq-swim-rtl; }
   .aq-fish.rtl svg { transform: scaleX(-1); }
   @keyframes aq-swim { from { transform: translate(-80px, 0); } 50% { transform: translate(50vw, 16px); } to { transform: translate(calc(100vw + 40px), -6px); } }
@@ -6110,9 +6113,19 @@ function buildWaterworks(root) {
   festiveHooks.rendered();
 }
 
-const AQ_FISH = (body, fin) => `<svg width="46" height="24" viewBox="0 0 46 24"><path class="tail" d="M34 12l11-9v18z" fill="${fin}"/>
+// Drawn head-left, then mirrored so every fish faces right: the way it swims
+// by default. One swimming right to left is flipped by its .rtl class.
+const AQ_FISH = (body, fin) => `<svg width="46" height="24" viewBox="0 0 46 24"><g transform="translate(46 0) scale(-1 1)"><path class="tail" d="M34 12l11-9v18z" fill="${fin}"/>
   <ellipse cx="20" cy="12" rx="16" ry="9" fill="${body}"/><path d="M14 5q6-6 12 0" fill="${fin}"/><path d="M22 12q3 3 0 6" fill="none" stroke="${fin}" stroke-width="1.5"/>
-  <circle cx="10" cy="10" r="2.2" fill="#fff"/><circle cx="9.5" cy="10" r="1.1" fill="#032a3a"/></svg>`;
+  <circle cx="10" cy="10" r="2.2" fill="#fff"/><circle cx="9.5" cy="10" r="1.1" fill="#032a3a"/></g></svg>`;
+// A shark, facing right, that cruises past now and then, well behind the glass.
+const AQ_SHARK = `<svg width="170" height="70" viewBox="0 0 170 70">
+  <path class="tail" d="M30 34L5 9l8 25-8 25z" fill="#5d7584"/>
+  <path d="M24 34C50 14 110 12 150 28c10 4 16 8 14 10-14 8-54 14-94 10C50 46 34 40 24 34z" fill="#6f8796"/>
+  <path d="M40 40c40 10 90 8 120-2-20 12-70 18-110 10z" fill="#e3eaee"/>
+  <path d="M80 19L95 0l9 21z" fill="#5d7584"/><path d="M100 44L87 63l25-17z" fill="#5d7584"/><path d="M52 44l-4 9 12-7z" fill="#5d7584"/>
+  <path d="M125 31v8M130 30v9M135 30v8" stroke="#4b6170" stroke-width="1.4" stroke-linecap="round"/>
+  <circle cx="146" cy="31" r="2.3" fill="#0b1a22"/><path d="M149 40q7 2 13-1" fill="none" stroke="#3b4d59" stroke-width="1.2"/></svg>`;
 const AQ_COLOURS = [["#ff9f43", "#e8662a"], ["#ffd23f", "#e0a800"], ["#7ae0ff", "#2fa7d6"], ["#ff7ab6", "#d8438a"], ["#b18cff", "#7a55d6"]];
 
 function buildAquarium(root) {
@@ -6156,6 +6169,18 @@ function buildAquarium(root) {
     for (let i = 0; i < 3; i++) festiveTimers.push(setTimeout(fish, i * 4000 + 500));
     festiveTimers.push(setInterval(() => { if (bg.querySelectorAll(".aq-fish").length < 5) fish(); }, 9000));
     festiveTimers.push(setInterval(() => bubbles(2), 2600));
+    // Now and then the shark cruises past, slower and deeper than the fish.
+    const shark = () => {
+      if (document.hidden || bg.querySelector(".aq-shark")) return;
+      const el = document.createElement("div");
+      el.className = "aq-fish aq-shark" + (Math.random() < .5 ? " rtl" : "");
+      el.style.cssText = `top:${rnd(30, 65).toFixed(0)}vh;animation-duration:${rnd(38, 52).toFixed(0)}s`;
+      el.innerHTML = AQ_SHARK;
+      el.addEventListener("animationend", e => { if (e.target === el) el.remove(); });
+      bg.appendChild(el);
+    };
+    const nextShark = first => festiveTimers.push(setTimeout(() => { shark(); nextShark(false); }, first ? rnd(20e3, 40e3) : rnd(90e3, 180e3)));
+    nextShark(true);
   }
 
   // A scan: a column of bubbles from the gravel.
