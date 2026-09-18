@@ -1695,7 +1695,11 @@
     <div class="blink-box" id="portsBlink" hidden></div>
     <table class="ports-table" id="portsTable"></table>
     <div class="modal-note" id="portsExtra"></div>
-    <p class="modal-help">
+    <p class="modal-help" id="vmsHelp" hidden>
+      Tick the devices that run as VMs on this machine and save once. Devices from any network can
+      be added. A device already recorded on another switch moves here when you save.
+    </p>
+    <p class="modal-help" id="portsHelp">
       Pick what's plugged into each port and save once. <strong>Location</strong> is where that
       port's cable goes, like "Living Room"; it stays with the port if the device moves. A device
       already recorded on another switch moves here when you save. A switch plugged into this one is shown on its port; change
@@ -4490,6 +4494,7 @@ let portsUnrecorded = [];   // on this switch with no port; kept unless picked o
 function openPortsDialog(sw) {
   if (sw.kind === "virtual") return openVmDialog(sw);
   document.querySelector("#portsModal .ports-find").style.display = "";
+  $("portsHelp").hidden = false; $("vmsHelp").hidden = true;
   portsSwitch = sw;
   $("portsTitle").textContent = "Ports — " + sw.name;
   $("portsSub").textContent = `${sw.ports} ports · ${uplinkText(sw)}`;
@@ -4651,6 +4656,7 @@ function openVmDialog(sw) {
   $("portsTitle").textContent = "VMs — " + sw.name;
   $("portsSub").textContent = on ? `virtual switch on ${nameOrIp(on)} · ${on.ip}` : "virtual switch";
   document.querySelector("#portsModal .ports-find").style.display = "none";
+  $("portsHelp").hidden = true; $("vmsHelp").hidden = false;
   resetBlinkBox("portsBlink");
   const swHostIds = new Set(switches.map(s => s.hostId).filter(Boolean));
   // Any network, not just the machine's own: a hypervisor often bridges VMs
