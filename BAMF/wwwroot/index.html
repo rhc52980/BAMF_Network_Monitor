@@ -693,6 +693,11 @@
   .map-style { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin: 0 0 12px; }
   .map-style button { background: none; border: 0; color: var(--text-dim); padding: 6px 12px; font: inherit; font-size: 12.5px; cursor: pointer; }
   .map-style button.active { background: var(--panel-2); color: var(--text); }
+  .map-scope { margin-left: 8px; }
+  .map-scope[hidden] { display: none; }
+  .map-net-legend { margin-top: -6px; }
+  .map-net-legend[hidden] { display: none; }
+  .map-svg .t-net { stroke: var(--panel); stroke-width: 1.5; }
   .map-tools { display: inline-flex; gap: 6px; margin-left: 8px; }
   .map-tools button { padding: 3px 9px; font-size: 12px; }
   .map-clusters.single.topo { max-width: none; }
@@ -1373,6 +1378,10 @@
     <button type="button" data-style="topology">Topology</button>
     <button type="button" data-style="radial">Radial</button>
   </div>
+  <div class="map-style map-scope" id="mapScope" role="group" aria-label="Networks on the map" hidden>
+    <button type="button" data-scope="per" title="One diagram per network">Per network</button>
+    <button type="button" data-scope="whole" title="Every network in one diagram, drawn by the cabling you recorded">Whole network</button>
+  </div>
   <div class="map-legend" aria-hidden="true">
     <span><svg viewBox="-8 -8 16 16"><circle r="6" class="lg-dot on"/></svg>online</span>
     <span><svg viewBox="-8 -8 16 16"><circle r="6" class="lg-dot"/></svg>offline</span>
@@ -1384,6 +1393,7 @@
     <span><svg viewBox="-10 -9 20 18"><line x1="-9" y1="0" x2="9" y2="0" class="lg-cable"/></svg>cable you recorded</span>
     <span><svg viewBox="-10 -9 20 18"><line x1="-9" y1="0" x2="9" y2="0" class="lg-spoke"/></svg>on this network</span>
   </div>
+  <div class="map-legend map-net-legend" id="mapNetLegend" aria-label="Network colours" hidden></div>
   <div class="map-clusters" id="mapClusters"></div>
   <div class="empty" id="mapEmpty" hidden>No networks to draw yet.</div>
 </div>
@@ -2441,10 +2451,46 @@ function mapClusters() {
   });
 }
 
+// The whole-network view: every network as one diagram, drawn by the cabling
+// you recorded rather than by network. Each device appears once, at its main
+// address, and carries its network's colour; BAMF and a router with an
+// address on every network appear once too.
+const WHOLE = "*";
+const NET_COLORS = ["#4fb3d9", "#e0a040", "#b58af0", "#58c98a", "#e56f8f", "#8fa3b8", "#d4c04a", "#5fc4bd"];
+let mapWhole = false;
+try { mapWhole = localStorage.getItem("bamf-map-whole") === "1"; } catch { }
+function wholeActive(clusters) { return mapWhole && mapStyle === "topology" && network === "all" && clusters.length > 1; }
+function wholeCluster(clusters) {
+  const nets = clusters.map(c => c.subnet);
+  const netColors = Object.fromEntries(nets.map((n, i) => [n, NET_COLORS[i % NET_COLORS.length]]));
+  const real = h => h && !h.synthetic ? hosts.find(x => x.id === h.id) || h : h;
+  const members = hosts.filter(h => !h.ignored && !h.forgotten && nets.some(n => onNet(h, n)));
+  // BAMF, once, even with an address (and maybe its own NIC) on every network.
+  const selves = clusters.map(c => c.self).filter(Boolean);
+  const self = real(selves.find(h => !h.synthetic) || selves[0] || null);
+  const selfIds = new Set(selves.filter(h => !h.synthetic).map(h => h.id));
+  const tops = clusters.map(c => ({ net: c.subnet, gw: real(c.gw) }));
+  const gwIds = new Set(tops.filter(t => t.gw && !t.gw.synthetic).map(t => t.gw.id));
+  const swById = new Map(switches.map(s => [s.id, s]));
+  // A gateway recorded on a switch stays there: it's a second router, and its
+  // network hangs from it.
+  const placed = members.filter(h => !selfIds.has(h.id) && swById.has(h.switchId));
+  const swHosts = new Set(switches.map(s => s.hostId).filter(Boolean));
+  const ring = members.filter(h => !selfIds.has(h.id) && !gwIds.has(h.id) && !placed.includes(h) && !swHosts.has(h.id)).sort((a, b) => {
+    const fa = typeFamily(a), fb = typeFamily(b);
+    if ((fa === null) !== (fb === null)) return fa === null ? 1 : -1;
+    return (fa || "").localeCompare(fb || "") || dispName(a).localeCompare(dispName(b)) || ipNum(a.ip) - ipNum(b.ip);
+  });
+  const boxes = nets.map(net => ({ net, hosts: ring.filter(h => (nets.includes(h.subnet) ? h.subnet : nets[0]) === net) }));
+  return { subnet: WHOLE, whole: true, place: {}, members, self, gw: tops[0].gw, tops, boxes, ring, placed,
+    switches: switches.slice(), mode: "", nets, netColors };
+}
+
 function mapSignature(clusters) {
   const key = n => n ? (n.synthetic ? "~" + n.ip : n.id) : null;
   return JSON.stringify([network, mapStyle, clusters.map(c => [
     c.subnet, c.mode, key(c.self), key(c.gw),
+    c.whole ? [c.tops.map(t => [t.net, key(t.gw)]), c.boxes.map(b => [b.net, b.hosts.map(h => h.id)])] : null,
     c.ring.map(h => [h.id, typeFamily(h), deviceKind(h), dispName(h), h.ip]),
     c.switches.map(s => [s.id, s.name, s.ports, s.hostId, s.uplink, s.uplinkSwitch, s.uplinkPort, s.portLabels]),
     c.placed.map(h => [h.id, h.switchId, h.switchPort, deviceKind(h), dispName(h), h.ip]),
@@ -2851,22 +2897,48 @@ function topoModel(c) {
   const add = (key, o) => { const n = Object.assign({ key, parent: null, edge: null }, o); nodes.set(key, n); return n; };
   const shown = new Set(c.switches.map(s => s.id));
   const saved = mapPositions[c.subnet] || {};
-  // A router the user recorded and linked to the gateway is the top of the
-  // diagram, with its own ports. With no gateway known, a top-level router is.
-  // Matched on the gateway's address rather than on one device record, since
-  // two records can share it (an old MAC, a virtual adapter).
-  const gwIp = c.gw ? c.gw.ip : null;
-  const recIp = s => { const h = s.hostId ? hosts.find(x => x.id === s.hostId) : null; return h ? h.ip : null; };
-  const rootRec = (gwIp ? c.switches.find(s => s.kind === "router" && recIp(s) === gwIp) : null)
-    || (!c.gw ? c.switches.find(s => s.kind === "router" && !(s.uplink === "switch" && shown.has(s.uplinkSwitch))) : null)
-    || null;
-  const rootKey = rootRec ? "s:" + rootRec.id : c.gw ? "gw" : "net";
   const y1 = TOPO.TIER;
   let x = 0;
   const seen = new Set();
   const byPort = (a, b) => (a.switchPort || 1e9) - (b.switchPort || 1e9) || nameOrIp(a).localeCompare(nameOrIp(b));
-  const rootDevs = rootRec ? c.placed.filter(h => h.switchId === rootRec.id).sort(byPort) : [];
-  if (rootRec) seen.add(rootRec.id);
+
+  // The top of the diagram. A router the user recorded and linked to the
+  // gateway is the top, with its own ports; with no gateway known, a
+  // top-level router is. Matched on the gateway's address rather than on one
+  // device record, since two records can share it (an old MAC, a virtual
+  // adapter), and on any of the router's addresses, since it has one per
+  // network. One network has one top; the whole-network view has one per
+  // network, merged where networks share a router.
+  const recHas = (s, ip) => { const h = s.hostId ? hosts.find(x => x.id === s.hostId) : null; return !!h && curAddrs(h).some(a => a.ip === ip); };
+  const tops = [];
+  for (const t of c.tops || [{ net: c.subnet, gw: c.gw }]) {
+    const gwIp = t.gw ? t.gw.ip : null;
+    const rec = (gwIp ? c.switches.find(s => s.kind === "router" && (recHas(s, gwIp) || (t.gw.id && s.hostId === t.gw.id))) : null)
+      || (!t.gw ? c.switches.find(s => s.kind === "router" && (!c.whole || s.subnet === t.net) && !(s.uplink === "switch" && shown.has(s.uplinkSwitch))) : null)
+      || null;
+    const key = rec ? "s:" + rec.id : t.gw ? (c.whole ? "gw:" + (t.gw.synthetic ? t.gw.ip : t.gw.id) : "gw") : "net";
+    const had = tops.find(o => o.key === key);
+    if (had) had.nets.push(t.net);
+    else tops.push({ key, rec, gw: t.gw, nets: [t.net] });
+  }
+  // Networks with no router or gateway at all hang from the first real top.
+  if (tops.length > 1 && tops.some(t => t.key === "net")) {
+    const bare = tops.find(t => t.key === "net");
+    tops.splice(tops.indexOf(bare), 1);
+    tops[0].nets.push(...bare.nets);
+  }
+  // A second router plugged into a switch of the first is drawn where it's
+  // plugged in, and its network hangs from it there.
+  for (const t of tops) {
+    t.nested = c.whole && (t.rec ? t.rec.uplink === "switch" && shown.has(t.rec.uplinkSwitch)
+      : !!t.gw && !t.gw.synthetic && c.placed.some(h => h.id === t.gw.id));
+    if (t.nested && !t.rec) t.key = "h:" + t.gw.id;
+  }
+  if (!tops.some(t => !t.nested)) tops[0].nested = false;
+  for (const t of tops) if (t.rec && !t.nested) seen.add(t.rec.id);
+  const topRecs = new Set(tops.filter(t => t.rec).map(t => t.rec.id));
+  const ownerOf = net => tops.find(t => t.nets.includes(net)) || tops.find(t => !t.nested);
+  const main = tops.find(t => !t.nested);
 
   // Virtual switches hang to the right of the machine they run on, their VMs
   // listed under them. col.bottom keeps two on one column from overlapping.
@@ -2890,14 +2962,6 @@ function topoModel(c) {
     return reach;
   };
 
-  // The router's own ports hang in a column under it, so the switch row starts
-  // to the right of that column (and of any virtual switches off it).
-  if (rootDevs.length) {
-    const col = { bottom: -1e9 };
-    let reach = 0;
-    rootDevs.forEach((h, i) => { reach = Math.max(reach, hang(h.id, "h:" + h.id, TOPO.T + TOPO.PORT_INDENT, 70 + i * TOPO.ROW, col)); });
-    x = TOPO.PORT_INDENT + 2 * TOPO.T + Math.max(190, reach) + TOPO.COL_GAP;
-  }
   const place = (sw, left, parentKey, edge) => {   // returns the region's width
     if (seen.has(sw.id)) return 0;
     seen.add(sw.id);
@@ -2923,79 +2987,105 @@ function topoModel(c) {
       });
     return width;
   };
-  // The first row: everything plugged into the router (the recorded one's
-  // ports, or just "the router"), then anything whose uplink isn't recorded.
-  const onRoot = s => rootRec && s.uplink === "switch" && s.uplinkSwitch === rootRec.id;
-  c.switches.filter(s => s !== rootRec && s.kind !== "virtual" && (onRoot(s) || !(s.uplink === "switch" && shown.has(s.uplinkSwitch))))
-    .sort((a, b) => (onRoot(b) || b.uplink === "router") - (onRoot(a) || a.uplink === "router") || (a.uplinkPort || 1e9) - (b.uplinkPort || 1e9))
-    .forEach(sw => {
-      const edge = onRoot(sw)
-        ? { style: "down", cable: true, sw: rootRec, port: sw.uplinkPort }
-        : { style: "down", cable: sw.uplink === "router" };
-      const w = place(sw, x, rootKey, edge);
-      if (w) x += w + TOPO.COL_GAP * 1.4;
+
+  // Everything under one top, left to right: the router's own ports, the row
+  // of switches plugged into it (or with no uplink recorded), virtual switches
+  // with no machine drawn above them, then the "On this network" box.
+  const region = t => {
+    const left = x;
+    const rootDevs = t.rec && !t.nested ? c.placed.filter(h => h.switchId === t.rec.id).sort(byPort) : [];
+    // The router's own ports hang in a column under it, so the switch row starts
+    // to the right of that column (and of any virtual switches off it).
+    if (rootDevs.length) {
+      const col = { bottom: -1e9 };
+      let reach = 0;
+      rootDevs.forEach((h, i) => { reach = Math.max(reach, hang(h.id, "h:" + h.id, left + TOPO.T + TOPO.PORT_INDENT, 70 + i * TOPO.ROW, col)); });
+      x = left + TOPO.PORT_INDENT + 2 * TOPO.T + Math.max(190, reach) + TOPO.COL_GAP;
+    }
+    const onRoot = s => t.rec && s.uplink === "switch" && s.uplinkSwitch === t.rec.id;
+    const mine = s => onRoot(s) || (!(s.uplink === "switch" && shown.has(s.uplinkSwitch)) && (!c.whole || ownerOf(s.subnet) === t));
+    c.switches.filter(s => !topRecs.has(s.id) && s.kind !== "virtual" && mine(s))
+      .sort((a, b) => (onRoot(b) || b.uplink === "router") - (onRoot(a) || a.uplink === "router") || (a.uplinkPort || 1e9) - (b.uplinkPort || 1e9))
+      .forEach(sw => {
+        const edge = onRoot(sw)
+          ? { style: "down", cable: true, sw: t.rec, port: sw.uplinkPort }
+          : { style: "down", cable: sw.uplink === "router" };
+        const w = place(sw, x, t.key, edge);
+        if (w) x += w + TOPO.COL_GAP * 1.4;
+      });
+
+    // Virtual switches whose machine isn't in a switch's list (it's in the box,
+    // it's the router or BAMF, or it isn't on this network): their own place at
+    // the end of the switch row, with a dashed link back to the machine.
+    const leftover = vsAll.filter(vs => !hung.has(vs.id) && (!c.whole || ownerOf(vs.subnet) === t));
+    for (const vs of leftover) {
+      hung.add(vs.id);
+      const key = "s:" + vs.id;
+      add(key, { type: "switch", sw: vs, host: null, parent: null, pendingParent: vs.runsOn, auto: [x + TOPO.T, y1], edge: { style: "vlink", vlink: true } });
+      const vms = c.placed.filter(h => h.switchId === vs.id).sort(byPort);
+      vms.forEach((h, j) => add("h:" + h.id, { type: "dev", host: h, parent: key,
+        auto: [x + TOPO.T + TOPO.PORT_INDENT, y1 + 70 + j * TOPO.ROW],
+        edge: { style: "list", cable: false, sw: vs, port: 0 } }));
+      x += Math.max(vms.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 190 : 0, 2 * TOPO.T + 30 + vs.name.length * TOPO.CHAR) + TOPO.COL_GAP;
+    }
+
+    // Not recorded on a switch: a grid in the "On this network" box, one per
+    // network in the whole-network view. Devices dragged out of it keep their
+    // own place and leave no gap in the grid.
+    const boxes = c.boxes ? c.boxes.filter(b => t.nets.includes(b.net)) : [{ net: c.subnet, hosts: c.ring }];
+    boxes.filter(b => b.hosts.length).forEach((b, bi) => {
+      if (bi) x += TOPO.COL_GAP;
+      const bkey = c.whole ? "box:" + b.net : "box";
+      const inGrid = b.hosts.filter(h => !saved["h:" + h.id]);
+      const rows = Math.max(1, Math.min(TOPO.BOX_ROWS, inGrid.length));
+      const cols = Math.max(1, Math.ceil(inGrid.length / TOPO.BOX_ROWS));
+      const box = add(bkey, { type: "box", parent: t.key, auto: [x, y1 - 24], net: c.whole ? b.net : null,
+        size: [cols * TOPO.BOX_COL + TOPO.BOX_PAD, rows * TOPO.ROW + 40], count: b.hosts.length,
+        edge: { style: "box" } });
+      let i = 0;
+      for (const h of b.hosts) {
+        const inBox = !saved["h:" + h.id];
+        const k = inBox ? i++ : 0;
+        add("h:" + h.id, { type: "dev", host: h, parent: bkey, inBox,
+          auto: [x + TOPO.BOX_PAD + TOPO.T + Math.floor(k / TOPO.BOX_ROWS) * TOPO.BOX_COL, y1 + 34 + (k % TOPO.BOX_ROWS) * TOPO.ROW] });
+      }
+      x += box.size[0];
     });
 
-  // Virtual switches whose machine isn't in a switch's list (it's in the box,
-  // it's the router or BAMF, or it isn't on this network): their own place at
-  // the end of the switch row, with a dashed link back to the machine.
-  const leftover = vsAll.filter(vs => !hung.has(vs.id));
-  for (const vs of leftover) {
-    hung.add(vs.id);
-    const key = "s:" + vs.id;
-    add(key, { type: "switch", sw: vs, host: null, parent: null, pendingParent: vs.runsOn, auto: [x + TOPO.T, y1], edge: { style: "vlink", vlink: true } });
-    const vms = c.placed.filter(h => h.switchId === vs.id).sort(byPort);
-    vms.forEach((h, j) => add("h:" + h.id, { type: "dev", host: h, parent: key,
-      auto: [x + TOPO.T + TOPO.PORT_INDENT, y1 + 70 + j * TOPO.ROW],
-      edge: { style: "list", cable: false, sw: vs, port: 0 } }));
-    x += Math.max(vms.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 190 : 0, 2 * TOPO.T + 30 + vs.name.length * TOPO.CHAR) + TOPO.COL_GAP;
-  }
-
-  // Not recorded on a switch: a grid in the "On this network" box. Devices
-  // dragged out of it keep their own place and leave no gap in the grid.
-  const loose = c.ring;
-  if (loose.length) {
-    const inGrid = loose.filter(h => !saved["h:" + h.id]);
-    const rows = Math.max(1, Math.min(TOPO.BOX_ROWS, inGrid.length));
-    const cols = Math.max(1, Math.ceil(inGrid.length / TOPO.BOX_ROWS));
-    const box = add("box", { type: "box", parent: rootKey, auto: [x, y1 - 24],
-      size: [cols * TOPO.BOX_COL + TOPO.BOX_PAD, rows * TOPO.ROW + 40], count: loose.length,
-      edge: { style: "box" } });
-    let i = 0;
-    for (const h of loose) {
-      const inBox = !saved["h:" + h.id];
-      const k = inBox ? i++ : 0;
-      add("h:" + h.id, { type: "dev", host: h, parent: "box", inBox,
-        auto: [x + TOPO.BOX_PAD + TOPO.T + Math.floor(k / TOPO.BOX_ROWS) * TOPO.BOX_COL, y1 + 34 + (k % TOPO.BOX_ROWS) * TOPO.ROW] });
+    // A router drawn where it's plugged in already has its node.
+    if (t.nested) return;
+    const width = Math.max(x - left, 300);
+    const rootAuto = rootDevs.length ? [left + TOPO.T, 0] : [left + Math.max(0, width / 2 - 120), 0];
+    if (t.rec) {
+      add(t.key, { type: "switch", isRoot: true, sw: t.rec,
+        host: t.rec.hostId ? hosts.find(h => h.id === t.rec.hostId) || null : null, auto: rootAuto });
+      rootDevs.forEach((h, i) => add("h:" + h.id, { type: "dev", host: h, parent: t.key,
+        auto: [rootAuto[0] + TOPO.PORT_INDENT, 70 + i * TOPO.ROW],
+        edge: { style: "list", cable: true, sw: t.rec, port: h.switchPort } }));
+    } else {
+      add(t.key, { type: "root", host: t.gw, auto: rootAuto });
     }
-    x += box.size[0];
-  }
-  const width = Math.max(x, 300);
-  const rootAuto = rootDevs.length ? [TOPO.T, 0] : [Math.max(0, width / 2 - 120), 0];
-  if (rootRec) {
-    add(rootKey, { type: "switch", isRoot: true, sw: rootRec,
-      host: rootRec.hostId ? hosts.find(h => h.id === rootRec.hostId) || null : null, auto: rootAuto });
-    rootDevs.forEach((h, i) => add("h:" + h.id, { type: "dev", host: h, parent: rootKey,
-      auto: [rootAuto[0] + TOPO.PORT_INDENT, 70 + i * TOPO.ROW],
-      edge: { style: "list", cable: true, sw: rootRec, port: h.switchPort } }));
-  } else {
-    add(rootKey, { type: "root", host: c.gw, auto: rootAuto });
-  }
-  if (c.self) add("self", { type: "self", host: c.self, parent: rootKey,
-    auto: [nodes.get(rootKey).auto[0] + TOPO.SELF_DX, 0], edge: { style: "under" } });
+  };
+  // Each network's top side by side, then anything hanging from a router
+  // that's itself plugged in further down.
+  tops.filter(t => !t.nested).forEach((t, i) => { if (i) x = Math.max(x, 300) + TOPO.COL_GAP * 2; region(t); });
+  tops.filter(t => t.nested).forEach(t => { x += TOPO.COL_GAP * 2; region(t); });
+
+  if (c.self) add("self", { type: "self", host: c.self, parent: main.key,
+    auto: [nodes.get(main.key).auto[0] + TOPO.SELF_DX, 0], edge: { style: "under" } });
   // Now every node exists, link each leftover virtual switch to its machine
   // (wherever that is on this card), or to the top if it isn't on it.
   for (const n of nodes.values()) {
     if (n.pendingParent === undefined) continue;
     const id = n.pendingParent;
+    const top = tops.find(t => (t.rec && t.rec.hostId === id) || (t.gw && !t.gw.synthetic && t.gw.id === id));
     n.parent = nodes.has("h:" + id) ? "h:" + id
-      : rootRec && rootRec.hostId === id ? rootKey
-      : c.gw && !c.gw.synthetic && c.gw.id === id ? "gw"
+      : top && nodes.has(top.key) ? top.key
       : c.self && !c.self.synthetic && c.self.id === id ? "self"
-      : rootKey;
+      : (c.whole ? ownerOf(n.sw.subnet) : main).key;
     delete n.pendingParent;
   }
-  return { subnet: c.subnet, c, nodes, rootKey, saved, override: {}, final: new Map(), els: new Map(), edgeEls: [] };
+  return { subnet: c.subnet, c, nodes, rootKey: main.key, saved, override: {}, final: new Map(), els: new Map(), edgeEls: [] };
 }
 
 // Final positions: where the user put it, or where the layout put it relative
@@ -3072,7 +3162,7 @@ function topoBounds(m) {
   for (const [key, n] of m.nodes) {
     const p = m.final.get(key);
     if (n.type === "box") {
-      x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0] + n.size[0]); y1 = Math.max(y1, p[1] + n.size[1]);
+      x0 = Math.min(x0, p[0] - 20); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0] + n.size[0] + 20); y1 = Math.max(y1, p[1] + n.size[1] + 20);
     } else {
       const w = n.labelW || 120;
       x0 = Math.min(x0, p[0] - 30); y0 = Math.min(y0, p[1] - 60); x1 = Math.max(x1, p[0] + TOPO.T + 12 + w); y1 = Math.max(y1, p[1] + 40);
@@ -3108,7 +3198,8 @@ function topoZoomBy(subnet, factor, center) {
 }
 
 async function topoAutoArrange(subnet) {
-  if (!confirm(`Put everything on ${subnet} back where the automatic layout puts it? Where you dragged things is forgotten.`)) return;
+  const where = subnet === WHOLE ? "the whole-network map" : subnet;
+  if (!confirm(`Put everything on ${where} back where the automatic layout puts it? Where you dragged things is forgotten.`)) return;
   await fetch("/api/map/positions?subnet=" + encodeURIComponent(subnet), { method: "DELETE" });
   delete mapPositions[subnet];
   delete mapViews[subnet];
@@ -3157,17 +3248,20 @@ function buildTopologySvg(c) {
       m.edgeEls.push({ from: n.parent, to: key, style: n.edge.style, path, label });
     }
     if (n.type === "box") {
-      const g = svgEl("g", { class: "tbox", "data-key": "box" });
+      const g = svgEl("g", { class: "tbox" });
       const rect = svgEl("rect", { class: "t-box", x: 0, y: 0, width: n.size[0], height: n.size[1], rx: 12 });
-      const title = svgEl("text", { class: "t-box-title", x: 14, y: 20 });
-      title.textContent = `On this network · ${n.count}`;
+      const title = svgEl("text", { class: "t-box-title", x: n.net ? 28 : 14, y: 20 });
+      title.textContent = n.net ? `${n.net} · ${n.count}` : `On this network · ${n.count}`;
       const t2 = svgEl("title", {});
-      t2.textContent = "Devices not recorded on a switch - Wi-Fi ones, or wired ones not filled in yet. Drop a device here to unplug it.";
+      t2.textContent = (n.net ? `Devices on ${n.net} not recorded on a switch` : "Devices not recorded on a switch") +
+        " - Wi-Fi ones, or wired ones not filled in yet. Drop a device here to unplug it.";
+      g.setAttribute("data-key", key);
       g.appendChild(t2);
       g.append(rect, title);
+      if (n.net) g.appendChild(svgEl("circle", { class: "t-net", cx: 17, cy: 16, r: 4.5, fill: m.c.netColors[n.net] }));
       gBox.appendChild(g);
       m.els.set(key, g);
-      m.boxRect = rect;
+      n.rect = rect;
       continue;
     }
     gNodes.appendChild(topoNodeEl(m, key, n));
@@ -3198,7 +3292,9 @@ function topoNodeEl(m, key, n) {
       cls = mapNodeClass(h, "gw"); kind = "router";
       name = h.synthetic ? "Gateway" : nameOrIp(h); sub = h.ip; tip = mapTitle(h, "gw");
     } else {
-      cls = "node net"; kind = "net"; name = m.subnet; sub = "this network"; tip = `Network ${m.subnet}`;
+      cls = "node net"; kind = "net";
+      name = m.c.whole ? "Your network" : m.subnet; sub = m.c.whole ? "no gateway known" : "this network";
+      tip = m.c.whole ? "No router or gateway known for these networks" : `Network ${m.subnet}`;
     }
   } else if (n.type === "self") {
     cls = mapNodeClass(h, "self"); kind = "server"; name = "BAMF"; sub = h.ip; tip = mapTitle(h, "self");
@@ -3246,6 +3342,11 @@ function topoNodeEl(m, key, n) {
   const t2 = svgEl("text", { class: "t-sub", x: TOPO.T + 8, y: 12 });
   t2.textContent = sub;
   g.append(t1, t2);
+  // In the whole-network view, a dot per network the device is on.
+  if (m.c.whole && h && !h.synthetic) {
+    const nets = [...new Set([h.subnet, ...curAddrs(h).map(a => a.subnet)])].filter(v => m.c.netColors[v]).slice(0, 4);
+    nets.forEach((v, i) => g.appendChild(svgEl("circle", { class: "t-net", cx: -TOPO.T + 2 + i * 8, cy: -TOPO.T - 5, r: 3.5, fill: m.c.netColors[v] })));
+  }
   m.els.set(key, g);
   return g;
 }
@@ -3287,9 +3388,12 @@ function topoDropTarget(m, key) {
       if (Math.hypot(q[0] - p[0], q[1] - p[1]) < 30) return { key: k, node: t };
     }
   }
-  if (n.type === "dev" && m.nodes.has("box")) {
-    const b = m.final.get("box"), size = m.nodes.get("box").size;
-    if (p[0] >= b[0] && p[0] <= b[0] + size[0] && p[1] >= b[1] && p[1] <= b[1] + size[1]) return { key: "box", node: m.nodes.get("box") };
+  if (n.type === "dev") {
+    for (const [k, t] of m.nodes) {
+      if (t.type !== "box") continue;
+      const b = m.final.get(k), size = t.size;
+      if (p[0] >= b[0] && p[0] <= b[0] + size[0] && p[1] >= b[1] && p[1] <= b[1] + size[1]) return { key: k, node: t };
+    }
   }
   return null;
 }
@@ -3353,7 +3457,7 @@ function topoWire(m) {
   };
   const markTarget = key => {
     const t = key ? topoDropTarget(m, key) : null;
-    const el = t ? (t.key === "box" ? m.boxRect : m.els.get(t.key)) : null;
+    const el = t ? (t.node.type === "box" ? t.node.rect : m.els.get(t.key)) : null;
     if (lastTarget && lastTarget !== el) lastTarget.classList.remove("drop-target");
     if (el) el.classList.add("drop-target");
     lastTarget = el;
@@ -3455,9 +3559,21 @@ function topoWire(m) {
   });
 }
 
-document.querySelectorAll(".map-style button").forEach(b => b.onclick = () => {
+document.querySelectorAll(".map-style button[data-style]").forEach(b => b.onclick = () => {
   mapStyle = b.dataset.style;
   try { localStorage.setItem("bamf-map-style", mapStyle); } catch { }
+  mapSig = null;
+  renderMap();
+});
+// Per network, or everything as one diagram. The whole view is a topology
+// drawing, so picking it switches Radial back to Topology.
+document.querySelectorAll("#mapScope button").forEach(b => b.onclick = () => {
+  mapWhole = b.dataset.scope === "whole";
+  if (mapWhole && mapStyle !== "topology") {
+    mapStyle = "topology";
+    try { localStorage.setItem("bamf-map-style", mapStyle); } catch { }
+  }
+  try { localStorage.setItem("bamf-map-whole", mapWhole ? "1" : "0"); } catch { }
   mapSig = null;
   renderMap();
 });
@@ -3470,12 +3586,13 @@ function buildClusterCard(c) {
   head.className = "map-head";
   const name = document.createElement("span");
   name.className = "map-net";
-  name.textContent = c.subnet;
+  name.textContent = c.whole ? "Whole network" : c.subnet;
   const cnt = document.createElement("span");
   cnt.className = "map-cnt";
   const tag = document.createElement("span");
   tag.className = "map-tag";
-  tag.textContent = c.mode === "skipped" ? "no interface" : c.mode === "paused" ? "paused" : c.mode ? "via " + c.mode : "";
+  tag.textContent = c.whole ? `${c.nets.length} networks`
+    : c.mode === "skipped" ? "no interface" : c.mode === "paused" ? "paused" : c.mode ? "via " + c.mode : "";
   head.append(name, cnt, tag);
   card.appendChild(head);
   const empty = !c.members.length && !c.self && !c.gw && !c.switches.length;
@@ -3489,13 +3606,13 @@ function buildClusterCard(c) {
   };
   // A shortcut to the same dialog as Settings → Switches and routers, with
   // this network already picked.
-  btn("+ Switch / router", "Add a switch, router or access point on this network",
-    () => openSwitchDialog(null, null, null, { subnet: c.subnet }));
+  btn("+ Switch / router", c.whole ? "Add a switch, router or access point" : "Add a switch, router or access point on this network",
+    () => openSwitchDialog(null, null, null, c.whole ? {} : { subnet: c.subnet }));
   if (mapStyle === "topology" && !empty) {
     btn("−", "Zoom out", () => topoZoomBy(c.subnet, 1.25));
     btn("+", "Zoom in", () => topoZoomBy(c.subnet, 0.8));
     btn("Fit", "Show everything", () => topoFit(c.subnet));
-    btn("Auto-arrange", "Forget where you dragged things on this network", () => topoAutoArrange(c.subnet));
+    btn("Auto-arrange", c.whole ? "Forget where you dragged things on this map" : "Forget where you dragged things on this network", () => topoAutoArrange(c.subnet));
   }
   if (c.mode !== "skipped") head.appendChild(tools);
   if (empty) {
@@ -3522,9 +3639,21 @@ function buildClusterCard(c) {
 
 function renderMap() {
   const wrap = $("mapClusters");
-  document.querySelectorAll(".map-style button").forEach(b => b.classList.toggle("active", b.dataset.style === mapStyle));
+  const perNet = mapClusters();
+  const whole = wholeActive(perNet);
+  document.querySelectorAll(".map-style button[data-style]").forEach(b => b.classList.toggle("active", b.dataset.style === mapStyle));
+  $("mapScope").hidden = !(network === "all" && perNet.length > 1);
+  document.querySelectorAll("#mapScope button").forEach(b => b.classList.toggle("active", (b.dataset.scope === "whole") === whole));
+  const netLegend = $("mapNetLegend");
+  netLegend.hidden = !whole;
   if (mapDragging) return;   // a poll mustn't redraw the map out from under a drag
-  const clusters = mapClusters();
+  const clusters = whole ? [wholeCluster(perNet)] : perNet;
+  if (whole) {
+    const colors = clusters[0].netColors;
+    const html = Object.entries(colors).map(([n, col]) =>
+      `<span><svg viewBox="-8 -8 16 16"><circle r="5" fill="${col}"/></svg>${esc(n)}</span>`).join("");
+    if (netLegend.innerHTML !== html) netLegend.innerHTML = html;
+  }
   wrap.classList.toggle("single", clusters.length === 1 || mapStyle === "topology");
   wrap.classList.toggle("topo", mapStyle === "topology");
   const sig = mapSignature(clusters);

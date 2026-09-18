@@ -840,6 +840,27 @@ two layouts, chosen above the map and remembered in your browser:
 Hover anything for details. Click a device to record where it's plugged in,
 or a switch to open its Ports dialog.
 
+**The whole network at once.** With **All networks** picked, a second toggle
+switches between **Per network** (a card each) and **Whole network**: one
+diagram of your entire setup, drawn by the cabling you recorded rather than by
+network. One switch often carries devices from several networks, and this is
+where that shows.
+
+- Each network has a colour, listed under the legend, and every device carries
+  a dot in its network's colour (a device on several networks, one dot each).
+- Nothing is drawn twice. BAMF, and a router with an address on every network,
+  appear once.
+- Each network's router or gateway is a top of its own, side by side. Networks
+  that share a router hang from it together. A second router recorded on a
+  switch's port is drawn there, with its network hanging from it.
+- Devices not recorded on a switch go in a box per network, named after it.
+- It has its own saved arrangement, so dragging things there doesn't move them
+  on the per-network cards. Dropping a device on a switch or in a box works as
+  it does anywhere else.
+
+It's a topology drawing only: picking it switches Radial back to Topology.
+Your choice is remembered in your browser.
+
 **Arranging the topology.** Drag anything wherever you like. It's saved on the
 server per network, so the layout is the same in every browser. Anything you
 haven't moved by hand follows the node it hangs from, so dragging a switch
