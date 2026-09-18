@@ -123,6 +123,7 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
 {
     var linkTemplate = app.Configuration["Bamf:DeviceLinkTemplate"];
     var placements = store.GetPlacements();
+    var deviceTypes = store.GetDeviceTypes();
     var hosts = store.GetAll().Select(h => new
     {
         id = h.Id,
@@ -148,6 +149,8 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         // Which switch port the user recorded this device on; 0 = not recorded.
         switchId = placements.TryGetValue(h.Id, out var pl) ? pl.SwitchId : 0,
         switchPort = placements.TryGetValue(h.Id, out var pp) ? pp.Port : 0,
+        // The type the user set, overriding the guess for its icon and type chip; "" = BAMF's guess.
+        deviceType = deviceTypes.TryGetValue(h.Id, out var dt) ? dt : "",
     });
     return Results.Json(new
     {
@@ -196,6 +199,8 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         serverTime = DateTime.UtcNow.ToString("o"),
         // Where the user dragged things on the topology Map: subnet -> node -> [x, y].
         mapPositions = store.GetMapPositions(),
+        // Icons the user chose for whole guessed types: { "Linux": "server" }.
+        typeIcons = store.GetTypeIcons(),
         hosts,
     });
 });
@@ -212,6 +217,7 @@ app.MapGet("/api/hosts.txt", (HostStore store, ScannerService scanner) =>
     var switchNames = store.GetSwitches().ToDictionary(s => s.Id, s => s.Name);
     var placements = store.GetPlacements();
     var portLabels = store.GetPortLabels();
+    var deviceTypes = store.GetDeviceTypes();
     string PluggedInto(long id)
     {
         if (!placements.TryGetValue(id, out var p) || !switchNames.TryGetValue(p.SwitchId, out var sw)) return "-";
@@ -229,7 +235,7 @@ app.MapGet("/api/hosts.txt", (HostStore store, ScannerService scanner) =>
         h.Subnet == "" ? "-" : h.Subnet,
         h.Online ? "online" : "offline",
         string.Concat(h.Known ? "K" : "-", h.Ignored ? "I" : "-", h.Watched ? "W" : "-", h.Forgotten ? "F" : "-"),
-        h.OsGuess == "" ? "-" : h.OsGuess,
+        deviceTypes.TryGetValue(h.Id, out var dt) ? $"{dt} (your type)" : h.OsGuess == "" ? "-" : h.OsGuess,
         h.LastSeen,
         PluggedInto(h.Id),
         h.Note == "" ? "-" : h.Note,
@@ -845,6 +851,22 @@ app.MapDelete("/api/map/positions", (string? subnet, HostStore store) =>
     return Results.Ok();
 });
 
+// A device's type, overriding BAMF's guess for its icon and type chip. Empty
+// goes back to the guess.
+app.MapPost("/api/hosts/{id:long}/type", (long id, DeviceTypeRequest body, HostStore store) =>
+{
+    var error = store.SetDeviceType(id, body.Type);
+    return error is null ? Results.Ok() : Results.BadRequest(new { error });
+});
+
+// Icons for whole guessed types: { "icons": { "Linux": "server", "Printer": "" } }.
+// An empty icon goes back to the automatic one.
+app.MapPost("/api/settings/type-icons", (TypeIconsRequest body, HostStore store) =>
+{
+    var error = store.SetTypeIcons(body.Icons ?? new());
+    return error is null ? Results.Json(store.GetTypeIcons()) : Results.BadRequest(new { error });
+});
+
 // Switch 0 clears the placement; port 0 means "on this switch, port not recorded".
 app.MapPost("/api/hosts/{id:long}/plug", (long id, PlugRequest body, HostStore store) =>
 {
@@ -924,6 +946,8 @@ record LinkRequest(string? Link);
 record PlugRequest(long SwitchId, int Port);
 record PortEntry(long HostId, int Port);
 record BlinkRequest(int? Seconds);
+record DeviceTypeRequest(string? Type);
+record TypeIconsRequest(Dictionary<string, string?>? Icons);
 record MapPositionsRequest(string? Subnet, Dictionary<string, double[]?>? Positions);
 record PortLabel(int Port, string? Label);
 record SwitchPortsRequest(List<PortEntry>? Ports, List<PortLabel>? Labels);

@@ -717,6 +717,20 @@
   /* A virtual switch lives inside its machine: dashed tile, dashed link to it. */
   .map-svg .node.virtual .t-tile { stroke-dasharray: 3 2; }
   .map-svg path.spoke.vlink { stroke: var(--text-dim); stroke-dasharray: 4 3; }
+  /* The Type / icon picker. */
+  .type-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; margin: 10px 0 12px; }
+  .type-opt {
+    display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 9px 4px 7px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--text); font: inherit; font-size: 12px; cursor: pointer; text-align: center;
+  }
+  .type-opt:hover { border-color: var(--focus); }
+  .type-opt.sel { border-color: var(--focus); box-shadow: inset 0 0 0 1px var(--focus); }
+  .type-opt svg, .type-ico { width: 24px; height: 24px; flex: 0 0 auto; }
+  .type-opt path, .type-ico path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .type-opt .auto-note { color: var(--text-dim); font-size: 10.5px; }
+  .type-all { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 0 0 8px; }
+  .set-table .type-cell { display: inline-flex; align-items: center; gap: 8px; }
   .vm-badge { font-size: 11px; color: var(--focus); margin-left: 6px; white-space: nowrap; }
   .vm-table { width: 100%; border-collapse: collapse; min-width: 0; margin-bottom: 10px; display: table; }
   .vm-table tbody { display: table-row-group; }
@@ -1291,6 +1305,17 @@
     </div>
   </div>
 
+  <div class="set-card" id="typeIconCard">
+    <div class="set-card-title">Device icons</div>
+    <p class="modal-help">
+      Icons you've chosen for a whole type BAMF guesses: every <em>Linux</em> device as a server,
+      say. Set one from any device's <strong>Type / icon…</strong> with "use this for every …
+      device" ticked. A type you set on one device always wins over these.
+    </p>
+    <table class="set-table" id="typeIconTable"></table>
+    <div class="modal-note" id="typeIconEmpty">None yet: the Map picks each icon from the device's guess and names.</div>
+  </div>
+
   <div class="set-card">
     <div class="set-card-title">Behaviour</div>
     <p class="modal-help">
@@ -1454,9 +1479,27 @@
     <div class="set-result" id="plugErr"></div>
     <div class="modal-actions">
       <button class="toggle" id="plugNewSwitch">Add a switch…</button>
+      <button class="toggle" id="plugType">Type / icon…</button>
       <button class="toggle" id="plugFind">Find in list</button>
       <button class="toggle" id="plugCancel">Cancel</button>
       <button class="export-btn" id="plugSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="typeModal" hidden>
+  <div class="modal">
+    <div class="modal-title" id="typeTitle">Type</div>
+    <div class="modal-note" id="typeSub"></div>
+    <div class="type-grid" id="typeGrid"></div>
+    <label class="type-all" id="typeAllRow"><input type="checkbox" id="typeAll"> <span id="typeAllText"></span></label>
+    <p class="modal-help" id="typeHelp">
+      The type sets the device's icon on the Map and which Device type chip it's under. Automatic
+      goes back to BAMF's guess. Click one to save.
+    </p>
+    <div class="set-result" id="typeErr"></div>
+    <div class="modal-actions">
+      <button class="toggle" id="typeCancel">Close</button>
     </div>
   </div>
 </div>
@@ -1591,6 +1634,7 @@ let subnetIntervals = {};  // subnet -> effective interval in seconds
 let subnetNextDue = {};    // subnet -> ISO time the scanner will next run it (paused: absent)
 let networkPlaces = {};    // subnet -> { selfIp, selfMac, gateway }: what the map knows for certain
 let mapPositions = {};     // topology Map: subnet -> node key -> [x, y] the user dragged to
+let typeIcons = {};        // guessed type -> icon the user chose for all of them: { "Linux": "server" }
 let switches = [];         // the switch layout the user recorded: [{ id, name, ports, subnet, hostId, uplink, uplinkSwitch, uplinkPort }]
 let activeArp = { enabled: false, npcapAvailable: false };
 let autoIgnoreRandom = false;
@@ -1861,6 +1905,17 @@ function dispName(h) {
 // the name, then the evidence it rests on. The name alone is the type, and
 // grouping by it costs nothing - no new taxonomy, no second list to maintain.
 // Devices with no guess share the null family and get their own chip.
+// The types a user can set on a device, each with its Map icon. Same keys as the server's.
+const TYPE_DEFS = [
+  ["router", "Router"], ["switch", "Switch"], ["ap", "Access point"], ["camera", "Camera"], ["printer", "Printer"],
+  ["tv", "TV / media"], ["speaker", "Speaker"], ["phone", "Phone"], ["tablet", "Tablet"], ["laptop", "Laptop"],
+  ["desktop", "Desktop"], ["server", "Server"], ["nas", "NAS"], ["vm", "Virtual machine"], ["game", "Game console"],
+  ["iot", "Smart home"], ["light", "Light"], ["plug", "Smart plug"], ["device", "Other"],
+];
+function typeLabel(key) { const d = TYPE_DEFS.find(([k]) => k === key); return d ? d[1] : key; }
+// A device's type family for the type chips: the one the user set, or the guess.
+function typeFamily(h) { return h.deviceType ? typeLabel(h.deviceType) : guessFamily(h.osGuess); }
+
 function guessFamily(osGuess) {
   if (!osGuess) return null;
   const cut = osGuess.indexOf(" (");
@@ -1872,7 +1927,7 @@ function visible(opts) {
   const ignoreGuess = !!(opts && opts.ignoreGuess);
   return hosts.filter(h => {
     if (!inNetwork(h)) return false;
-    if (!ignoreGuess && guessFilter !== null && guessFamily(h.osGuess) !== (guessFilter === NO_GUESS ? null : guessFilter)) return false;
+    if (!ignoreGuess && guessFilter !== null && typeFamily(h) !== (guessFilter === NO_GUESS ? null : guessFilter)) return false;
     if (view === "forgotten") { if (!h.forgotten) return false; }
     else {
       if (h.forgotten) return false;
@@ -1893,7 +1948,8 @@ function visible(opts) {
 // in .245, and "192.168.2.*" finds a whole subnet.
 function matchesQuery(h, query) {
   if (!query) return true;
-  const fields = [h.customName, h.hostname, h.mdnsName, h.mdnsServices, h.ip, h.mac, h.vendor, h.note, h.osGuess].filter(Boolean);
+  const fields = [h.customName, h.hostname, h.mdnsName, h.mdnsServices, h.ip, h.mac, h.vendor, h.note, h.osGuess,
+    h.deviceType ? typeLabel(h.deviceType) : ""].filter(Boolean);
   if (/[*?]/.test(query)) {
     let rx;
     try {
@@ -1919,7 +1975,7 @@ function renderGuessChips() {
   const pool = visible({ ignoreGuess: true });
   const counts = new Map();
   for (const h of pool) {
-    const key = guessFamily(h.osGuess) ?? NO_GUESS;
+    const key = typeFamily(h) ?? NO_GUESS;
     counts.set(key, (counts.get(key) || 0) + 1);
   }
 
@@ -2167,7 +2223,7 @@ function mapClusters() {
     const sws = switches.filter(s => shown.has(s.id));
     const swHosts = new Set(sws.map(s => s.hostId).filter(Boolean));
     const ring = members.filter(h => h !== self && h !== gw && !placed.includes(h) && !swHosts.has(h.id)).sort((a, b) => {
-      const fa = guessFamily(a.osGuess), fb = guessFamily(b.osGuess);
+      const fa = typeFamily(a), fb = typeFamily(b);
       if ((fa === null) !== (fb === null)) return fa === null ? 1 : -1;
       return (fa || "").localeCompare(fb || "") || dispName(a).localeCompare(dispName(b)) || ipNum(a.ip) - ipNum(b.ip);
     });
@@ -2179,9 +2235,9 @@ function mapSignature(clusters) {
   const key = n => n ? (n.synthetic ? "~" + n.ip : n.id) : null;
   return JSON.stringify([network, mapStyle, clusters.map(c => [
     c.subnet, c.mode, key(c.self), key(c.gw),
-    c.ring.map(h => [h.id, guessFamily(h.osGuess), dispName(h), h.ip]),
+    c.ring.map(h => [h.id, typeFamily(h), deviceKind(h), dispName(h), h.ip]),
     c.switches.map(s => [s.id, s.name, s.ports, s.hostId, s.uplink, s.uplinkSwitch, s.uplinkPort, s.portLabels]),
-    c.placed.map(h => [h.id, h.switchId, h.switchPort, dispName(h), h.ip]),
+    c.placed.map(h => [h.id, h.switchId, h.switchPort, deviceKind(h), dispName(h), h.ip]),
     mapStyle === "topology" ? mapPositions[c.subnet] || null : null,
   ])]);
 }
@@ -2199,7 +2255,7 @@ function mapTitle(h, role) {
   }
   const lines = [dispName(h) === "—" ? h.ip : dispName(h), `${h.ip} · ${h.mac}`];
   if (h.vendor) lines.push(h.vendor);
-  lines.push(h.osGuess ? "Guess: " + h.osGuess : "No guess yet");
+  lines.push(h.deviceType ? "Type: " + typeLabel(h.deviceType) + " (yours)" : h.osGuess ? "Guess: " + h.osGuess : "No guess yet");
   const sw = h.switchId ? switches.find(s => s.id === h.switchId) : null;
   if (sw) lines.push(`Plugged into ${sw.name}` + (h.switchPort ? `, ${portText(sw, h.switchPort)}` : "") + " (your record)");
   if (role === "gw") lines.push("Default gateway for this network");
@@ -2245,7 +2301,7 @@ function buildClusterSvg(c) {
   }
   let prev;
   c.ring.forEach((h, i) => {
-    const f = guessFamily(h.osGuess);
+    const f = typeFamily(h);
     if (i > 0 && f !== prev) slots.push(null);
     slots.push({ h });
     prev = f;
@@ -2529,6 +2585,10 @@ const TOPO_ICONS = {
   net: "M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6 11a3.5 3.5 0 0 0 1 7z",
   device: "M4 12a8 8 0 1 0 16 0a8 8 0 1 0 -16 0 M12 12h.01",
   vm: "M3 5h18v14H3z M3 9h18 M6 7h.01 M9 7h.01 M8 14h8",
+  nas: "M5 3h14v18H5z M8 7h8 M8 11h8 M8 15h5 M16 17.5h.01",
+  game: "M6 9h12a4 4 0 0 1 4 4v1a3 3 0 0 1-5.5 1.7L15 14H9l-1.5 1.7A3 3 0 0 1 2 14v-1a4 4 0 0 1 4-4z M7 11.5v2 M6 12.5h2 M16 12h.01 M18 13.5h.01",
+  light: "M9 18h6 M10 21h4 M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3z",
+  plug: "M8 3v5 M16 3v5 M6 8h12v4a6 6 0 0 1-12 0z M12 18v3",
   vswitch: "M2 9h20v7H2z M5 12.5h1.5 M8.5 12.5h1.5 M12 12.5h1.5 M15.5 12.5h1.5 M5 5.5h14",
 };
 // Which drawing, from the device guess, then its names and vendor. First match wins.
@@ -2545,9 +2605,23 @@ const TOPO_KINDS = [
   ["tablet", /ipad|tablet|kindle/],
   ["laptop", /macbook|laptop|notebook|chromebook/],
   ["desktop", /windows|desktop|workstation|imac|\bpc\b/],
-  ["server", /\bnas\b|synology|qnap|server|proxmox|truenas|unraid|raspberry|linux|ssh host|home assistant|pihole/],
+  ["nas", /\bnas\b|synology|qnap|truenas|unraid|file server/],
+  ["game", /xbox|playstation|nintendo|steam ?deck/],
+  ["server", /server|proxmox|raspberry|linux|ssh host|home assistant|pihole/],
   ["iot", /esp32|esp8266|esphome|\biot\b|hue|homekit|matter|nest|thermostat|plug|bulb|amazon device/],
 ];
+function deviceKind(h) {
+  if (!h || h.synthetic) return "device";
+  if (h.deviceType && TOPO_ICONS[h.deviceType]) return h.deviceType;
+  return autoKind(h);
+}
+// What the icon would be without a type set on the device itself.
+function autoKind(h) {
+  if (!h || h.synthetic) return "device";
+  const fam = guessFamily(h.osGuess);
+  if (fam && typeIcons[fam] && TOPO_ICONS[typeIcons[fam]]) return typeIcons[fam];
+  return topoKind(h);
+}
 function topoKind(h) {
   if (!h || h.synthetic) return "device";
   const text = [h.osGuess, h.customName, h.hostname === "—" ? "" : h.hostname, h.mdnsName, h.vendor]
@@ -2917,7 +2991,7 @@ function topoNodeEl(m, key, n) {
   } else if (n.type === "self") {
     cls = mapNodeClass(h, "self"); kind = "server"; name = "BAMF"; sub = h.ip; tip = mapTitle(h, "self");
   } else {
-    cls = mapNodeClass(h, "dev"); kind = topoKind(h); name = nameOrIp(h); tip = mapTitle(h, "dev");
+    cls = mapNodeClass(h, "dev"); kind = deviceKind(h); name = nameOrIp(h); tip = mapTitle(h, "dev");
     // An unnamed device is already labelled by its address: say what it is instead.
     sub = name === h.ip ? (guessFamily(h.osGuess) || h.vendor || "") : h.ip;
   }
@@ -3344,7 +3418,9 @@ function render() {
       </td>
       <td class="ip" data-label="IP"><a href="${esc(h.linkUrl || ("http://" + h.ip))}" target="_blank" rel="noopener" title="Open ${esc(h.linkUrl || ("http://" + h.ip))}${h.link ? " (custom link)" : ""}">${esc(h.ip)}${h.link ? '<span class="link-flag" title="Custom link">⇗</span>' : ""}</a></td>
       <td class="mac" data-label="MAC">${esc(h.mac)}</td>
-      <td class="vendor" data-label="Vendor">${esc(h.vendor)}${h.osGuess ? `<span class="os-guess" title="Device guess — heuristic, from ${esc(h.osGuess)}">${esc(h.osGuess)}</span>` : ""}</td>
+      <td class="vendor" data-label="Vendor">${esc(h.vendor)}${h.deviceType
+        ? `<span class="os-guess" title="Type you set${h.osGuess ? " — BAMF guessed " + esc(h.osGuess) : ""}">${esc(typeLabel(h.deviceType))} · your type</span>`
+        : h.osGuess ? `<span class="os-guess" title="Device guess — heuristic, from ${esc(h.osGuess)}">${esc(h.osGuess)}</span>` : ""}</td>
       <td class="ip" data-label="Network">${esc(h.subnet || "—")}</td>
       <td class="seen" data-label="First seen" title="${esc(fmtExact(h.firstSeen))}">${fmtAgo(h.firstSeen)}</td>
       <td class="seen" data-label="Last seen" title="${esc(fmtExact(h.lastSeen))}">${fmtAgo(h.lastSeen)}</td>
@@ -3444,6 +3520,7 @@ function render() {
     } else {
       addItem(h.note ? "Edit note…" : "Add note…", () => openNoteDialog(h));
       addItem(h.link ? "Change link…" : "Set link…", () => setHostLink(h));
+      addItem("Type / icon…", () => openTypeDialog(h));
       const ownSwitch = switches.find(s => s.hostId === h.id);
       if (ownSwitch) {
         addItem(ownSwitch.kind === "virtual" ? "VMs…" : "Ports…", () => openPortsDialog(ownSwitch));
@@ -3904,6 +3981,95 @@ async function deleteSwitchDialog() {
   toast(`Switch ${esc(sw.name)} deleted`);
   closeSwitchDialog();
   await refresh();
+}
+
+// ---- Type / icon ----
+// One picker for two jobs: a type for one device, or (ticked, or from
+// Settings) the icon for every device of a guessed type.
+let typeHost = null;     // the device being typed, or null in family mode
+let typeFamilyKey = null;   // the guessed type being given an icon, in family mode
+function typeIconSvg(kind) {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${TOPO_ICONS[kind] || TOPO_ICONS.device}"/></svg>`;
+}
+function openTypeDialog(h, family = null) {
+  typeHost = h;
+  typeFamilyKey = family;
+  const fam = h ? guessFamily(h.osGuess) : family;
+  const current = h ? (h.deviceType || "") : (typeIcons[family] || "");
+  const auto = h ? autoKind({ ...h, deviceType: "" }) : topoKind({ osGuess: family });
+  $("typeTitle").textContent = h ? "Type — " + nameOrIp(h) : `Icon for every "${family}" device`;
+  $("typeSub").textContent = h ? (h.osGuess ? "BAMF's guess: " + h.osGuess : "No guess yet") : "BAMF guesses this type; pick the icon it gets on the Map.";
+  const grid = $("typeGrid");
+  grid.innerHTML = "";
+  const opt = (key, label, note) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "type-opt" + (key === current ? " sel" : "");
+    b.innerHTML = typeIconSvg(key || auto) + `<span></span>` + (note ? `<span class="auto-note"></span>` : "");
+    b.children[1].textContent = label;
+    if (note) b.children[2].textContent = note;
+    b.onclick = () => saveType(key);
+    grid.appendChild(b);
+  };
+  opt("", "Automatic", h ? "BAMF's guess" : "the usual icon");
+  TYPE_DEFS.forEach(([k, label]) => opt(k, label));
+  // In device mode, offer the same icon for all its guessed type at once.
+  $("typeAllRow").style.display = h && fam ? "" : "none";
+  $("typeAll").checked = false;
+  $("typeAllText").textContent = fam ? `Use this icon for every "${fam}" device` : "";
+  showErr("typeErr", "");
+  $("plugModal").hidden = true;
+  $("typeModal").hidden = false;
+}
+function closeTypeDialog() { $("typeModal").hidden = true; typeHost = null; typeFamilyKey = null; }
+async function saveType(key) {
+  const h = typeHost;
+  const fam = h ? guessFamily(h.osGuess) : typeFamilyKey;
+  const everyOfType = !h || (fam && $("typeAll").checked);
+  try {
+    if (everyOfType) {
+      // The whole guessed type gets this icon; this device then follows it.
+      const r = await fetch("/api/settings/type-icons", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ icons: { [fam]: key } }),
+      });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); showErr("typeErr", d.error || "Couldn't save (HTTP " + r.status + ")."); return; }
+    }
+    if (h && (!everyOfType || h.deviceType)) {
+      const r = await fetch(`/api/hosts/${h.id}/type`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: everyOfType ? "" : key }),
+      });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); showErr("typeErr", d.error || "Couldn't save (HTTP " + r.status + ")."); return; }
+    }
+    toast(everyOfType
+      ? (key ? `Every "${esc(fam)}" device now shows as ${esc(typeLabel(key))}` : `"${esc(fam)}" devices are back to their usual icon`)
+      : (key ? `${esc(nameOrIp(h))} is now a ${esc(typeLabel(key).toLowerCase())}` : `${esc(nameOrIp(h))} is back to BAMF's guess`));
+    closeTypeDialog();
+    await refresh();
+  } catch {
+    showErr("typeErr", "Couldn't reach BAMF.");
+  }
+}
+function renderTypeIconList() {
+  const table = $("typeIconTable");
+  if (!table) return;
+  table.innerHTML = "";
+  const entries = Object.entries(typeIcons).sort((a, b) => a[0].localeCompare(b[0]));
+  $("typeIconEmpty").hidden = entries.length > 0;
+  for (const [fam, key] of entries) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="sw-name"></td><td class="set-eff"><span class="type-cell">${typeIconSvg(key).replace("<svg", '<svg class="type-ico"')}<span></span></span></td>
+      <td><button class="toggle ti-change">Change</button> <button class="toggle ti-reset">Reset</button></td>`;
+    tr.children[0].textContent = fam;
+    tr.querySelector(".type-cell span").textContent = typeLabel(key);
+    tr.querySelector(".ti-change").onclick = () => openTypeDialog(null, fam);
+    tr.querySelector(".ti-reset").onclick = async () => {
+      await fetch("/api/settings/type-icons", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ icons: { [fam]: "" } }),
+      });
+      await refresh();
+    };
+    table.appendChild(tr);
+  }
 }
 
 // ---- Find port ----
@@ -4389,6 +4555,7 @@ async function refresh() {
     networkPlaces = data.networkPlaces || {};
     switches = data.switches || [];
     mapPositions = data.mapPositions || {};
+    typeIcons = data.typeIcons || {};
     syncBlink(data.blink, data.serverTime);
     activeArp = data.activeArp || activeArp;
     autoIgnoreRandom = !!data.autoIgnoreRandom;
@@ -4430,6 +4597,7 @@ async function refresh() {
     try { feedCache = await loadFeed(); } catch { /* keep old feed */ }
     render();
     renderSwitchList();
+    renderTypeIconList();
   } catch (e) {
     $("connDot").classList.add("err");
     console.error("refresh failed", e);
@@ -4917,6 +5085,9 @@ $("swName").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); save
 $("swAdd").onclick = () => openSwitchDialog(null);
 $("plugFind").onclick = () => { const h = plugHost; closePlugDialog(); if (h) jumpToHost(h.id); };
 $("plugBlinkBtn").onclick = () => { if (plugHost) startBlink(plugHost, "plugBlink"); };
+$("plugType").onclick = () => { const h = plugHost; closePlugDialog(); if (h) openTypeDialog(h); };
+$("typeCancel").onclick = closeTypeDialog;
+$("typeModal").onclick = e => { if (e.target.id === "typeModal") closeTypeDialog(); };
 $("blinkBarStop").onclick = stopBlink;
 $("portsFindBtn").onclick = () => {
   const h = hosts.find(x => x.id === Number($("portsFindHost").value));
@@ -4948,6 +5119,7 @@ document.addEventListener("keydown", e => {
   if (!$("swModal").hidden) { closeSwitchDialog(); return; }
   if (!$("plugModal").hidden) { closePlugDialog(); return; }
   if (!$("portsModal").hidden) { closePortsDialog(); return; }
+  if (!$("typeModal").hidden) { closeTypeDialog(); return; }
   if (!$("scanModal").hidden) { $("scanModal").hidden = true; return; }
   if (blink) { stopBlink(); return; }
   const openMenu = document.querySelector(".row-menu.show");
@@ -5042,7 +5214,7 @@ $("testWebhook").onclick = async () => {
 
 $("exportCsv").onclick = () => {
   const rows = applySort(visible());
-  const cols = ["name","dnsHostname","ip","mac","vendor","deviceGuess","network","online","known","ignored","firstSeen","lastSeen","switch","switchPort","portLocation"];
+  const cols = ["name","dnsHostname","ip","mac","vendor","deviceGuess","deviceType","network","online","known","ignored","firstSeen","lastSeen","switch","switchPort","portLocation"];
   const cell = v => {
     v = String(v ?? "");
     return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
@@ -5051,7 +5223,7 @@ $("exportCsv").onclick = () => {
   for (const h of rows) {
     lines.push([
       dispName(h), h.hostname === "\u2014" ? "" : h.hostname, h.ip, h.mac, h.vendor,
-      h.osGuess || "", h.subnet, h.online, h.known, h.ignored, h.firstSeen, h.lastSeen,
+      h.osGuess || "", h.deviceType ? typeLabel(h.deviceType) : "", h.subnet, h.online, h.known, h.ignored, h.firstSeen, h.lastSeen,
       switches.find(s => s.id === h.switchId)?.name || "", h.switchId && h.switchPort ? h.switchPort : "",
       h.switchId && h.switchPort ? portLabel(switches.find(s => s.id === h.switchId), h.switchPort) : ""
     ].map(cell).join(","));
