@@ -13,7 +13,12 @@ public partial class HostStore
 {
     public const int MaxMapPositionsPerSave = 500;
     private const double MaxMapCoordinate = 100_000;
-    private static readonly Regex MapNodeKey = new(@"^(h:\d{1,12}|s:\d{1,12}|gw|self|net|box)$", RegexOptions.CultureInvariant);
+    // The whole-network view adds a box per network ("box:192.168.1.0/24") and a
+    // top per gateway, keyed by device id or, when no scan has seen it, address
+    // ("gw:12", "gw:192.168.1.1").
+    private static readonly Regex MapNodeKey = new(
+        @"^(h:\d{1,12}|s:\d{1,12}|gw(:[0-9A-Fa-f.:]{1,45})?|self|net|box(:[0-9A-Fa-f.:]{1,45}/\d{1,3})?)$",
+        RegexOptions.CultureInvariant);
 
     private static void InitMapPositions(SqliteConnection conn)
     {
