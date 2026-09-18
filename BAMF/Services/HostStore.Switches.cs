@@ -242,6 +242,7 @@ public partial class HostStore
                 """;
             cmd.Parameters.AddWithValue("$id", id);
             cmd.ExecuteNonQuery();
+            ForgetMapNode(conn, $"s:{id}");
             using var check = conn.CreateCommand();
             check.Transaction = tx;
             check.CommandText = "SELECT changes()";

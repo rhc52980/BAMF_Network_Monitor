@@ -194,6 +194,8 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
             ? new { hostId = bh, started = bs.ToString("o"), until = bu.ToString("o") }
             : null,
         serverTime = DateTime.UtcNow.ToString("o"),
+        // Where the user dragged things on the topology Map: subnet -> node -> [x, y].
+        mapPositions = store.GetMapPositions(),
         hosts,
     });
 });
@@ -827,6 +829,22 @@ app.MapDelete("/api/blink", (PortBlinker blinker) =>
     return Results.Ok();
 });
 
+// Topology Map layout: where the user dragged things, per network card. A null
+// position forgets that node, so it goes back to the automatic layout.
+app.MapPost("/api/map/positions", (MapPositionsRequest body, HostStore store) =>
+{
+    var error = store.SaveMapPositions(body.Subnet ?? "", body.Positions ?? new());
+    return error is null ? Results.Ok() : Results.BadRequest(new { error });
+});
+
+// "Auto-arrange": forget every dragged position on one network's card.
+app.MapDelete("/api/map/positions", (string? subnet, HostStore store) =>
+{
+    if (string.IsNullOrWhiteSpace(subnet)) return Results.BadRequest(new { error = "Which network is this for?" });
+    store.ClearMapPositions(subnet);
+    return Results.Ok();
+});
+
 // Switch 0 clears the placement; port 0 means "on this switch, port not recorded".
 app.MapPost("/api/hosts/{id:long}/plug", (long id, PlugRequest body, HostStore store) =>
 {
@@ -904,6 +922,7 @@ record LinkRequest(string? Link);
 record PlugRequest(long SwitchId, int Port);
 record PortEntry(long HostId, int Port);
 record BlinkRequest(int? Seconds);
+record MapPositionsRequest(string? Subnet, Dictionary<string, double[]?>? Positions);
 record PortLabel(int Port, string? Label);
 record SwitchPortsRequest(List<PortEntry>? Ports, List<PortLabel>? Labels);
 record WebhookRequest(string? Url, string? Format);

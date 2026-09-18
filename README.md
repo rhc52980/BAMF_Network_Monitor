@@ -91,14 +91,17 @@ optional daily update check you have to switch on, and your own webhook.
 
 ### See how it's laid out
 
-![The Map tab: each network drawn around itself, with the gateway and BAMF marked, two recorded switches with their devices in port order joined by cables, and the rest on thin "on this network" lines](docs/map.png)
+![The Map tab as a network diagram: the gateway at the top with BAMF beside it, two recorded switches below it with their devices listed in port order and each port's location, an icon for each kind of device, and the Wi-Fi devices in an "On this network" box](docs/map.png)
 
-The **Map** draws each network around itself. The gateway and BAMF's own
-machine are facts, so they're marked. Cabling isn't something ARP can see, so
-BAMF doesn't guess it. Record your switches under **Settings → Switches** and
-which port each device is on, and the map draws those as cables. Anything you
-haven't recorded, like the Wi-Fi devices above, stays on a thin "on this
-network" line. It works with any switch, including unmanaged ones.
+The **Map** draws each network as a diagram: the router at the top, your
+switches under it, each switch's devices in port order with where the cable
+goes (`6 · Living Room`), and an icon for each kind of device. Cabling isn't
+something ARP can see, so BAMF doesn't guess it. Record your switches under
+**Settings → Switches**, or just drag a device onto a switch on the map, and
+the map draws it as a cable. Anything you haven't recorded, like the Wi-Fi
+devices above, waits in an "On this network" box. Drag anything to arrange it
+the way your house is laid out; it's saved, so it looks the same on every
+screen. It works with any switch, including unmanaged ones.
 
 ### Tune it without touching the server
 

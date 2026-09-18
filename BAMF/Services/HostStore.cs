@@ -153,6 +153,7 @@ public partial class HostStore
 
         ScrubSyntheticHostnames(conn);
         InitSwitches(conn);
+        InitMapPositions(conn);
     }
 
     /// <summary>Every address a host has been seen at, oldest first, with when each began.</summary>
@@ -863,6 +864,7 @@ public partial class HostStore
                 ev.ExecuteNonQuery();
             }
             ForgetHostInLayout(conn, id);
+            ForgetMapNode(conn, $"h:{id}");
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "DELETE FROM hosts WHERE id = $id";
             cmd.Parameters.AddWithValue("$id", id);
