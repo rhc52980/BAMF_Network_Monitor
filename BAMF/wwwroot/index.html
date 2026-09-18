@@ -1472,6 +1472,101 @@
     .sp-gear .spin, .sp-bg.burst .sp-gear .kick, .map-svg .t-cog path, .sp-ticker, .sp-hiss, .sp-hiss::before, .sp-hiss::after { animation: none !important; }
   }
 
+  /* Steampunk, more of it. */
+  /* The pressure gauge in the header: how much of the network is up. */
+  .sp-gauge { width: 34px; height: 34px; flex: none; }
+  .sp-gauge svg { display: block; overflow: visible; }
+  .sp-gauge .needle { transform-origin: 17px 17px; transition: transform 1.2s cubic-bezier(.3, 1.6, .5, 1); }
+  .sp-gauge.red .needle-wrap { animation: sp-wobble .5s ease-in-out infinite; transform-origin: 17px 17px; }
+  @keyframes sp-wobble { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+  /* The brass clock on the Last scan card; it chimes when a scan lands. */
+  [data-theme="steampunk"] .stat { position: relative; }
+  .sp-clock { position: absolute; right: 14px; top: 50%; width: 44px; height: 44px; margin-top: -22px; }
+  .sp-clock svg { display: block; overflow: visible; }
+  .sp-clock .hand { transform-origin: 22px 22px; }
+  .sp-clock .sec { transform-origin: 22px 22px; animation: sp-turn 60s steps(60) infinite; }
+  .sp-clock.chime { animation: sp-chime .9s ease-in-out 1; }
+  @keyframes sp-chime { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-9deg); } 40% { transform: rotate(8deg); } 60% { transform: rotate(-5deg); } 80% { transform: rotate(3deg); } }
+  .sp-note { position: absolute; right: 18px; top: 2px; color: #ffcf7a; font: 14px Georgia, serif; animation: sp-note 1.4s ease-out forwards; pointer-events: none; }
+  @keyframes sp-note { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translate(10px, -22px); } }
+  /* Wind-up keys on watched devices; a key winds down when its device goes offline. */
+  .sp-key { display: inline-block; width: 18px; height: 12px; margin-left: 6px; vertical-align: -1px; }
+  .sp-key svg { display: block; overflow: visible; }
+  .sp-key .bow { transform-origin: 5px 6px; animation: sp-wind 1.2s ease-in-out infinite alternate; }
+  .sp-key.down .bow { animation: sp-winddown 3s cubic-bezier(.1, .7, .3, 1) 1 forwards; }
+  .sp-key.stopped .bow { animation: none; }
+  @keyframes sp-wind { to { transform: scaleX(-1); } }
+  @keyframes sp-winddown { 0% { transform: scaleX(1); } 30% { transform: scaleX(-1); } 60% { transform: scaleX(.6); } 100% { transform: scaleX(1); } }
+  /* Identify feeds a punch card; a port scan spins an orrery. */
+  .scan-entry.busy[data-kind="identify"] .scan-entry-body,
+  .scan-entry.busy[data-kind="ports"] .scan-entry-body { min-height: 0; }
+  [data-theme="steampunk"] .scan-entry.busy[data-kind="identify"] .scan-entry-body { position: relative; height: 62px; }
+  [data-theme="steampunk"] .scan-entry.busy[data-kind="identify"] .scan-entry-body::before {
+    content: ""; position: absolute; left: 6px; top: 6px; width: 150px; height: 48px;
+    background: #efe2c0; clip-path: polygon(0 0, 92% 0, 100% 16%, 100% 100%, 0 100%);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, .4); animation: sp-feed 2.4s ease-in-out infinite;
+  }
+  [data-theme="steampunk"] .scan-entry.busy[data-kind="identify"] .scan-entry-body::after {
+    content: ""; position: absolute; left: 14px; top: 12px; width: 128px; height: 36px;
+    background:
+      linear-gradient(90deg, #3a2716 0 4px, transparent 4px) 0 0 / 12px 7px repeat-x,
+      linear-gradient(90deg, transparent 6px, #3a2716 6px 10px, transparent 10px) 0 14px / 16px 7px repeat-x,
+      linear-gradient(90deg, #3a2716 0 4px, transparent 4px) 5px 28px / 20px 7px repeat-x;
+    animation: sp-punch 2.4s steps(12) infinite, sp-feed 2.4s ease-in-out infinite;
+  }
+  @keyframes sp-punch { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+  @keyframes sp-feed { 0% { transform: translateX(0); } 50% { transform: translateX(10px); } 100% { transform: translateX(0); } }
+  [data-theme="steampunk"] .scan-entry.busy[data-kind="ports"] .scan-entry-body { position: relative; height: 76px; }
+  [data-theme="steampunk"] .scan-entry.busy[data-kind="ports"] .scan-entry-body::before,
+  [data-theme="steampunk"] .scan-entry.busy[data-kind="ports"] .scan-entry-body::after {
+    content: ""; position: absolute; left: 10px; top: 4px; width: 68px; height: 68px; border-radius: 50%;
+    border: 1px dashed rgba(201, 154, 63, .6);
+    background: radial-gradient(circle at 50% 50%, #ffcf7a 0 7px, #c25b00 8px, transparent 9px),
+                radial-gradient(circle at 50% 4px, #52c3a4 0 4px, transparent 4.5px);
+    animation: sp-turn 3s linear infinite;
+  }
+  [data-theme="steampunk"] .scan-entry.busy[data-kind="ports"] .scan-entry-body::after {
+    left: 24px; top: 18px; width: 40px; height: 40px; background: radial-gradient(circle at 50% 3px, #c99a3f 0 3.2px, transparent 3.6px);
+    animation-duration: 1.4s; animation-direction: reverse;
+  }
+  /* A brass lens over an address or MAC you point at. */
+  [data-theme="steampunk"] td.ip a:hover, [data-theme="steampunk"] td.mac:hover > .mac-text {
+    display: inline-block; transform: scale(1.3); position: relative; z-index: 3; border-radius: 999px; padding: 1px 8px;
+    background: radial-gradient(ellipse at 35% 30%, rgba(255, 245, 220, .25), rgba(40, 28, 17, .92) 70%);
+    box-shadow: 0 0 0 2px #c99a3f, 0 0 0 4px #5b3d18, 0 3px 8px rgba(0, 0, 0, .6); transition: transform .15s;
+  }
+  /* The search box: a brass telescope eyepiece; rows glint as you type. */
+  [data-theme="steampunk"] #search {
+    padding-left: 34px; border: 1px solid #c99a3f; box-shadow: inset 0 0 0 2px #3a2716, 0 0 0 2px #5b3d18;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 15l12-9 3 4-12 9z' fill='%23c99a3f' stroke='%233a2716'/%3E%3Cpath d='M15 6l3-2 3 4-3 2z' fill='%23e8c27a' stroke='%233a2716'/%3E%3Cpath d='M8 17l-2 5M10 16l2 6' stroke='%23c99a3f' stroke-width='1.5'/%3E%3C/svg%3E") 8px 50% / 18px no-repeat, var(--panel);
+  }
+  [data-theme="steampunk"] tbody.sp-glint tr td { background-image: linear-gradient(100deg, transparent 35%, rgba(255, 214, 140, .22) 50%, transparent 65%); background-size: 300% 100%; animation: sp-glint .8s ease-out 1; }
+  @keyframes sp-glint { from { background-position: 100% 0; } to { background-position: -50% 0; } }
+  /* Oil lamps in the corners, flickering softly. */
+  .sp-lamps { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; animation: sp-lamp 5s infinite;
+    background:
+      radial-gradient(circle at 0 0, rgba(255, 150, 50, .16), transparent 28vmax),
+      radial-gradient(circle at 100% 0, rgba(255, 150, 50, .12), transparent 24vmax),
+      radial-gradient(circle at 0 100%, rgba(255, 150, 50, .12), transparent 24vmax),
+      radial-gradient(circle at 100% 100%, rgba(255, 150, 50, .16), transparent 28vmax); }
+  @keyframes sp-lamp { 0%, 100% { opacity: .85; } 13% { opacity: .7; } 17% { opacity: .9; } 44% { opacity: .78; } 52% { opacity: .95; } 76% { opacity: .74; } 83% { opacity: .88; } }
+  /* The Map unrolls like drafting paper; capsules shoot along the pipes. */
+  [data-theme="steampunk"] #mapClusters.sp-unroll .map-card { animation: sp-unroll .9s cubic-bezier(.3, .8, .3, 1) 1; transform-origin: top; }
+  @keyframes sp-unroll { from { clip-path: inset(0 0 100% 0); transform: scaleY(.96); } to { clip-path: inset(0 0 0 0); transform: none; } }
+  [data-theme="steampunk"] .map-svg .pkt.sp-tube {
+    display: inline; fill: none; stroke: #f0cf7c; stroke-width: 6; stroke-linecap: round;
+    stroke-dasharray: 9 4000; animation: sp-tube 1.3s ease-in 1 forwards; filter: drop-shadow(0 0 2px #000);
+  }
+  @keyframes sp-tube { from { stroke-dashoffset: 0; } to { stroke-dashoffset: calc(-1px * var(--len)); } }
+  .map-svg .sp-thunk { fill: rgba(235, 225, 210, .75); animation: sp-thunk .8s ease-out forwards; }
+  @keyframes sp-thunk { from { r: 3; opacity: .9; } to { r: 18; opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .sp-gauge.red .needle-wrap, .sp-clock .sec, .sp-clock.chime, .sp-note, .sp-key .bow, .sp-key.down .bow,
+    [data-theme="steampunk"] .scan-entry.busy .scan-entry-body::before, [data-theme="steampunk"] .scan-entry.busy .scan-entry-body::after,
+    [data-theme="steampunk"] tbody.sp-glint tr td, .sp-lamps, [data-theme="steampunk"] #mapClusters.sp-unroll .map-card { animation: none !important; }
+    .sp-gauge .needle { transition: none; }
+  }
+
   /* ---- the secret ---- */
   .secret-modal { text-align: center; }
   .secret-emoji { font-size: 52px; line-height: 1.1; margin-bottom: 6px; animation: secret-pop .6s cubic-bezier(.18,1.4,.4,1); }
@@ -4189,7 +4284,7 @@ function render() {
       </td>
       <td class="ip" data-label="IP"><a href="${esc(h.linkUrl || ("http://" + h.ip))}" target="_blank" rel="noopener" title="Open ${esc(h.linkUrl || ("http://" + h.ip))}${h.link ? " (custom link)" : ""}">${esc(h.ip)}${h.link ? '<span class="link-flag" title="Custom link">⇗</span>' : ""}</a>${alsoAt(h).length
         ? `<span class="more-wrap"><button class="ip-more" title="Also answers on ${esc(alsoAt(h).map(a => a.ip).join(", "))}">+${alsoAt(h).length}</button><div class="row-menu addr-menu">${addrMenuHtml(h)}</div></span>` : ""}</td>
-      <td class="mac" data-label="MAC">${esc(h.mac)}</td>
+      <td class="mac" data-label="MAC"><span class="mac-text">${esc(h.mac)}</span></td>
       <td class="vendor" data-label="Vendor">${esc(h.vendor)}${h.deviceType
         ? `<span class="os-guess" title="Type you set${h.osGuess ? " — BAMF guessed " + esc(h.osGuess) : ""}">${esc(typeLabel(h.deviceType))} · your type</span>`
         : h.osGuess ? `<span class="os-guess" title="Device guess — heuristic, from ${esc(h.osGuess)}">${esc(h.osGuess)}</span>` : ""}</td>
@@ -4434,6 +4529,8 @@ function addScanEntry(name, ip, subLabel) {
   const body = $("scanPanelBody");
   const el = document.createElement("div");
   el.className = "scan-entry busy";
+  // What's running, so a theme can show it: Identify, or a port scan.
+  el.dataset.kind = subLabel === "identify" ? "identify" : "ports";
   const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   el.innerHTML = `<div class="scan-entry-head">
       <span class="nm">${esc(name)}</span>
@@ -6276,6 +6373,143 @@ function buildSteampunk(root) {
     }
     wentOffIds = [];
   };
+  steampunkExtras(root);
+}
+
+// More Steampunk: a pressure gauge in the header, a brass clock on the Last
+// scan card, wind-up keys on watched devices, lamps in the corners, a lens
+// over addresses, a telescope search, capsules along the Map's pipes, and a
+// Map that unrolls. Identify's punch card and the port scan's orrery are CSS.
+function steampunkExtras(root) {
+  const calm = calmMotion();
+  const added = [];   // elements put into the page outside the effects layer, removed on a theme change
+  festiveStops.push(() => added.forEach(el => el.remove()));
+
+  // Pressure: devices online now against the most seen online this session.
+  // Well below that and the needle drops into the red and trembles.
+  const gauge = document.createElement("div");
+  gauge.className = "sp-gauge";
+  gauge.innerHTML = `<svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+    <circle cx="17" cy="17" r="15.5" fill="#efe2c0" stroke="#c99a3f" stroke-width="2.5"/>
+    <path d="M6.4 25.6A15 15 0 0 1 4 12" fill="none" stroke="#c2371f" stroke-width="3"/>
+    ${Array.from({ length: 9 }, (_, i) => { const a = (-120 + i * 30) * Math.PI / 180;
+      return `<path d="M${(17 + Math.sin(a) * 11).toFixed(1)} ${(17 - Math.cos(a) * 11).toFixed(1)}L${(17 + Math.sin(a) * 13.5).toFixed(1)} ${(17 - Math.cos(a) * 13.5).toFixed(1)}" stroke="#3a2716" stroke-width="1"/>`; }).join("")}
+    <g class="needle-wrap"><g class="needle"><path d="M17 17L17 5" stroke="#1a120b" stroke-width="1.6" stroke-linecap="round"/></g></g>
+    <circle cx="17" cy="17" r="2.4" fill="#c99a3f"/></svg>`;
+  const track = document.querySelector(".scanline .scan-track");
+  track?.parentElement.insertBefore(gauge, track);
+  added.push(gauge);
+  let peak = 0;
+  const readGauge = () => {
+    const live = hosts.filter(h => !h.ignored && !h.forgotten);
+    const on = live.filter(h => h.online).length;
+    peak = Math.max(peak, on);
+    const share = peak ? on / peak : 1;
+    gauge.querySelector(".needle").style.transform = `rotate(${(-120 + share * 240).toFixed(0)}deg)`;
+    gauge.classList.toggle("red", share < .7);
+    gauge.title = `Pressure: ${on} device${on === 1 ? "" : "s"} online, of ${peak} at most this session`;
+  };
+
+  // A brass clock on the Last scan card, keeping real time.
+  const lastCard = $("statLast")?.closest(".stat");
+  const clock = document.createElement("div");
+  clock.className = "sp-clock";
+  clock.setAttribute("aria-hidden", "true");
+  clock.innerHTML = `<svg width="44" height="44" viewBox="0 0 44 44">
+    <circle cx="22" cy="22" r="20" fill="#efe2c0" stroke="#c99a3f" stroke-width="3"/>
+    ${Array.from({ length: 12 }, (_, i) => { const a = i * Math.PI / 6;
+      return `<circle cx="${(22 + Math.sin(a) * 15.5).toFixed(1)}" cy="${(22 - Math.cos(a) * 15.5).toFixed(1)}" r="${i % 3 ? .9 : 1.5}" fill="#3a2716"/>`; }).join("")}
+    <path class="hand hr" d="M22 22V12" stroke="#1a120b" stroke-width="2.4" stroke-linecap="round"/>
+    <path class="hand mn" d="M22 22V7" stroke="#1a120b" stroke-width="1.6" stroke-linecap="round"/>
+    <path class="sec" d="M22 25V6" stroke="#c2371f" stroke-width=".8"/>
+    <circle cx="22" cy="22" r="1.8" fill="#c99a3f"/></svg>`;
+  if (lastCard) { lastCard.appendChild(clock); added.push(clock); }
+  const setClock = () => {
+    const d = new Date(), m = d.getMinutes() + d.getSeconds() / 60, h = (d.getHours() % 12) + m / 60;
+    clock.querySelector(".hr").style.transform = `rotate(${h * 30}deg)`;
+    clock.querySelector(".mn").style.transform = `rotate(${m * 6}deg)`;
+    clock.querySelector(".sec").style.animationDelay = `-${d.getSeconds()}s`;
+  };
+  setClock();
+  festiveTimers.push(setInterval(setClock, 20e3));
+
+  // Oil lamps in the corners.
+  const lamps = document.createElement("div");
+  lamps.className = "sp-lamps";
+  root.appendChild(lamps);
+
+  // The telescope search: rows glint as you type.
+  const glint = () => {
+    if (calm) return;
+    const tb = document.querySelector("table tbody");
+    if (!tb) return;
+    tb.classList.remove("sp-glint"); void tb.offsetWidth; tb.classList.add("sp-glint");
+  };
+  const search = $("search");
+  const onInput = () => festiveTimers.push(setTimeout(glint, 30));
+  search?.addEventListener("input", onInput);
+  festiveStops.push(() => search?.removeEventListener("input", onInput));
+
+  // Now and then a brass capsule shoots along a pipe on the Map, with a
+  // thunk of air where it lands.
+  if (!calm) festiveTimers.push(setInterval(() => {
+    if (document.hidden) return;
+    const pipes = [...document.querySelectorAll(".map-svg .pkt")].filter(p => p.getAttribute("d"));
+    if (!pipes.length) return;
+    const p = pick(pipes), len = p.getTotalLength();
+    p.style.setProperty("--len", Math.ceil(len));
+    p.classList.remove("sp-tube"); void p.getBoundingClientRect(); p.classList.add("sp-tube");
+    festiveTimers.push(setTimeout(() => {
+      p.classList.remove("sp-tube");
+      const end = p.getPointAtLength(len);
+      const puff = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      puff.setAttribute("class", "sp-thunk");
+      puff.setAttribute("cx", end.x.toFixed(1)); puff.setAttribute("cy", end.y.toFixed(1)); puff.setAttribute("r", 3);
+      p.parentElement.appendChild(puff);
+      festiveTimers.push(setTimeout(() => puff.remove(), 850));
+    }, 1300));
+  }, 7000));
+
+  // After each render: the gauge, keys on watched rows, and the Map unrolling
+  // when you arrive on it.
+  let lastView = view;
+  const hiss = festiveHooks.rendered;
+  festiveHooks.rendered = () => {
+    const down = new Set(wentOffIds);
+    hiss?.();
+    readGauge();
+    for (const h of hosts) {
+      if (!h.watched) continue;
+      const cell = document.querySelector(`tr[data-id="${h.id}"] td.hostname`);
+      if (!cell || cell.querySelector(".sp-key")) continue;
+      const k = document.createElement("span");
+      k.className = "sp-key" + (down.has(h.id) ? " down" : h.online ? "" : " stopped");
+      k.title = h.online ? "Wound and running" : "Wound down: offline";
+      k.innerHTML = `<svg width="18" height="12" viewBox="0 0 18 12"><path class="bow" d="M5 1.5a4.5 4.5 0 1 0 .01 0z M5 4a2 2 0 1 1-.01 0z" fill="#c99a3f" fill-rule="evenodd"/>
+        <path d="M9 5h8v2h-1.5v2.5h-1.5V7h-1v2h-1.5V7H9z" fill="#c99a3f"/></svg>`;
+      cell.querySelector(".name-text")?.after(k);
+    }
+    if (view === "map" && lastView !== "map" && !calm) {
+      const mc = $("mapClusters");
+      mc.classList.remove("sp-unroll"); void mc.offsetWidth; mc.classList.add("sp-unroll");
+      festiveTimers.push(setTimeout(() => mc.classList.remove("sp-unroll"), 1000));
+    }
+    lastView = view;
+  };
+
+  // A finished scan also rings the clock.
+  const lurch = festiveHooks.scanDone;
+  festiveHooks.scanDone = () => {
+    lurch?.();
+    if (!lastCard || calm) return;
+    clock.classList.remove("chime"); void clock.offsetWidth; clock.classList.add("chime");
+    const n = document.createElement("span");
+    n.className = "sp-note";
+    n.textContent = "♪";
+    lastCard.appendChild(n);
+    festiveTimers.push(setTimeout(() => n.remove(), 1500));
+  };
+  festiveHooks.rendered();
 }
 
 // Classic multicolour strings repeat their colours in a fixed order.
