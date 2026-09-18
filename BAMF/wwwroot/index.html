@@ -185,6 +185,18 @@
     --led-off:#5a4630; --danger:#d8503a; --focus:#e8b04b; --radius:6px;
   }
 
+  [data-theme="waterworks"] {
+    --bg:#1c232b; --panel:rgba(38, 47, 57, .95); --panel-2:rgba(48, 59, 71, .96); --line:#3d4b5a;
+    --text:#e3eaf1; --text-dim:#8fa1b3; --led-on:#39b6ff; --led-warn:#f2a33a;
+    --led-off:#4a5866; --danger:#e8483b; --focus:#39b6ff; --radius:4px;
+  }
+
+  [data-theme="aquarium"] {
+    --bg:#032a3a; --panel:rgba(6, 52, 70, .84); --panel-2:rgba(10, 66, 88, .9); --line:#1b6480;
+    --text:#dff6ff; --text-dim:#86c1d4; --led-on:#5ff0c8; --led-warn:#ffc15e;
+    --led-off:#2d5b6b; --danger:#ff7a7a; --focus:#7ae0ff; --radius:14px;
+  }
+
   [data-theme="cottoncandy"] {
     --bg:#fdeef7; --panel:#ffffff; --panel-2:#fbe4f2; --line:#f4cbe4;
     --text:#7a4a68; --text-dim:#c48fb3; --led-on:#7ececa; --led-warn:#f7b955;
@@ -503,6 +515,7 @@
   .badge {
     font-family: "IBM Plex Mono", monospace; font-size: 11px;
     padding: 3px 8px; border-radius: 4px;
+    white-space: nowrap;   /* a theme's icon before the word stays on the same line */
   }
   .badge.known { color: var(--led-on); background: rgba(63,219,127,.1); }
   .badge.unknown { color: var(--led-warn); background: rgba(255,180,84,.12); }
@@ -1016,6 +1029,151 @@
   .theme-item .sw { display: inline-flex; gap: 2px; flex-shrink: 0; }
   .theme-item .sw i { width: 9px; height: 16px; border-radius: 2px; display: block; }
   .theme-item .tn { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+  /* ---- Waterworks: pipes, valves and water ---- */
+  [data-theme="waterworks"] header { background: linear-gradient(#34414e, #25303b); position: relative; border-bottom: 0; }
+  /* The main: a steel pipe under the header, water shimmering through it, a flange every so often. */
+  [data-theme="waterworks"] header::after {
+    content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 12px; z-index: 5; pointer-events: none;
+    background:
+      repeating-linear-gradient(90deg, transparent 0 214px, #5d6b79 214px 216px, #9aa8b6 216px 219px, #3d4854 219px 230px, transparent 230px 240px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0) 0 30%, rgba(190, 235, 255, .55) 38%, rgba(255, 255, 255, 0) 46%) 0 0 / 180px 100% repeat-x,
+      linear-gradient(#c3ced9, #7d8b99 30%, #3a88c4 45%, #1f6fae 70%, #3d4854);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, .5); animation: ww-flow 2.4s linear infinite;
+  }
+  [data-theme="waterworks"].ww-surge header::after { animation-duration: .5s; }
+  @keyframes ww-flow { to { background-position: 0 0, 180px 0, 0 0; } }
+  /* Water meters: the counts in odometer windows that roll when they change. */
+  [data-theme="waterworks"] .stat .num {
+    display: inline-block; overflow: hidden; background: #0d1318; color: #e8f4ff; padding: 1px 9px; letter-spacing: .14em;
+    border: 1px solid #5d6b79; border-radius: 3px; box-shadow: inset 0 3px 5px rgba(0, 0, 0, .8), 0 1px 0 rgba(255, 255, 255, .08);
+  }
+  [data-theme="waterworks"] .stat .num.ww-roll { animation: ww-roll .55s cubic-bezier(.3, 1.3, .5, 1) 1; }
+  @keyframes ww-roll { from { text-indent: 0; transform: translateY(-60%); opacity: .2; } to { transform: none; opacity: 1; } }
+  [data-theme="waterworks"] .stat, [data-theme="waterworks"] .map-card, [data-theme="waterworks"] .set-card, [data-theme="waterworks"] .modal {
+    border: 1px solid #56636f; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 2px 6px rgba(0, 0, 0, .4);
+  }
+  [data-theme="waterworks"] table, [data-theme="waterworks"] .feed { background: rgba(22, 29, 36, .9); }
+  [data-theme="waterworks"] thead th { color: #8fd3ff; }
+  [data-theme="waterworks"] .tab.active { background: #1f6fae; color: #fff; }
+  /* The next-scan bar: a glass sight tube filling with water. */
+  [data-theme="waterworks"] .scan-track { height: 12px; border-radius: 6px; padding: 1.5px; background: rgba(160, 210, 240, .08); box-shadow: inset 0 0 0 1px #9aa8b6, 0 0 0 2px #25303b; }
+  [data-theme="waterworks"] .scan-fill {
+    border-radius: 5px; animation: ww-flow-fill 1.6s linear infinite;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0 40%, rgba(200, 240, 255, .5) 50%, rgba(255, 255, 255, 0) 60%) 0 0 / 60px 100% repeat-x, linear-gradient(#6cc8ff, #1f6fae);
+  }
+  @keyframes ww-flow-fill { to { background-position: 60px 0, 0 0; } }
+  /* The tank in the header: how much of the network is up. */
+  .ww-tank { width: 26px; height: 30px; flex: none; }
+  .ww-tank svg { display: block; overflow: visible; }
+  .ww-tank .water { transition: transform 1.4s ease-in-out; transform-box: fill-box; transform-origin: bottom; }
+  .ww-tank.full .wave { animation: ww-wave 1.8s ease-in-out infinite; }
+  @keyframes ww-wave { 50% { transform: translateX(-3px); } }
+  /* Unknown devices get an inspection tag. */
+  [data-theme="waterworks"] .badge.unknown::before { content: "? "; font-weight: 800; }
+  /* A red shut-off valve on watched devices; it turns closed when one drops. */
+  .ww-valve { display: inline-block; width: 16px; height: 14px; margin-left: 6px; vertical-align: -2px; }
+  .ww-valve svg { display: block; overflow: visible; }
+  .ww-valve .handle { transform-origin: 8px 5px; transition: transform .6s ease; }
+  .ww-valve.shut .handle { transform: rotate(90deg); }
+  .ww-valve.closing .handle { animation: ww-close 1.2s ease-in-out 1 forwards; }
+  @keyframes ww-close { 0% { transform: rotate(0); } 60% { transform: rotate(100deg); } 100% { transform: rotate(90deg); } }
+  /* A row whose device goes offline springs a leak. */
+  [data-theme="waterworks"] td.hostname { position: relative; }
+  .ww-leak { position: absolute; left: 6px; top: 60%; width: 60px; height: 22px; pointer-events: none; }
+  .ww-leak i { position: absolute; top: 0; width: 3px; height: 5px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: #6cc8ff; animation: ww-spray .8s ease-in 2; }
+  .ww-leak i:nth-child(2) { left: 6px; animation-delay: .15s; } .ww-leak i:nth-child(3) { left: 12px; animation-delay: .3s; }
+  .ww-leak b { position: absolute; left: -6px; bottom: -4px; width: 40px; height: 6px; border-radius: 50%; background: rgba(108, 200, 255, .45); animation: ww-puddle 2.6s ease-out forwards; }
+  @keyframes ww-spray { from { transform: translate(0, 0); opacity: 1; } to { transform: translate(10px, 16px); opacity: 0; } }
+  @keyframes ww-puddle { 0% { transform: scaleX(.1); opacity: 0; } 30% { transform: scaleX(1); opacity: 1; } 75% { opacity: .8; } 100% { transform: scaleX(1.1); opacity: 0; } }
+  /* Hovering a row sends a ripple across it. */
+  [data-theme="waterworks"] tbody tr:hover {
+    background-image: radial-gradient(circle, rgba(108, 200, 255, .16) 0 45%, transparent 47%);
+    background-repeat: no-repeat; background-position: 60px 50%; animation: ww-ripple .9s ease-out 1 forwards;
+  }
+  @keyframes ww-ripple { from { background-size: 0 0; } to { background-size: 1400px 1400px; } }
+  /* The search box is a drain inspection port; rows get a wash as you type. */
+  [data-theme="waterworks"] #search {
+    padding-left: 34px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9.5' fill='%2325303b' stroke='%239aa8b6' stroke-width='2'/%3E%3Cpath d='M7 8h10M5.5 12h13M7 16h10' stroke='%239aa8b6' stroke-width='1.6'/%3E%3C/svg%3E") 9px 50% / 18px no-repeat, var(--panel);
+  }
+  [data-theme="waterworks"] tbody.ww-wash tr td { background-image: linear-gradient(180deg, rgba(108, 200, 255, .18), transparent); background-size: 100% 200%; animation: ww-wash .7s ease-out 1; }
+  @keyframes ww-wash { from { background-position: 0 -100%; } to { background-position: 0 100%; } }
+  /* The Map: steel pipes with water pulsing toward each device, still where it's offline. */
+  [data-theme="waterworks"] .map-svg .spoke.cable { stroke: #7d8b99; stroke-width: 5; stroke-linecap: round; }
+  [data-theme="waterworks"] .map-svg .pkt { display: inline; fill: none; stroke: #6cc8ff; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 5 16; animation: ww-pulse 1.1s linear infinite; }
+  [data-theme="waterworks"] .map-svg .pkt.off { stroke: #56636f; animation: none; }
+  [data-theme="waterworks"].ww-surge .map-svg .pkt { animation-duration: .3s; }
+  @keyframes ww-pulse { to { stroke-dashoffset: -21; } }
+  [data-theme="waterworks"] #mapClusters.ww-fill .map-card { animation: ww-fillup 1s ease-out 1; }
+  @keyframes ww-fillup { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
+  .map-svg .ww-tag { display: none; }
+  [data-theme="waterworks"] .map-svg .tnode.dev.unknown .ww-tag { display: inline; }
+  .ww-side { position: absolute; top: 0; bottom: 0; width: 8px; background: linear-gradient(90deg, #3d4854, #9aa8b6 40%, #5d6b79 70%, #2b343d); opacity: .7; }
+  .ww-drip { position: absolute; width: 6px; height: 8px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: #6cc8ff; animation: ww-drip 2.2s ease-in forwards; }
+  @keyframes ww-drip { 0% { transform: scale(.2); } 45% { transform: scale(1) translateY(0); } 100% { transform: translateY(160px); opacity: 0; } }
+  .ww-newvalve { position: absolute; width: 30px; height: 30px; }
+  .ww-newvalve svg { display: block; animation: ww-spin 1.2s ease-in-out 1; }
+  @keyframes ww-spin { to { transform: rotate(540deg); } }
+  .ww-tagdrop {
+    position: absolute; padding: 5px 12px 5px 18px; background: #f2e6c9; color: #25303b; border-radius: 3px; white-space: nowrap;
+    font: 600 13px "IBM Plex Mono", monospace; box-shadow: 0 3px 6px rgba(0, 0, 0, .5); transform-origin: 8px 0; animation: ww-tag 3.4s ease-out forwards;
+  }
+  .ww-tagdrop::before { content: ""; position: absolute; left: 6px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: #25303b; }
+  @keyframes ww-tag { 0% { transform: translateY(-14px) rotate(-14deg); opacity: 0; } 15% { transform: rotate(8deg); opacity: 1; } 28% { transform: rotate(-4deg); } 40% { transform: rotate(0); } 85% { opacity: 1; } 100% { opacity: 0; } }
+
+  /* ---- Aquarium: fish, bubbles, weed and gravel behind glass ---- */
+  [data-theme="aquarium"] body { background: #032a3a; }
+  [data-theme="aquarium"] header { background: rgba(4, 38, 52, .9); border-bottom-color: #1b6480; }
+  [data-theme="aquarium"] table, [data-theme="aquarium"] .feed { background: rgba(3, 36, 50, .82); }
+  [data-theme="aquarium"] .stat .num { color: #aef4ff; text-shadow: 0 0 8px rgba(122, 224, 255, .5); }
+  [data-theme="aquarium"] .tab.active { background: rgba(122, 224, 255, .18); color: #dff6ff; }
+  [data-theme="aquarium"] .badge.unknown::before { content: "🐚 "; }
+  .aq-bg { overflow: hidden; background: linear-gradient(#0b5d7a, #064560 35%, #032a3a 80%); }
+  .aq-rays { position: absolute; inset: -20% -10% 30% -10%; opacity: .5; animation: aq-rays 14s ease-in-out infinite alternate;
+    background: repeating-linear-gradient(105deg, transparent 0 60px, rgba(180, 240, 255, .07) 60px 90px, transparent 90px 170px, rgba(180, 240, 255, .05) 170px 190px); }
+  @keyframes aq-rays { to { transform: translateX(60px) skewX(-4deg); } }
+  .aq-gravel { position: absolute; left: 0; right: 0; bottom: 0; height: 26px;
+    background: radial-gradient(circle at 20% 40%, #b59a6a 0 3px, transparent 3.5px) 0 0 / 23px 13px, radial-gradient(circle at 60% 70%, #8a7550 0 3.5px, transparent 4px) 0 0 / 31px 13px,
+      radial-gradient(circle at 40% 30%, #cdb88a 0 2.5px, transparent 3px) 0 0 / 17px 11px, #5c4c33; }
+  .aq-weed { position: absolute; bottom: 18px; transform-origin: bottom center; animation: aq-sway ease-in-out infinite alternate; }
+  .aq-weed svg { display: block; }
+  @keyframes aq-sway { from { transform: skewX(-7deg); } to { transform: skewX(7deg); } }
+  .aq-fish { position: absolute; left: 0; animation: aq-swim linear forwards; }
+  .aq-fish svg { display: block; }
+  .aq-fish .tail { transform-box: fill-box; transform-origin: right center; animation: aq-tail .5s ease-in-out infinite alternate; }
+  .aq-fish.rtl { animation-name: aq-swim-rtl; }
+  .aq-fish.rtl svg { transform: scaleX(-1); }
+  @keyframes aq-swim { from { transform: translate(-80px, 0); } 50% { transform: translate(50vw, 16px); } to { transform: translate(calc(100vw + 40px), -6px); } }
+  @keyframes aq-swim-rtl { from { transform: translate(calc(100vw + 40px), 0); } 50% { transform: translate(50vw, -14px); } to { transform: translate(-80px, 8px); } }
+  @keyframes aq-tail { to { transform: scaleY(.6); } }
+  .aq-bubble { position: absolute; bottom: 24px; border-radius: 50%; border: 1.2px solid rgba(200, 245, 255, .6);
+    background: radial-gradient(circle at 32% 30%, rgba(255, 255, 255, .8) 0 18%, rgba(160, 230, 255, .12) 40%, transparent 70%); animation: aq-rise ease-in forwards; }
+  @keyframes aq-rise { 0% { transform: translate(0, 0); opacity: 0; } 8% { opacity: .9; } 50% { transform: translate(var(--sway), -50vh); } 100% { transform: translate(0, -100vh); opacity: 0; } }
+  .aq-newfish { position: absolute; left: 0; animation: aq-swim 7s ease-in-out forwards; }
+  .aq-newfish .lbl { display: block; margin-top: 2px; text-align: center; color: #dff6ff; font: 600 12px "IBM Plex Mono", monospace; text-shadow: 0 1px 3px #000; white-space: nowrap; }
+  [data-theme="aquarium"] tr.aq-sink td { animation: aq-sink 2.4s ease-in-out 1; }
+  @keyframes aq-sink { 0% { transform: none; } 45% { transform: translateY(12px) rotate(.4deg); opacity: .35; } 70% { transform: translateY(14px); opacity: .3; } 100% { transform: none; opacity: 1; } }
+  .aq-pet { display: inline-block; width: 18px; height: 10px; margin-left: 6px; vertical-align: 0; }
+  .aq-pet svg { display: block; overflow: visible; animation: aq-pet 3s ease-in-out infinite; }
+  .aq-pet.still svg { animation: none; opacity: .45; transform: rotate(160deg) translateY(-2px); }
+  @keyframes aq-pet { 0%, 100% { transform: translateX(0) scaleX(1); } 45% { transform: translateX(8px) scaleX(1); } 50% { transform: translateX(8px) scaleX(-1); } 95% { transform: translateX(0) scaleX(-1); } }
+  /* The Map is a reef: bubbles drift up the pipes, and a shell marks the unknown. */
+  [data-theme="aquarium"] .map-svg .spoke.cable { stroke: #3fb3a0; stroke-width: 3; }
+  [data-theme="aquarium"] .map-svg .pkt { display: inline; fill: none; stroke: rgba(200, 245, 255, .75); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 0 26; animation: aq-bubbles 2.2s linear infinite; }
+  [data-theme="aquarium"] .map-svg .pkt.off { display: none; }
+  @keyframes aq-bubbles { to { stroke-dashoffset: -26; } }
+  [data-theme="aquarium"] .map-svg .tnode.off { opacity: .55; }
+  .map-svg .aq-shell { display: none; }
+  [data-theme="aquarium"] .map-svg .tnode.dev.unknown .aq-shell { display: inline; }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme="waterworks"] header::after, [data-theme="waterworks"] .scan-fill, [data-theme="waterworks"] .map-svg .pkt,
+    [data-theme="waterworks"] tbody tr:hover, [data-theme="waterworks"] tbody.ww-wash tr td, [data-theme="waterworks"] .stat .num.ww-roll,
+    .ww-tank .wave, .ww-valve .handle, .ww-leak i, .ww-leak b, [data-theme="waterworks"] #mapClusters.ww-fill .map-card,
+    .aq-rays, .aq-weed, .aq-fish .tail, [data-theme="aquarium"] tr.aq-sink td, .aq-pet svg, [data-theme="aquarium"] .map-svg .pkt { animation: none !important; }
+    [data-theme="waterworks"] tbody tr:hover { background-size: 1400px 1400px; }
+  }
 
   /* ---- holiday decorations: drawn over the page, never in the way ---- */
   #festive { position: fixed; inset: 0; pointer-events: none; z-index: 45; overflow: hidden; }
@@ -3691,8 +3849,11 @@ function buildTopologySvg(c) {
       const path = svgEl("path", { class: "spoke" + (n.edge.cable ? " cable" : "") + (n.edge.vlink ? " vlink" : "") + (n.type === "dev" && !n.host.online ? " off" : "") });
       if (n.type === "dev") path.setAttribute("data-id", n.host.id);
       gEdges.appendChild(path);
-      // Shown only by the Matrix theme: data flowing along a recorded cable.
-      const pkt = n.edge.cable ? svgEl("path", { class: "pkt" }) : null;
+      // Shown only by some themes: something flowing along a recorded cable.
+      // It carries the device's id and state, so a theme can stop the flow
+      // to a device that's offline.
+      const pkt = n.edge.cable ? svgEl("path", { class: "pkt" + (n.type === "dev" && !n.host.online ? " off" : "") }) : null;
+      if (pkt && n.type === "dev") pkt.setAttribute("data-id", n.host.id);
       if (pkt) gEdges.appendChild(pkt);
       let label = null;
       if (n.edge.sw && (n.edge.style === "list" || n.edge.port)) {
@@ -4168,7 +4329,7 @@ function renderMap() {
     g.querySelector("title").textContent = sw ? switchTitle(sw)
       : role === "dev" && g.classList.contains("tnode") ? topoDevTip(h) : mapTitle(h, role);
   });
-  wrap.querySelectorAll(".spoke[data-id]").forEach(l => {
+  wrap.querySelectorAll(".spoke[data-id], .pkt[data-id]").forEach(l => {
     const h = byId.get(l.getAttribute("data-id"));
     if (h) l.classList.toggle("off", !h.online);
   });
@@ -5658,6 +5819,8 @@ const THEMES = [
   { id: "storm",       name: "Thunderstorm", sw: ["#0e1319", "#9fd8ff", "#ffd23f"] },
   { id: "hotdog",      name: "Hotdog Stand", sw: ["#ffff00", "#ff0000", "#000000"] },
   { id: "steampunk",   name: "Steampunk",    sw: ["#150e08", "#c99a3f", "#52c3a4"] },
+  { id: "waterworks",  name: "Waterworks",   sw: ["#1c232b", "#39b6ff", "#e8483b"] },
+  { id: "aquarium",    name: "Aquarium",     sw: ["#032a3a", "#5ff0c8", "#ff9f43"] },
   // Hidden until unlocked: type BAMF anywhere, or tap the logo five times.
   { id: "christmas",   name: "Christmas",    sw: ["#0b1712", "#ff3b3b", "#3ddc6f"], secret: true },
   { id: "halloween",   name: "Halloween",    sw: ["#0f0913", "#ff8c1a", "#8cff4f"], secret: true },
@@ -5773,7 +5936,7 @@ let festiveHooks = {};
 let festiveStops = [];
 let festivePrev = null;
 const THEME_FX = { christmas: (r, sw) => buildChristmas(r, sw), halloween: (r, sw) => buildHalloween(r, sw),
-  matrix: buildMatrix, synthwave: buildSynthwave, hackerred: buildHackerRed, cottoncandy: buildCottonCandy, storm: buildStorm, hotdog: buildHotdog, steampunk: buildSteampunk };
+  matrix: buildMatrix, synthwave: buildSynthwave, hackerred: buildHackerRed, cottoncandy: buildCottonCandy, storm: buildStorm, hotdog: buildHotdog, steampunk: buildSteampunk, waterworks: buildWaterworks, aquarium: buildAquarium };
 const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
@@ -5802,6 +5965,243 @@ window.addEventListener("resize", () => {
   clearTimeout(festiveResize);
   festiveResize = setTimeout(() => festive(festiveTheme), 250);
 });
+
+// ---- Waterworks and Aquarium ----
+// Waterworks: water shimmering through a steel main under the header and the
+// Map's pipes (still where a device is offline), side pipes, the odd drip, a
+// tank in the header filling with how much of the network is up, water-meter
+// counts that roll, and a surge when a scan finishes. A new device opens a
+// valve and hangs a tag, an offline device's row springs a leak, and watched
+// devices carry a red shut-off valve that closes when they drop.
+// Aquarium: fish, bubbles, weed and gravel behind the glass. A new device
+// swims in as a fish, a scan sends up bubbles, offline devices sink, and
+// watched devices have a pet fish that swims beside their name.
+function waterCommon(root) {
+  // Rows of offline devices, and a count change on the stats, for either theme.
+  const stats = ["statTotal", "statOnline", "statUnknown"];
+  const seen = {};
+  return {
+    changedStats() {
+      const out = [];
+      for (const id of stats) {
+        const el = $(id); if (!el) continue;
+        if (seen[id] !== undefined && seen[id] !== el.textContent) out.push(el);
+        seen[id] = el.textContent;
+      }
+      return out;
+    },
+    below: () => (document.querySelector("header")?.getBoundingClientRect().bottom || 60),
+  };
+}
+
+function buildWaterworks(root) {
+  const calm = calmMotion(), c = waterCommon(root);
+  root.insertAdjacentHTML("beforeend", `<div class="ww-side" style="left:0"></div><div class="ww-side" style="right:0"></div>`);
+
+  // The tank: devices online now against the most seen online this session.
+  const tank = document.createElement("div");
+  tank.className = "ww-tank";
+  tank.innerHTML = `<svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true">
+    <rect x="3" y="3" width="20" height="25" rx="3" fill="#0d1318" stroke="#9aa8b6" stroke-width="2"/>
+    <g class="water"><rect x="4.5" y="4.5" width="17" height="22" rx="1.5" fill="#1f6fae"/>
+      <path class="wave" d="M4.5 6q2.2-2 4.3 0t4.3 0 4.3 0 4.3 0v2h-17z" fill="#6cc8ff"/></g>
+    <path d="M8 1h10v3H8z" fill="#5d6b79"/></svg>`;
+  const track = document.querySelector(".scanline .scan-track");
+  track?.parentElement.insertBefore(tank, track);
+  festiveStops.push(() => tank.remove());
+  let peak = 0;
+  const fillTank = () => {
+    const live = hosts.filter(h => !h.ignored && !h.forgotten), on = live.filter(h => h.online).length;
+    peak = Math.max(peak, on);
+    const share = peak ? on / peak : 1;
+    tank.querySelector(".water").style.transform = `scaleY(${Math.max(.08, share).toFixed(2)})`;
+    tank.classList.toggle("full", live.length > 0 && live.every(h => h.online));
+    tank.title = `Tank: ${on} device${on === 1 ? "" : "s"} online, of ${peak} at most this session`;
+  };
+
+  // Drips off a flange on the main.
+  if (!calm) festiveTimers.push(setInterval(() => {
+    if (document.hidden) return;
+    const d = document.createElement("i");
+    d.className = "ww-drip";
+    d.style.cssText = `left:${(Math.floor(rnd(1, innerWidth / 240)) * 240 - 14).toFixed(0)}px;top:${c.below() + 10}px`;
+    d.addEventListener("animationend", () => d.remove());
+    root.appendChild(d);
+  }, 9000));
+
+  // Search: a wash over the rows as you type.
+  const search = $("search");
+  const wash = () => { if (calm) return; const tb = document.querySelector("table tbody"); if (!tb) return; tb.classList.remove("ww-wash"); void tb.offsetWidth; tb.classList.add("ww-wash"); };
+  const onInput = () => festiveTimers.push(setTimeout(wash, 30));
+  search?.addEventListener("input", onInput);
+  festiveStops.push(() => search?.removeEventListener("input", onInput));
+
+  const surge = () => {
+    const html = document.documentElement;
+    html.classList.add("ww-surge");
+    festiveTimers.push(setTimeout(() => html.classList.remove("ww-surge"), 1300));
+  };
+  festiveStops.push(() => document.documentElement.classList.remove("ww-surge"));
+  festiveHooks.scanDone = surge;
+
+  // A new device: a valve spins open on the main and a tag drops with its name.
+  festiveHooks.newDevice = h => {
+    if (document.hidden) return;
+    const x = Math.round(innerWidth * .6);
+    const v = document.createElement("div");
+    v.className = "ww-newvalve";
+    v.style.cssText = `left:${x - 15}px;top:${c.below() - 21}px`;
+    v.innerHTML = `<svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="11" fill="none" stroke="#e8483b" stroke-width="3.5"/>
+      <path d="M15 4v22M4 15h22" stroke="#e8483b" stroke-width="2.5"/><circle cx="15" cy="15" r="3" fill="#b8352b"/></svg>`;
+    root.appendChild(v);
+    const t = document.createElement("div");
+    t.className = "ww-tagdrop";
+    t.style.cssText = `left:${x - 6}px;top:${c.below() + 16}px`;
+    t.textContent = `New: ${h ? nameOrIp(h) : "a device"}`;
+    root.appendChild(t);
+    surge();
+    festiveTimers.push(setTimeout(() => { v.remove(); t.remove(); }, 3500));
+  };
+
+  let lastView = view;
+  festiveHooks.rendered = () => {
+    const down = new Set(wentOffIds);
+    for (const id of wentOffIds) {
+      const cell = document.querySelector(`tr[data-id="${id}"] td.hostname`);
+      if (!cell) continue;
+      const l = document.createElement("span");
+      l.className = "ww-leak";
+      l.innerHTML = "<i></i><i></i><i></i><b></b>";
+      cell.appendChild(l);
+      festiveTimers.push(setTimeout(() => l.remove(), 2700));
+    }
+    wentOffIds = [];
+    for (const el of c.changedStats()) { el.classList.remove("ww-roll"); void el.offsetWidth; el.classList.add("ww-roll"); }
+    fillTank();
+    // A red shut-off valve on watched devices: open while they run, closed when they drop.
+    for (const h of hosts) {
+      if (!h.watched) continue;
+      const cell = document.querySelector(`tr[data-id="${h.id}"] td.hostname`);
+      if (!cell || cell.querySelector(".ww-valve")) continue;
+      const v = document.createElement("span");
+      v.className = "ww-valve" + (down.has(h.id) ? " closing" : h.online ? "" : " shut");
+      v.title = h.online ? "Valve open: running" : "Valve shut: offline";
+      v.innerHTML = `<svg width="16" height="14" viewBox="0 0 16 14"><rect x="6.5" y="5" width="3" height="6" fill="#9aa8b6"/><rect x="2" y="10" width="12" height="3.5" rx="1" fill="#7d8b99"/>
+        <g class="handle"><rect x="1" y="3.5" width="14" height="3" rx="1.5" fill="#e8483b"/><circle cx="8" cy="5" r="1.8" fill="#b8352b"/></g></svg>`;
+      cell.querySelector(".name-text")?.after(v);
+    }
+    if (view === "map" && lastView !== "map" && !calm) {
+      const mc = $("mapClusters");
+      mc.classList.remove("ww-fill"); void mc.offsetWidth; mc.classList.add("ww-fill");
+      festiveTimers.push(setTimeout(() => mc.classList.remove("ww-fill"), 1100));
+    }
+    lastView = view;
+  };
+  // An inspection tag on unknown devices' pipes.
+  festiveHooks.decorateNode = (g, n) => {
+    if (n.type !== "dev") return;
+    const t = svgEl("g", { class: "ww-tag t-deco-icon", transform: "translate(-24,-24)" });
+    t.appendChild(svgEl("path", { d: "M0 3l3-3h9v10H3L0 7z", fill: "#f2e6c9", stroke: "#25303b", "stroke-width": .8 }));
+    const q = svgEl("text", { x: 7.5, y: 8, "text-anchor": "middle", "font-size": 8, "font-weight": 800, fill: "#25303b" });
+    q.textContent = "?";
+    t.appendChild(q);
+    g.appendChild(t);
+  };
+  festiveHooks.rendered();
+}
+
+const AQ_FISH = (body, fin) => `<svg width="46" height="24" viewBox="0 0 46 24"><path class="tail" d="M34 12l11-9v18z" fill="${fin}"/>
+  <ellipse cx="20" cy="12" rx="16" ry="9" fill="${body}"/><path d="M14 5q6-6 12 0" fill="${fin}"/><path d="M22 12q3 3 0 6" fill="none" stroke="${fin}" stroke-width="1.5"/>
+  <circle cx="10" cy="10" r="2.2" fill="#fff"/><circle cx="9.5" cy="10" r="1.1" fill="#032a3a"/></svg>`;
+const AQ_COLOURS = [["#ff9f43", "#e8662a"], ["#ffd23f", "#e0a800"], ["#7ae0ff", "#2fa7d6"], ["#ff7ab6", "#d8438a"], ["#b18cff", "#7a55d6"]];
+
+function buildAquarium(root) {
+  const calm = calmMotion(), c = waterCommon(root);
+  const bg = document.createElement("div");
+  bg.id = "themeBg";
+  bg.className = "theme-bg aq-bg";
+  bg.setAttribute("aria-hidden", "true");
+  const weeds = [4, 13, 22, 58, 67, 83, 94].map((x, i) => {
+    const h = 70 + (i * 37) % 90;
+    return `<div class="aq-weed" style="left:${x}vw;animation-duration:${(3.5 + (i % 3)).toFixed(1)}s;animation-delay:-${i}s">
+      <svg width="30" height="${h}" viewBox="0 0 30 ${h}"><path d="M15 ${h}C${5} ${h * .7} 25 ${h * .45} 13 ${h * .2}S18 4 16 0" fill="none" stroke="${i % 2 ? "#2f8f5a" : "#3fb070"}" stroke-width="5" stroke-linecap="round"/>
+      <path d="M15 ${h}C24 ${h * .75} 6 ${h * .5} 19 ${h * .3}" fill="none" stroke="#27794b" stroke-width="3.5" stroke-linecap="round"/></svg></div>`;
+  }).join("");
+  bg.innerHTML = `<div class="aq-rays"></div>${weeds}<div class="aq-gravel"></div>`;
+  document.body.prepend(bg);
+
+  const fish = () => {
+    if (document.hidden) return;
+    const [b, f] = pick(AQ_COLOURS);
+    const el = document.createElement("div");
+    el.className = "aq-fish" + (Math.random() < .5 ? " rtl" : "");
+    el.style.cssText = `top:${rnd(18, 80).toFixed(0)}vh;animation-duration:${rnd(22, 40).toFixed(0)}s;opacity:${rnd(.45, .8).toFixed(2)}`;
+    el.innerHTML = AQ_FISH(b, f);
+    el.addEventListener("animationend", e => { if (e.target === el) el.remove(); });
+    bg.appendChild(el);
+  };
+  const bubbles = (n, x) => {
+    if (calm || document.hidden) return;
+    for (let i = 0; i < n; i++) {
+      const b = document.createElement("i");
+      b.className = "aq-bubble";
+      const s = rnd(5, 14);
+      b.style.cssText = `left:${(x ?? rnd(2, 97)).toFixed(1)}vw;width:${s.toFixed(0)}px;height:${s.toFixed(0)}px;--sway:${rnd(-24, 24).toFixed(0)}px;` +
+        `animation-duration:${rnd(7, 13).toFixed(1)}s;animation-delay:${(i * .25).toFixed(2)}s`;
+      b.addEventListener("animationend", () => b.remove());
+      bg.appendChild(b);
+    }
+  };
+  if (!calm) {
+    for (let i = 0; i < 3; i++) festiveTimers.push(setTimeout(fish, i * 4000 + 500));
+    festiveTimers.push(setInterval(() => { if (bg.querySelectorAll(".aq-fish").length < 5) fish(); }, 9000));
+    festiveTimers.push(setInterval(() => bubbles(2), 2600));
+  }
+
+  // A scan: a column of bubbles from the gravel.
+  festiveHooks.scanDone = () => bubbles(10, rnd(10, 90));
+  // A new device swims in as a fish, with its name.
+  festiveHooks.newDevice = h => {
+    if (document.hidden) return;
+    const [b, f] = pick(AQ_COLOURS);
+    const el = document.createElement("div");
+    el.className = "aq-newfish";
+    el.style.top = (c.below() + 30) + "px";
+    el.innerHTML = AQ_FISH(b, f).replace('width="46" height="24"', 'width="70" height="36"') + `<span class="lbl">${esc(h ? nameOrIp(h) : "a new device")}</span>`;
+    el.addEventListener("animationend", e => { if (e.target === el) el.remove(); });
+    root.appendChild(el);
+  };
+  festiveHooks.rendered = () => {
+    const down = new Set(wentOffIds);
+    for (const id of wentOffIds) {
+      const tr = document.querySelector(`tr[data-id="${id}"]`);
+      if (!tr) continue;
+      tr.classList.add("aq-sink");
+      festiveTimers.push(setTimeout(() => tr.classList.remove("aq-sink"), 2500));
+    }
+    wentOffIds = [];
+    // A pet fish beside each watched device; it floats still when the device is down.
+    for (const h of hosts) {
+      if (!h.watched) continue;
+      const cell = document.querySelector(`tr[data-id="${h.id}"] td.hostname`);
+      if (!cell || cell.querySelector(".aq-pet")) continue;
+      const p = document.createElement("span");
+      p.className = "aq-pet" + (h.online && !down.has(h.id) ? "" : " still");
+      p.title = h.online ? "Swimming: online" : "Floating: offline";
+      p.innerHTML = `<svg width="18" height="10" viewBox="0 0 46 24">${AQ_FISH("#ff9f43", "#e8662a").replace(/^<svg[^>]*>|<\/svg>$/g, "")}</svg>`;
+      cell.querySelector(".name-text")?.after(p);
+    }
+  };
+  // A shell marks unknown devices on the reef.
+  festiveHooks.decorateNode = (g, n) => {
+    if (n.type !== "dev") return;
+    const s = svgEl("g", { class: "aq-shell t-deco-icon", transform: "translate(11,-24)" });
+    s.appendChild(svgEl("path", { d: "M1 11Q0 2 7 1Q14 2 13 11Z", fill: "#ffd9c7", stroke: "#b8735a", "stroke-width": .8 }));
+    s.appendChild(svgEl("path", { d: "M7 11V2M4 11L5 3M10 11L9 3", stroke: "#b8735a", "stroke-width": .7 }));
+    g.appendChild(s);
+  };
+  festiveHooks.rendered();
+}
 
 // ---- drop-in themes ----
 // A theme can also live in its own folder on the server, <install>/themes/<id>,
