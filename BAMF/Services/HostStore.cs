@@ -756,16 +756,19 @@ public partial class HostStore
         lock (_lock)
         {
             using var conn = Open();
-            var pending = new List<(long Id, string Vendor, string Hostname)>();
+            var pending = new List<(long Id, string Vendor, string Hostname, string Mac)>();
             using (var cmd = conn.CreateCommand())
             {
-                cmd.CommandText = "SELECT id, vendor, hostname FROM hosts WHERE os_guess = ''";
+                cmd.CommandText = "SELECT id, vendor, hostname, mac FROM hosts WHERE os_guess = ''";
                 using var r = cmd.ExecuteReader();
-                while (r.Read()) pending.Add((r.GetInt64(0), r.GetString(1), r.GetString(2)));
+                while (r.Read()) pending.Add((r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3)));
             }
-            foreach (var (id, vendor, hostname) in pending)
+            foreach (var (id, vendor, hostname, mac) in pending)
             {
-                var guess = OsFingerprint.Passive(vendor, hostname);
+                // A hypervisor's MAC prefix says more than the vendor name does.
+                var guess = VirtualMac.Platform(mac) is string platform
+                    ? VirtualMac.Guess(platform)
+                    : OsFingerprint.Passive(vendor, hostname);
                 if (guess == "") continue;
                 using var upd = conn.CreateCommand();
                 upd.CommandText = "UPDATE hosts SET os_guess = $g WHERE id = $id";

@@ -640,7 +640,7 @@ scan, or delete a thing.
 | GET | `/api/hosts/{id}/events` | One host's online/offline event history |
 | POST | `/api/hosts/{id}/forget` | Body `{"forgotten": true}` — soft-delete to the Forgotten tab (reversible) |
 | DELETE | `/api/hosts/{id}` | Permanently delete a host and its history (from the Forgotten tab) |
-| POST | `/api/switches` | Body `{"kind": "switch", "name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch, router or access point to the recorded layout. `kind` is `switch` (the default), `router` or `ap`. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
+| POST | `/api/switches` | Body `{"kind": "switch", "name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch, router or access point to the recorded layout. `kind` is `switch` (the default), `router`, `ap` or `virtual`; a virtual switch takes `runsOn` (the id of the machine it runs on) instead of a device, uplink or port count. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
 | POST | `/api/switches/{id}` | Same body — update a switch. Refuses loops and ports that would strand recorded devices |
 | DELETE | `/api/switches/{id}` | Delete a switch. Devices recorded on it go back to unrecorded; switches plugged into it lose that uplink |
 | POST | `/api/switches/{id}/ports` | Body `{"ports": [{"hostId": 3, "port": 1}, {"hostId": 4, "port": 2}], "labels": [{"port": 1, "label": "Living Room"}]}` — set everything on one switch at once. Hosts listed are placed on it (moving off any other switch; `port` 0 = not recorded), and hosts on it that aren't listed come off it. `labels`, when given, replaces the ports' locations (up to 40 characters; blank clears one); leave it out to keep them. Each switch in `GET /api/hosts` carries them as `portLabels` |
@@ -886,6 +886,42 @@ port. The type sets the icon, and one thing more:
   port and location on the cable, like a switch's. Pick **Router** in the dialog
   and the gateway device BAMF sees is filled in for you.
 - **An access point's devices with no port** are drawn as its Wi-Fi clients.
+
+### Virtual switches and VMs
+
+A Proxmox or ESXi box, or a Hyper-V host, has a switch *inside* it: Proxmox's
+`vmbr0`, ESXi's `vSwitch0`, a Hyper-V external switch. Its VMs plug into that,
+not into a physical port. Record it as a **Virtual switch**, from
+**Add a virtual switch on this…** in the host's ⋯ menu, or with that type in
+the usual dialog. You pick the machine it **runs on**; there's no port count,
+device or uplink to fill in, because its traffic leaves through that machine's
+cable.
+
+- **On the map** it hangs off its machine with a dashed link. Its VMs are listed
+  underneath and labelled **VM**, so a Proxmox box plugged into your switch
+  reads `switch → port 3 → proxmox → vmbr0 → VMs`.
+- **Its VMs dialog** is a checklist, not a port list.
+- **Find port** on a VM pulses the port of the machine it runs on, which is the
+  physically true answer.
+
+**Recognising VMs.** Hypervisors give virtual network cards well-known MAC
+prefixes: Proxmox `BC:24:11`, QEMU/KVM `52:54:00`, VMware `00:50:56` and
+`00:0C:29`, Hyper-V `00:15:5D`, VirtualBox `08:00:27`, Xen `00:16:3E`,
+Parallels `00:1C:42`, and Docker `02:42`. A device with one of them gets a
+device guess such as *Virtual machine (Proxmox MAC)* and a VM icon. The VMs
+dialog marks those devices and lists them first, with **Tick suggested** to
+take them all in one click. It's a suggestion; nothing is recorded until you
+save.
+
+QEMU/KVM and Docker use *locally administered* MACs, the same kind a phone
+makes up when it randomises its address. So they're now named as virtual NICs
+and never taken for randomising phones. Before 1.28, with **Ignore devices with
+randomised MACs** on, such VMs were filed under Ignored. Any already there stay
+until you unignore them.
+
+**What BAMF can't see:** only *bridged* VMs, the ones with their own address on
+your network, appear at all. VMs behind NAT, or on an internal-only switch,
+never show up on the LAN, so no scanner can find them.
 
 If one has an address BAMF sees, pick it as its device, and the map shows it
 online or offline. A device that is itself one of these has
