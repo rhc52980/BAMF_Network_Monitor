@@ -77,6 +77,8 @@ optional daily update check you have to switch on, and your own webhook.
 - A map of each network, with the gateway and BAMF's own machine marked, and
   honest about its limits: it shows who is present, and draws cabling only where
   you've recorded your switches and which port each device is on
+- A **whole network** view that draws every network as one diagram, by the
+  cabling you recorded, with each device tagged by its network's colour
 
 **Operating it**
 - Version and build date in the header, the log and the API, so "which build is
