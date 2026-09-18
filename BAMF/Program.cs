@@ -121,6 +121,7 @@ app.UseStaticFiles();
 app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker updates) =>
 {
     var linkTemplate = app.Configuration["Bamf:DeviceLinkTemplate"];
+    var placements = store.GetPlacements();
     var hosts = store.GetAll().Select(h => new
     {
         id = h.Id,
@@ -143,6 +144,9 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         linkUrl = DeviceLink.Resolve(h.Link, h.Ip, linkTemplate),   // resolved, for the href
         firstSeen = h.FirstSeen,
         lastSeen = h.LastSeen,
+        // Which switch port the user recorded this device on; 0 = not recorded.
+        switchId = placements.TryGetValue(h.Id, out var pl) ? pl.SwitchId : 0,
+        switchPort = placements.TryGetValue(h.Id, out var pp) ? pp.Port : 0,
     });
     return Results.Json(new
     {
@@ -180,6 +184,8 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         // Per network: this machine's own address and MAC there, and the default
         // gateway on it. What the map marks as known rather than inferred.
         networkPlaces = scanner.NetworkPlaces(),
+        // The switch layout as the user described it. Not discovered: see HostStore.Switches.cs.
+        switches = store.GetSwitches().Select(SwitchJson),
         hosts,
     });
 });
@@ -193,6 +199,12 @@ app.MapGet("/api/hosts.txt", (HostStore store, ScannerService scanner) =>
         .OrderBy(h => h.Subnet, StringComparer.Ordinal)
         .ThenBy(h => IpSortKey(h.Ip))
         .ToList();
+    var switchNames = store.GetSwitches().ToDictionary(s => s.Id, s => s.Name);
+    var placements = store.GetPlacements();
+    string PluggedInto(long id) =>
+        placements.TryGetValue(id, out var p) && switchNames.TryGetValue(p.SwitchId, out var sw)
+            ? (p.Port > 0 ? $"{sw} port {p.Port}" : sw)
+            : "-";
 
     var rows = hosts.Select(h => new[]
     {
@@ -205,10 +217,11 @@ app.MapGet("/api/hosts.txt", (HostStore store, ScannerService scanner) =>
         string.Concat(h.Known ? "K" : "-", h.Ignored ? "I" : "-", h.Watched ? "W" : "-", h.Forgotten ? "F" : "-"),
         h.OsGuess == "" ? "-" : h.OsGuess,
         h.LastSeen,
+        PluggedInto(h.Id),
         h.Note == "" ? "-" : h.Note,
     }).ToList();
 
-    string[] headers = { "NAME", "IP", "MAC", "VENDOR", "NETWORK", "STATUS", "FLAGS", "DEVICE GUESS", "LAST SEEN", "NOTE" };
+    string[] headers = { "NAME", "IP", "MAC", "VENDOR", "NETWORK", "STATUS", "FLAGS", "DEVICE GUESS", "LAST SEEN", "PLUGGED INTO", "NOTE" };
     var widths = headers.Select((hd, i) =>
         Math.Max(hd.Length, rows.Count == 0 ? 0 : rows.Max(r => r[i].Length))).ToArray();
 
@@ -749,7 +762,40 @@ app.MapPost("/api/hosts/{id:long}/forget", (long id, ForgetRequest body, HostSto
 app.MapDelete("/api/hosts/{id:long}", (long id, HostStore store) =>
     store.DeletePermanent(id) ? Results.Ok() : Results.NotFound());
 
+// ---------- switch layout ----------
+// The user's own account of how things are cabled, for the map. BAMF can't
+// discover it: ARP shows presence, and budget smart switches don't expose
+// their MAC table. Nothing here talks to a switch.
+
+app.MapPost("/api/switches", (SwitchInput body, HostStore store) =>
+{
+    var (saved, error) = store.SaveSwitch(null, body);
+    return saved is null ? Results.BadRequest(new { error }) : Results.Json(SwitchJson(saved));
+});
+
+app.MapPost("/api/switches/{id:long}", (long id, SwitchInput body, HostStore store) =>
+{
+    var (saved, error) = store.SaveSwitch(id, body);
+    return saved is null ? Results.BadRequest(new { error }) : Results.Json(SwitchJson(saved));
+});
+
+app.MapDelete("/api/switches/{id:long}", (long id, HostStore store) =>
+    store.DeleteSwitch(id) ? Results.Ok() : Results.NotFound());
+
+// Switch 0 clears the placement; port 0 means "on this switch, port not recorded".
+app.MapPost("/api/hosts/{id:long}/plug", (long id, PlugRequest body, HostStore store) =>
+{
+    var error = store.SetPlacement(id, body.SwitchId, body.Port);
+    return error is null ? Results.Ok() : Results.BadRequest(new { error });
+});
+
 app.Run();
+
+static object SwitchJson(SwitchRecord s) => new
+{
+    id = s.Id, name = s.Name, ports = s.Ports, subnet = s.Subnet, hostId = s.HostId,
+    uplink = s.Uplink, uplinkSwitch = s.UplinkSwitch, uplinkPort = s.UplinkPort,
+};
 
 // Enough of the URL to recognise which webhook is saved, never enough to use it.
 // A Discord URL ends /webhooks/<id>/<token>; the token is the secret.
@@ -802,6 +848,7 @@ record KnownRequest(bool Known);
 record NameRequest(string? Name);
 record NoteRequest(string? Note);
 record LinkRequest(string? Link);
+record PlugRequest(long SwitchId, int Port);
 record WebhookRequest(string? Url, string? Format);
 record IgnoreRequest(bool Ignored);
 record WatchRequest(bool Watched);

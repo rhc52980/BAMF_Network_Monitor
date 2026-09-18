@@ -640,6 +640,10 @@ scan, or delete a thing.
 | GET | `/api/hosts/{id}/events` | One host's online/offline event history |
 | POST | `/api/hosts/{id}/forget` | Body `{"forgotten": true}` — soft-delete to the Forgotten tab (reversible) |
 | DELETE | `/api/hosts/{id}` | Permanently delete a host and its history (from the Forgotten tab) |
+| POST | `/api/switches` | Body `{"name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch to the recorded layout. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
+| POST | `/api/switches/{id}` | Same body — update a switch. Refuses loops and ports that would strand recorded devices |
+| DELETE | `/api/switches/{id}` | Delete a switch. Devices recorded on it go back to unrecorded; switches plugged into it lose that uplink |
+| POST | `/api/hosts/{id}/plug` | Body `{"switchId": 1, "port": 3}` — record which switch port a device is plugged into. `switchId` 0 clears it; `port` 0 means "port not recorded". `GET /api/hosts` returns each host's `switchId` and `switchPort`, and the layout as `switches` |
 
 ## Device links and port check
 
@@ -813,9 +817,9 @@ a device for its details; click it to find it in the device list. It has its
 own address, `/#map`, like the other tabs.
 
 It is deliberately honest about what BAMF knows. ARP says which devices are
-**present** on a network, not how they're cabled, so a line on the map means
-"on this network" and nothing more. It never claims one device plugs into
-another. Two things are known for certain, and marked:
+**present** on a network, not how they're cabled, so a thin line on the map
+means "on this network" and nothing more. BAMF never works out on its own that
+one device plugs into another. Two things are known for certain, and marked:
 
 - **the gateway**, from this machine's own routing table, and
 - **this machine** (BAMF), from its own address on the network. It's drawn even
@@ -826,8 +830,28 @@ names into the tooltips, so the drawing stays readable. `GET /api/hosts` carries
 the same facts as `networkPlaces`: per network, this machine's `selfIp` and
 `selfMac` there, and the `gateway` on it.
 
-Real topology, meaning which switch port a device is on, would need BAMF to ask
-your switches over SNMP or listen for LLDP. It does neither today.
+### Switches and cabling, as you record them
+
+What BAMF can't discover, you can tell it. Add your switches under
+**Settings → Switches**: a name, how many ports, and what each one is plugged
+into, which is the router, a port on another switch, or not recorded. If a
+switch has an address BAMF sees, pick it as the switch's device, and the map
+shows the switch online or offline. Then use **Plugged into…** in any device's
+⋯ menu to record its switch and port. A device that is itself a switch has
+**Make this a switch…** in the same menu.
+
+On the map, switches sit inside the ring, and every device you've recorded sits
+in its switch's arc in port order, joined by a heavier **cable** line. Devices
+you haven't recorded keep the thin "on this network" line to the middle, so the
+map only shows cabling where you've said what it is. The port pickers show
+what's already recorded on each port, so they double as a port list.
+
+This is your record, not a measurement. Nothing here connects to a switch or
+stores switch credentials, and BAMF can't tell when a cable moves. It works
+with any switch, including unmanaged ones and budget "smart" switches such as
+TP-Link's Easy Smart line, which can't report which device is on which port.
+Only switches with SNMP or a visible MAC address table can, and BAMF doesn't
+ask them.
 
 ## Filtering by device type
 

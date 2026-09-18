@@ -8,7 +8,7 @@ public record HostRecord(
     string OsGuess, string Link, string MdnsName, string MdnsServices);
 
 /// <summary>SQLite-backed store for discovered hosts.</summary>
-public class HostStore
+public partial class HostStore
 {
     private readonly string _connString;
     private readonly object _lock = new();
@@ -152,6 +152,7 @@ public class HostStore
         }
 
         ScrubSyntheticHostnames(conn);
+        InitSwitches(conn);
     }
 
     /// <summary>Every address a host has been seen at, oldest first, with when each began.</summary>
@@ -861,6 +862,7 @@ public class HostStore
                 ev.Parameters.AddWithValue("$id", id);
                 ev.ExecuteNonQuery();
             }
+            ForgetHostInLayout(conn, id);
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "DELETE FROM hosts WHERE id = $id";
             cmd.Parameters.AddWithValue("$id", id);
