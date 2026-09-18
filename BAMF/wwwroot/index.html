@@ -672,6 +672,39 @@
   .map-svg .node.blink-on .blink-ring { fill: var(--focus); fill-opacity: .35; stroke-width: 2.5; stroke-dasharray: none; }
   .map-svg .node.blink-on .dot { fill: var(--focus); }
   tr.blinking td:first-child { box-shadow: inset 3px 0 0 var(--focus); }
+
+  /* ---- topology Map ---- */
+  .map-style { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin: 0 0 12px; }
+  .map-style button { background: none; border: 0; color: var(--text-dim); padding: 6px 12px; font: inherit; font-size: 12.5px; cursor: pointer; }
+  .map-style button.active { background: var(--panel-2); color: var(--text); }
+  .map-tools { display: inline-flex; gap: 6px; margin-left: 8px; }
+  .map-tools button { padding: 3px 9px; font-size: 12px; }
+  .map-clusters.single.topo { max-width: none; }
+  .topo-frame { height: min(640px, 76vh); border-top: 1px solid var(--line); margin: 8px -14px -8px; overflow: hidden; }
+  .map-svg.topo { width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+  .map-svg.topo.panning { cursor: grabbing; }
+  .map-svg path.spoke { fill: none; }
+  .map-svg .tnode { cursor: pointer; }
+  .map-svg .tnode.dragging { cursor: grabbing; opacity: .85; }
+  .map-svg .t-tile { fill: var(--panel-2); stroke: var(--line); stroke-width: 1.5; }
+  .map-svg .node.on .t-tile { stroke: var(--led-on); }
+  .map-svg .node.unknown .t-tile { stroke: var(--led-warn); stroke-width: 2.5; }
+  .map-svg .node.gw .t-tile, .map-svg .node.self .t-tile { stroke: var(--focus); stroke-width: 2; }
+  .map-svg .node.sw .t-tile { stroke-width: 2; }
+  .map-svg .node.sw.on .t-tile { stroke: var(--led-on); }
+  .map-svg .t-watch { fill: none; stroke: var(--focus); stroke-width: 1.5; display: none; }
+  .map-svg .node.watched .t-watch { display: inline; }
+  .map-svg .t-icon { fill: none; stroke: var(--text); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .map-svg .node.off .t-icon { opacity: .45; }
+  .map-svg .t-name { font: 600 11px "IBM Plex Mono", monospace; fill: var(--text); }
+  .map-svg .node.off .t-name { fill: var(--text-dim); }
+  .map-svg .t-sub { font: 10px "IBM Plex Mono", monospace; fill: var(--text-dim); }
+  .map-svg .t-port { font: 10px "IBM Plex Mono", monospace; fill: var(--text-dim); }
+  .map-svg .t-box { fill: color-mix(in srgb, var(--panel-2) 45%, transparent); stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 5 4; }
+  .map-svg .t-box-title { font: 600 11px "IBM Plex Mono", monospace; fill: var(--text-dim); }
+  .map-svg .drop-target .t-tile, .map-svg .t-box.drop-target { stroke: var(--focus); stroke-width: 3; stroke-dasharray: none; }
+  .map-svg .node:focus-visible .t-tile { stroke: var(--focus); stroke-width: 3; }
+  @media (max-width: 700px) { .topo-frame { height: 70vh; margin: 8px -14px -8px; } }
   tr.blink-on td { background: color-mix(in srgb, var(--focus) 16%, transparent); }
   .blink-box.err .blink-text { color: var(--danger); }
   .blink-help { color: var(--text-dim); font-size: 12px; margin-top: 6px; line-height: 1.5; }
@@ -1131,9 +1164,15 @@
     <strong>cables</strong> are yours: switches you add in Settings, and ports you record with
     <strong>Plugged into…</strong> in a device's ⋯ menu. BAMF can't check them. The
     <strong>gateway</strong> comes from this machine's routing table, and <strong>BAMF</strong>
-    marks this machine. Other devices are grouped by type. Hover one for details. Click a device
-    to record where it's plugged in, or a switch to fill in all its ports at once.
+    marks this machine. Hover anything for details. Click a device to record where it's plugged
+    in, or a switch to fill in all its ports at once. In the <strong>Topology</strong> layout you
+    can drag things where you like (it's saved), drop a device on a switch to plug it in, drop it
+    in the <strong>On this network</strong> box to unplug it, and scroll or pinch to zoom.
   </p>
+  <div class="map-style" role="group" aria-label="Map layout">
+    <button type="button" data-style="topology">Topology</button>
+    <button type="button" data-style="radial">Radial</button>
+  </div>
   <div class="map-legend" aria-hidden="true">
     <span><svg viewBox="-8 -8 16 16"><circle r="6" class="lg-dot on"/></svg>online</span>
     <span><svg viewBox="-8 -8 16 16"><circle r="6" class="lg-dot"/></svg>offline</span>
@@ -1512,6 +1551,7 @@ let scanModes = {};       // subnet -> 'active ARP' | 'ping sweep'
 let subnetIntervals = {};  // subnet -> effective interval in seconds
 let subnetNextDue = {};    // subnet -> ISO time the scanner will next run it (paused: absent)
 let networkPlaces = {};    // subnet -> { selfIp, selfMac, gateway }: what the map knows for certain
+let mapPositions = {};     // topology Map: subnet -> node key -> [x, y] the user dragged to
 let switches = [];         // the switch layout the user recorded: [{ id, name, ports, subnet, hostId, uplink, uplinkSwitch, uplinkPort }]
 let activeArp = { enabled: false, npcapAvailable: false };
 let autoIgnoreRandom = false;
@@ -2098,11 +2138,12 @@ function mapClusters() {
 
 function mapSignature(clusters) {
   const key = n => n ? (n.synthetic ? "~" + n.ip : n.id) : null;
-  return JSON.stringify([network, clusters.map(c => [
+  return JSON.stringify([network, mapStyle, clusters.map(c => [
     c.subnet, c.mode, key(c.self), key(c.gw),
     c.ring.map(h => [h.id, guessFamily(h.osGuess), dispName(h), h.ip]),
-    c.switches.map(s => [s.id, s.name, s.ports, s.hostId, s.uplink, s.uplinkSwitch, s.uplinkPort]),
+    c.switches.map(s => [s.id, s.name, s.ports, s.hostId, s.uplink, s.uplinkSwitch, s.uplinkPort, s.portLabels]),
     c.placed.map(h => [h.id, h.switchId, h.switchPort, dispName(h), h.ip]),
+    mapStyle === "topology" ? mapPositions[c.subnet] || null : null,
   ])]);
 }
 
@@ -2373,6 +2414,534 @@ function switchTitle(sw) {
   return lines.join("\n");
 }
 
+// ---- topology map ----
+// The Map drawn as a network diagram: the router at the top, the switches
+// the user recorded under it in their chain, each switch's devices listed
+// below it in port order, and everything not recorded in an "On this network"
+// box. Anything can be dragged; where it's dropped is saved on the server,
+// per network, and whatever hasn't been moved by hand follows the node it
+// hangs from. Dropping a device on a switch records it there, dropping it in
+// the box unplugs it, and dropping a switch on a switch or the router sets
+// what it's plugged into.
+let mapStyle = "topology";
+try { if (localStorage.getItem("bamf-map-style") === "radial") mapStyle = "radial"; } catch { }
+const mapViews = {};        // subnet -> [x, y, w, h]: zoom and pan, kept across redraws
+const topoModels = {};      // subnet -> the drawn model, for the card's buttons
+let mapDragging = false;
+
+const TOPO = {
+  T: 16,               // half a tile
+  ROW: 46,             // one device per row under a switch
+  TIER: 140,           // router to the first row of switches
+  PORT_INDENT: 124,    // a switch's device column sits this far right, leaving room for "3 · Living Room"
+  COL_GAP: 70,         // between switch regions
+  SELF_DX: 250,        // this machine sits beside the router
+  BOX_COL: 220, BOX_ROWS: 10, BOX_PAD: 18,
+  CHAR: 6.7,           // estimated width of one character of a label
+};
+
+// 24×24 line drawings, one per kind of device. Plain paths, no library.
+const TOPO_ICONS = {
+  router: "M3 13h18v7H3z M7 13V6 M17 13V6 M6.5 16.5h2 M10.5 16.5h2",
+  switch: "M2 8h20v8H2z M5 12h1.5 M8.5 12h1.5 M12 12h1.5 M15.5 12h1.5",
+  ap: "M12 19.5h.01 M8.5 16a5 5 0 0 1 7 0 M5.5 13a9 9 0 0 1 13 0 M2.5 10a13 13 0 0 1 19 0",
+  camera: "M3 7h12v10H3z M15 10l6-3v10l-6-3z",
+  printer: "M6 9V3h12v6 M4 9h16v8H4z M7 14h10v7H7z",
+  tv: "M3 5h18v12H3z M8 21h8 M12 17v4",
+  speaker: "M7 3h10v18H7z M9 15a3 3 0 1 0 6 0a3 3 0 1 0 -6 0 M12 7h.01",
+  phone: "M8 2h8v20H8z M11 18h2",
+  tablet: "M5 3h14v18H5z M11 17h2",
+  laptop: "M5 5h14v10H5z M2 19h20",
+  desktop: "M3 4h18v12H3z M8 20h8 M12 16v4",
+  server: "M4 4h16v6H4z M4 14h16v6H4z M7.5 7h.01 M7.5 17h.01",
+  iot: "M8 8h8v8H8z M10 4v4 M14 4v4 M10 16v4 M14 16v4 M4 10h4 M4 14h4 M16 10h4 M16 14h4",
+  net: "M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6 11a3.5 3.5 0 0 0 1 7z",
+  device: "M4 12a8 8 0 1 0 16 0a8 8 0 1 0 -16 0 M12 12h.01",
+};
+// Which drawing, from the device guess, then its names and vendor. First match wins.
+const TOPO_KINDS = [
+  ["router", /router|gateway/],
+  ["switch", /switch|network gear/],
+  ["ap", /access point|\bap\b|wi-?fi|\bwap\b/],
+  ["camera", /camera|\bcam\b|ipcam|\bnvr\b|doorbell/],
+  ["printer", /printer|scanner|\bmfc\b/],
+  ["tv", /\btv\b|roku|chromecast|television|media device|shield/],
+  ["speaker", /sonos|speaker|homepod|airplay|spotify|\becho\b/],
+  ["phone", /iphone|android|phone|pixel|galaxy/],
+  ["tablet", /ipad|tablet|kindle/],
+  ["laptop", /macbook|laptop|notebook|chromebook/],
+  ["desktop", /windows|desktop|workstation|imac|\bpc\b/],
+  ["server", /\bnas\b|synology|qnap|server|proxmox|truenas|unraid|raspberry|linux|ssh host|home assistant|pihole/],
+  ["iot", /esp32|esp8266|esphome|\biot\b|hue|homekit|matter|nest|thermostat|plug|bulb|amazon device/],
+];
+function topoKind(h) {
+  if (!h || h.synthetic) return "device";
+  const text = [h.osGuess, h.customName, h.hostname === "—" ? "" : h.hostname, h.mdnsName, h.vendor]
+    .filter(Boolean).join(" ").toLowerCase();
+  for (const [kind, re] of TOPO_KINDS) if (re.test(text)) return kind;
+  return "device";
+}
+function topoClip(text, n) { return text.length > n ? text.slice(0, n - 1) + "…" : text; }
+
+// Where everything goes before anything is dragged. Positions are node
+// centres; each node also knows the node it hangs from, so a node that hasn't
+// been dragged can follow its parent.
+function topoModel(c) {
+  const nodes = new Map();
+  const add = (key, o) => { const n = Object.assign({ key, parent: null, edge: null }, o); nodes.set(key, n); return n; };
+  const shown = new Set(c.switches.map(s => s.id));
+  const saved = mapPositions[c.subnet] || {};
+  const rootKey = c.gw ? "gw" : "net";
+  const y1 = TOPO.TIER;
+  let x = 0;
+  const seen = new Set();
+  const place = (sw, left, parentKey, edge) => {   // returns the region's width
+    if (seen.has(sw.id)) return 0;
+    seen.add(sw.id);
+    const key = "s:" + sw.id;
+    add(key, { type: "switch", sw, host: sw.hostId ? hosts.find(h => h.id === sw.hostId) : null,
+      parent: parentKey, auto: [left + TOPO.T, y1], edge });
+    const devs = c.placed.filter(h => h.switchId === sw.id)
+      .sort((a, b) => (a.switchPort || 1e9) - (b.switchPort || 1e9) || nameOrIp(a).localeCompare(nameOrIp(b)));
+    devs.forEach((h, i) => add("h:" + h.id, { type: "dev", host: h, parent: key,
+      auto: [left + TOPO.T + TOPO.PORT_INDENT, y1 + 70 + i * TOPO.ROW],
+      edge: { style: "list", cable: true, sw, port: h.switchPort } }));
+    let width = Math.max(devs.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 190 : 0, 2 * TOPO.T + 30 + sw.name.length * TOPO.CHAR);
+    c.switches.filter(s => s.uplink === "switch" && s.uplinkSwitch === sw.id && shown.has(s.id))
+      .sort((a, b) => (a.uplinkPort || 1e9) - (b.uplinkPort || 1e9))
+      .forEach(k => {
+        const w = place(k, left + width + TOPO.COL_GAP, key, { style: "chain", cable: true, sw, port: k.uplinkPort });
+        if (w) width += TOPO.COL_GAP + w;
+      });
+    return width;
+  };
+  c.switches.filter(s => !(s.uplink === "switch" && shown.has(s.uplinkSwitch))).forEach(sw => {
+    const w = place(sw, x, rootKey, { style: "down", cable: sw.uplink === "router" });
+    if (w) x += w + TOPO.COL_GAP * 1.4;
+  });
+
+  // Not recorded on a switch: a grid in the "On this network" box. Devices
+  // dragged out of it keep their own place and leave no gap in the grid.
+  const loose = c.ring;
+  if (loose.length) {
+    const inGrid = loose.filter(h => !saved["h:" + h.id]);
+    const rows = Math.max(1, Math.min(TOPO.BOX_ROWS, inGrid.length));
+    const cols = Math.max(1, Math.ceil(inGrid.length / TOPO.BOX_ROWS));
+    const box = add("box", { type: "box", parent: rootKey, auto: [x, y1 - 24],
+      size: [cols * TOPO.BOX_COL + TOPO.BOX_PAD, rows * TOPO.ROW + 40], count: loose.length,
+      edge: { style: "box" } });
+    let i = 0;
+    for (const h of loose) {
+      const inBox = !saved["h:" + h.id];
+      const k = inBox ? i++ : 0;
+      add("h:" + h.id, { type: "dev", host: h, parent: "box", inBox,
+        auto: [x + TOPO.BOX_PAD + TOPO.T + Math.floor(k / TOPO.BOX_ROWS) * TOPO.BOX_COL, y1 + 34 + (k % TOPO.BOX_ROWS) * TOPO.ROW] });
+    }
+    x += box.size[0];
+  }
+  const width = Math.max(x, 300);
+  add(rootKey, { type: "root", host: c.gw, auto: [Math.max(0, width / 2 - 120), 0] });
+  if (c.self) add("self", { type: "self", host: c.self, parent: rootKey,
+    auto: [nodes.get(rootKey).auto[0] + TOPO.SELF_DX, 0], edge: { style: "under" } });
+  return { subnet: c.subnet, c, nodes, rootKey, saved, override: {}, final: new Map(), els: new Map(), edgeEls: [] };
+}
+
+// Final positions: where the user put it, or where the layout put it relative
+// to its parent's final position.
+function topoResolve(m) {
+  m.final.clear();
+  const get = key => {
+    if (m.final.has(key)) return m.final.get(key);
+    const n = m.nodes.get(key);
+    let p = m.override[key] || m.saved[key];
+    if (!p) {
+      const par = n.parent && m.nodes.get(n.parent);
+      if (par) {
+        const pp = get(n.parent);
+        p = [pp[0] + n.auto[0] - par.auto[0], pp[1] + n.auto[1] - par.auto[1]];
+      } else {
+        p = n.auto;
+      }
+    }
+    m.final.set(key, p);
+    return p;
+  };
+  for (const key of m.nodes.keys()) get(key);
+}
+
+function topoPath(style, a, b) {
+  const T = TOPO.T, f = v => v.toFixed(1);
+  if (style === "list") return `M${f(a[0])} ${f(a[1] + T)} V${f(b[1])} H${f(b[0] - T)}`;
+  if (style === "chain") {
+    const top = Math.min(a[1], b[1]) - T - 26;
+    return `M${f(a[0])} ${f(a[1] - T)} V${f(top)} H${f(b[0])} V${f(b[1] - T)}`;
+  }
+  if (style === "under") {
+    const low = Math.max(a[1], b[1]) + T + 14;
+    return `M${f(a[0])} ${f(a[1] + T)} V${f(low)} H${f(b[0])} V${f(b[1] + T)}`;
+  }
+  if (style === "box") {
+    const tx = b[0] + 40, mid = Math.min(a[1] + T + 24, (a[1] + T + b[1]) / 2);
+    return `M${f(a[0])} ${f(a[1] + T)} V${f(mid)} H${f(tx)} V${f(b[1])}`;
+  }
+  // Router to a switch: turn just under the router, clear of the arch a
+  // switch-to-switch cable makes above the switch row.
+  const mid = Math.min(a[1] + T + 24, (a[1] + T + b[1] - T) / 2);
+  return `M${f(a[0])} ${f(a[1] + T)} V${f(mid)} H${f(b[0])} V${f(b[1] - T)}`;
+}
+
+// Put every drawn node and line where topoResolve says.
+function topoPlace(m) {
+  topoResolve(m);
+  for (const [key, el] of m.els) {
+    const p = m.final.get(key);
+    el.setAttribute("transform", `translate(${p[0].toFixed(1)},${p[1].toFixed(1)})`);
+  }
+  for (const e of m.edgeEls) {
+    const a = m.final.get(e.from), b = m.final.get(e.to);
+    e.path.setAttribute("d", topoPath(e.style, a, b));
+    if (e.label) {
+      if (e.style === "list") { e.label.setAttribute("x", (b[0] - TOPO.T - 6).toFixed(1)); e.label.setAttribute("y", (b[1] - 5).toFixed(1)); }
+      else { e.label.setAttribute("x", (b[0] + 6).toFixed(1)); e.label.setAttribute("y", (Math.min(a[1], b[1]) - TOPO.T - 30).toFixed(1)); }
+    }
+  }
+}
+
+function topoBounds(m) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [key, n] of m.nodes) {
+    const p = m.final.get(key);
+    if (n.type === "box") {
+      x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0] + n.size[0]); y1 = Math.max(y1, p[1] + n.size[1]);
+    } else {
+      const w = n.labelW || 120;
+      x0 = Math.min(x0, p[0] - 30); y0 = Math.min(y0, p[1] - 60); x1 = Math.max(x1, p[0] + TOPO.T + 12 + w); y1 = Math.max(y1, p[1] + 40);
+    }
+  }
+  // A small network shouldn't be blown up to fill the frame: never zoom in
+  // past a sensible minimum, centred on what's there.
+  const w = Math.max(x1 - x0, 1000), h = Math.max(y1 - y0, 420);
+  return [(x0 + x1) / 2 - w / 2, (y0 + y1) / 2 - h / 2, w, h];
+}
+
+function topoApplyView(m) {
+  const v = mapViews[m.subnet] || topoBounds(m);
+  m.view = v.slice();
+  m.svg.setAttribute("viewBox", m.view.map(n => n.toFixed(1)).join(" "));
+}
+
+function topoFit(subnet) {
+  delete mapViews[subnet];
+  const m = topoModels[subnet];
+  if (m) topoApplyView(m);
+}
+
+function topoZoomBy(subnet, factor, center) {
+  const m = topoModels[subnet];
+  if (!m) return;
+  const [x, y, w, h] = m.view;
+  const nw = Math.min(40000, Math.max(160, w * factor)), k = nw / w;
+  const cx = center ? center[0] : x + w / 2, cy = center ? center[1] : y + h / 2;
+  m.view = [cx - (cx - x) * k, cy - (cy - y) * k, w * k, h * k];
+  mapViews[subnet] = m.view.slice();
+  m.svg.setAttribute("viewBox", m.view.map(n => n.toFixed(1)).join(" "));
+}
+
+async function topoAutoArrange(subnet) {
+  if (!confirm(`Put everything on ${subnet} back where the automatic layout puts it? Where you dragged things is forgotten.`)) return;
+  await fetch("/api/map/positions?subnet=" + encodeURIComponent(subnet), { method: "DELETE" });
+  delete mapPositions[subnet];
+  delete mapViews[subnet];
+  mapSig = null;
+  await refresh();
+}
+
+async function saveMapPositions(subnet, positions) {
+  const local = mapPositions[subnet] || (mapPositions[subnet] = {});
+  for (const [k, p] of Object.entries(positions)) { if (p) local[k] = p; else delete local[k]; }
+  try {
+    const r = await fetch("/api/map/positions", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subnet, positions }),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      toast("Couldn't save the map: " + esc(d.error || "HTTP " + r.status));
+    }
+  } catch { toast("Couldn't reach BAMF to save the map."); }
+}
+
+function buildTopologySvg(c) {
+  const m = topoModel(c);
+  topoModels[c.subnet] = m;
+  const svg = svgEl("svg", { class: "map-svg topo", role: "group", "aria-label": `Network ${c.subnet}`, preserveAspectRatio: "xMidYMid meet" });
+  const gBox = svgEl("g", {}), gEdges = svgEl("g", {}), gLabels = svgEl("g", {}), gNodes = svgEl("g", {});
+  svg.append(gBox, gEdges, gLabels, gNodes);
+  m.svg = svg;
+
+  for (const [key, n] of m.nodes) {
+    if (n.edge && n.parent) {
+      const path = svgEl("path", { class: "spoke" + (n.edge.cable ? " cable" : "") + (n.type === "dev" && !n.host.online ? " off" : "") });
+      if (n.type === "dev") path.setAttribute("data-id", n.host.id);
+      gEdges.appendChild(path);
+      let label = null;
+      if (n.edge.sw && (n.edge.style === "list" || n.edge.port)) {
+        const port = n.edge.port;
+        const text = port ? topoClip(portText(n.edge.sw, port).replace(/^port /, ""), n.edge.style === "list" ? 17 : 26) : "port ?";
+        label = svgEl("text", { class: "t-port", "text-anchor": n.edge.style === "list" ? "end" : "start" });
+        label.textContent = n.edge.style === "list" ? text : (port ? "port " + text : text);
+        gLabels.appendChild(label);
+      }
+      m.edgeEls.push({ from: n.parent, to: key, style: n.edge.style, path, label });
+    }
+    if (n.type === "box") {
+      const g = svgEl("g", { class: "tbox", "data-key": "box" });
+      const rect = svgEl("rect", { class: "t-box", x: 0, y: 0, width: n.size[0], height: n.size[1], rx: 12 });
+      const title = svgEl("text", { class: "t-box-title", x: 14, y: 20 });
+      title.textContent = `On this network · ${n.count}`;
+      const t2 = svgEl("title", {});
+      t2.textContent = "Devices not recorded on a switch - Wi-Fi ones, or wired ones not filled in yet. Drop a device here to unplug it.";
+      g.appendChild(t2);
+      g.append(rect, title);
+      gBox.appendChild(g);
+      m.els.set(key, g);
+      m.boxRect = rect;
+      continue;
+    }
+    gNodes.appendChild(topoNodeEl(m, key, n));
+  }
+  topoPlace(m);
+  topoApplyView(m);
+  topoWire(m);
+  return svg;
+}
+
+function topoNodeEl(m, key, n) {
+  const h = n.host;
+  let cls, kind, name, sub, tip;
+  if (n.type === "switch") {
+    cls = h ? mapNodeClass(h, "sw") : "node sw";
+    kind = "switch"; name = n.sw.name;
+    sub = `${n.sw.ports} ports` + (h ? " · " + h.ip : "");
+    tip = switchTitle(n.sw);
+  } else if (n.type === "root") {
+    if (h) {
+      cls = mapNodeClass(h, "gw"); kind = "router";
+      name = h.synthetic ? "Gateway" : nameOrIp(h); sub = h.ip; tip = mapTitle(h, "gw");
+    } else {
+      cls = "node net"; kind = "net"; name = m.subnet; sub = "this network"; tip = `Network ${m.subnet}`;
+    }
+  } else if (n.type === "self") {
+    cls = mapNodeClass(h, "self"); kind = "server"; name = "BAMF"; sub = h.ip; tip = mapTitle(h, "self");
+  } else {
+    cls = mapNodeClass(h, "dev"); kind = topoKind(h); name = nameOrIp(h); tip = mapTitle(h, "dev");
+    // An unnamed device is already labelled by its address: say what it is instead.
+    sub = name === h.ip ? (guessFamily(h.osGuess) || h.vendor || "") : h.ip;
+  }
+  name = topoClip(name, 24);
+  n.labelW = Math.max(name.length, sub.length) * TOPO.CHAR;
+  const g = svgEl("g", { class: "tnode " + cls, "data-key": key, tabindex: "0", role: "button", "aria-label": name });
+  if (h && !h.synthetic) g.setAttribute("data-id", h.id);
+  if (n.type === "switch") g.setAttribute("data-sw", n.sw.id);
+  const title = svgEl("title", {});
+  title.textContent = tip;
+  g.appendChild(title);
+  if (n.type === "dev") g.appendChild(svgEl("circle", { r: 26, class: "blink-ring" }));
+  g.appendChild(svgEl("rect", { x: -20, y: -20, width: 40, height: 40, rx: 11, class: "t-watch" }));
+  g.appendChild(svgEl("rect", { x: -TOPO.T, y: -TOPO.T, width: 2 * TOPO.T, height: 2 * TOPO.T, rx: 8, class: "t-tile shape" }));
+  const icon = svgEl("path", { d: TOPO_ICONS[kind] || TOPO_ICONS.device, class: "t-icon", transform: "translate(-12,-12)" });
+  g.appendChild(icon);
+  const t1 = svgEl("text", { class: "t-name", x: TOPO.T + 8, y: -2 });
+  t1.textContent = name;
+  const t2 = svgEl("text", { class: "t-sub", x: TOPO.T + 8, y: 12 });
+  t2.textContent = sub;
+  g.append(t1, t2);
+  m.els.set(key, g);
+  return g;
+}
+
+// What a click on a node does: the same dialogs as everywhere else.
+function topoActivate(m, key) {
+  const n = m.nodes.get(key);
+  if (!n) return;
+  if (n.type === "dev") openPlugDialog(hosts.find(x => x.id === n.host.id) || n.host);
+  else if (n.type === "switch") openPortsDialog(switches.find(s => s.id === n.sw.id) || n.sw);
+  else if ((n.type === "root" || n.type === "self") && n.host && !n.host.synthetic) jumpToHost(n.host.id);
+}
+
+// The node a dragged node would be dropped onto, if any: a switch, the
+// router, or the box.
+function topoDropTarget(m, key) {
+  const n = m.nodes.get(key), p = m.final.get(key);
+  if (n.type !== "dev" && n.type !== "switch") return null;
+  const below = new Set();
+  if (n.type === "switch") {
+    const walk = k => { for (const [kk, nn] of m.nodes) if (nn.parent === k && nn.type === "switch" && !below.has(kk)) { below.add(kk); walk(kk); } };
+    walk(key);
+  }
+  for (const [k, t] of m.nodes) {
+    if (k === key || below.has(k)) continue;
+    if (t.type === "switch" || (t.type === "root" && n.type === "switch")) {
+      const q = m.final.get(k);
+      if (Math.hypot(q[0] - p[0], q[1] - p[1]) < 30) return { key: k, node: t };
+    }
+  }
+  if (n.type === "dev" && m.nodes.has("box")) {
+    const b = m.final.get("box"), size = m.nodes.get("box").size;
+    if (p[0] >= b[0] && p[0] <= b[0] + size[0] && p[1] >= b[1] && p[1] <= b[1] + size[1]) return { key: "box", node: m.nodes.get("box") };
+  }
+  return null;
+}
+
+async function topoDrop(m, key) {
+  const n = m.nodes.get(key), p = m.final.get(key);
+  mapViews[m.subnet] = m.view.slice();   // keep the view where it is once this is saved and redrawn
+  const target = topoDropTarget(m, key);
+  const subnet = m.subnet;
+  if (n.type === "dev" && target && target.node.type === "switch") {
+    // Plug it in: the usual dialog, with that switch picked. It then lines up
+    // under the switch, so any place it was dragged to is forgotten.
+    delete m.override[key];
+    topoPlace(m);
+    openPlugDialog(hosts.find(x => x.id === n.host.id) || n.host, target.node.sw.id);
+    plugAfterSave = () => saveMapPositions(subnet, { [key]: null });
+    return;
+  }
+  if (n.type === "dev" && target && target.node.type === "box") {
+    const h = hosts.find(x => x.id === n.host.id) || n.host;
+    if (h.switchId) {
+      const sw = switches.find(s => s.id === h.switchId);
+      await fetch(`/api/hosts/${h.id}/plug`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ switchId: 0, port: 0 }),
+      });
+      toast(`${esc(nameOrIp(h))} is no longer recorded on ${esc(sw ? sw.name : "a switch")}`);
+    }
+    await saveMapPositions(subnet, { [key]: null });
+    mapSig = null;
+    await refresh();
+    return;
+  }
+  if (n.type === "switch" && target) {
+    // Plug a switch into another switch, or into the router: the switch
+    // dialog, with that uplink picked.
+    delete m.override[key];
+    await saveMapPositions(subnet, { [key]: null });
+    m.saved = mapPositions[subnet] || {};
+    topoPlace(m);
+    openSwitchDialog(switches.find(s => s.id === n.sw.id) || n.sw);
+    const want = target.node.type === "switch" ? "sw:" + target.node.sw.id : "router";
+    if ([...$("swUp").options].some(o => o.value === want)) { $("swUp").value = want; syncSwitchDialog(0); }
+    return;
+  }
+  await saveMapPositions(subnet, { [key]: [Math.round(p[0]), Math.round(p[1])] });
+  m.saved = mapPositions[subnet] || {};
+  delete m.override[key];
+}
+
+// Pointer handling for one card: drag a node, drag the background to pan,
+// wheel or pinch to zoom. A press that doesn't move is a click.
+function topoWire(m) {
+  const svg = m.svg;
+  const pointers = new Map();
+  let mode = null, st = null, pinch = null, lastTarget = null;
+  const toSvg = e => {
+    const p = svg.createSVGPoint();
+    p.x = e.clientX; p.y = e.clientY;
+    const q = p.matrixTransform(svg.getScreenCTM().inverse());
+    return [q.x, q.y];
+  };
+  const markTarget = key => {
+    const t = key ? topoDropTarget(m, key) : null;
+    const el = t ? (t.key === "box" ? m.boxRect : m.els.get(t.key)) : null;
+    if (lastTarget && lastTarget !== el) lastTarget.classList.remove("drop-target");
+    if (el) el.classList.add("drop-target");
+    lastTarget = el;
+  };
+  svg.addEventListener("pointerdown", e => {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    try { svg.setPointerCapture(e.pointerId); } catch { /* not every pointer can be captured */ }
+    pointers.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pointers.size === 2) {
+      if (mode === "node" && st.moved) { delete m.override[st.key]; topoPlace(m); markTarget(null); }
+      const [a, b] = [...pointers.values()];
+      mode = "pinch";
+      pinch = { dist: Math.hypot(a[0] - b[0], a[1] - b[1]), view: m.view.slice() };
+      return;
+    }
+    const g = e.target.closest(".tnode, .tbox");
+    if (g) {
+      const key = g.getAttribute("data-key");
+      mode = "node";
+      st = { key, el: g, sx: e.clientX, sy: e.clientY, start: m.final.get(key).slice(), p0: toSvg(e), moved: false };
+    } else {
+      mode = "pan";
+      st = { sx: e.clientX, sy: e.clientY, view: m.view.slice() };
+      svg.classList.add("panning");
+    }
+  });
+  svg.addEventListener("pointermove", e => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, [e.clientX, e.clientY]);
+    if (mode === "pinch" && pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      if (d > 0) {
+        m.view = pinch.view.slice();
+        const mid = toSvg({ clientX: (a[0] + b[0]) / 2, clientY: (a[1] + b[1]) / 2 });
+        topoZoomBy(m.subnet, pinch.dist / d, mid);
+      }
+      return;
+    }
+    if (mode === "node") {
+      if (!st.moved && Math.hypot(e.clientX - st.sx, e.clientY - st.sy) < 5) return;
+      if (!st.moved) { st.moved = true; mapDragging = true; st.el.classList.add("dragging"); }
+      const p = toSvg(e);
+      m.override[st.key] = [st.start[0] + p[0] - st.p0[0], st.start[1] + p[1] - st.p0[1]];
+      topoPlace(m);
+      markTarget(st.key);
+    } else if (mode === "pan") {
+      const k = st.view[2] / svg.clientWidth;
+      const kk = Math.max(k, st.view[3] / svg.clientHeight);
+      m.view = [st.view[0] - (e.clientX - st.sx) * kk, st.view[1] - (e.clientY - st.sy) * kk, st.view[2], st.view[3]];
+      svg.setAttribute("viewBox", m.view.map(n => n.toFixed(1)).join(" "));
+    }
+  });
+  const end = async e => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    if (mode === "pinch") { if (pointers.size === 0) mode = null; mapViews[m.subnet] = m.view.slice(); return; }
+    if (mode === "pan") {
+      svg.classList.remove("panning");
+      if (Math.hypot(e.clientX - st.sx, e.clientY - st.sy) > 3) mapViews[m.subnet] = m.view.slice();
+    } else if (mode === "node") {
+      const s = st;
+      s.el.classList.remove("dragging");
+      markTarget(null);
+      if (!s.moved) topoActivate(m, s.key);
+      else {
+        try { await topoDrop(m, s.key); } finally { mapDragging = false; }
+      }
+    }
+    mode = null;
+  };
+  svg.addEventListener("pointerup", end);
+  svg.addEventListener("pointercancel", end);
+  svg.addEventListener("wheel", e => {
+    e.preventDefault();
+    topoZoomBy(m.subnet, e.deltaY < 0 ? 1 / 1.15 : 1.15, toSvg(e));
+  }, { passive: false });
+  svg.addEventListener("keydown", e => {
+    const g = e.target.closest && e.target.closest(".tnode");
+    if (g && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); topoActivate(m, g.getAttribute("data-key")); }
+  });
+}
+
+document.querySelectorAll(".map-style button").forEach(b => b.onclick = () => {
+  mapStyle = b.dataset.style;
+  try { localStorage.setItem("bamf-map-style", mapStyle); } catch { }
+  mapSig = null;
+  renderMap();
+});
+
 function buildClusterCard(c) {
   const card = document.createElement("section");
   card.className = "map-card";
@@ -2389,13 +2958,34 @@ function buildClusterCard(c) {
   tag.textContent = c.mode === "skipped" ? "no interface" : c.mode === "paused" ? "paused" : c.mode ? "via " + c.mode : "";
   head.append(name, cnt, tag);
   card.appendChild(head);
-  if (!c.members.length && !c.self && !c.gw && !c.switches.length) {
+  const empty = !c.members.length && !c.self && !c.gw && !c.switches.length;
+  if (mapStyle === "topology" && !empty) {
+    const tools = document.createElement("span");
+    tools.className = "map-tools";
+    const btn = (label, title, fn) => {
+      const b = document.createElement("button");
+      b.className = "toggle"; b.type = "button"; b.textContent = label; b.title = title;
+      b.onclick = fn;
+      tools.appendChild(b);
+    };
+    btn("−", "Zoom out", () => topoZoomBy(c.subnet, 1.25));
+    btn("+", "Zoom in", () => topoZoomBy(c.subnet, 0.8));
+    btn("Fit", "Show everything", () => topoFit(c.subnet));
+    btn("Auto-arrange", "Forget where you dragged things on this network", () => topoAutoArrange(c.subnet));
+    head.appendChild(tools);
+  }
+  if (empty) {
     const e = document.createElement("div");
     e.className = "map-empty";
     e.textContent = c.mode === "skipped"
       ? "This machine has no interface on this network, so nothing on it can be seen."
       : "No devices seen on this network yet.";
     card.appendChild(e);
+  } else if (mapStyle === "topology") {
+    const frame = document.createElement("div");
+    frame.className = "topo-frame";
+    frame.appendChild(buildTopologySvg(c));
+    card.appendChild(frame);
   } else {
     card.appendChild(buildClusterSvg(c));
   }
@@ -2404,8 +2994,11 @@ function buildClusterCard(c) {
 
 function renderMap() {
   const wrap = $("mapClusters");
+  document.querySelectorAll(".map-style button").forEach(b => b.classList.toggle("active", b.dataset.style === mapStyle));
+  if (mapDragging) return;   // a poll mustn't redraw the map out from under a drag
   const clusters = mapClusters();
-  wrap.classList.toggle("single", clusters.length === 1);
+  wrap.classList.toggle("single", clusters.length === 1 || mapStyle === "topology");
+  wrap.classList.toggle("topo", mapStyle === "topology");
   const sig = mapSignature(clusters);
   if (sig !== mapSig) {
     mapSig = sig;
@@ -2422,7 +3015,8 @@ function renderMap() {
     const swId = g.getAttribute("data-sw");
     const sw = swId ? switches.find(s => String(s.id) === swId) : null;
     const role = sw ? "sw" : g.classList.contains("gw") ? "gw" : g.classList.contains("self") ? "self" : "dev";
-    g.setAttribute("class", mapNodeClass(h, role));
+    const cls = mapNodeClass(h, role);
+    g.setAttribute("class", g.classList.contains("tnode") ? "tnode " + cls : cls);
     g.querySelector("title").textContent = sw ? switchTitle(sw) : mapTitle(h, role);
   });
   wrap.querySelectorAll(".spoke[data-id]").forEach(l => {
@@ -2885,6 +3479,7 @@ function showErr(id, msg) {
 }
 
 let plugHost = null;
+let plugAfterSave = null;   // set when a drop on the Map opened the dialog
 function openPlugDialog(host, preselect = null) {
   plugHost = host;
   $("plugTitle").textContent = "Plugged into — " + nameOrIp(host);
@@ -2913,7 +3508,7 @@ function syncPlugPort(current) {
   $("plugPortRow").style.display = sw ? "" : "none";
   if (sw) fillPortSelect($("plugPort"), sw, current, { hostId: plugHost?.id });
 }
-function closePlugDialog() { $("plugModal").hidden = true; plugHost = null; blinkTick(); }
+function closePlugDialog() { $("plugModal").hidden = true; plugHost = null; plugAfterSave = null; blinkTick(); }
 async function savePlugDialog() {
   const h = plugHost;
   if (!h) return;
@@ -2934,7 +3529,9 @@ async function savePlugDialog() {
     const sw = switches.find(s => s.id === switchId);
     toast(sw ? `${esc(nameOrIp(h))} recorded on ${esc(sw.name)}` + (port ? `, port ${port}` : "")
              : `Cleared where ${esc(nameOrIp(h))} is plugged in`);
+    const after = plugAfterSave;
     closePlugDialog();
+    if (after) await after();
     await refresh();
   } catch {
     showErr("plugErr", "Couldn't reach BAMF.");
@@ -3440,6 +4037,7 @@ async function refresh() {
     subnetNextDue = data.subnetNextDue || {};
     networkPlaces = data.networkPlaces || {};
     switches = data.switches || [];
+    mapPositions = data.mapPositions || {};
     syncBlink(data.blink, data.serverTime);
     activeArp = data.activeArp || activeArp;
     autoIgnoreRandom = !!data.autoIgnoreRandom;

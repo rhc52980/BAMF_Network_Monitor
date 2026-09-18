@@ -645,6 +645,8 @@ scan, or delete a thing.
 | DELETE | `/api/switches/{id}` | Delete a switch. Devices recorded on it go back to unrecorded; switches plugged into it lose that uplink |
 | POST | `/api/switches/{id}/ports` | Body `{"ports": [{"hostId": 3, "port": 1}, {"hostId": 4, "port": 2}], "labels": [{"port": 1, "label": "Living Room"}]}` — set everything on one switch at once. Hosts listed are placed on it (moving off any other switch; `port` 0 = not recorded), and hosts on it that aren't listed come off it. `labels`, when given, replaces the ports' locations (up to 40 characters; blank clears one); leave it out to keep them. Each switch in `GET /api/hosts` carries them as `portLabels` |
 | POST | `/api/hosts/{id}/blink` | Body `{"seconds": 30}` (optional, 5–60) — "Find port": send the device bursts of UDP traffic, one second on and one second off, so its switch-port light pulses. Private addresses only; replaces any blink already running. Returns `until` |
+| POST | `/api/map/positions` | Body `{"subnet": "192.168.1.0/24", "positions": {"s:1": [120, 140], "h:7": null}}` — save where nodes sit on the topology Map for one network. Keys are `h:<host id>`, `s:<switch id>`, `gw`, `self`, `net` and `box`. A null position forgets that node, so it goes back to the automatic layout. `GET /api/hosts` returns them all as `mapPositions` |
+| DELETE | `/api/map/positions?subnet=…` | "Auto-arrange": forget every saved position on one network |
 | DELETE | `/api/blink` | Stop a running Find port blink. While one runs, `GET /api/hosts` reports it as `blink` (`hostId`, `started`, `until`) with the server's `serverTime`; bursts are on for [2k, 2k+1) seconds after `started` |
 | POST | `/api/hosts/{id}/plug` | Body `{"switchId": 1, "port": 3}` — record which switch port a device is plugged into. `switchId` 0 clears it; `port` 0 means "port not recorded". `GET /api/hosts` returns each host's `switchId` and `switchPort`, and the layout as `switches` |
 
@@ -813,11 +815,40 @@ menu, the Tools menu, an expanded row.
 
 ## Network map
 
-The **Map** tab draws each network around itself: the network in the middle,
-every device BAMF has seen on it around the edge, grouped by device type and
-coloured by whether it's online. Pick a network tab to see just that one. Hover
-a device for its details; click it to find it in the device list. It has its
-own address, `/#map`, like the other tabs.
+The **Map** tab draws each network as a diagram. Pick a network tab to see
+just that one. It has its own address, `/#map`, like the other tabs. There are
+two layouts, chosen above the map and remembered in your browser:
+
+- **Topology** (the default): the router at the top and BAMF's own machine
+  beside it. Your recorded switches sit below, chained as they're cabled, each
+  with its devices listed underneath in port order and labelled with the port
+  and its location (`6 · Living Room`). Everything not recorded on a switch is
+  in an **On this network** box. Every device has an icon for its kind (router,
+  switch, access point, camera, printer, TV, speaker, phone, tablet, laptop,
+  desktop, server or NAS, smart-home gadget), taken from its device guess and
+  its names.
+- **Radial**: each network drawn around itself, devices round the edge grouped
+  by type. This was the original map.
+
+Hover anything for details. Click a device to record where it's plugged in,
+or a switch to open its Ports dialog.
+
+**Arranging the topology.** Drag anything wherever you like. It's saved on the
+server per network, so the layout is the same in every browser. Anything you
+haven't moved by hand follows the node it hangs from, so dragging a switch
+brings its devices along. Scroll or pinch to zoom, drag the background to pan,
+**Fit** shows everything, and **Auto-arrange** forgets the positions you set on
+that network.
+
+**Wiring it up by dragging:**
+
+- **Drop a device on a switch** to record it there. The Plugged into dialog
+  opens with that switch picked, so you choose the port, or use Find port.
+- **Drop a device in the On this network box** to unplug it.
+- **Drop a switch on another switch, or on the router,** to set what it's
+  plugged into.
+
+Cancelling any of these leaves things as they were.
 
 It is deliberately honest about what BAMF knows. ARP says which devices are
 **present** on a network, not how they're cabled, so a thin line on the map
