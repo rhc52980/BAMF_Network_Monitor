@@ -753,6 +753,8 @@
   .vm-table tr { display: table-row; background: none; border: 0; border-radius: 0; margin: 0; padding: 0; position: static; }
   .vm-table td { display: table-cell; border: 0; padding: 5px 0; font-size: 13px; vertical-align: middle; }
   .vm-table td:first-child { width: 1%; padding-right: 10px; }
+  .vm-table td.vm-net { padding: 10px 0 3px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
+  .vm-table tr:first-child td.vm-net { padding-top: 0; }
   .vm-table .vm-ip { color: var(--text-dim); font-family: "IBM Plex Mono", monospace; font-size: 12px; margin-left: 6px; }
   .map-svg .drop-target .t-tile, .map-svg .t-box.drop-target { stroke: var(--focus); stroke-width: 3; stroke-dasharray: none; }
   .map-svg .node:focus-visible .t-tile { stroke: var(--focus); stroke-width: 3; }
@@ -4651,43 +4653,59 @@ function openVmDialog(sw) {
   document.querySelector("#portsModal .ports-find").style.display = "none";
   resetBlinkBox("portsBlink");
   const swHostIds = new Set(switches.map(s => s.hostId).filter(Boolean));
-  const list = hosts.filter(h => !h.forgotten && !swHostIds.has(h.id) && h.id !== sw.runsOn && (!sw.subnet || h.subnet === sw.subnet))
-    .sort((a, b) => (b.switchId === sw.id) - (a.switchId === sw.id) || !!vmPlatform(b.mac) - !!vmPlatform(a.mac) || ipNum(a.ip) - ipNum(b.ip));
+  // Any network, not just the machine's own: a hypervisor often bridges VMs
+  // onto other networks and VLANs. Grouped by network, the switch's own first.
+  const home = sw.subnet || (on && on.subnet) || "";
+  const list = hosts.filter(h => !h.forgotten && !swHostIds.has(h.id) && h.id !== sw.runsOn && (!h.ignored || h.switchId === sw.id));
+  const nets = [...new Set(list.map(h => h.subnet || ""))].sort((a, b) =>
+    (b === home) - (a === home) || ipNum((a || "0.0.0.0").split("/")[0]) - ipNum((b || "0.0.0.0").split("/")[0]));
+  const byNet = nets.map(net => [net, list.filter(h => (h.subnet || "") === net)
+    .sort((a, b) => (b.switchId === sw.id) - (a.switchId === sw.id) || !!vmPlatform(b.mac) - !!vmPlatform(a.mac) || ipNum(a.ip) - ipNum(b.ip))]);
   const table = $("portsTable");
   table.innerHTML = "";
   const tbl = document.createElement("table");
   tbl.className = "vm-table";
   let suggested = 0;
-  for (const h of list) {
-    const tr = document.createElement("tr");
-    const c1 = document.createElement("td"), c2 = document.createElement("td");
-    const box = document.createElement("input");
-    box.type = "checkbox"; box.className = "vm-pick"; box.dataset.id = h.id;
-    box.checked = h.switchId === sw.id;
-    box.id = "vm-" + h.id;
-    c1.appendChild(box);
-    const label = document.createElement("label");
-    label.htmlFor = box.id;
-    label.textContent = nameOrIp(h);
-    const ip = document.createElement("span");
-    ip.className = "vm-ip"; ip.textContent = h.ip;
-    label.appendChild(ip);
-    const plat = vmPlatform(h.mac);
-    if (plat) {
-      const b = document.createElement("span");
-      b.className = "vm-badge"; b.textContent = `${plat} MAC`;
-      label.appendChild(b);
-      if (!box.checked) suggested++;
+  for (const [net, group] of byNet) {
+    if (nets.length > 1) {
+      const hr = document.createElement("tr");
+      const hd = document.createElement("td");
+      hd.colSpan = 2; hd.className = "vm-net";
+      hd.textContent = (net || "no network") + (net === home && home ? " · this network" : "");
+      hr.appendChild(hd);
+      tbl.appendChild(hr);
     }
-    const other = h.switchId && h.switchId !== sw.id ? switches.find(s => s.id === h.switchId) : null;
-    if (other) {
-      const w = document.createElement("span");
-      w.className = "vm-ip"; w.textContent = `— on ${other.name}`;
-      label.appendChild(w);
+    for (const h of group) {
+      const tr = document.createElement("tr");
+      const c1 = document.createElement("td"), c2 = document.createElement("td");
+      const box = document.createElement("input");
+      box.type = "checkbox"; box.className = "vm-pick"; box.dataset.id = h.id;
+      box.checked = h.switchId === sw.id;
+      box.id = "vm-" + h.id;
+      c1.appendChild(box);
+      const label = document.createElement("label");
+      label.htmlFor = box.id;
+      label.textContent = nameOrIp(h);
+      const ip = document.createElement("span");
+      ip.className = "vm-ip"; ip.textContent = h.ip;
+      label.appendChild(ip);
+      const plat = vmPlatform(h.mac);
+      if (plat) {
+        const b = document.createElement("span");
+        b.className = "vm-badge"; b.textContent = `${plat} MAC`;
+        label.appendChild(b);
+        if (!box.checked) suggested++;
+      }
+      const other = h.switchId && h.switchId !== sw.id ? switches.find(s => s.id === h.switchId) : null;
+      if (other) {
+        const w = document.createElement("span");
+        w.className = "vm-ip"; w.textContent = `— on ${other.name}`;
+        label.appendChild(w);
+      }
+      c2.appendChild(label);
+      tr.append(c1, c2);
+      tbl.appendChild(tr);
     }
-    c2.appendChild(label);
-    tr.append(c1, c2);
-    tbl.appendChild(tr);
   }
   const holder = document.createElement("tr");
   const cell = document.createElement("td");
@@ -4706,7 +4724,7 @@ function openVmDialog(sw) {
     });
     extra.appendChild(tick);
   } else if (!list.length) {
-    extra.textContent = "No other devices on this network yet.";
+    extra.textContent = "No other devices yet.";
   }
   showErr("portsErr", "");
   $("portsModal").hidden = false;
