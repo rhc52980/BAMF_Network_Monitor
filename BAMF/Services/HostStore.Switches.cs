@@ -12,17 +12,23 @@ namespace LanWatch.Services;
 /// <param name="Uplink">What the switch is plugged into: "" not recorded, "router", or "switch".</param>
 /// <param name="UplinkSwitch">For a "switch" uplink, the parent switch's id.</param>
 /// <param name="UplinkPort">For a "switch" uplink, the parent's port; 0 when not recorded.</param>
+/// <param name="Kind">"switch", "router" or "ap" (access point). All have ports and
+/// work the same way; the kind sets the Map's icon, and a router linked to the
+/// network's gateway becomes the top of the topology.</param>
 public record SwitchRecord(
     long Id, string Name, int Ports, string Subnet, long HostId,
-    string Uplink, long UplinkSwitch, int UplinkPort);
+    string Uplink, long UplinkSwitch, int UplinkPort, string Kind);
 
 public record SwitchInput(
     string? Name, int Ports, string? Subnet, long HostId,
-    string? Uplink, long UplinkSwitch, int UplinkPort);
+    string? Uplink, long UplinkSwitch, int UplinkPort, string? Kind);
 
 public partial class HostStore
 {
     public const int MaxSwitchPorts = 128;
+    public static readonly string[] SwitchKinds = { "switch", "router", "ap" };
+
+    private static string KindNoun(string kind) => kind switch { "router" => "router", "ap" => "access point", _ => "switch" };
 
     private static void InitSwitches(SqliteConnection conn)
     {
@@ -55,6 +61,22 @@ public partial class HostStore
             );
             """;
         cmd.ExecuteNonQuery();
+
+        // Added in 1.27: what kind of box it is. Everything recorded before
+        // then was a switch.
+        var cols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var info = conn.CreateCommand())
+        {
+            info.CommandText = "PRAGMA table_info(switches)";
+            using var r = info.ExecuteReader();
+            while (r.Read()) cols.Add(r.GetString(1));
+        }
+        if (!cols.Contains("kind"))
+        {
+            using var alter = conn.CreateCommand();
+            alter.CommandText = "ALTER TABLE switches ADD COLUMN kind TEXT NOT NULL DEFAULT 'switch'";
+            alter.ExecuteNonQuery();
+        }
     }
 
     public List<SwitchRecord> GetSwitches()
@@ -70,11 +92,11 @@ public partial class HostStore
     {
         var list = new List<SwitchRecord>();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT id, name, ports, subnet, host_id, uplink, uplink_switch, uplink_port FROM switches ORDER BY name COLLATE NOCASE, id";
+        cmd.CommandText = "SELECT id, name, ports, subnet, host_id, uplink, uplink_switch, uplink_port, kind FROM switches ORDER BY name COLLATE NOCASE, id";
         using var r = cmd.ExecuteReader();
         while (r.Read())
             list.Add(new SwitchRecord(r.GetInt64(0), r.GetString(1), r.GetInt32(2), r.GetString(3),
-                r.GetInt64(4), r.GetString(5), r.GetInt64(6), r.GetInt32(7)));
+                r.GetInt64(4), r.GetString(5), r.GetInt64(6), r.GetInt32(7), r.GetString(8)));
         return list;
     }
 
@@ -131,8 +153,10 @@ public partial class HostStore
             var all = GetSwitchesInternal(conn);
             if (id is long existingId && all.All(s => s.Id != existingId)) return (null, "That switch no longer exists.");
 
+            var kind = (input.Kind ?? "switch").Trim().ToLowerInvariant();
+            if (!SwitchKinds.Contains(kind)) kind = "switch";
             var name = (input.Name ?? "").Trim();
-            if (name.Length == 0) return (null, "Give the switch a name.");
+            if (name.Length == 0) return (null, $"Give the {KindNoun(kind)} a name.");
             if (name.Length > 60) name = name[..60];
             if (input.Ports < 1 || input.Ports > MaxSwitchPorts) return (null, $"Ports must be between 1 and {MaxSwitchPorts}.");
 
@@ -143,7 +167,7 @@ public partial class HostStore
                 var host = GetByIdInternal(conn, hostId);
                 if (host is null) return (null, "That device no longer exists.");
                 var other = all.FirstOrDefault(s => s.HostId == hostId && s.Id != id);
-                if (other is not null) return (null, $"That device is already the switch \"{other.Name}\".");
+                if (other is not null) return (null, $"That device is already the {KindNoun(other.Kind)} \"{other.Name}\".");
                 subnet = host.Subnet;   // a switch BAMF can see lives where BAMF sees it
             }
 
@@ -186,13 +210,13 @@ public partial class HostStore
                 cmd.Transaction = tx;
                 cmd.CommandText = id is null
                     ? """
-                      INSERT INTO switches (name, ports, subnet, host_id, uplink, uplink_switch, uplink_port)
-                      VALUES ($n, $p, $s, $h, $u, $us, $up);
+                      INSERT INTO switches (name, ports, subnet, host_id, uplink, uplink_switch, uplink_port, kind)
+                      VALUES ($n, $p, $s, $h, $u, $us, $up, $k);
                       SELECT last_insert_rowid();
                       """
                     : """
                       UPDATE switches SET name = $n, ports = $p, subnet = $s, host_id = $h,
-                             uplink = $u, uplink_switch = $us, uplink_port = $up
+                             uplink = $u, uplink_switch = $us, uplink_port = $up, kind = $k
                       WHERE id = $id;
                       SELECT $id;
                       """;
@@ -203,6 +227,7 @@ public partial class HostStore
                 cmd.Parameters.AddWithValue("$u", uplink);
                 cmd.Parameters.AddWithValue("$us", uplinkSwitch);
                 cmd.Parameters.AddWithValue("$up", uplinkPort);
+                cmd.Parameters.AddWithValue("$k", kind);
                 if (id is not null) cmd.Parameters.AddWithValue("$id", id.Value);
                 savedId = Convert.ToInt64(cmd.ExecuteScalar());
             }
@@ -242,11 +267,13 @@ public partial class HostStore
                 """;
             cmd.Parameters.AddWithValue("$id", id);
             cmd.ExecuteNonQuery();
-            ForgetMapNode(conn, $"s:{id}");
+            // changes() counts the last statement only - the switch's own
+            // DELETE - so read it before anything else runs on this connection.
             using var check = conn.CreateCommand();
             check.Transaction = tx;
             check.CommandText = "SELECT changes()";
             var deleted = Convert.ToInt64(check.ExecuteScalar()) > 0;
+            ForgetMapNode(conn, $"s:{id}", tx);
             tx.Commit();
             return deleted;
         }

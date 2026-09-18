@@ -1253,7 +1253,7 @@
   </div>
 
   <div class="set-card" id="switchCard">
-    <div class="set-card-title">Switches</div>
+    <div class="set-card-title">Switches and routers</div>
     <p class="modal-help">
       How your network is cabled, for the Map. BAMF can't find this out itself: ARP shows which
       devices are on a network, not which port they're plugged into, and budget smart switches
@@ -1264,7 +1264,7 @@
     <table class="set-table" id="swTable"></table>
     <div class="modal-note" id="swEmpty">No switches yet.</div>
     <div class="modal-actions">
-      <button class="export-btn" id="swAdd">Add a switch</button>
+      <button class="export-btn" id="swAdd">Add a switch or router</button>
     </div>
   </div>
 
@@ -1414,7 +1414,7 @@
   <div class="modal">
     <div class="modal-title" id="plugTitle">Plugged into</div>
     <div class="modal-note" id="plugSub"></div>
-    <label class="modal-row">Switch
+    <label class="modal-row">Plugged into
       <select id="plugSwitch"></select>
     </label>
     <label class="modal-row" id="plugPortRow">Port
@@ -1467,6 +1467,13 @@
 <div class="modal-backdrop" id="swModal" hidden>
   <div class="modal">
     <div class="modal-title" id="swTitle">Switch</div>
+    <label class="modal-row">Type
+      <select id="swKind">
+        <option value="switch">Switch</option>
+        <option value="router">Router / gateway</option>
+        <option value="ap">Access point</option>
+      </select>
+    </label>
     <label class="modal-row">Name
       <input id="swName" class="modal-input" maxlength="60" placeholder="e.g. Office SG1016DE" autocomplete="off">
     </label>
@@ -2382,6 +2389,16 @@ function buildClusterSvg(c) {
   return svg;
 }
 
+// Switches, routers and access points are one kind of record with a type.
+function kindNoun(kind) { return kind === "router" ? "router" : kind === "ap" ? "access point" : "switch"; }
+// "(router, 4 ports)", or "(8 ports)" for a plain switch.
+function kindPorts(sw) { return `(${sw.kind && sw.kind !== "switch" ? kindNoun(sw.kind) + ", " : ""}${sw.ports} ports)`; }
+// The network's default gateway, by BAMF's routing table or the device's own guess.
+function isGatewayHost(h) {
+  const p = networkPlaces[h.subnet];
+  return !!(p && p.gateway && p.gateway === h.ip) || /router|gateway/i.test(h.osGuess || "");
+}
+
 // "port 3 · Living Room", or "port 3" when the port has no location.
 function portLabel(sw, port) { return (sw && sw.portLabels && sw.portLabels[port]) || ""; }
 function portText(sw, port) {
@@ -2401,7 +2418,7 @@ function uplinkText(sw) {
 function switchTitle(sw) {
   const host = sw.hostId ? hosts.find(h => h.id === sw.hostId) : null;
   const n = hosts.filter(h => h.switchId === sw.id && !h.forgotten).length;
-  const lines = [sw.name, `${sw.ports}-port switch · your record`];
+  const lines = [sw.name, `${sw.ports}-port ${kindNoun(sw.kind)} · your record`];
   if (host) {
     lines.push(`${host.ip} · ${host.mac}`);
     lines.push(host.online ? "Online" : "Offline, last seen " + fmtAgo(host.lastSeen));
@@ -2491,18 +2508,32 @@ function topoModel(c) {
   const add = (key, o) => { const n = Object.assign({ key, parent: null, edge: null }, o); nodes.set(key, n); return n; };
   const shown = new Set(c.switches.map(s => s.id));
   const saved = mapPositions[c.subnet] || {};
-  const rootKey = c.gw ? "gw" : "net";
+  // A router the user recorded and linked to the gateway is the top of the
+  // diagram, with its own ports. With no gateway known, a top-level router is.
+  // Matched on the gateway's address rather than on one device record, since
+  // two records can share it (an old MAC, a virtual adapter).
+  const gwIp = c.gw ? c.gw.ip : null;
+  const recIp = s => { const h = s.hostId ? hosts.find(x => x.id === s.hostId) : null; return h ? h.ip : null; };
+  const rootRec = (gwIp ? c.switches.find(s => s.kind === "router" && recIp(s) === gwIp) : null)
+    || (!c.gw ? c.switches.find(s => s.kind === "router" && !(s.uplink === "switch" && shown.has(s.uplinkSwitch))) : null)
+    || null;
+  const rootKey = rootRec ? "s:" + rootRec.id : c.gw ? "gw" : "net";
   const y1 = TOPO.TIER;
   let x = 0;
   const seen = new Set();
+  const byPort = (a, b) => (a.switchPort || 1e9) - (b.switchPort || 1e9) || nameOrIp(a).localeCompare(nameOrIp(b));
+  const rootDevs = rootRec ? c.placed.filter(h => h.switchId === rootRec.id).sort(byPort) : [];
+  if (rootRec) seen.add(rootRec.id);
+  // The router's own ports hang in a column under it, so the switch row starts
+  // to the right of that column.
+  if (rootDevs.length) x = TOPO.PORT_INDENT + 2 * TOPO.T + 190 + TOPO.COL_GAP;
   const place = (sw, left, parentKey, edge) => {   // returns the region's width
     if (seen.has(sw.id)) return 0;
     seen.add(sw.id);
     const key = "s:" + sw.id;
     add(key, { type: "switch", sw, host: sw.hostId ? hosts.find(h => h.id === sw.hostId) : null,
       parent: parentKey, auto: [left + TOPO.T, y1], edge });
-    const devs = c.placed.filter(h => h.switchId === sw.id)
-      .sort((a, b) => (a.switchPort || 1e9) - (b.switchPort || 1e9) || nameOrIp(a).localeCompare(nameOrIp(b)));
+    const devs = c.placed.filter(h => h.switchId === sw.id).sort(byPort);
     devs.forEach((h, i) => add("h:" + h.id, { type: "dev", host: h, parent: key,
       auto: [left + TOPO.T + TOPO.PORT_INDENT, y1 + 70 + i * TOPO.ROW],
       edge: { style: "list", cable: true, sw, port: h.switchPort } }));
@@ -2515,10 +2546,18 @@ function topoModel(c) {
       });
     return width;
   };
-  c.switches.filter(s => !(s.uplink === "switch" && shown.has(s.uplinkSwitch))).forEach(sw => {
-    const w = place(sw, x, rootKey, { style: "down", cable: sw.uplink === "router" });
-    if (w) x += w + TOPO.COL_GAP * 1.4;
-  });
+  // The first row: everything plugged into the router (the recorded one's
+  // ports, or just "the router"), then anything whose uplink isn't recorded.
+  const onRoot = s => rootRec && s.uplink === "switch" && s.uplinkSwitch === rootRec.id;
+  c.switches.filter(s => s !== rootRec && (onRoot(s) || !(s.uplink === "switch" && shown.has(s.uplinkSwitch))))
+    .sort((a, b) => (onRoot(b) || b.uplink === "router") - (onRoot(a) || a.uplink === "router") || (a.uplinkPort || 1e9) - (b.uplinkPort || 1e9))
+    .forEach(sw => {
+      const edge = onRoot(sw)
+        ? { style: "down", cable: true, sw: rootRec, port: sw.uplinkPort }
+        : { style: "down", cable: sw.uplink === "router" };
+      const w = place(sw, x, rootKey, edge);
+      if (w) x += w + TOPO.COL_GAP * 1.4;
+    });
 
   // Not recorded on a switch: a grid in the "On this network" box. Devices
   // dragged out of it keep their own place and leave no gap in the grid.
@@ -2540,7 +2579,16 @@ function topoModel(c) {
     x += box.size[0];
   }
   const width = Math.max(x, 300);
-  add(rootKey, { type: "root", host: c.gw, auto: [Math.max(0, width / 2 - 120), 0] });
+  const rootAuto = rootDevs.length ? [TOPO.T, 0] : [Math.max(0, width / 2 - 120), 0];
+  if (rootRec) {
+    add(rootKey, { type: "switch", isRoot: true, sw: rootRec,
+      host: rootRec.hostId ? hosts.find(h => h.id === rootRec.hostId) || null : null, auto: rootAuto });
+    rootDevs.forEach((h, i) => add("h:" + h.id, { type: "dev", host: h, parent: rootKey,
+      auto: [rootAuto[0] + TOPO.PORT_INDENT, 70 + i * TOPO.ROW],
+      edge: { style: "list", cable: true, sw: rootRec, port: h.switchPort } }));
+  } else {
+    add(rootKey, { type: "root", host: c.gw, auto: rootAuto });
+  }
   if (c.self) add("self", { type: "self", host: c.self, parent: rootKey,
     auto: [nodes.get(rootKey).auto[0] + TOPO.SELF_DX, 0], edge: { style: "under" } });
   return { subnet: c.subnet, c, nodes, rootKey, saved, override: {}, final: new Map(), els: new Map(), edgeEls: [] };
@@ -2602,6 +2650,7 @@ function topoPlace(m) {
     e.path.setAttribute("d", topoPath(e.style, a, b));
     if (e.label) {
       if (e.style === "list") { e.label.setAttribute("x", (b[0] - TOPO.T - 6).toFixed(1)); e.label.setAttribute("y", (b[1] - 5).toFixed(1)); }
+      else if (e.style === "down") { e.label.setAttribute("x", (b[0] + 6).toFixed(1)); e.label.setAttribute("y", (b[1] - TOPO.T - 8).toFixed(1)); }
       else { e.label.setAttribute("x", (b[0] + 6).toFixed(1)); e.label.setAttribute("y", (Math.min(a[1], b[1]) - TOPO.T - 30).toFixed(1)); }
     }
   }
@@ -2685,8 +2734,11 @@ function buildTopologySvg(c) {
       gEdges.appendChild(path);
       let label = null;
       if (n.edge.sw && (n.edge.style === "list" || n.edge.port)) {
+        // (a "down" cable from a recorded router carries its port too)
         const port = n.edge.port;
-        const text = port ? topoClip(portText(n.edge.sw, port).replace(/^port /, ""), n.edge.style === "list" ? 17 : 26) : "port ?";
+        // An access point's devices with no port are its Wi-Fi clients.
+        const text = port ? topoClip(portText(n.edge.sw, port).replace(/^port /, ""), n.edge.style === "list" ? 17 : 26)
+          : n.edge.sw.kind === "ap" ? "Wi-Fi" : "port ?";
         label = svgEl("text", { class: "t-port", "text-anchor": n.edge.style === "list" ? "end" : "start" });
         label.textContent = n.edge.style === "list" ? text : (port ? "port " + text : text);
         gLabels.appendChild(label);
@@ -2720,8 +2772,9 @@ function topoNodeEl(m, key, n) {
   let cls, kind, name, sub, tip;
   if (n.type === "switch") {
     cls = h ? mapNodeClass(h, "sw") : "node sw";
-    kind = "switch"; name = n.sw.name;
-    sub = `${n.sw.ports} ports` + (h ? " · " + h.ip : "");
+    kind = n.sw.kind === "router" ? "router" : n.sw.kind === "ap" ? "ap" : "switch";
+    name = n.sw.name;
+    sub = (n.sw.kind && n.sw.kind !== "switch" ? kindNoun(n.sw.kind) + " · " : "") + `${n.sw.ports} ports` + (h ? " · " + h.ip : "");
     tip = switchTitle(n.sw);
   } else if (n.type === "root") {
     if (h) {
@@ -2959,21 +3012,25 @@ function buildClusterCard(c) {
   head.append(name, cnt, tag);
   card.appendChild(head);
   const empty = !c.members.length && !c.self && !c.gw && !c.switches.length;
+  const tools = document.createElement("span");
+  tools.className = "map-tools";
+  const btn = (label, title, fn) => {
+    const b = document.createElement("button");
+    b.className = "toggle"; b.type = "button"; b.textContent = label; b.title = title;
+    b.onclick = fn;
+    tools.appendChild(b);
+  };
+  // A shortcut to the same dialog as Settings → Switches and routers, with
+  // this network already picked.
+  btn("+ Switch / router", "Add a switch, router or access point on this network",
+    () => openSwitchDialog(null, null, null, { subnet: c.subnet }));
   if (mapStyle === "topology" && !empty) {
-    const tools = document.createElement("span");
-    tools.className = "map-tools";
-    const btn = (label, title, fn) => {
-      const b = document.createElement("button");
-      b.className = "toggle"; b.type = "button"; b.textContent = label; b.title = title;
-      b.onclick = fn;
-      tools.appendChild(b);
-    };
     btn("−", "Zoom out", () => topoZoomBy(c.subnet, 1.25));
     btn("+", "Zoom in", () => topoZoomBy(c.subnet, 0.8));
     btn("Fit", "Show everything", () => topoFit(c.subnet));
     btn("Auto-arrange", "Forget where you dragged things on this network", () => topoAutoArrange(c.subnet));
-    head.appendChild(tools);
   }
+  if (c.mode !== "skipped") head.appendChild(tools);
   if (empty) {
     const e = document.createElement("div");
     e.className = "map-empty";
@@ -3240,11 +3297,11 @@ function render() {
       const ownSwitch = switches.find(s => s.hostId === h.id);
       if (ownSwitch) {
         addItem("Ports…", () => openPortsDialog(ownSwitch));
-        addItem("Edit switch…", () => openSwitchDialog(ownSwitch));
+        addItem(`Edit ${kindNoun(ownSwitch.kind)}…`, () => openSwitchDialog(ownSwitch));
       } else {
         addItem(h.switchId ? "Change plugged into…" : "Plugged into…", () => openPlugDialog(h));
         addItem("Find port…", () => { openPlugDialog(h); startBlink(h, "plugBlink"); });
-        addItem("Make this a switch…", () => openSwitchDialog(null, h));
+        addItem(isGatewayHost(h) ? "Make this a router…" : "Make this a switch or router…", () => openSwitchDialog(null, h));
       }
       addItem("Identify device", () => identifyHost(h));
       addItem("Scan ports", () => scanPorts(h, more, null));
@@ -3492,7 +3549,7 @@ function openPlugDialog(host, preselect = null) {
   for (const sw of switches) {
     const o = document.createElement("option");
     o.value = sw.id;
-    o.textContent = `${sw.name} (${sw.ports} ports)` + (sw.subnet && sw.subnet !== host.subnet ? " · " + sw.subnet : "");
+    o.textContent = `${sw.name} ${kindPorts(sw)}` + (sw.subnet && sw.subnet !== host.subnet ? " · " + sw.subnet : "");
     sel.appendChild(o);
   }
   sel.value = String(preselect ?? host.switchId ?? 0);
@@ -3542,12 +3599,15 @@ async function savePlugDialog() {
 
 let swEditing = null;    // the switch being edited; null when adding one
 let swReturnTo = null;   // a device whose "Plugged into" dialog sent us here
-function openSwitchDialog(sw, fromHost = null, returnTo = null) {
+const KIND_PORTS = { switch: 8, router: 4, ap: 2 };   // a starting port count for a new one
+function openSwitchDialog(sw, fromHost = null, returnTo = null, opts = {}) {
   swEditing = sw;
   swReturnTo = returnTo;
-  $("swTitle").textContent = sw ? "Edit switch — " + sw.name : "Add a switch";
+  const kind = sw ? (sw.kind || "switch") : opts.kind || (fromHost && isGatewayHost(fromHost) ? "router" : "switch");
+  $("swKind").value = kind;
+  $("swTitle").textContent = sw ? `Edit ${kindNoun(kind)} — ${sw.name}` : "Add a switch, router or access point";
   $("swName").value = sw ? sw.name : fromHost ? nameOrIp(fromHost) : "";
-  $("swPorts").value = sw ? sw.ports : 8;
+  $("swPorts").value = sw ? sw.ports : KIND_PORTS[kind];
 
   const hostSel = $("swHost");
   hostSel.innerHTML = "";
@@ -3569,7 +3629,10 @@ function openSwitchDialog(sw, fromHost = null, returnTo = null) {
   const nets = [...new Set([...subnets, ...hosts.map(h => h.subnet).filter(Boolean), ...(sw && sw.subnet ? [sw.subnet] : [])])]
     .sort((a, b) => ipNum(a.split("/")[0]) - ipNum(b.split("/")[0]));
   nets.forEach(n => addOpt(netSel, n, n));
-  netSel.value = sw && sw.subnet ? sw.subnet : (network !== "all" && nets.includes(network) ? network : nets[0] || "");
+  netSel.value = sw && sw.subnet ? sw.subnet
+    : opts.subnet && nets.includes(opts.subnet) ? opts.subnet
+    : (network !== "all" && nets.includes(network) ? network : nets[0] || "");
+  if (!sw && !fromHost && kind === "router") pickGatewayForSwitch();
 
   // Everything below this switch can't be what it's plugged into.
   const below = new Set();
@@ -3583,7 +3646,7 @@ function openSwitchDialog(sw, fromHost = null, returnTo = null) {
   addOpt(upSel, "", "Not recorded");
   addOpt(upSel, "router", "The router");
   switches.filter(s => s !== sw && !below.has(s.id))
-    .forEach(s => addOpt(upSel, "sw:" + s.id, `${s.name} (${s.ports} ports)`));
+    .forEach(s => addOpt(upSel, "sw:" + s.id, `${s.name} ${kindPorts(s)}`));
   upSel.value = !sw ? "" : sw.uplink === "switch" ? "sw:" + sw.uplinkSwitch : sw.uplink;
 
   $("swDelete").style.display = sw ? "" : "none";
@@ -3593,6 +3656,18 @@ function openSwitchDialog(sw, fromHost = null, returnTo = null) {
   $("swModal").hidden = false;
   $("swName").focus();
   $("swName").select();
+}
+// A new router starts out linked to the network's gateway, if BAMF sees it and
+// it isn't already recorded as something else.
+function pickGatewayForSwitch() {
+  if (swEditing || Number($("swHost").value)) return;
+  const net = $("swNet").value;
+  const gw = hosts.find(h => h.subnet === net && !h.forgotten && isGatewayHost(h));
+  if (gw && [...$("swHost").options].some(o => o.value === String(gw.id))) {
+    $("swHost").value = String(gw.id);
+    if (!$("swName").value.trim()) $("swName").value = nameOrIp(gw);
+    syncSwitchDialog(0);
+  }
 }
 function syncSwitchDialog(upPort) {
   $("swNetRow").style.display = Number($("swHost").value) ? "none" : "";
@@ -3610,6 +3685,7 @@ function closeSwitchDialog() {
 async function saveSwitchDialog() {
   const v = $("swUp").value;
   const body = {
+    kind: $("swKind").value,
     name: $("swName").value.trim(),
     ports: Number($("swPorts").value) || 0,
     subnet: $("swNet").value,
@@ -3963,7 +4039,7 @@ function renderSwitchList() {
     tr.innerHTML = `<td class="sw-name"></td><td class="set-eff"></td><td><button class="toggle sw-ports-btn">Ports</button> <button class="toggle sw-edit-btn">Edit</button></td>`;
     tr.children[0].textContent = sw.name;
     tr.children[1].textContent = [
-      `${sw.ports} ports`, sw.subnet || "no network", host ? host.ip : "no address BAMF sees",
+      `${kindNoun(sw.kind)[0].toUpperCase() + kindNoun(sw.kind).slice(1)}, ${sw.ports} ports`, sw.subnet || "no network", host ? host.ip : "no address BAMF sees",
       uplinkText(sw), `${n} device${n === 1 ? "" : "s"} recorded`,
     ].join(" · ");
     tr.querySelector(".sw-ports-btn").onclick = () => openPortsDialog(sw);
@@ -4545,6 +4621,15 @@ $("swHost").onchange = () => {
   syncSwitchDialog(0);
 };
 $("swUp").onchange = () => syncSwitchDialog(0);
+$("swKind").onchange = () => {
+  const kind = $("swKind").value;
+  if (!swEditing) {
+    $("swTitle").textContent = `Add a ${kindNoun(kind)}`;
+    // Swap the starting port count, unless one was already typed in.
+    if (Object.values(KIND_PORTS).includes(Number($("swPorts").value))) $("swPorts").value = KIND_PORTS[kind];
+    if (kind === "router") pickGatewayForSwitch();
+  }
+};
 $("swSave").onclick = saveSwitchDialog;
 $("swDelete").onclick = deleteSwitchDialog;
 $("swCancel").onclick = () => {
