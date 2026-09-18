@@ -5388,7 +5388,8 @@ const SPIDER = `<svg viewBox="0 0 30 30" width="30" style="position:absolute;lef
 
 const MOON = `<svg viewBox="0 0 46 46"><circle cx="23" cy="23" r="21" fill="#f3ecc8"/>
   <circle cx="15" cy="17" r="4" fill="#e2d9ae"/><circle cx="29" cy="28" r="5.5" fill="#e2d9ae"/><circle cx="27" cy="13" r="2.5" fill="#e2d9ae"/></svg>`;
-const WITCH = `<svg viewBox="0 0 64 34"><g fill="#0a0508" stroke="#ff8c1a" stroke-width=".5">
+// Drawn facing left and mirrored, so she flies handle first with the bristles trailing.
+const WITCH = `<svg viewBox="0 0 64 34"><g fill="#0a0508" stroke="#ff8c1a" stroke-width=".5" transform="translate(64 0) scale(-1 1)">
   <path d="M2 26L44 20l1 2L3 28z"/><path d="M44 19l16-6-4 8 6 1-17 4z"/>
   <path d="M18 22l6-10 5 1 2 8z"/><circle cx="25" cy="10" r="3.2"/><path d="M20 9l6-9 3 8 5 1-14 2z"/><path d="M24 21l-2 7h3l2-6z"/></g></svg>`;
 const LEAF_COLORS = ["#e0680f", "#c2410c", "#b45309", "#a16207", "#9a3412"];
