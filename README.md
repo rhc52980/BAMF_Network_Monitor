@@ -86,7 +86,7 @@ optional daily update check you have to switch on, and your own webhook.
 - One script installs *and* updates, preserving your config and database
 - Scheduled nightly backups keeping 30 snapshots, safe to sync to cloud storage
 - Optional password (HTTP Basic), optional HTTPS
-- 17 themes (and a couple more, if you know how to ask), a mobile card layout, and a
+- 18 themes (and a couple more, if you know how to ask), a mobile card layout, and a
   comic-book splat when you switch them
 
 **For scripts and AI agents**
@@ -97,12 +97,13 @@ optional daily update check you have to switch on, and your own webhook.
 
 ### See how it's laid out
 
-![The Map tab as a network diagram: the home router at the top with a device on its own port and BAMF beside it, a 16-port switch on the router's port 1 with its devices in port order and each port's location, an access point with its Wi-Fi clients, an office switch chained further along, and an icon for each kind of device](docs/map.png)
+![The Map's whole-network view: two networks in one diagram, each device tagged with its network's colour. The home router is at the top with a device on its own port and BAMF beside it. A 16-port switch on the router's port 1 has its devices in port order with each port's location, including a Proxmox host whose virtual switch holds a VM from the other network. An access point has its Wi-Fi clients, an office switch is chained further along, and the second network's gateway has its own box of devices](docs/map.png)
 
 The **Map** draws each network as a diagram: your router at the top with its own
 ports, your switches and access points under it, each one's devices in port
 order with where the cable goes (`6 · Living Room`), and an icon for each kind
-of device. Cabling isn't
+of device. **Whole network** puts every network in one diagram, drawn by the
+cabling, with each device tagged in its network's colour. Cabling isn't
 something ARP can see, so BAMF doesn't guess it. Record your switches under
 **Settings → Switches**, or just drag a device onto a switch on the map, and
 the map draws it as a cable. Anything you haven't recorded, like the Wi-Fi
