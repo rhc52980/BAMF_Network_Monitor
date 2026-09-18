@@ -1005,6 +1005,44 @@
   .orn { animation: orn-swing var(--d) ease-in-out var(--o) infinite alternate; }
   .orn line { stroke: #c8b98a; stroke-width: 1; }
   @keyframes orn-swing { from { transform: rotate(-7deg); } to { transform: rotate(7deg); } }
+  /* Christmas extras. */
+  .aurora { position: absolute; top: 0; left: 0; width: 100%; height: 170px; opacity: .1;
+    background: linear-gradient(100deg, transparent 5%, rgba(80,255,170,.6) 25%, rgba(150,90,255,.5) 50%, rgba(80,255,170,.5) 75%, transparent 95%);
+    background-size: 200% 100%; -webkit-mask-image: linear-gradient(#000, transparent); mask-image: linear-gradient(#000, transparent);
+    animation: aurora 22s ease-in-out infinite alternate; }
+  @keyframes aurora { from { background-position: 0% 0; opacity: .07; } to { background-position: 100% 0; opacity: .14; } }
+  .sleigh { position: absolute; left: 0; width: 190px; animation: sleigh-fly 11s linear forwards; }
+  .sleigh svg, .gift svg, .ginger svg, .xcorner svg { position: static; display: block; }
+  @keyframes sleigh-fly { 0% { transform: translate(-200px, 14px); } 25% { transform: translate(25vw, 0); } 50% { transform: translate(50vw, 12px); }
+    75% { transform: translate(75vw, 2px); } 100% { transform: translate(calc(100vw + 20px), 10px); } }
+  .rudolph { fill: #ff2020; filter: drop-shadow(0 0 3px #ff2020) drop-shadow(0 0 6px #ff2020); animation: rudolph .9s ease-in-out infinite alternate; }
+  @keyframes rudolph { from { opacity: 1; } to { opacity: .55; } }
+  .gift { position: absolute; width: 18px; animation: gift-fall 3.2s cubic-bezier(.45,0,.75,1) forwards; }
+  @keyframes gift-fall { from { transform: translateY(0) rotate(0); } to { transform: translateY(var(--fall)) rotate(var(--spin)); } }
+  .shoot { position: absolute; width: 130px; height: 2px; border-radius: 2px; opacity: 0;
+    background: linear-gradient(90deg, transparent, #fff); transform: rotate(18deg); animation: shoot 1.1s ease-out forwards; }
+  @keyframes shoot { 0% { opacity: 0; translate: 0 0; } 20% { opacity: .9; } 100% { opacity: 0; translate: 280px 90px; } }
+  .ginger { position: absolute; bottom: 8px; left: 0; width: 26px; animation: ginger-walk 16s linear forwards; }
+  .ginger.rtl { animation-name: ginger-walk-rtl; }
+  .ginger svg { animation: ginger-bob .35s ease-in-out infinite alternate; }
+  @keyframes ginger-walk { from { transform: translateX(-40px); } to { transform: translateX(calc(100vw + 20px)); } }
+  @keyframes ginger-walk-rtl { from { transform: translateX(calc(100vw + 20px)) scaleX(-1); } to { transform: translateX(-40px) scaleX(-1); } }
+  @keyframes ginger-bob { from { transform: rotate(-7deg) translateY(0); } to { transform: rotate(7deg) translateY(-2px); } }
+  .xcorner { position: absolute; bottom: 4px; }
+  .snowman .arm { transform-origin: 34px 30px; }
+  .snowman.wave .arm { animation: arm-wave .35s ease-in-out 6 alternate; }
+  @keyframes arm-wave { from { transform: rotate(0deg); } to { transform: rotate(-38deg); } }
+  .drift { position: absolute; left: 0; bottom: 0; width: 100%; height: 16px; transform-origin: 50% 100%; transition: transform 18s linear; }
+  .drift svg { position: static; display: block; width: 100%; height: 16px; }
+  /* On the map, online devices wear Santa hats and unknown ones arrive as presents. */
+  .map-svg .t-hat, .map-svg .t-gift { display: none; }
+  [data-theme="christmas"] .map-svg .tnode.dev.on:not(.unknown) .t-hat { display: inline; }
+  [data-theme="christmas"] .map-svg .tnode.dev.unknown .t-icon { display: none; }
+  [data-theme="christmas"] .map-svg .tnode.dev.unknown .t-gift { display: inline; }
+  /* ...and in the list, you're either nice or naughty. */
+  [data-theme="christmas"] .badge.known, [data-theme="christmas"] .badge.unknown { font-size: 0; display: inline-block; line-height: 1.35; }
+  [data-theme="christmas"] .badge.known::after { content: "nice"; font-size: 11px; }
+  [data-theme="christmas"] .badge.unknown::after { content: "naughty"; font-size: 11px; }
   .snow { position: absolute; top: -12px; border-radius: 50%; background: #fff; opacity: .7;
     animation: snow-fall var(--d) linear var(--o) infinite; }
   @keyframes snow-fall { to { transform: translate(var(--x), 108vh); } }
@@ -3141,6 +3179,17 @@ function topoNodeEl(m, key, n) {
     pk.appendChild(svgEl("rect", { x: -1, y: -8.5, width: 2, height: 3, fill: "#4d7a2a" }));
     pk.appendChild(svgEl("path", { d: "M-3.4 -1.2l1.4-1.6 1.4 1.6z M.6 -1.2l1.4-1.6 1.4 1.6z M-3 1.6q3 2.6 6 0", fill: "#ffd23f", stroke: "#ffd23f", "stroke-width": ".6" }));
     g.appendChild(pk);
+    const hat = svgEl("g", { class: "t-hat", transform: "translate(-8,-17) rotate(-18)" });
+    hat.appendChild(svgEl("path", { d: "M-8 3L8 3L2 -12Z", fill: "#d42426" }));
+    hat.appendChild(svgEl("rect", { x: -9, y: 1, width: 18, height: 4, rx: 2, fill: "#fff" }));
+    hat.appendChild(svgEl("circle", { cx: 2, cy: -12, r: 2.3, fill: "#fff" }));
+    g.appendChild(hat);
+    const gift = svgEl("g", { class: "t-gift", transform: "translate(-12,-12)" });
+    gift.appendChild(svgEl("rect", { x: 4, y: 10, width: 16, height: 10, rx: 1, fill: "#d42426" }));
+    gift.appendChild(svgEl("rect", { x: 3, y: 7, width: 18, height: 4, rx: 1, fill: "#b81d24" }));
+    gift.appendChild(svgEl("rect", { x: 11, y: 7, width: 2, height: 13, fill: "#ffd23f" }));
+    gift.appendChild(svgEl("path", { d: "M12 7c-2-4-6-4-5-1 1 2 5 1 5 1z M12 7c2-4 6-4 5-1-1 2-5 1-5 1z", fill: "#ffd23f" }));
+    g.appendChild(gift);
   }
   const t1 = svgEl("text", { class: "t-name", x: TOPO.T + 8, y: -2 });
   t1.textContent = name;
@@ -4681,6 +4730,7 @@ async function refresh() {
     $("connDot").classList.remove("err");
 
     scanInterval = data.scanIntervalSeconds || 60;
+    if (lastScan && data.lastScan && data.lastScan !== lastScan) festiveHooks.scanDone?.();
     lastScan = data.lastScan;
     subnets = data.subnets || [];
     scanModes = data.scanModes || {};
@@ -4721,7 +4771,7 @@ async function refresh() {
       for (const h of incoming) {
         if (!knownMacs.has(h.mac) && !h.known && !h.ignored && !h.forgotten) {
           toast(`New host on <span class="mono">${esc(h.subnet)}</span>: <span class="mono">${esc(h.mac)}</span> at <span class="mono">${esc(h.ip)}</span>`);
-          if (festiveTheme === "halloween") flareLanterns();
+          festiveHooks.newDevice?.();
         }
       }
     }
@@ -4951,6 +5001,9 @@ function applyTheme(theme) {
 // asked for, it all holds still and nothing new flies in.
 let festiveTimers = [];
 let festiveTheme = null;
+// What the current theme does when something happens on the network: a new
+// device appears (newDevice) or a scan finishes (scanDone).
+let festiveHooks = {};
 const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
@@ -4958,6 +5011,7 @@ function festive(theme) {
   festiveTimers.forEach(t => { clearInterval(t); clearTimeout(t); });
   festiveTimers = [];
   $("festive")?.remove();
+  festiveHooks = {};
   festiveTheme = theme === "christmas" || theme === "halloween" ? theme : null;
   if (!festiveTheme) return;
   const root = document.createElement("div");
@@ -4983,9 +5037,65 @@ function bulbSvg(x, y, angle) {
     <rect class="xl-cap" x="-2.6" y="-1" width="5.2" height="4" rx="1"/>
     <ellipse class="glass" cx="0" cy="8.5" rx="3.7" ry="5.8"/></g>`;
 }
+const SLEIGH = `<svg viewBox="0 0 190 40" width="190">
+  <path d="M60 22H128" stroke="#e8c15a" stroke-width=".8"/>
+  ${[0, 1, 2].map(i => { const x = 70 + i * 38; return `<g transform="translate(${x},0)">
+    <path d="M6 12l-3-7M6 12l2-8M16 10l-2-7M16 10l3-6" stroke="#d9b48f" stroke-width="1.2" stroke-linecap="round"/>
+    <ellipse cx="10" cy="21" rx="10" ry="5" fill="#8b5a2b"/><path d="M17 19l4-6" stroke="#8b5a2b" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="22" cy="12" r="3.6" fill="#8b5a2b"/>
+    <path d="M3 24l-5 6M7 25l-2 7M14 25l3 6M18 23l6 5" stroke="#6b4420" stroke-width="1.6" stroke-linecap="round"/>
+    ${i === 2 ? `<circle class="rudolph" cx="25.6" cy="12.5" r="1.9"/>` : `<circle cx="25.4" cy="12.5" r="1.2" fill="#3b2410"/>`}</g>`; }).join("")}
+  <circle cx="30" cy="18" r="7" fill="#7a5230"/>
+  <path d="M8 22h46c4 0 6 3 5 7l-2 4H18C11 33 7 28 8 22z" fill="#c8102e"/>
+  <path d="M6 35c10 3 40 3 52 -1" stroke="#e8c15a" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <circle cx="44" cy="17" r="5.5" fill="#d42426"/><circle cx="44" cy="10" r="3.2" fill="#f5d0b0"/>
+  <ellipse cx="44" cy="13" rx="3" ry="2.2" fill="#fff"/><path d="M40.5 8.5L47 8.5L45 3Z" fill="#d42426"/><circle cx="45" cy="3" r="1.3" fill="#fff"/></svg>`;
+const GIFT_COLORS = ["#d42426", "#2fa84f", "#2f6fd4", "#c9a227"];
+const giftSvg = c => `<svg viewBox="0 0 18 18" width="18"><rect x="2" y="7" width="14" height="10" rx="1" fill="${c}"/>
+  <rect x="1" y="5" width="16" height="3.5" rx="1" fill="${c}"/><rect x="8" y="5" width="2" height="12" fill="#fff6d0"/>
+  <path d="M9 5c-2-3-5-3-4-1 1 1.5 4 1 4 1z M9 5c2-3 5-3 4-1-1 1.5-4 1-4 1z" fill="#fff6d0"/></svg>`;
+const GINGER = `<svg viewBox="0 0 26 32" width="26"><g fill="#b5703a"><circle cx="13" cy="7" r="6"/>
+  <path d="M8 13h10l7 5-2 3-5-3v5l4 8-4 1-4-7-4 7-4-1 4-8v-5l-5 3-2-3z"/></g>
+  <circle cx="11" cy="6" r=".9" fill="#fff"/><circle cx="15" cy="6" r=".9" fill="#fff"/><path d="M10.5 9q2.5 2 5 0" stroke="#fff" stroke-width=".8" fill="none"/>
+  <circle cx="13" cy="16" r=".9" fill="#fff"/><circle cx="13" cy="19.5" r=".9" fill="#fff"/></svg>`;
+const SNOWMAN = `<svg viewBox="0 0 48 60" width="46"><circle cx="24" cy="45" r="13" fill="#f4f8f6"/><circle cx="24" cy="27" r="9.5" fill="#f4f8f6"/>
+  <circle cx="24" cy="13" r="7" fill="#f4f8f6"/><rect x="17" y="3" width="14" height="3" fill="#1d1d1d"/><rect x="19" y="-5" width="10" height="9" fill="#1d1d1d"/>
+  <path d="M24 13l7 2-7 1z" fill="#ff8c1a"/><circle cx="21.5" cy="11" r="1" fill="#1d1d1d"/><circle cx="26.5" cy="11" r="1" fill="#1d1d1d"/>
+  <path d="M16 21q8 5 16 0" stroke="#d42426" stroke-width="3" fill="none"/>
+  <circle cx="24" cy="26" r="1" fill="#1d1d1d"/><circle cx="24" cy="30" r="1" fill="#1d1d1d"/>
+  <path d="M14 29L5 22" stroke="#6b4420" stroke-width="1.6" stroke-linecap="round"/>
+  <g class="arm"><path d="M34 30L44 20M41 23l3-1" stroke="#6b4420" stroke-width="1.6" stroke-linecap="round"/></g></svg>`;
+const PRESENT_STACK = `<svg viewBox="0 0 60 44" width="58">
+  <rect x="2" y="22" width="26" height="20" rx="1" fill="#2fa84f"/><rect x="13" y="22" width="4" height="20" fill="#ffd23f"/>
+  <rect x="30" y="18" width="26" height="24" rx="1" fill="#d42426"/><rect x="41" y="18" width="4" height="24" fill="#fff6d0"/>
+  <rect x="12" y="6" width="22" height="16" rx="1" fill="#2f6fd4"/><rect x="21" y="6" width="4" height="16" fill="#fff6d0"/>
+  <path d="M23 6c-3-5-8-5-7-1 1 2 7 1 7 1z M23 6c3-5 8-5 7-1-1 2-7 1-7 1z" fill="#fff6d0"/></svg>`;
+
 function buildChristmas(root) {
   const W = window.innerWidth, H = window.innerHeight, NS = "http://www.w3.org/2000/svg";
   bulbIndex = 0;
+  // Northern lights, very faint, behind the top string.
+  const aurora = document.createElement("div");
+  aurora.className = "aurora";
+  root.appendChild(aurora);
+  // Snow that settles along the bottom, a snowman in one corner and presents in the other.
+  const drift = document.createElement("div");
+  drift.className = "drift";
+  let bumps = "M0 16V9";
+  for (let x = 0; x < W; x += 60) bumps += ` Q${x + 30} ${(rnd(0, 5)).toFixed(1)} ${x + 60} ${rnd(7, 10).toFixed(1)}`;
+  drift.innerHTML = `<svg viewBox="0 0 ${W} 16" preserveAspectRatio="none"><path d="${bumps} V16Z" fill="#eef6f0" opacity=".85"/></svg>`;
+  drift.style.transform = calmMotion() ? "scaleY(1)" : "scaleY(.2)";
+  root.appendChild(drift);
+  const snowman = document.createElement("div");
+  snowman.className = "xcorner snowman";
+  snowman.style.left = "12px";
+  snowman.innerHTML = SNOWMAN;
+  root.appendChild(snowman);
+  const stack = document.createElement("div");
+  stack.className = "xcorner";
+  stack.style.right = "14px";
+  stack.innerHTML = PRESENT_STACK;
+  root.appendChild(stack);
   // The top string: scallops between hooks, bulbs along each scallop.
   const span = W < 700 ? 120 : 170, sag = 16;
   let wire = "", bulbs = "", orns = "";
@@ -5033,12 +5143,14 @@ function buildChristmas(root) {
   // Every bulb twinkles on its own clock, like the old twinkle bulbs: lit most
   // of the time, dark for a moment at uneven intervals, now and then a quick
   // double blink or a longer rest. One ticker drives them all.
+  let rippling = false;
   const lamps = [...root.querySelectorAll(".xl")].map(el => {
     const off = Math.random() < 0.2;
     if (off) el.classList.add("off");
     return { el, off, next: performance.now() + rnd(0, 3000) };
   });
   festiveTimers.push(setInterval(() => {
+    if (rippling) return;
     const now = performance.now();
     for (const b of lamps) {
       if (now < b.next) continue;
@@ -5059,6 +5171,86 @@ function buildChristmas(root) {
     f.style.cssText = `left:${rnd(0, 100).toFixed(1)}vw;width:${size}px;height:${size}px;--d:${rnd(9, 20).toFixed(1)}s;--o:-${rnd(0, 20).toFixed(1)}s;--x:${rnd(-40, 40).toFixed(0)}px`;
     root.appendChild(f);
   }
+
+  const later = (fn, ms) => festiveTimers.push(setTimeout(fn, ms));
+  const shown = () => !document.hidden;   // a hidden tab runs no animations; don't spawn into it
+  // The drift builds up over a few minutes, then stays.
+  let depth = .2;
+  festiveTimers.push(setInterval(() => { if (depth < 1) { depth = Math.min(1, depth + .08); drift.style.transform = `scaleY(${depth})`; } }, 18000));
+
+  // Santa's sleigh across the top; about half the time he drops a present,
+  // which tumbles down and lands in the snow (only the last three stay).
+  const landed = [];
+  const dropGift = x => {
+    const g = document.createElement("div");
+    g.className = "gift";
+    const top = 40;
+    g.style.cssText = `left:${Math.round(x)}px;top:${top}px;--fall:${Math.round(H - top - 30)}px;--spin:${rnd(-160, 160).toFixed(0)}deg`;
+    g.innerHTML = giftSvg(GIFT_COLORS[Math.floor(Math.random() * GIFT_COLORS.length)]);
+    root.appendChild(g);
+    landed.push(g);
+    if (landed.length > 3) landed.shift().remove();
+  };
+  const sleigh = (withGift) => {
+    if (!shown()) return;
+    const el = document.createElement("div");
+    el.className = "sleigh";
+    el.innerHTML = SLEIGH;
+    el.addEventListener("animationend", e => { if (e.target === el) el.remove(); });
+    root.appendChild(el);
+    if (withGift) { const at = rnd(.3, .7); later(() => dropGift(W * at + 30), 11000 * at); }
+  };
+  const sleighRound = () => { sleigh(Math.random() < .5); later(sleighRound, rnd(100000, 160000)); };
+  later(sleighRound, rnd(15000, 25000));
+
+  // A shooting star now and then.
+  const star = () => {
+    if (shown()) {
+      const el = document.createElement("div");
+      el.className = "shoot";
+      el.style.left = rnd(8, 55).toFixed(0) + "vw";
+      el.style.top = rnd(6, 30).toFixed(0) + "vh";
+      el.addEventListener("animationend", () => el.remove());
+      root.appendChild(el);
+    }
+    later(star, rnd(25000, 50000));
+  };
+  later(star, rnd(8000, 15000));
+
+  // A gingerbread man strolls along the bottom now and then.
+  const ginger = () => {
+    if (shown()) {
+      const el = document.createElement("div");
+      el.className = "ginger" + (Math.random() < .5 ? " rtl" : "");
+      el.innerHTML = GINGER;
+      el.addEventListener("animationend", e => { if (e.target === el) el.remove(); });
+      root.appendChild(el);
+    }
+    later(ginger, rnd(60000, 110000));
+  };
+  later(ginger, rnd(30000, 45000));
+
+  // The snowman waves now and then.
+  const wave = () => {
+    snowman.classList.add("wave");
+    later(() => snowman.classList.remove("wave"), 2400);
+    later(wave, rnd(20000, 40000));
+  };
+  later(wave, rnd(5000, 10000));
+
+  // The network: a new device sends Santa over straight away with a present,
+  // and a finished scan runs a quick chase along the lights.
+  festiveHooks.newDevice = () => sleigh(true);
+  festiveHooks.scanDone = () => {
+    if (!shown() || rippling) return;
+    rippling = true;
+    lamps.forEach(b => b.el.classList.add("off"));
+    lamps.forEach((b, i) => later(() => b.el.classList.remove("off"), 200 + i * 16));
+    later(() => {
+      lamps.forEach(b => { b.off = false; b.el.classList.remove("off"); b.next = performance.now() + rnd(500, 3000); });
+      rippling = false;
+    }, 400 + lamps.length * 16);
+  };
 }
 
 function cobweb(size) {
@@ -5233,6 +5425,7 @@ function buildHalloween(root) {
   later(swarm, rnd(20000, 35000));
   later(witch, rnd(10000, 18000));
   later(ghost, rnd(14000, 24000));
+  festiveHooks.newDevice = flareLanterns;
 }
 
 // ---- the secret ----
