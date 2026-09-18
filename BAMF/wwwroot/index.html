@@ -1169,6 +1169,22 @@
   }
   .row-menu button:hover { background: var(--panel-2); }
   .row-menu button.danger { color: var(--danger); }
+  /* The "+N" beside a device's IP: its other addresses. */
+  .ip-more {
+    margin-left: 6px; padding: 0 6px; font: inherit; font-size: 11px; line-height: 1.6;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2);
+    color: var(--text-dim); cursor: pointer; vertical-align: 1px;
+  }
+  .ip-more:hover { color: var(--text); border-color: var(--focus); }
+  .addr-menu { min-width: 250px; padding: 6px 4px; }
+  .addr-head { padding: 2px 10px 6px; font-size: 12px; color: var(--text-dim); }
+  .addr-row { display: flex; gap: 10px; align-items: baseline; padding: 5px 10px; border-radius: 6px; white-space: nowrap; }
+  .addr-row:hover { background: var(--panel-2); }
+  .addr-row a { color: var(--focus); text-decoration: none; }
+  .addr-row a:hover { text-decoration: underline; }
+  .addr-net, .addr-seen { font-size: 12px; color: var(--text-dim); }
+  .addr-seen { margin-left: auto; }
+  .addr-note { padding: 6px 10px 2px; font-size: 12px; color: var(--text-dim); max-width: 260px; white-space: normal; }
 
   @media (max-width: 700px) {
     header { flex-wrap: wrap; gap: 10px; padding: 12px 16px; }
@@ -2054,7 +2070,36 @@ async function deleteHostPermanent(host) {
 }
 
 function inNetwork(h) {
-  return network === "all" || h.subnet === network;
+  return network === "all" || onNet(h, network);
+}
+
+// The addresses a device answers on now, main first. Usually one; a router
+// with an address on each network, or a server with a second IP, has more.
+function curAddrs(h) {
+  const list = (h.addresses || []).filter(a => a.current);
+  return list.length ? list : [{ ip: h.ip, subnet: h.subnet, linkUrl: h.linkUrl, lastSeen: h.lastSeen, current: true }];
+}
+function alsoAt(h) { return curAddrs(h).filter(a => a.ip !== h.ip); }
+function onNet(h, net) { return h.subnet === net || curAddrs(h).some(a => a.subnet === net); }
+// The device as one network sees it, at its address there. For the Map.
+function onNetView(h, net) {
+  if (h.subnet === net) return h;
+  const a = curAddrs(h).find(x => x.subnet === net);
+  return a ? { ...h, ip: a.ip, subnet: net, linkUrl: a.linkUrl, mainIp: h.ip } : h;
+}
+// More than a handful of addresses on one MAC is rarely a real device; it's
+// usually a router answering for others (proxy ARP).
+const PROXY_ARP_HINT = 6;
+function addrMenuHtml(h) {
+  const list = curAddrs(h);
+  const rows = list.map(a => `<div class="addr-row">
+      <a class="mono" href="${esc(a.linkUrl || ("http://" + a.ip))}" target="_blank" rel="noopener" title="Open ${esc(a.linkUrl || ("http://" + a.ip))}">${esc(a.ip)}</a>
+      <span class="addr-net">${esc(a.subnet || "—")}</span>
+      <span class="addr-seen">${a.ip === h.ip ? "main" : "seen " + fmtAgo(a.lastSeen)}</span>
+    </div>`).join("");
+  return `<div class="addr-head">Answers on ${list.length} addresses</div>${rows}` +
+    (list.length >= PROXY_ARP_HINT
+      ? `<div class="addr-note">That many usually means proxy ARP: a router answering on behalf of other devices.</div>` : "");
 }
 
 function dispName(h) {
@@ -2111,7 +2156,7 @@ function visible(opts) {
 function matchesQuery(h, query) {
   if (!query) return true;
   const fields = [h.customName, h.hostname, h.mdnsName, h.mdnsServices, h.ip, h.mac, h.vendor, h.note, h.osGuess,
-    h.deviceType ? typeLabel(h.deviceType) : ""].filter(Boolean);
+    h.deviceType ? typeLabel(h.deviceType) : "", ...(h.addresses || []).map(a => a.ip)].filter(Boolean);
   if (/[*?]/.test(query)) {
     let rx;
     try {
@@ -2244,7 +2289,7 @@ function renderNetTabs() {
   const counted = hosts.filter(h => !h.ignored && !h.forgotten);
   const rows = [{ net: "all", label: "All networks", count: counted.length }];
   for (const n of all)
-    rows.push({ net: n, label: n, count: counted.filter(h => h.subnet === n).length });
+    rows.push({ net: n, label: n, count: counted.filter(h => onNet(h, n)).length });
   for (const r of rows) r.kind = netTabKind(r.net);
 
   const wrap = $("nettabs");
@@ -2357,7 +2402,8 @@ function mapClusters() {
     : [network];
   return nets.map(subnet => {
     const place = networkPlaces[subnet] || {};
-    const members = hosts.filter(h => h.subnet === subnet && !h.ignored && !h.forgotten);
+    // A device on several networks is drawn on each, at its address there.
+    const members = hosts.filter(h => onNet(h, subnet) && !h.ignored && !h.forgotten).map(h => onNetView(h, subnet));
     const selfMac = (place.selfMac || "").toUpperCase();
     let self = selfMac ? members.find(h => (h.mac || "").toUpperCase() === selfMac) || null : null;
     let gw = place.gateway
@@ -2416,6 +2462,8 @@ function mapTitle(h, role) {
       : `Default gateway\n${h.ip}\nNot recorded by a scan yet`;
   }
   const lines = [dispName(h) === "—" ? h.ip : dispName(h), `${h.ip} · ${h.mac}`];
+  const others = curAddrs(h).filter(a => a.ip !== h.ip).map(a => a.ip);
+  if (others.length) lines.push("Also at " + others.join(", "));
   if (h.vendor) lines.push(h.vendor);
   lines.push(h.deviceType ? "Type: " + typeLabel(h.deviceType) + " (yours)" : h.osGuess ? "Guess: " + h.osGuess : "No guess yet");
   const sw = h.switchId ? switches.find(s => s.id === h.switchId) : null;
@@ -3535,7 +3583,8 @@ function render() {
   // The 10s auto-refresh rebuilds the table, which used to destroy any open ⋯
   // menu — it looked like the menu closed itself on a timer. Remember which
   // row's menu is open and reopen it after the rebuild.
-  const openMenuRow = document.querySelector(".row-menu.show")?.closest("tr")?.dataset.id ?? null;
+  const openMenuRow = document.querySelector(".row-menu.show:not(.addr-menu)")?.closest("tr")?.dataset.id ?? null;
+  const openAddrRow = document.querySelector(".addr-menu.show")?.closest("tr")?.dataset.id ?? null;
   renderNetTabs();
   const showTable = view === "devices" || view === "forgotten";
   $("tableWrap").hidden = !showTable;
@@ -3614,7 +3663,8 @@ function render() {
         ${h.note ? `<span class="note-flag" title="${esc(h.note)}">\uD83D\uDCDD</span>` : ""}
         ${showDns ? `<span class="dns">${esc(subName)}</span>` : ""}
       </td>
-      <td class="ip" data-label="IP"><a href="${esc(h.linkUrl || ("http://" + h.ip))}" target="_blank" rel="noopener" title="Open ${esc(h.linkUrl || ("http://" + h.ip))}${h.link ? " (custom link)" : ""}">${esc(h.ip)}${h.link ? '<span class="link-flag" title="Custom link">⇗</span>' : ""}</a></td>
+      <td class="ip" data-label="IP"><a href="${esc(h.linkUrl || ("http://" + h.ip))}" target="_blank" rel="noopener" title="Open ${esc(h.linkUrl || ("http://" + h.ip))}${h.link ? " (custom link)" : ""}">${esc(h.ip)}${h.link ? '<span class="link-flag" title="Custom link">⇗</span>' : ""}</a>${alsoAt(h).length
+        ? `<span class="more-wrap"><button class="ip-more" title="Also answers on ${esc(alsoAt(h).map(a => a.ip).join(", "))}">+${alsoAt(h).length}</button><div class="row-menu addr-menu">${addrMenuHtml(h)}</div></span>` : ""}</td>
       <td class="mac" data-label="MAC">${esc(h.mac)}</td>
       <td class="vendor" data-label="Vendor">${esc(h.vendor)}${h.deviceType
         ? `<span class="os-guess" title="Type you set${h.osGuess ? " — BAMF guessed " + esc(h.osGuess) : ""}">${esc(typeLabel(h.deviceType))} · your type</span>`
@@ -3765,6 +3815,19 @@ function render() {
       menu.classList.add("show");
       requestAnimationFrame(() => placeRowMenu(menu, more));
     }
+    const ipMore = tr.querySelector(".ip-more");
+    if (ipMore) {
+      const addrMenu = ipMore.nextElementSibling;
+      ipMore.onclick = (e) => {
+        e.stopPropagation();
+        document.querySelectorAll(".row-menu.show").forEach(m => { if (m !== addrMenu) m.classList.remove("show"); });
+        if (addrMenu.classList.toggle("show")) placeRowMenu(addrMenu, ipMore);
+      };
+      if (openAddrRow !== null && String(h.id) === openAddrRow) {
+        addrMenu.classList.add("show");
+        requestAnimationFrame(() => placeRowMenu(addrMenu, ipMore));
+      }
+    }
     // 24h sparkline built from the network-wide feed we already fetch
     const sparkCell = tr.querySelector(".spark-cell");
     if (sparkCell) sparkCell.appendChild(buildSpark(h));
@@ -3791,6 +3854,14 @@ function render() {
           }
           return `<div class="session"><span class="dot off"></span>${esc(from)} → ${esc(fmtExact(s.to))}<span class="dur">(${fmtDur(new Date(s.to) - new Date(s.from))})</span></div>`;
         }).join("") + `</div>`;
+      }
+      // A device answering on several addresses at once lists them all.
+      const now = curAddrs(h);
+      if (now.length > 1) {
+        inner += `<div class="history-sub">Answers on ${now.length} addresses now</div><div class="sessions">` +
+          now.map(a => `<div class="session"><span class="dot on"></span><span class="mono">${esc(a.ip)}</span> ` +
+            `<span class="dur">${esc(a.subnet || "")}${a.ip === h.ip ? " · main" : ""} · since ${esc(fmtExact(a.firstSeen || h.firstSeen))}</span></div>`).join("") +
+          `</div>`;
       }
       // Addresses: only worth showing once a device has actually moved. Most
       // never do, and a one-line "same address since first seen" is noise.

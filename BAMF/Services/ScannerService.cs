@@ -387,6 +387,7 @@ public partial class ScannerService : BackgroundService
                     }
 
                     var seenMacs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    var passStart = DateTime.UtcNow;
                     var covered = new List<string>();
                     foreach (var (network, prefix) in due)
                     {
@@ -418,6 +419,14 @@ public partial class ScannerService : BackgroundService
                         labels);
                     foreach (var h in wentDown)
                         await SendStatusAlert(h, up: false, CancellationToken.None);
+
+                    // The same judgement per address, for devices answering on
+                    // several: an address that stopped answering is retired, and a
+                    // device whose main address went moves to one still answering.
+                    _store.SweepAddresses(passStart,
+                        covered.Count == labels.Count ? null : covered,
+                        ConfiguredOfflineMisses,
+                        labels);
 
                     var recovered = _store.DrainRecovered();
                     foreach (var h in recovered)
@@ -610,14 +619,22 @@ public partial class ScannerService : BackgroundService
             mode = "ping sweep";
         }
 
-        // Filter to subnet and dedupe by MAC.
+        // Filter to subnet and dedupe. One MAC can answer on several addresses
+        // (a router, a server with a second IP), so every address is kept; in
+        // address order, so a new device's lowest address becomes its main one.
         arpEntries = arpEntries
             .Where(e => InSubnet(e.Ip, network, prefix))
-            .GroupBy(e => e.Mac, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
+            .DistinctBy(e => (e.Mac.ToUpperInvariant(), e.Ip))
+            .OrderBy(e => e.Ip.GetAddressBytes(), Comparer<byte[]>.Create((x, y) =>
+            {
+                for (var i = 0; i < Math.Min(x.Length, y.Length); i++)
+                    if (x[i] != y[i]) return x[i].CompareTo(y[i]);
+                return x.Length.CompareTo(y.Length);
+            }))
             .ToList();
 
-        _log.LogInformation("{Mode} on {Subnet} found {Count} hosts", mode, subnetLabel, arpEntries.Count);
+        _log.LogInformation("{Mode} on {Subnet} found {Count} hosts", mode, subnetLabel,
+            arpEntries.Select(e => e.Mac).Distinct(StringComparer.OrdinalIgnoreCase).Count());
 
         // Resolve + upsert.
         var autoIgnoreRandom = AutoIgnoreRandomEnabled;

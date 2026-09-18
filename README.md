@@ -71,6 +71,9 @@ optional daily update check you have to switch on, and your own webhook.
 - Session history per device, a 24-hour sparkline, and a network-wide activity feed
 - Address history per device — every IP it has held and when it moved, for
   chasing DHCP squabbles and pool exhaustion
+- Devices on several addresses at once, like a router on every network, keep
+  them all: a **+N** chip beside the IP lists them, and the device shows on each
+  network it's on
 - A map of each network, with the gateway and BAMF's own machine marked, and
   honest about its limits: it shows who is present, and draws cabling only where
   you've recorded your switches and which port each device is on

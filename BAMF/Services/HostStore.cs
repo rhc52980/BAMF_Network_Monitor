@@ -155,6 +155,7 @@ public partial class HostStore
         InitSwitches(conn);
         InitMapPositions(conn);
         InitDeviceTypes(conn);
+        InitAddresses(conn);
     }
 
     /// <summary>Every address a host has been seen at, oldest first, with when each began.</summary>
@@ -388,13 +389,27 @@ public partial class HostStore
                     else
                         newHostname = existingHostname;
 
+                    // A device can answer on several addresses at once: a router
+                    // on each of your networks, a server with a second IP. Its main
+                    // address stays put while it still answers; another address is
+                    // "also at", not a move. It only moves once the main address has
+                    // stopped answering (see SweepAddresses), or if it never had one.
+                    r.Close();
+                    TouchAddress(conn, hostId, ip, subnet, now);
+                    var isMain = string.Equals(oldIp, ip, StringComparison.Ordinal)
+                                 || oldIp == "" || !IsCurrentAddress(conn, hostId, oldIp);
+
                     using var upd = conn.CreateCommand();
-                    upd.CommandText = """
-                        UPDATE hosts
-                        SET ip = $ip, hostname = $hostname, vendor = $vendor,
-                            subnet = $subnet, online = 1, forgotten = 0, last_seen = $now, misses = 0
-                        WHERE mac = $mac
-                        """;
+                    // A name looked up for a secondary address describes that
+                    // address, so only the main one updates the device's details.
+                    upd.CommandText = isMain
+                        ? """
+                          UPDATE hosts
+                          SET ip = $ip, hostname = $hostname, vendor = $vendor,
+                              subnet = $subnet, online = 1, forgotten = 0, last_seen = $now, misses = 0
+                          WHERE mac = $mac
+                          """
+                        : "UPDATE hosts SET online = 1, forgotten = 0, last_seen = $now, misses = 0 WHERE mac = $mac";
                     upd.Parameters.AddWithValue("$ip", ip);
                     upd.Parameters.AddWithValue("$hostname", newHostname);
                     upd.Parameters.AddWithValue("$vendor", vendor);
@@ -405,7 +420,7 @@ public partial class HostStore
 
                     // A different address for a known MAC is the whole point of
                     // the history table; the same address is not worth a row.
-                    if (!string.Equals(oldIp, ip, StringComparison.Ordinal))
+                    if (isMain && !string.Equals(oldIp, ip, StringComparison.Ordinal))
                         AddIpChange(conn, hostId, ip, now);
 
                     if (!wasOnline && !isIgnored)
@@ -442,6 +457,7 @@ public partial class HostStore
             // ones included: a randomised-MAC phone that someone later un-ignores
             // should not have a hole where its history began.
             AddIpChange(conn, newId, ip, now);
+            TouchAddress(conn, newId, ip, subnet, now);
             if (!autoIgnore) AddEvent(conn, newId, "online", now);
             return (true, autoIgnore);
         }
@@ -795,7 +811,9 @@ public partial class HostStore
             long id; string curName, curServices, curGuess;
             using (var find = conn.CreateCommand())
             {
-                find.CommandText = "SELECT id, mdns_name, mdns_services, os_guess FROM hosts WHERE ip = $ip AND forgotten = 0 ORDER BY last_seen DESC LIMIT 1";
+                find.CommandText = "SELECT id, mdns_name, mdns_services, os_guess FROM hosts " +
+                    "WHERE (ip = $ip OR id IN (SELECT host_id FROM host_addresses WHERE ip = $ip AND current = 1)) " +
+                    "AND forgotten = 0 ORDER BY (ip = $ip) DESC, last_seen DESC LIMIT 1";
                 find.Parameters.AddWithValue("$ip", ip);
                 using var r = find.ExecuteReader();
                 if (!r.Read()) return false;
@@ -870,6 +888,7 @@ public partial class HostStore
             ForgetHostInLayout(conn, id);
             ForgetMapNode(conn, $"h:{id}");
             ForgetDeviceType(conn, id);
+            ForgetAddresses(conn, id);
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "DELETE FROM hosts WHERE id = $id";
             cmd.Parameters.AddWithValue("$id", id);
