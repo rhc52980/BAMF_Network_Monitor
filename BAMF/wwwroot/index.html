@@ -851,8 +851,11 @@
 
   .more-wrap { position: relative; display: inline-block; }
   .more-btn { min-width: 30px; font-weight: 700; }
+  /* Fixed, not absolute: .table-wrap scrolls sideways, which also clips it
+     vertically, so an absolute menu under a lone filtered row got squeezed
+     into a tiny scroll box. placeRowMenu() sets top/left from the button. */
   .row-menu {
-    position: absolute; right: 0; top: calc(100% + 4px); z-index: 300;
+    position: fixed; z-index: 300; max-height: calc(100vh - 16px); overflow-y: auto;
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
     padding: 4px; min-width: 170px; display: none;
     box-shadow: 0 8px 24px rgba(0,0,0,.35);
@@ -904,7 +907,7 @@
     td.status-cell { padding-top: 8px; }
     td.actions-cell { padding-top: 6px; }
     .actions { display: flex; gap: 6px; flex-wrap: wrap; }
-    .row-menu, .tools-menu { right: auto; left: 0; }
+    .tools-menu { right: auto; left: 0; }
     /* home board: 2 per row on phones */
     .home-grid { grid-template-columns: 1fr 1fr; }
   }
@@ -2310,12 +2313,15 @@ function render() {
     more.onclick = (e) => {
       e.stopPropagation();
       document.querySelectorAll(".row-menu.show").forEach(m => { if (m !== menu) m.classList.remove("show"); });
-      menu.classList.toggle("show");
+      if (menu.classList.toggle("show")) placeRowMenu(menu, more);
     };
-    if (openMenuRow !== null && String(h.id) === openMenuRow) menu.classList.add("show");
     moreWrap.appendChild(more);
     moreWrap.appendChild(menu);
     cell.appendChild(moreWrap);
+    if (openMenuRow !== null && String(h.id) === openMenuRow) {
+      menu.classList.add("show");
+      requestAnimationFrame(() => placeRowMenu(menu, more));
+    }
     // 24h sparkline built from the network-wide feed we already fetch
     const sparkCell = tr.querySelector(".spark-cell");
     if (sparkCell) sparkCell.appendChild(buildSpark(h));
@@ -3171,6 +3177,32 @@ document.addEventListener("click", (e) => {
   if (!e.target.closest(".more-wrap"))
     document.querySelectorAll(".row-menu.show").forEach(m => m.classList.remove("show"));
 });
+
+// Row menus are position: fixed so the table can't clip them. Open below the
+// ⋯ button, right-aligned to it; flip above when there's no room below.
+function placeRowMenu(menu, btn) {
+  const r = btn.getBoundingClientRect();
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  const vw = document.documentElement.clientWidth, vh = window.innerHeight, pad = 8;
+  let left = r.right - mw;
+  if (left < pad) left = r.left;
+  left = Math.max(pad, Math.min(left, vw - mw - pad));
+  let top = r.bottom + 4;
+  if (top + mh > vh - pad) {
+    const above = r.top - 4 - mh;
+    top = above >= pad ? above : Math.max(pad, vh - mh - pad);
+  }
+  menu.style.left = left + "px";
+  menu.style.top = top + "px";
+}
+// A fixed menu would drift off its row, so close it when anything scrolls
+// (capture catches the table's sideways scroll too) or the window resizes.
+const closeRowMenus = (e) => {
+  if (e && e.target instanceof Element && e.target.closest(".row-menu")) return;
+  document.querySelectorAll(".row-menu.show").forEach(m => m.classList.remove("show"));
+};
+window.addEventListener("scroll", closeRowMenus, true);
+window.addEventListener("resize", closeRowMenus);
 
 document.querySelectorAll(".stat.clickable").forEach(s => s.onclick = () => {
   filter = s.dataset.jump;
