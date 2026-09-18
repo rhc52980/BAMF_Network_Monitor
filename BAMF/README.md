@@ -341,7 +341,7 @@ your subnets and, if configured, the vendor-registry download and your webhook.
 The ◑ button in the header opens the theme menu: Dark, Light, Terminal, Amber
 CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
-Thunderstorm, Hotdog Stand and Steampunk. Your
+Thunderstorm, Hotdog Stand, Steampunk and Mushroom. Your
 choice is remembered in your browser.
 
 Some themes have a little life in them:
@@ -359,6 +359,17 @@ Some themes have a little life in them:
 - **Blueprint**: drawn on grid paper.
 - **Hacker Red**: the header glitches now and then.
 - **Cotton Candy**: a few bubbles drift up.
+- **Mushroom**: an 8-bit platformer, all drawn from scratch. A sky with pixel
+  clouds and green hills, a brick header, chunky blocks with hard shadows, and
+  a strip of brick ground along the bottom with two green pipes. Now and then
+  a little walking mushroom hops the first pipe and ducks down the second. The
+  next-scan bar fills with coins, and a coin spins over each stats card
+  (point at one and it bumps and pays out). A new device pops a mushroom out
+  of a block with **1-UP!**, each finished scan pops a coin and adds to a coin
+  counter in the header, a row whose device goes offline falls off the ledge,
+  and unknown devices get a **?** block. On the Map, cables are green pipes,
+  devices sit on brick blocks, and the router's flag runs up its pole while
+  every device is online.
 - **Thunderstorm**: rain falls behind the page, in gusts that swing its angle,
   with clouds drifting along the top and splashes along the bottom. Every 20 to
   60 seconds a forked bolt of lightning cracks across the sky, which brightens

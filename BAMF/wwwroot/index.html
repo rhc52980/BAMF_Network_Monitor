@@ -185,6 +185,12 @@
     --led-off:#5a4630; --danger:#d8503a; --focus:#e8b04b; --radius:6px;
   }
 
+  [data-theme="mushroom"] {
+    --bg:#6ab4ff; --panel:#fff8e1; --panel-2:#ffeec2; --line:#3a1a06;
+    --text:#2b1a0e; --text-dim:#6e4a2a; --led-on:#2fa84f; --led-warn:#f08c00;
+    --led-off:#9aa5b1; --danger:#e03c31; --focus:#e03c31; --radius:0px;
+  }
+
   [data-theme="cottoncandy"] {
     --bg:#fdeef7; --panel:#ffffff; --panel-2:#fbe4f2; --line:#f4cbe4;
     --text:#7a4a68; --text-dim:#c48fb3; --led-on:#7ececa; --led-warn:#f7b955;
@@ -1016,6 +1022,110 @@
   .theme-item .sw { display: inline-flex; gap: 2px; flex-shrink: 0; }
   .theme-item .sw i { width: 9px; height: 16px; border-radius: 2px; display: block; }
   .theme-item .tn { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+  /* ---- Mushroom: an 8-bit platformer, all drawn here ---- */
+  [data-theme="mushroom"] body { background: #6ab4ff; }
+  [data-theme="mushroom"] .brand h1, [data-theme="mushroom"] .stat .num, [data-theme="mushroom"] .tab,
+  [data-theme="mushroom"] thead th, [data-theme="mushroom"] .modal-title, [data-theme="mushroom"] .set-card-title,
+  [data-theme="mushroom"] .map-net {
+    font-family: Consolas, "Courier New", monospace; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  }
+  /* The header is a row of bricks. */
+  [data-theme="mushroom"] header {
+    border-bottom: 3px solid #3a1a06;
+    background:
+      linear-gradient(#3a1a06 0 0) 0 0 / 100% 2px no-repeat,
+      linear-gradient(90deg, #7a3410 2px, transparent 2px) 0 0 / 32px 16px,
+      linear-gradient(90deg, #7a3410 2px, transparent 2px) 16px 16px / 32px 16px,
+      linear-gradient(#7a3410 2px, transparent 2px) 0 0 / 100% 16px,
+      #c4622d;
+  }
+  [data-theme="mushroom"] header, [data-theme="mushroom"] header .scanline, [data-theme="mushroom"] header .fb-link { color: #fff; text-shadow: 1px 1px 0 #3a1a06; }
+  [data-theme="mushroom"] .brand h1 { color: #fff; text-shadow: 2px 2px 0 #3a1a06; }
+  [data-theme="mushroom"] header .chip, [data-theme="mushroom"] header .chip.ver { background: #3a1a06; color: #ffd23f; border-color: #3a1a06; text-shadow: none; }
+  [data-theme="mushroom"] header .arp-toggle { background: #ffd23f; color: #3a1a06; border: 2px solid #3a1a06; text-shadow: none; }
+  /* Panels are chunky blocks with hard pixel shadows. */
+  [data-theme="mushroom"] .stat, [data-theme="mushroom"] .map-card, [data-theme="mushroom"] .set-card, [data-theme="mushroom"] .modal {
+    border: 3px solid #3a1a06; box-shadow: 4px 4px 0 rgba(58, 26, 6, .55);
+  }
+  [data-theme="mushroom"] table, [data-theme="mushroom"] .feed { background: #fff8e1; border: 3px solid #3a1a06; box-shadow: 4px 4px 0 rgba(58, 26, 6, .55); }
+  [data-theme="mushroom"] thead th { background: #e03c31; color: #fff; }
+  [data-theme="mushroom"] .tab.active { background: #e03c31; color: #fff; }
+  [data-theme="mushroom"] .stat .num { color: #e03c31; text-shadow: 2px 2px 0 rgba(58, 26, 6, .25); }
+  /* A coin spinning over each stats card; point at one and it bumps and pays out. */
+  [data-theme="mushroom"] .stat { position: relative; }
+  [data-theme="mushroom"] .stat::after {
+    content: ""; position: absolute; right: 14px; top: 12px; width: 12px; height: 16px; border-radius: 50%;
+    background: radial-gradient(ellipse at 40% 35%, #fff3a8 0 25%, #ffd23f 30% 60%, #c98a00 64%); box-shadow: 0 0 0 1.5px #7a4a00;
+    animation: mu-spin 1.2s linear infinite;
+  }
+  [data-theme="mushroom"] .stat:hover { animation: mu-bump .28s ease-out 1; }
+  [data-theme="mushroom"] .stat:hover::after { animation: mu-pay .6s ease-out 1; }
+  @keyframes mu-spin { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(.12); } }
+  @keyframes mu-bump { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-7px); } }
+  @keyframes mu-pay { 0% { transform: translateY(0); } 50% { transform: translateY(-26px) scaleX(.2); } 100% { transform: translateY(0); } }
+  /* The next-scan bar fills with coins. */
+  [data-theme="mushroom"] .scan-track {
+    height: 14px; border-radius: 0; border: 2px solid #3a1a06; padding: 0;
+    background: radial-gradient(circle at 7px 50%, rgba(255, 255, 255, .25) 0 4px, transparent 4.5px) 0 0 / 14px 100% repeat-x, #7a3410;
+  }
+  [data-theme="mushroom"] .scan-fill { border-radius: 0; background: radial-gradient(circle at 7px 50%, #fff3a8 0 1.5px, #ffd23f 2px 4px, #a86b00 4.5px 5px, transparent 5.5px) 0 0 / 14px 100% repeat-x; }
+  /* Unknown devices get a "?" block. */
+  [data-theme="mushroom"] .badge.unknown { color: #3a1a06; background: #ffd23f; border: 1.5px solid #3a1a06; border-radius: 0; white-space: nowrap; }
+  [data-theme="mushroom"] .badge.unknown::before { content: "? "; font-weight: 800; }
+  [data-theme="mushroom"] .badge.known { color: #fff; background: #2fa84f; border-radius: 0; }
+  /* A row whose device goes offline falls off the ledge for a moment. */
+  [data-theme="mushroom"] tr.mu-bonk td { animation: mu-bonk .9s ease-in 1; }
+  @keyframes mu-bonk { 0% { transform: translateY(0); } 20% { transform: translateY(-6px); } 70% { transform: translateY(14px); opacity: .2; } 71% { transform: translateY(-8px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+  /* The Map: green pipes, devices on brick blocks, "?" blocks, and a flag on the router. */
+  [data-theme="mushroom"] .map-svg .spoke.cable { stroke: #2fa84f; stroke-width: 5; stroke-linecap: square; }
+  [data-theme="mushroom"] .map-svg .t-tile { fill: #c4622d; stroke: #3a1a06; stroke-width: 2; rx: 2; }
+  [data-theme="mushroom"] .map-svg .t-icon { stroke: #fff8e1; }
+  .map-svg .t-qblock, .map-svg .t-flag { display: none; }
+  [data-theme="mushroom"] .map-svg .tnode.dev.unknown .t-qblock { display: inline; }
+  [data-theme="mushroom"] .map-svg .t-flag { display: inline; }
+  /* Lowered, the flag still hangs clear of the tile. */
+  .map-svg .t-flag .cloth { transition: transform 1.6s ease-in-out; transform: translateY(14px); }
+  #mapClusters.mu-allup .map-svg .t-flag .cloth { transform: translateY(0); }
+
+  .mu-bg { overflow: hidden; background: linear-gradient(#5c94fc, #8ec5ff 70%); }
+  .mu-cloud { position: absolute; width: 96px; height: 40px; animation: mu-drift linear infinite; }
+  .mu-cloud svg { display: block; width: 100%; height: 100%; }
+  @keyframes mu-drift { from { transform: translateX(-140px); } to { transform: translateX(calc(100vw + 40px)); } }
+  .mu-hills { position: absolute; left: 0; right: 0; bottom: 0; height: 90px; }
+  .mu-ground { position: absolute; left: 0; right: 0; bottom: 0; height: 16px; pointer-events: none;
+    background: linear-gradient(90deg, #7a3410 2px, transparent 2px) 0 0 / 16px 8px, linear-gradient(#7a3410 2px, transparent 2px) 0 0 / 100% 8px, #c4622d;
+    border-top: 3px solid #3a1a06; }
+  .mu-pipe { position: absolute; bottom: 16px; width: 52px; height: 56px; }
+  .mu-pipe svg { display: block; }
+  .mu-walker { position: absolute; bottom: 16px; left: 0; width: 28px; height: 30px; animation: mu-walk 16s linear forwards; }
+  .mu-walker svg { display: block; overflow: visible; }
+  .mu-walker .feet { animation: mu-step .3s steps(2) infinite; }
+  @keyframes mu-step { 50% { transform: translateX(3px); } }
+  @keyframes mu-walk {
+    0% { transform: translate(-40px, 0); } 38% { transform: translate(calc(30vw - 44px), 0); }
+    44% { transform: translate(calc(30vw + 12px), -70px); } 50% { transform: translate(calc(30vw + 66px), 0); }
+    86% { transform: translate(calc(72vw - 42px), 0); } 91% { transform: translate(calc(72vw + 12px), -64px); }
+    94% { transform: translate(calc(72vw + 12px), -64px); } 100% { transform: translate(calc(72vw + 12px), 10px); }
+  }
+  .mu-oneup { position: absolute; left: 50%; width: 120px; margin-left: -60px; text-align: center; pointer-events: none; }
+  .mu-oneup .blk { display: block; margin: 0 auto; }
+  .mu-oneup .shroom { display: block; margin: 0 auto; animation: mu-rise 1s ease-out forwards; }
+  .mu-oneup .txt { font: 800 18px Consolas, "Courier New", monospace; color: #fff; text-shadow: 2px 2px 0 #3a1a06; animation: mu-float 2.6s ease-out forwards; white-space: nowrap; }
+  .mu-oneup .txt small { display: block; font-size: 12px; font-weight: 700; }
+  @keyframes mu-rise { from { transform: translateY(30px); clip-path: inset(0 0 100% 0); } to { transform: translateY(0); clip-path: inset(0 0 0 0); } }
+  @keyframes mu-float { 0% { opacity: 0; transform: translateY(10px); } 20% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-26px); } }
+  .mu-coinpop { position: absolute; width: 14px; height: 18px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(ellipse at 40% 35%, #fff3a8 0 25%, #ffd23f 30% 60%, #c98a00 64%); box-shadow: 0 0 0 1.5px #7a4a00;
+    animation: mu-coin .8s ease-out forwards; }
+  @keyframes mu-coin { 0% { transform: translateY(0) scaleX(1); opacity: 1; } 50% { transform: translateY(-40px) scaleX(.1); } 100% { transform: translateY(-20px) scaleX(1); opacity: 0; } }
+  .mu-counter { display: inline-flex; align-items: center; gap: 4px; font: 700 12px Consolas, "Courier New", monospace; color: #fff; }
+  .mu-counter i { width: 9px; height: 12px; border-radius: 50%; background: #ffd23f; box-shadow: 0 0 0 1.5px #7a4a00; display: inline-block; }
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme="mushroom"] .stat::after, [data-theme="mushroom"] .stat:hover, [data-theme="mushroom"] .stat:hover::after,
+    [data-theme="mushroom"] tr.mu-bonk td, .mu-cloud, .mu-walker .feet, .mu-oneup .shroom, .mu-oneup .txt, .mu-coinpop { animation: none !important; }
+    .map-svg .t-flag .cloth { transition: none; }
+  }
 
   /* ---- holiday decorations: drawn over the page, never in the way ---- */
   #festive { position: fixed; inset: 0; pointer-events: none; z-index: 45; overflow: hidden; }
@@ -3703,6 +3813,23 @@ function topoNodeEl(m, key, n) {
     hat.appendChild(svgEl("rect", { x: -15, y: -4, width: 30, height: 4, fill: "#ff0000", stroke: "#000", "stroke-width": 1 }));
     g.appendChild(hat);
   }
+  // Hidden unless it's Mushroom: a "?" block on an unknown device, a flag on the router.
+  if (n.type === "dev") {
+    const q = svgEl("g", { class: "t-qblock", transform: "translate(11,-23)" });
+    q.appendChild(svgEl("rect", { x: 0, y: 0, width: 12, height: 12, fill: "#ffd23f", stroke: "#7a4a00", "stroke-width": 1.2 }));
+    const qt = svgEl("text", { x: 6, y: 10, "text-anchor": "middle", "font-size": 10, "font-weight": 800, fill: "#7a4a00", "font-family": "Consolas, monospace" });
+    qt.textContent = "?";
+    q.appendChild(qt);
+    g.appendChild(q);
+  }
+  if (n.type === "root" || n.isRoot) {
+    const flag = svgEl("g", { class: "t-flag", transform: "translate(-22,-44)" });
+    flag.appendChild(svgEl("rect", { x: 0, y: 0, width: 2, height: 40, fill: "#e8f0f8", stroke: "#3a1a06", "stroke-width": .6 }));
+    flag.appendChild(svgEl("circle", { cx: 1, cy: -1.5, r: 2.4, fill: "#2fa84f", stroke: "#0f3d1c", "stroke-width": .6 }));
+    const cloth = svgEl("path", { class: "cloth", d: "M2 2h14l-4 5 4 5H2z", fill: "#e03c31", stroke: "#3a1a06", "stroke-width": .6 });
+    flag.appendChild(cloth);
+    g.appendChild(flag);
+  }
   // Hidden unless it's the Thunderstorm theme: an offline device drips.
   if (n.type === "dev") g.appendChild(svgEl("path", { class: "t-drip", d: "M0 17c-2 3-3 4.5-3 6a3 3 0 0 0 6 0c0-1.5-1-3-3-6z" }));
   g.appendChild(svgEl("rect", { x: -20, y: -20, width: 40, height: 40, rx: 11, class: "t-watch" }));
@@ -3747,7 +3874,7 @@ function topoNodeEl(m, key, n) {
 // What a click on a node does: the same dialogs as everywhere else.
 // Where a click lands on a device decides what opens: its icon tile opens
 // the Type / icon picker, anywhere else (its name) opens Plugged into.
-const TOPO_ICON_PARTS = ".t-tile, .t-icon, .t-ghost, .t-gift, .t-hat, .t-pk, .t-watch, .blink-ring, .t-mustard, .t-hd";
+const TOPO_ICON_PARTS = ".t-tile, .t-icon, .t-ghost, .t-gift, .t-hat, .t-pk, .t-watch, .blink-ring, .t-mustard, .t-hd, .t-qblock";
 const TOPO_DEV_HINT = "Click the icon to change its type · click the name to record where it's plugged in";
 function topoDevTip(h) { return mapTitle(h, "dev") + "\n" + TOPO_DEV_HINT; }
 function topoActivate(m, key, target = null) {
@@ -5558,6 +5685,7 @@ const THEMES = [
   { id: "storm",       name: "Thunderstorm", sw: ["#0e1319", "#9fd8ff", "#ffd23f"] },
   { id: "hotdog",      name: "Hotdog Stand", sw: ["#ffff00", "#ff0000", "#000000"] },
   { id: "steampunk",   name: "Steampunk",    sw: ["#150e08", "#c99a3f", "#52c3a4"] },
+  { id: "mushroom",    name: "Mushroom",     sw: ["#6ab4ff", "#e03c31", "#ffd23f"] },
   // Hidden until unlocked: type BAMF anywhere, or tap the logo five times.
   { id: "christmas",   name: "Christmas",    sw: ["#0b1712", "#ff3b3b", "#3ddc6f"], secret: true },
   { id: "halloween",   name: "Halloween",    sw: ["#0f0913", "#ff8c1a", "#8cff4f"], secret: true },
@@ -5647,7 +5775,7 @@ let festiveHooks = {};
 let festiveStops = [];
 let festivePrev = null;
 const THEME_FX = { christmas: (r, sw) => buildChristmas(r, sw), halloween: (r, sw) => buildHalloween(r, sw),
-  matrix: buildMatrix, synthwave: buildSynthwave, hackerred: buildHackerRed, cottoncandy: buildCottonCandy, storm: buildStorm, hotdog: buildHotdog, steampunk: buildSteampunk };
+  matrix: buildMatrix, synthwave: buildSynthwave, hackerred: buildHackerRed, cottoncandy: buildCottonCandy, storm: buildStorm, hotdog: buildHotdog, steampunk: buildSteampunk, mushroom: buildMushroom };
 const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
@@ -5676,6 +5804,112 @@ window.addEventListener("resize", () => {
   clearTimeout(festiveResize);
   festiveResize = setTimeout(() => festive(festiveTheme), 250);
 });
+
+// ---- Mushroom ----
+// An 8-bit platformer, all drawn here: a sky with drifting clouds and
+// hills, a strip of brick ground with two pipes, and now and then a little
+// walking mushroom that hops the first pipe and ducks down the second. A new
+// device pops a mushroom out of a block with "1-UP!", each finished scan
+// pops a coin and adds to a coin counter in the header, a row whose device
+// goes offline falls off the ledge, and on the Map the router's flag runs
+// up the pole while every device is online.
+const MU_CLOUD = `<svg viewBox="0 0 24 10" shape-rendering="crispEdges"><g fill="#fff">
+  <rect x="4" y="4" width="16" height="4"/><rect x="6" y="2" width="6" height="2"/><rect x="11" y="1" width="6" height="3"/>
+  <rect x="2" y="6" width="20" height="3"/></g><g fill="#bfe0ff"><rect x="2" y="9" width="20" height="1"/></g></svg>`;
+const MU_PIPE = `<svg width="52" height="56" viewBox="0 0 52 56" shape-rendering="crispEdges">
+  <rect x="6" y="14" width="40" height="42" fill="#2fa84f" stroke="#0f3d1c" stroke-width="3"/>
+  <rect x="1.5" y="1.5" width="49" height="14" fill="#2fa84f" stroke="#0f3d1c" stroke-width="3"/>
+  <rect x="10" y="16" width="5" height="40" fill="#8ee0a0"/><rect x="6" y="4" width="5" height="10" fill="#8ee0a0"/></svg>`;
+// Our own walker: a red-capped mushroom with little feet.
+const MU_WALKER = `<svg width="28" height="30" viewBox="0 0 14 15" shape-rendering="crispEdges">
+  <path d="M3 1h8v1h1v1h1v4H1V3h1V2h1z" fill="#e03c31"/><rect x="4" y="2" width="2" height="2" fill="#fff"/><rect x="9" y="3" width="2" height="2" fill="#fff"/>
+  <rect x="3" y="7" width="8" height="5" fill="#fbe3b8"/><rect x="5" y="8" width="1" height="2" fill="#3a1a06"/><rect x="8" y="8" width="1" height="2" fill="#3a1a06"/>
+  <g class="feet"><rect x="3" y="12" width="3" height="2" fill="#3a1a06"/><rect x="8" y="12" width="3" height="2" fill="#3a1a06"/></g></svg>`;
+const MU_BLOCK = `<svg class="blk" width="30" height="30" viewBox="0 0 15 15" shape-rendering="crispEdges">
+  <rect x=".5" y=".5" width="14" height="14" fill="#ffd23f" stroke="#7a4a00"/><rect x="1" y="13" width="13" height="1" fill="#c98a00"/>
+  <path d="M5 4h5v1h1v2h-1v1H8v2H7V7h2V5H6v1H5z M7 11h1v1H7z" fill="#7a4a00"/></svg>`;
+
+function buildMushroom(root) {
+  const calm = calmMotion();
+  const bg = document.createElement("div");
+  bg.id = "themeBg";
+  bg.className = "theme-bg mu-bg";
+  bg.setAttribute("aria-hidden", "true");
+  bg.innerHTML = [["8vh", 95, -10], ["18vh", 130, -70], ["5vh", 115, -40], ["26vh", 150, -120]]
+    .map(([top, secs, delay]) => `<div class="mu-cloud" style="top:${top};animation-duration:${secs}s;animation-delay:${delay}s">${MU_CLOUD}</div>`).join("") +
+    `<svg class="mu-hills" viewBox="0 0 1000 90" preserveAspectRatio="none">
+      <path d="M0 90V60Q90 0 180 60T360 70Q470 10 580 70T800 60Q900 20 1000 62V90z" fill="#3fb35a" stroke="#0f3d1c" stroke-width="3"/></svg>`;
+  document.body.prepend(bg);
+
+  root.insertAdjacentHTML("beforeend",
+    `<div class="mu-ground"></div>
+     <div class="mu-pipe" style="left:calc(30vw - 12px)">${MU_PIPE}</div>`);
+  // The walker goes in before the second pipe, so ducking into it hides it.
+  const pipe2 = document.createElement("div");
+  pipe2.className = "mu-pipe";
+  pipe2.style.left = "calc(72vw - 12px)";
+  pipe2.innerHTML = MU_PIPE;
+  root.appendChild(pipe2);
+  const walk = () => {
+    if (document.hidden) return;
+    const w = document.createElement("div");
+    w.className = "mu-walker";
+    w.innerHTML = MU_WALKER;
+    w.addEventListener("animationend", e => { if (e.target === w) w.remove(); });
+    root.insertBefore(w, pipe2);
+  };
+  if (!calm) {
+    const next = first => festiveTimers.push(setTimeout(() => { walk(); next(false); }, first ? rnd(6e3, 15e3) : rnd(60e3, 120e3)));
+    next(true);
+  }
+
+  // Coins collected this session: one per finished scan.
+  let coins = 0;
+  const counter = document.createElement("span");
+  counter.className = "mu-counter";
+  counter.title = "Coins: one for every scan that's finished since you opened this page";
+  counter.innerHTML = `<i></i><span>×00</span>`;
+  const track = document.querySelector(".scanline .scan-track");
+  track?.parentElement.insertBefore(counter, track);
+  festiveStops.push(() => counter.remove());
+
+  const below = () => (document.querySelector("header")?.getBoundingClientRect().bottom || 60) + 14;
+  festiveHooks.newDevice = h => {
+    if (document.hidden) return;
+    const o = document.createElement("div");
+    o.className = "mu-oneup";
+    o.style.top = below() + "px";
+    o.innerHTML = `<div class="txt">1-UP!<small>${esc(h ? nameOrIp(h) : "a new device")}</small></div>
+      <div class="shroom">${MU_WALKER.replace('<g class="feet">', '<g>')}</div>${MU_BLOCK}`;
+    root.appendChild(o);
+    festiveTimers.push(setTimeout(() => o.remove(), 2800));
+  };
+  festiveHooks.scanDone = () => {
+    coins++;
+    counter.lastElementChild.textContent = "×" + String(coins).padStart(2, "0");
+    const card = $("statLast")?.closest(".stat");
+    if (!card || calm || document.hidden) return;
+    const r = card.getBoundingClientRect();
+    const c = document.createElement("i");
+    c.className = "mu-coinpop";
+    c.style.cssText = `left:${(r.left + r.width / 2 - 7).toFixed(0)}px;top:${(r.top - 6).toFixed(0)}px`;
+    root.appendChild(c);
+    festiveTimers.push(setTimeout(() => c.remove(), 850));
+  };
+  festiveHooks.rendered = () => {
+    for (const id of wentOffIds) {
+      const tr = document.querySelector(`tr[data-id="${id}"]`);
+      if (!tr) continue;
+      tr.classList.add("mu-bonk");
+      festiveTimers.push(setTimeout(() => tr.classList.remove("mu-bonk"), 950));
+    }
+    wentOffIds = [];
+    const live = hosts.filter(h => !h.ignored && !h.forgotten);
+    $("mapClusters")?.classList.toggle("mu-allup", live.length > 0 && live.every(h => h.online));
+  };
+  festiveStops.push(() => $("mapClusters")?.classList.remove("mu-allup"));
+  festiveHooks.rendered();
+}
 
 // ---- livelier everyday themes ----
 // Matrix: digital rain behind the page, your devices' names falling in it,
