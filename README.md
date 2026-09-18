@@ -81,7 +81,8 @@ optional daily update check you have to switch on, and your own webhook.
 - One script installs *and* updates, preserving your config and database
 - Scheduled nightly backups keeping 30 snapshots, safe to sync to cloud storage
 - Optional password (HTTP Basic), optional HTTPS
-- 17 themes, a mobile card layout, and a comic-book splat when you switch them
+- 17 themes (and a couple more, if you know how to ask), a mobile card layout, and a
+  comic-book splat when you switch them
 
 **For scripts and AI agents**
 - `GET /api/hosts.txt` returns the whole device table as plain text — no JSON,

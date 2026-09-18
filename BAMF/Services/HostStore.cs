@@ -154,6 +154,7 @@ public partial class HostStore
         ScrubSyntheticHostnames(conn);
         InitSwitches(conn);
         InitMapPositions(conn);
+        InitDeviceTypes(conn);
     }
 
     /// <summary>Every address a host has been seen at, oldest first, with when each began.</summary>
@@ -756,16 +757,19 @@ public partial class HostStore
         lock (_lock)
         {
             using var conn = Open();
-            var pending = new List<(long Id, string Vendor, string Hostname)>();
+            var pending = new List<(long Id, string Vendor, string Hostname, string Mac)>();
             using (var cmd = conn.CreateCommand())
             {
-                cmd.CommandText = "SELECT id, vendor, hostname FROM hosts WHERE os_guess = ''";
+                cmd.CommandText = "SELECT id, vendor, hostname, mac FROM hosts WHERE os_guess = ''";
                 using var r = cmd.ExecuteReader();
-                while (r.Read()) pending.Add((r.GetInt64(0), r.GetString(1), r.GetString(2)));
+                while (r.Read()) pending.Add((r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3)));
             }
-            foreach (var (id, vendor, hostname) in pending)
+            foreach (var (id, vendor, hostname, mac) in pending)
             {
-                var guess = OsFingerprint.Passive(vendor, hostname);
+                // A hypervisor's MAC prefix says more than the vendor name does.
+                var guess = VirtualMac.Platform(mac) is string platform
+                    ? VirtualMac.Guess(platform)
+                    : OsFingerprint.Passive(vendor, hostname);
                 if (guess == "") continue;
                 using var upd = conn.CreateCommand();
                 upd.CommandText = "UPDATE hosts SET os_guess = $g WHERE id = $id";
@@ -865,6 +869,7 @@ public partial class HostStore
             }
             ForgetHostInLayout(conn, id);
             ForgetMapNode(conn, $"h:{id}");
+            ForgetDeviceType(conn, id);
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "DELETE FROM hosts WHERE id = $id";
             cmd.Parameters.AddWithValue("$id", id);

@@ -173,6 +173,22 @@
     --led-off:#f4cbe4; --danger:#f47ca0; --focus:#b39ddb; --radius:12px;
   }
 
+  /* ---- secret holiday themes (type BAMF to unlock) ---- */
+  [data-theme="christmas"] {
+    --bg:#0b1712; --panel:#11241a; --panel-2:#173022; --line:#25483a;
+    --text:#f6f1e4; --text-dim:#a8c3b0; --led-on:#3ddc6f; --led-warn:#ffcb3d;
+    --led-off:#35493e; --danger:#ff4d4d; --focus:#ff5f5f; --radius:10px;
+  }
+  [data-theme="christmas"] .brand h1 { color:#ff5f5f; text-shadow:0 0 10px rgba(255,95,95,.55); }
+  [data-theme="christmas"] .brand h1::after { content:" 🎄"; text-shadow:none; }
+  [data-theme="halloween"] {
+    --bg:#0f0913; --panel:#1a1020; --panel-2:#24162c; --line:#3e2749;
+    --text:#f5e9d8; --text-dim:#b39bbd; --led-on:#8cff4f; --led-warn:#ff8c1a;
+    --led-off:#4a3553; --danger:#ff3b6b; --focus:#ff8c1a; --radius:10px;
+  }
+  [data-theme="halloween"] .brand h1 { color:#ff8c1a; text-shadow:0 0 10px rgba(255,140,26,.6); }
+  [data-theme="halloween"] .brand h1::after { content:" 🎃"; text-shadow:none; }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
@@ -714,6 +730,30 @@
   .map-svg .t-port { font: 10px "IBM Plex Mono", monospace; fill: var(--text-dim); }
   .map-svg .t-box { fill: color-mix(in srgb, var(--panel-2) 45%, transparent); stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 5 4; }
   .map-svg .t-box-title { font: 600 11px "IBM Plex Mono", monospace; fill: var(--text-dim); }
+  /* A virtual switch lives inside its machine: dashed tile, dashed link to it. */
+  .map-svg .node.virtual .t-tile { stroke-dasharray: 3 2; }
+  .map-svg path.spoke.vlink { stroke: var(--text-dim); stroke-dasharray: 4 3; }
+  /* The Type / icon picker. */
+  .type-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; margin: 10px 0 12px; }
+  .type-opt {
+    display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 9px 4px 7px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--text); font: inherit; font-size: 12px; cursor: pointer; text-align: center;
+  }
+  .type-opt:hover { border-color: var(--focus); }
+  .type-opt.sel { border-color: var(--focus); box-shadow: inset 0 0 0 1px var(--focus); }
+  .type-opt svg, .type-ico { width: 24px; height: 24px; flex: 0 0 auto; }
+  .type-opt path, .type-ico path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .type-opt .auto-note { color: var(--text-dim); font-size: 10.5px; }
+  .type-all { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 0 0 8px; }
+  .set-table .type-cell { display: inline-flex; align-items: center; gap: 8px; }
+  .vm-badge { font-size: 11px; color: var(--focus); margin-left: 6px; white-space: nowrap; }
+  .vm-table { width: 100%; border-collapse: collapse; min-width: 0; margin-bottom: 10px; display: table; }
+  .vm-table tbody { display: table-row-group; }
+  .vm-table tr { display: table-row; background: none; border: 0; border-radius: 0; margin: 0; padding: 0; position: static; }
+  .vm-table td { display: table-cell; border: 0; padding: 5px 0; font-size: 13px; vertical-align: middle; }
+  .vm-table td:first-child { width: 1%; padding-right: 10px; }
+  .vm-table .vm-ip { color: var(--text-dim); font-family: "IBM Plex Mono", monospace; font-size: 12px; margin-left: 6px; }
   .map-svg .drop-target .t-tile, .map-svg .t-box.drop-target { stroke: var(--focus); stroke-width: 3; stroke-dasharray: none; }
   .map-svg .node:focus-visible .t-tile { stroke: var(--focus); stroke-width: 3; }
   @media (max-width: 700px) { .topo-frame { height: 70vh; margin: 8px -14px -8px; } }
@@ -927,16 +967,22 @@
     .splat.fade .burst-group { animation: none; opacity: 0; transition: opacity .2s; }
   }
 
+  /* minmax(0, 1fr) and min-width: 0 let a long name shrink to "…" instead
+     of pushing the grid wider than the menu, which made it scroll sideways. */
   .theme-menu {
     position: fixed; z-index: 10000; display: none;
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-    padding: 8px; width: 260px; max-height: 70vh; overflow-y: auto;
+    padding: 8px; width: min(300px, calc(100vw - 16px)); max-height: 70vh; overflow-y: auto; overflow-x: hidden;
     box-shadow: 0 12px 40px rgba(0,0,0,.4);
-    grid-template-columns: 1fr 1fr; gap: 4px;
+    grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px;
+  }
+  .theme-menu .theme-head {
+    grid-column: 1 / -1; font: 600 10.5px "IBM Plex Mono", monospace; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: .08em; padding: 8px 8px 2px;
   }
   .theme-menu.show { display: grid; }
   .theme-item {
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: center; gap: 8px; min-width: 0;
     background: none; border: 1px solid transparent; border-radius: 8px;
     padding: 8px; cursor: pointer; font: inherit; color: var(--text); text-align: left;
   }
@@ -944,7 +990,58 @@
   .theme-item.active { border-color: var(--focus); }
   .theme-item .sw { display: inline-flex; gap: 2px; flex-shrink: 0; }
   .theme-item .sw i { width: 9px; height: 16px; border-radius: 2px; display: block; }
-  .theme-item .tn { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .theme-item .tn { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+  /* ---- holiday decorations: drawn over the page, never in the way ---- */
+  #festive { position: fixed; inset: 0; pointer-events: none; z-index: 45; overflow: hidden; }
+  #festive > svg { position: absolute; overflow: visible; }
+  .xl-wire { fill: none; stroke: #1f3b2c; stroke-width: 1.6; }
+  .xl-cap { fill: #3a3a2e; }
+  .xl .glass { fill: var(--c); filter: drop-shadow(0 0 3px var(--c)); }
+  .xl.twinkle { animation: xl-twinkle var(--d) ease-in-out var(--o) infinite alternate; }
+  .xl.blink { animation: xl-blink var(--d) steps(1) var(--o) infinite; }
+  .xl.spark .glass { fill: #fff; filter: drop-shadow(0 0 8px #fff); }
+  @keyframes xl-twinkle { from { opacity: 1; } to { opacity: .25; } }
+  @keyframes xl-blink { 0% { opacity: 1; } 50% { opacity: .15; } }
+  .orn { animation: orn-swing var(--d) ease-in-out var(--o) infinite alternate; }
+  .orn line { stroke: #c8b98a; stroke-width: 1; }
+  @keyframes orn-swing { from { transform: rotate(-7deg); } to { transform: rotate(7deg); } }
+  .snow { position: absolute; top: -12px; border-radius: 50%; background: #fff; opacity: .7;
+    animation: snow-fall var(--d) linear var(--o) infinite; }
+  @keyframes snow-fall { to { transform: translate(var(--x), 108vh); } }
+  .web line, .web path { stroke: rgba(255,255,255,.2); stroke-width: 1; fill: none; }
+  .spider-wrap { position: absolute; top: -220px; width: 30px; animation: spider-drop 5s ease-in-out infinite alternate; }
+  .spider-thread { position: absolute; left: 14px; top: 0; width: 1px; height: 220px; background: rgba(255,255,255,.35); }
+  @keyframes spider-drop { from { transform: translateY(60px); } to { transform: translateY(170px); } }
+  .pumpkin .face { fill: #ffd23f; animation: pumpkin-flicker 2.4s steps(6) infinite; }
+  @keyframes pumpkin-flicker { 0%, 100% { opacity: 1; } 30% { opacity: .55; } 50% { opacity: .9; } 70% { opacity: .65; } }
+  .bat { position: absolute; left: 0; width: 46px; animation: bat-fly var(--d) linear forwards; }
+  .bat.rtl { animation-name: bat-fly-rtl; }
+  .bat svg { position: static; width: 46px; animation: bat-flap .22s ease-in-out infinite alternate; }
+  .bat path { fill: #0a0508; stroke: #ff8c1a; stroke-width: .6; }
+  @keyframes bat-flap { from { transform: scaleY(1); } to { transform: scaleY(.45); } }
+  @keyframes bat-fly {
+    0% { transform: translate(-60px, 0); } 25% { transform: translate(25vw, -40px); }
+    50% { transform: translate(50vw, 20px); } 75% { transform: translate(75vw, -30px); } 100% { transform: translate(105vw, 10px); }
+  }
+  @keyframes bat-fly-rtl {
+    0% { transform: translate(105vw, 0) scaleX(-1); } 25% { transform: translate(75vw, -40px) scaleX(-1); }
+    50% { transform: translate(50vw, 20px) scaleX(-1); } 75% { transform: translate(25vw, -30px) scaleX(-1); } 100% { transform: translate(-60px, 10px) scaleX(-1); }
+  }
+  .ghost { position: absolute; bottom: -90px; width: 54px; opacity: 0; animation: ghost-rise 11s ease-in-out forwards; }
+  .ghost svg { position: static; width: 54px; }
+  @keyframes ghost-rise {
+    0% { transform: translate(0, 0); opacity: 0; } 15% { opacity: .75; }
+    50% { transform: translate(30px, -45vh); } 85% { opacity: .6; } 100% { transform: translate(-20px, -95vh); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { #festive, #festive * { animation: none !important; } }
+
+  /* ---- the secret ---- */
+  .secret-modal { text-align: center; }
+  .secret-emoji { font-size: 52px; line-height: 1.1; margin-bottom: 6px; animation: secret-pop .6s cubic-bezier(.18,1.4,.4,1); }
+  @keyframes secret-pop { from { transform: scale(.2) rotate(-20deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  .secret-picks { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 12px 0 6px; }
+  .secret-picks button { font-size: 15px; padding: 10px 16px; }
 
   .stat.clickable { cursor: pointer; transition: border-color .15s; }
   .stat.clickable:hover { border-color: var(--focus); }
@@ -1281,6 +1378,17 @@
     </div>
   </div>
 
+  <div class="set-card" id="typeIconCard">
+    <div class="set-card-title">Device icons</div>
+    <p class="modal-help">
+      Icons you've chosen for a whole type BAMF guesses: every <em>Linux</em> device as a server,
+      say. Set one from any device's <strong>Type / icon…</strong> with "use this for every …
+      device" ticked. A type you set on one device always wins over these.
+    </p>
+    <table class="set-table" id="typeIconTable"></table>
+    <div class="modal-note" id="typeIconEmpty">None yet: the Map picks each icon from the device's guess and names.</div>
+  </div>
+
   <div class="set-card">
     <div class="set-card-title">Behaviour</div>
     <p class="modal-help">
@@ -1444,9 +1552,44 @@
     <div class="set-result" id="plugErr"></div>
     <div class="modal-actions">
       <button class="toggle" id="plugNewSwitch">Add a switch…</button>
+      <button class="toggle" id="plugType">Type / icon…</button>
       <button class="toggle" id="plugFind">Find in list</button>
       <button class="toggle" id="plugCancel">Cancel</button>
       <button class="export-btn" id="plugSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="secretModal" hidden>
+  <div class="modal secret-modal">
+    <div class="secret-emoji" id="secretEmoji">🎁</div>
+    <div class="modal-title" id="secretTitle">You found the secret!</div>
+    <p class="modal-help" id="secretText">
+      Typing BAMF unlocked two holiday themes. They're in the theme menu from now on, under Secret.
+    </p>
+    <div class="secret-picks">
+      <button class="export-btn" data-secret="christmas">🎄 Christmas</button>
+      <button class="export-btn" data-secret="halloween">🎃 Halloween</button>
+    </div>
+    <div class="modal-actions" style="justify-content:center">
+      <button class="toggle" id="secretClose">Maybe later</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="typeModal" hidden>
+  <div class="modal">
+    <div class="modal-title" id="typeTitle">Type</div>
+    <div class="modal-note" id="typeSub"></div>
+    <div class="type-grid" id="typeGrid"></div>
+    <label class="type-all" id="typeAllRow"><input type="checkbox" id="typeAll"> <span id="typeAllText"></span></label>
+    <p class="modal-help" id="typeHelp">
+      The type sets the device's icon on the Map and which Device type chip it's under. Automatic
+      goes back to BAMF's guess. Click one to save.
+    </p>
+    <div class="set-result" id="typeErr"></div>
+    <div class="modal-actions">
+      <button class="toggle" id="typeCancel">Close</button>
     </div>
   </div>
 </div>
@@ -1485,30 +1628,39 @@
         <option value="switch">Switch</option>
         <option value="router">Router / gateway</option>
         <option value="ap">Access point</option>
+        <option value="virtual">Virtual switch (Proxmox, ESXi, Hyper-V)</option>
       </select>
+    </label>
+    <label class="modal-row" id="swRunsRow">Runs on
+      <select id="swRuns"></select>
     </label>
     <label class="modal-row">Name
       <input id="swName" class="modal-input" maxlength="60" placeholder="e.g. Office SG1016DE" autocomplete="off">
     </label>
-    <label class="modal-row">Ports
+    <label class="modal-row" id="swPortsRow">Ports
       <input id="swPorts" class="modal-input" type="number" min="1" max="128" step="1">
     </label>
-    <label class="modal-row">Its device in BAMF
+    <label class="modal-row" id="swHostRow">Its device in BAMF
       <select id="swHost"></select>
     </label>
     <label class="modal-row" id="swNetRow">Network
       <select id="swNet"></select>
     </label>
-    <label class="modal-row">Plugged into
+    <label class="modal-row" id="swUpRow">Plugged into
       <select id="swUp"></select>
     </label>
     <label class="modal-row" id="swUpPortRow">Port
       <select id="swUpPort"></select>
     </label>
-    <p class="modal-help">
+    <p class="modal-help" id="swHelp">
       If the switch has an address BAMF sees, pick it as its device: the Map then shows the
       switch online or offline, and its network comes from that device. Leave it at None for an
       unmanaged switch, or one on an address BAMF doesn't scan.
+    </p>
+    <p class="modal-help" id="swHelpVirtual">
+      A virtual switch lives inside a machine: Proxmox's vmbr0, ESXi's vSwitch0, a Hyper-V
+      external switch. Pick that machine. Its VMs' traffic leaves through that machine's cable, so
+      on the Map it hangs off the machine, and Find port on a VM pulses the machine's switch port.
     </p>
     <div class="set-result" id="swErr"></div>
     <div class="modal-actions">
@@ -1572,6 +1724,7 @@ let subnetIntervals = {};  // subnet -> effective interval in seconds
 let subnetNextDue = {};    // subnet -> ISO time the scanner will next run it (paused: absent)
 let networkPlaces = {};    // subnet -> { selfIp, selfMac, gateway }: what the map knows for certain
 let mapPositions = {};     // topology Map: subnet -> node key -> [x, y] the user dragged to
+let typeIcons = {};        // guessed type -> icon the user chose for all of them: { "Linux": "server" }
 let switches = [];         // the switch layout the user recorded: [{ id, name, ports, subnet, hostId, uplink, uplinkSwitch, uplinkPort }]
 let activeArp = { enabled: false, npcapAvailable: false };
 let autoIgnoreRandom = false;
@@ -1842,6 +1995,17 @@ function dispName(h) {
 // the name, then the evidence it rests on. The name alone is the type, and
 // grouping by it costs nothing - no new taxonomy, no second list to maintain.
 // Devices with no guess share the null family and get their own chip.
+// The types a user can set on a device, each with its Map icon. Same keys as the server's.
+const TYPE_DEFS = [
+  ["router", "Router"], ["switch", "Switch"], ["ap", "Access point"], ["camera", "Camera"], ["printer", "Printer"],
+  ["tv", "TV / media"], ["speaker", "Speaker"], ["phone", "Phone"], ["tablet", "Tablet"], ["laptop", "Laptop"],
+  ["desktop", "Desktop"], ["server", "Server"], ["nas", "NAS"], ["vm", "Virtual machine"], ["game", "Game console"],
+  ["iot", "Smart home"], ["light", "Light"], ["plug", "Smart plug"], ["device", "Other"],
+];
+function typeLabel(key) { const d = TYPE_DEFS.find(([k]) => k === key); return d ? d[1] : key; }
+// A device's type family for the type chips: the one the user set, or the guess.
+function typeFamily(h) { return h.deviceType ? typeLabel(h.deviceType) : guessFamily(h.osGuess); }
+
 function guessFamily(osGuess) {
   if (!osGuess) return null;
   const cut = osGuess.indexOf(" (");
@@ -1853,7 +2017,7 @@ function visible(opts) {
   const ignoreGuess = !!(opts && opts.ignoreGuess);
   return hosts.filter(h => {
     if (!inNetwork(h)) return false;
-    if (!ignoreGuess && guessFilter !== null && guessFamily(h.osGuess) !== (guessFilter === NO_GUESS ? null : guessFilter)) return false;
+    if (!ignoreGuess && guessFilter !== null && typeFamily(h) !== (guessFilter === NO_GUESS ? null : guessFilter)) return false;
     if (view === "forgotten") { if (!h.forgotten) return false; }
     else {
       if (h.forgotten) return false;
@@ -1874,7 +2038,8 @@ function visible(opts) {
 // in .245, and "192.168.2.*" finds a whole subnet.
 function matchesQuery(h, query) {
   if (!query) return true;
-  const fields = [h.customName, h.hostname, h.mdnsName, h.mdnsServices, h.ip, h.mac, h.vendor, h.note, h.osGuess].filter(Boolean);
+  const fields = [h.customName, h.hostname, h.mdnsName, h.mdnsServices, h.ip, h.mac, h.vendor, h.note, h.osGuess,
+    h.deviceType ? typeLabel(h.deviceType) : ""].filter(Boolean);
   if (/[*?]/.test(query)) {
     let rx;
     try {
@@ -1900,7 +2065,7 @@ function renderGuessChips() {
   const pool = visible({ ignoreGuess: true });
   const counts = new Map();
   for (const h of pool) {
-    const key = guessFamily(h.osGuess) ?? NO_GUESS;
+    const key = typeFamily(h) ?? NO_GUESS;
     counts.set(key, (counts.get(key) || 0) + 1);
   }
 
@@ -2148,7 +2313,7 @@ function mapClusters() {
     const sws = switches.filter(s => shown.has(s.id));
     const swHosts = new Set(sws.map(s => s.hostId).filter(Boolean));
     const ring = members.filter(h => h !== self && h !== gw && !placed.includes(h) && !swHosts.has(h.id)).sort((a, b) => {
-      const fa = guessFamily(a.osGuess), fb = guessFamily(b.osGuess);
+      const fa = typeFamily(a), fb = typeFamily(b);
       if ((fa === null) !== (fb === null)) return fa === null ? 1 : -1;
       return (fa || "").localeCompare(fb || "") || dispName(a).localeCompare(dispName(b)) || ipNum(a.ip) - ipNum(b.ip);
     });
@@ -2160,9 +2325,9 @@ function mapSignature(clusters) {
   const key = n => n ? (n.synthetic ? "~" + n.ip : n.id) : null;
   return JSON.stringify([network, mapStyle, clusters.map(c => [
     c.subnet, c.mode, key(c.self), key(c.gw),
-    c.ring.map(h => [h.id, guessFamily(h.osGuess), dispName(h), h.ip]),
+    c.ring.map(h => [h.id, typeFamily(h), deviceKind(h), dispName(h), h.ip]),
     c.switches.map(s => [s.id, s.name, s.ports, s.hostId, s.uplink, s.uplinkSwitch, s.uplinkPort, s.portLabels]),
-    c.placed.map(h => [h.id, h.switchId, h.switchPort, dispName(h), h.ip]),
+    c.placed.map(h => [h.id, h.switchId, h.switchPort, deviceKind(h), dispName(h), h.ip]),
     mapStyle === "topology" ? mapPositions[c.subnet] || null : null,
   ])]);
 }
@@ -2180,7 +2345,7 @@ function mapTitle(h, role) {
   }
   const lines = [dispName(h) === "—" ? h.ip : dispName(h), `${h.ip} · ${h.mac}`];
   if (h.vendor) lines.push(h.vendor);
-  lines.push(h.osGuess ? "Guess: " + h.osGuess : "No guess yet");
+  lines.push(h.deviceType ? "Type: " + typeLabel(h.deviceType) + " (yours)" : h.osGuess ? "Guess: " + h.osGuess : "No guess yet");
   const sw = h.switchId ? switches.find(s => s.id === h.switchId) : null;
   if (sw) lines.push(`Plugged into ${sw.name}` + (h.switchPort ? `, ${portText(sw, h.switchPort)}` : "") + " (your record)");
   if (role === "gw") lines.push("Default gateway for this network");
@@ -2226,7 +2391,7 @@ function buildClusterSvg(c) {
   }
   let prev;
   c.ring.forEach((h, i) => {
-    const f = guessFamily(h.osGuess);
+    const f = typeFamily(h);
     if (i > 0 && f !== prev) slots.push(null);
     slots.push({ h });
     prev = f;
@@ -2403,9 +2568,25 @@ function buildClusterSvg(c) {
 }
 
 // Switches, routers and access points are one kind of record with a type.
-function kindNoun(kind) { return kind === "router" ? "router" : kind === "ap" ? "access point" : "switch"; }
-// "(router, 4 ports)", or "(8 ports)" for a plain switch.
-function kindPorts(sw) { return `(${sw.kind && sw.kind !== "switch" ? kindNoun(sw.kind) + ", " : ""}${sw.ports} ports)`; }
+function kindNoun(kind) {
+  return kind === "router" ? "router" : kind === "ap" ? "access point" : kind === "virtual" ? "virtual switch" : "switch";
+}
+// The machine a virtual switch runs on.
+function runsOnHost(sw) { return sw && sw.kind === "virtual" && sw.runsOn ? hosts.find(h => h.id === sw.runsOn) || null : null; }
+// "(router, 4 ports)", "(8 ports)" for a plain switch, "(virtual switch on proxmox)".
+function kindPorts(sw) {
+  if (sw.kind === "virtual") { const on = runsOnHost(sw); return `(virtual switch${on ? " on " + nameOrIp(on) : ""})`; }
+  return `(${sw.kind && sw.kind !== "switch" ? kindNoun(sw.kind) + ", " : ""}${sw.ports} ports)`;
+}
+// Hypervisors give virtual NICs well-known MAC prefixes; the same list as the server's.
+const VM_PREFIXES = [["BC2411", "Proxmox"], ["525400", "QEMU/KVM"], ["005056", "VMware"], ["000C29", "VMware"],
+  ["000569", "VMware"], ["001C14", "VMware"], ["00155D", "Hyper-V"], ["080027", "VirtualBox"], ["00163E", "Xen"],
+  ["001C42", "Parallels"], ["0242", "Docker"]];
+function vmPlatform(mac) {
+  const c = (mac || "").replace(/[:-]/g, "").toUpperCase();
+  const hit = VM_PREFIXES.find(([p]) => c.startsWith(p));
+  return hit ? hit[1] : null;
+}
 // The network's default gateway, by BAMF's routing table or the device's own guess.
 function isGatewayHost(h) {
   const p = networkPlaces[h.subnet];
@@ -2420,6 +2601,7 @@ function portText(sw, port) {
 }
 
 function uplinkText(sw) {
+  if (sw.kind === "virtual") { const on = runsOnHost(sw); return on ? `Runs on ${nameOrIp(on)}` : "Machine not recorded"; }
   if (sw.uplink === "router") return "Plugged into the router";
   if (sw.uplink === "switch") {
     const up = switches.find(s => s.id === sw.uplinkSwitch);
@@ -2431,6 +2613,10 @@ function uplinkText(sw) {
 function switchTitle(sw) {
   const host = sw.hostId ? hosts.find(h => h.id === sw.hostId) : null;
   const n = hosts.filter(h => h.switchId === sw.id && !h.forgotten).length;
+  if (sw.kind === "virtual") {
+    return [sw.name, "Virtual switch · your record", uplinkText(sw), `${n} VM${n === 1 ? "" : "s"} recorded on it`,
+      "Click to choose its VMs"].join("\n");
+  }
   const lines = [sw.name, `${sw.ports}-port ${kindNoun(sw.kind)} · your record`];
   if (host) {
     lines.push(`${host.ip} · ${host.mac}`);
@@ -2468,6 +2654,7 @@ const TOPO = {
   SELF_DX: 250,        // this machine sits beside the router
   BOX_COL: 220, BOX_ROWS: 10, BOX_PAD: 18,
   CHAR: 6.7,           // estimated width of one character of a label
+  VS_DX: 250,          // a virtual switch sits this far right of the machine it runs on
 };
 
 // 24×24 line drawings, one per kind of device. Plain paths, no library.
@@ -2487,9 +2674,16 @@ const TOPO_ICONS = {
   iot: "M8 8h8v8H8z M10 4v4 M14 4v4 M10 16v4 M14 16v4 M4 10h4 M4 14h4 M16 10h4 M16 14h4",
   net: "M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6 11a3.5 3.5 0 0 0 1 7z",
   device: "M4 12a8 8 0 1 0 16 0a8 8 0 1 0 -16 0 M12 12h.01",
+  vm: "M3 5h18v14H3z M3 9h18 M6 7h.01 M9 7h.01 M8 14h8",
+  nas: "M5 3h14v18H5z M8 7h8 M8 11h8 M8 15h5 M16 17.5h.01",
+  game: "M6 9h12a4 4 0 0 1 4 4v1a3 3 0 0 1-5.5 1.7L15 14H9l-1.5 1.7A3 3 0 0 1 2 14v-1a4 4 0 0 1 4-4z M7 11.5v2 M6 12.5h2 M16 12h.01 M18 13.5h.01",
+  light: "M9 18h6 M10 21h4 M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3z",
+  plug: "M8 3v5 M16 3v5 M6 8h12v4a6 6 0 0 1-12 0z M12 18v3",
+  vswitch: "M2 9h20v7H2z M5 12.5h1.5 M8.5 12.5h1.5 M12 12.5h1.5 M15.5 12.5h1.5 M5 5.5h14",
 };
 // Which drawing, from the device guess, then its names and vendor. First match wins.
 const TOPO_KINDS = [
+  ["vm", /virtual machine|container \(docker/],
   ["router", /router|gateway/],
   ["switch", /switch|network gear/],
   ["ap", /access point|\bap\b|wi-?fi|\bwap\b/],
@@ -2501,9 +2695,23 @@ const TOPO_KINDS = [
   ["tablet", /ipad|tablet|kindle/],
   ["laptop", /macbook|laptop|notebook|chromebook/],
   ["desktop", /windows|desktop|workstation|imac|\bpc\b/],
-  ["server", /\bnas\b|synology|qnap|server|proxmox|truenas|unraid|raspberry|linux|ssh host|home assistant|pihole/],
+  ["nas", /\bnas\b|synology|qnap|truenas|unraid|file server/],
+  ["game", /xbox|playstation|nintendo|steam ?deck/],
+  ["server", /server|proxmox|raspberry|linux|ssh host|home assistant|pihole/],
   ["iot", /esp32|esp8266|esphome|\biot\b|hue|homekit|matter|nest|thermostat|plug|bulb|amazon device/],
 ];
+function deviceKind(h) {
+  if (!h || h.synthetic) return "device";
+  if (h.deviceType && TOPO_ICONS[h.deviceType]) return h.deviceType;
+  return autoKind(h);
+}
+// What the icon would be without a type set on the device itself.
+function autoKind(h) {
+  if (!h || h.synthetic) return "device";
+  const fam = guessFamily(h.osGuess);
+  if (fam && typeIcons[fam] && TOPO_ICONS[typeIcons[fam]]) return typeIcons[fam];
+  return topoKind(h);
+}
 function topoKind(h) {
   if (!h || h.synthetic) return "device";
   const text = [h.osGuess, h.customName, h.hostname === "—" ? "" : h.hostname, h.mdnsName, h.vendor]
@@ -2537,9 +2745,37 @@ function topoModel(c) {
   const byPort = (a, b) => (a.switchPort || 1e9) - (b.switchPort || 1e9) || nameOrIp(a).localeCompare(nameOrIp(b));
   const rootDevs = rootRec ? c.placed.filter(h => h.switchId === rootRec.id).sort(byPort) : [];
   if (rootRec) seen.add(rootRec.id);
+
+  // Virtual switches hang to the right of the machine they run on, their VMs
+  // listed under them. col.bottom keeps two on one column from overlapping.
+  // Returns how far right of the machine they reach.
+  const vsAll = c.switches.filter(s => s.kind === "virtual");
+  const hung = new Set();
+  const hang = (hostId, hostKey, hx, hy, col) => {
+    let reach = 0;
+    for (const vs of vsAll.filter(s => s.runsOn === hostId && !hung.has(s.id))) {
+      hung.add(vs.id);
+      const vy = Math.max(hy, col.bottom + 30);
+      const key = "s:" + vs.id;
+      add(key, { type: "switch", sw: vs, host: null, parent: hostKey, auto: [hx + TOPO.VS_DX, vy], edge: { style: "vside", vlink: true } });
+      const vms = c.placed.filter(h => h.switchId === vs.id).sort(byPort);
+      vms.forEach((h, j) => add("h:" + h.id, { type: "dev", host: h, parent: key,
+        auto: [hx + TOPO.VS_DX + TOPO.PORT_INDENT, vy + 64 + j * TOPO.ROW],
+        edge: { style: "list", cable: false, sw: vs, port: 0 } }));
+      col.bottom = vy + 40 + vms.length * TOPO.ROW;
+      reach = Math.max(reach, TOPO.VS_DX + (vms.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 190 : 2 * TOPO.T + 30 + vs.name.length * TOPO.CHAR));
+    }
+    return reach;
+  };
+
   // The router's own ports hang in a column under it, so the switch row starts
-  // to the right of that column.
-  if (rootDevs.length) x = TOPO.PORT_INDENT + 2 * TOPO.T + 190 + TOPO.COL_GAP;
+  // to the right of that column (and of any virtual switches off it).
+  if (rootDevs.length) {
+    const col = { bottom: -1e9 };
+    let reach = 0;
+    rootDevs.forEach((h, i) => { reach = Math.max(reach, hang(h.id, "h:" + h.id, TOPO.T + TOPO.PORT_INDENT, 70 + i * TOPO.ROW, col)); });
+    x = TOPO.PORT_INDENT + 2 * TOPO.T + Math.max(190, reach) + TOPO.COL_GAP;
+  }
   const place = (sw, left, parentKey, edge) => {   // returns the region's width
     if (seen.has(sw.id)) return 0;
     seen.add(sw.id);
@@ -2550,8 +2786,14 @@ function topoModel(c) {
     devs.forEach((h, i) => add("h:" + h.id, { type: "dev", host: h, parent: key,
       auto: [left + TOPO.T + TOPO.PORT_INDENT, y1 + 70 + i * TOPO.ROW],
       edge: { style: "list", cable: true, sw, port: h.switchPort } }));
-    let width = Math.max(devs.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 190 : 0, 2 * TOPO.T + 30 + sw.name.length * TOPO.CHAR);
-    c.switches.filter(s => s.uplink === "switch" && s.uplinkSwitch === sw.id && shown.has(s.id))
+    const col = { bottom: -1e9 };
+    let vsReach = 0;
+    devs.forEach((h, i) => {
+      vsReach = Math.max(vsReach, hang(h.id, "h:" + h.id, left + TOPO.T + TOPO.PORT_INDENT, y1 + 70 + i * TOPO.ROW, col));
+    });
+    let width = Math.max(devs.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 190 : 0, 2 * TOPO.T + 30 + sw.name.length * TOPO.CHAR,
+      vsReach ? TOPO.PORT_INDENT + TOPO.T + vsReach + 20 : 0);
+    c.switches.filter(s => s.kind !== "virtual" && s.uplink === "switch" && s.uplinkSwitch === sw.id && shown.has(s.id))
       .sort((a, b) => (a.uplinkPort || 1e9) - (b.uplinkPort || 1e9))
       .forEach(k => {
         const w = place(k, left + width + TOPO.COL_GAP, key, { style: "chain", cable: true, sw, port: k.uplinkPort });
@@ -2562,7 +2804,7 @@ function topoModel(c) {
   // The first row: everything plugged into the router (the recorded one's
   // ports, or just "the router"), then anything whose uplink isn't recorded.
   const onRoot = s => rootRec && s.uplink === "switch" && s.uplinkSwitch === rootRec.id;
-  c.switches.filter(s => s !== rootRec && (onRoot(s) || !(s.uplink === "switch" && shown.has(s.uplinkSwitch))))
+  c.switches.filter(s => s !== rootRec && s.kind !== "virtual" && (onRoot(s) || !(s.uplink === "switch" && shown.has(s.uplinkSwitch))))
     .sort((a, b) => (onRoot(b) || b.uplink === "router") - (onRoot(a) || a.uplink === "router") || (a.uplinkPort || 1e9) - (b.uplinkPort || 1e9))
     .forEach(sw => {
       const edge = onRoot(sw)
@@ -2571,6 +2813,21 @@ function topoModel(c) {
       const w = place(sw, x, rootKey, edge);
       if (w) x += w + TOPO.COL_GAP * 1.4;
     });
+
+  // Virtual switches whose machine isn't in a switch's list (it's in the box,
+  // it's the router or BAMF, or it isn't on this network): their own place at
+  // the end of the switch row, with a dashed link back to the machine.
+  const leftover = vsAll.filter(vs => !hung.has(vs.id));
+  for (const vs of leftover) {
+    hung.add(vs.id);
+    const key = "s:" + vs.id;
+    add(key, { type: "switch", sw: vs, host: null, parent: null, pendingParent: vs.runsOn, auto: [x + TOPO.T, y1], edge: { style: "vlink", vlink: true } });
+    const vms = c.placed.filter(h => h.switchId === vs.id).sort(byPort);
+    vms.forEach((h, j) => add("h:" + h.id, { type: "dev", host: h, parent: key,
+      auto: [x + TOPO.T + TOPO.PORT_INDENT, y1 + 70 + j * TOPO.ROW],
+      edge: { style: "list", cable: false, sw: vs, port: 0 } }));
+    x += Math.max(vms.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 190 : 0, 2 * TOPO.T + 30 + vs.name.length * TOPO.CHAR) + TOPO.COL_GAP;
+  }
 
   // Not recorded on a switch: a grid in the "On this network" box. Devices
   // dragged out of it keep their own place and leave no gap in the grid.
@@ -2604,6 +2861,18 @@ function topoModel(c) {
   }
   if (c.self) add("self", { type: "self", host: c.self, parent: rootKey,
     auto: [nodes.get(rootKey).auto[0] + TOPO.SELF_DX, 0], edge: { style: "under" } });
+  // Now every node exists, link each leftover virtual switch to its machine
+  // (wherever that is on this card), or to the top if it isn't on it.
+  for (const n of nodes.values()) {
+    if (n.pendingParent === undefined) continue;
+    const id = n.pendingParent;
+    n.parent = nodes.has("h:" + id) ? "h:" + id
+      : rootRec && rootRec.hostId === id ? rootKey
+      : c.gw && !c.gw.synthetic && c.gw.id === id ? "gw"
+      : c.self && !c.self.synthetic && c.self.id === id ? "self"
+      : rootKey;
+    delete n.pendingParent;
+  }
   return { subnet: c.subnet, c, nodes, rootKey, saved, override: {}, final: new Map(), els: new Map(), edgeEls: [] };
 }
 
@@ -2630,8 +2899,15 @@ function topoResolve(m) {
   for (const key of m.nodes.keys()) get(key);
 }
 
-function topoPath(style, a, b) {
+function topoPath(style, a, b, fromLabelW) {
   const T = TOPO.T, f = v => v.toFixed(1);
+  // Machine to its virtual switch: out past the machine's label, then across.
+  if (style === "vside") {
+    const sx = a[0] + T + 12 + (fromLabelW || 120);
+    const mx = Math.max(sx + 10, b[0] - T - 14);
+    return `M${f(sx)} ${f(a[1])} H${f(mx)} V${f(b[1])} H${f(b[0] - T)}`;
+  }
+  if (style === "vlink") return `M${f(a[0])} ${f(a[1] + T)} L${f(b[0])} ${f(b[1] - T)}`;
   if (style === "list") return `M${f(a[0])} ${f(a[1] + T)} V${f(b[1])} H${f(b[0] - T)}`;
   if (style === "chain") {
     const top = Math.min(a[1], b[1]) - T - 26;
@@ -2660,7 +2936,7 @@ function topoPlace(m) {
   }
   for (const e of m.edgeEls) {
     const a = m.final.get(e.from), b = m.final.get(e.to);
-    e.path.setAttribute("d", topoPath(e.style, a, b));
+    e.path.setAttribute("d", topoPath(e.style, a, b, (m.nodes.get(e.from) || {}).labelW));
     if (e.label) {
       if (e.style === "list") { e.label.setAttribute("x", (b[0] - TOPO.T - 6).toFixed(1)); e.label.setAttribute("y", (b[1] - 5).toFixed(1)); }
       else if (e.style === "down") { e.label.setAttribute("x", (b[0] + 6).toFixed(1)); e.label.setAttribute("y", (b[1] - TOPO.T - 8).toFixed(1)); }
@@ -2742,7 +3018,7 @@ function buildTopologySvg(c) {
 
   for (const [key, n] of m.nodes) {
     if (n.edge && n.parent) {
-      const path = svgEl("path", { class: "spoke" + (n.edge.cable ? " cable" : "") + (n.type === "dev" && !n.host.online ? " off" : "") });
+      const path = svgEl("path", { class: "spoke" + (n.edge.cable ? " cable" : "") + (n.edge.vlink ? " vlink" : "") + (n.type === "dev" && !n.host.online ? " off" : "") });
       if (n.type === "dev") path.setAttribute("data-id", n.host.id);
       gEdges.appendChild(path);
       let label = null;
@@ -2751,7 +3027,7 @@ function buildTopologySvg(c) {
         const port = n.edge.port;
         // An access point's devices with no port are its Wi-Fi clients.
         const text = port ? topoClip(portText(n.edge.sw, port).replace(/^port /, ""), n.edge.style === "list" ? 17 : 26)
-          : n.edge.sw.kind === "ap" ? "Wi-Fi" : "port ?";
+          : n.edge.sw.kind === "ap" ? "Wi-Fi" : n.edge.sw.kind === "virtual" ? "VM" : "port ?";
         label = svgEl("text", { class: "t-port", "text-anchor": n.edge.style === "list" ? "end" : "start" });
         label.textContent = n.edge.style === "list" ? text : (port ? "port " + text : text);
         gLabels.appendChild(label);
@@ -2785,9 +3061,15 @@ function topoNodeEl(m, key, n) {
   let cls, kind, name, sub, tip;
   if (n.type === "switch") {
     cls = h ? mapNodeClass(h, "sw") : "node sw";
-    kind = n.sw.kind === "router" ? "router" : n.sw.kind === "ap" ? "ap" : "switch";
+    kind = n.sw.kind === "router" ? "router" : n.sw.kind === "ap" ? "ap" : n.sw.kind === "virtual" ? "vswitch" : "switch";
     name = n.sw.name;
-    sub = (n.sw.kind && n.sw.kind !== "switch" ? kindNoun(n.sw.kind) + " · " : "") + `${n.sw.ports} ports` + (h ? " · " + h.ip : "");
+    if (n.sw.kind === "virtual") {
+      const on = runsOnHost(n.sw);
+      cls += " virtual";
+      sub = "virtual switch" + (on ? " · on " + nameOrIp(on) : "");
+    } else {
+      sub = (n.sw.kind && n.sw.kind !== "switch" ? kindNoun(n.sw.kind) + " · " : "") + `${n.sw.ports} ports` + (h ? " · " + h.ip : "");
+    }
     tip = switchTitle(n.sw);
   } else if (n.type === "root") {
     if (h) {
@@ -2799,7 +3081,7 @@ function topoNodeEl(m, key, n) {
   } else if (n.type === "self") {
     cls = mapNodeClass(h, "self"); kind = "server"; name = "BAMF"; sub = h.ip; tip = mapTitle(h, "self");
   } else {
-    cls = mapNodeClass(h, "dev"); kind = topoKind(h); name = nameOrIp(h); tip = mapTitle(h, "dev");
+    cls = mapNodeClass(h, "dev"); kind = deviceKind(h); name = nameOrIp(h); tip = mapTitle(h, "dev");
     // An unnamed device is already labelled by its address: say what it is instead.
     sub = name === h.ip ? (guessFamily(h.osGuess) || h.vendor || "") : h.ip;
   }
@@ -2839,6 +3121,7 @@ function topoActivate(m, key) {
 function topoDropTarget(m, key) {
   const n = m.nodes.get(key), p = m.final.get(key);
   if (n.type !== "dev" && n.type !== "switch") return null;
+  if (n.type === "switch" && n.sw.kind === "virtual") return null;   // it lives inside its machine
   const below = new Set();
   if (n.type === "switch") {
     const walk = k => { for (const [kk, nn] of m.nodes) if (nn.parent === k && nn.type === "switch" && !below.has(kk)) { below.add(kk); walk(kk); } };
@@ -2846,6 +3129,7 @@ function topoDropTarget(m, key) {
   }
   for (const [k, t] of m.nodes) {
     if (k === key || below.has(k)) continue;
+    if (n.type === "switch" && t.type === "switch" && t.sw.kind === "virtual") continue;
     if (t.type === "switch" || (t.type === "root" && n.type === "switch")) {
       const q = m.final.get(k);
       if (Math.hypot(q[0] - p[0], q[1] - p[1]) < 30) return { key: k, node: t };
@@ -3224,7 +3508,9 @@ function render() {
       </td>
       <td class="ip" data-label="IP"><a href="${esc(h.linkUrl || ("http://" + h.ip))}" target="_blank" rel="noopener" title="Open ${esc(h.linkUrl || ("http://" + h.ip))}${h.link ? " (custom link)" : ""}">${esc(h.ip)}${h.link ? '<span class="link-flag" title="Custom link">⇗</span>' : ""}</a></td>
       <td class="mac" data-label="MAC">${esc(h.mac)}</td>
-      <td class="vendor" data-label="Vendor">${esc(h.vendor)}${h.osGuess ? `<span class="os-guess" title="Device guess — heuristic, from ${esc(h.osGuess)}">${esc(h.osGuess)}</span>` : ""}</td>
+      <td class="vendor" data-label="Vendor">${esc(h.vendor)}${h.deviceType
+        ? `<span class="os-guess" title="Type you set${h.osGuess ? " — BAMF guessed " + esc(h.osGuess) : ""}">${esc(typeLabel(h.deviceType))} · your type</span>`
+        : h.osGuess ? `<span class="os-guess" title="Device guess — heuristic, from ${esc(h.osGuess)}">${esc(h.osGuess)}</span>` : ""}</td>
       <td class="ip" data-label="Network">${esc(h.subnet || "—")}</td>
       <td class="seen" data-label="First seen" title="${esc(fmtExact(h.firstSeen))}">${fmtAgo(h.firstSeen)}</td>
       <td class="seen" data-label="Last seen" title="${esc(fmtExact(h.lastSeen))}">${fmtAgo(h.lastSeen)}</td>
@@ -3324,14 +3610,16 @@ function render() {
     } else {
       addItem(h.note ? "Edit note…" : "Add note…", () => openNoteDialog(h));
       addItem(h.link ? "Change link…" : "Set link…", () => setHostLink(h));
+      addItem("Type / icon…", () => openTypeDialog(h));
       const ownSwitch = switches.find(s => s.hostId === h.id);
       if (ownSwitch) {
-        addItem("Ports…", () => openPortsDialog(ownSwitch));
+        addItem(ownSwitch.kind === "virtual" ? "VMs…" : "Ports…", () => openPortsDialog(ownSwitch));
         addItem(`Edit ${kindNoun(ownSwitch.kind)}…`, () => openSwitchDialog(ownSwitch));
       } else {
         addItem(h.switchId ? "Change plugged into…" : "Plugged into…", () => openPlugDialog(h));
         addItem("Find port…", () => { openPlugDialog(h); startBlink(h, "plugBlink"); });
         addItem(isGatewayHost(h) ? "Make this a router…" : "Make this a switch or router…", () => openSwitchDialog(null, h));
+        if (!vmPlatform(h.mac)) addItem("Add a virtual switch on this…", () => openSwitchDialog(null, null, null, { kind: "virtual", runsOn: h.id }));
       }
       addItem("Identify device", () => identifyHost(h));
       addItem("Scan ports", () => scanPorts(h, more, null));
@@ -3592,7 +3880,7 @@ function openPlugDialog(host, preselect = null) {
 }
 function syncPlugPort(current) {
   const sw = switches.find(s => String(s.id) === $("plugSwitch").value);
-  $("plugPortRow").style.display = sw ? "" : "none";
+  $("plugPortRow").style.display = sw && sw.kind !== "virtual" ? "" : "none";
   if (sw) fillPortSelect($("plugPort"), sw, current, { hostId: plugHost?.id });
 }
 function closePlugDialog() { $("plugModal").hidden = true; plugHost = null; plugAfterSave = null; blinkTick(); }
@@ -3600,7 +3888,8 @@ async function savePlugDialog() {
   const h = plugHost;
   if (!h) return;
   const switchId = Number($("plugSwitch").value) || 0;
-  const port = switchId ? Number($("plugPort").value) || 0 : 0;
+  const target = switches.find(s => s.id === switchId);
+  const port = switchId && target && target.kind !== "virtual" ? Number($("plugPort").value) || 0 : 0;
   const btn = $("plugSave");
   btn.disabled = true;
   try {
@@ -3629,7 +3918,7 @@ async function savePlugDialog() {
 
 let swEditing = null;    // the switch being edited; null when adding one
 let swReturnTo = null;   // a device whose "Plugged into" dialog sent us here
-const KIND_PORTS = { switch: 8, router: 4, ap: 2 };   // a starting port count for a new one
+const KIND_PORTS = { switch: 8, router: 4, ap: 2, virtual: 1 };   // a starting port count for a new one
 function openSwitchDialog(sw, fromHost = null, returnTo = null, opts = {}) {
   swEditing = sw;
   swReturnTo = returnTo;
@@ -3637,7 +3926,22 @@ function openSwitchDialog(sw, fromHost = null, returnTo = null, opts = {}) {
   $("swKind").value = kind;
   $("swTitle").textContent = sw ? `Edit ${kindNoun(kind)} — ${sw.name}` : "Add a switch, router or access point";
   $("swName").value = sw ? sw.name : fromHost ? nameOrIp(fromHost) : "";
-  $("swPorts").value = sw ? sw.ports : KIND_PORTS[kind];
+  $("swPorts").value = sw ? sw.ports : KIND_PORTS[kind] || 1;
+  // The machine a virtual switch runs on: any device BAMF sees.
+  const runsSel = $("swRuns");
+  runsSel.innerHTML = "";
+  const none = document.createElement("option");
+  none.value = "0"; none.textContent = "Pick the machine…";
+  runsSel.appendChild(none);
+  hosts.filter(h => !h.forgotten && !vmPlatform(h.mac))
+    .sort((a, b) => (a.subnet || "").localeCompare(b.subnet || "") || ipNum(a.ip) - ipNum(b.ip))
+    .forEach(h => {
+      const o = document.createElement("option");
+      o.value = h.id; o.textContent = `${nameOrIp(h)} · ${h.ip}`;
+      runsSel.appendChild(o);
+    });
+  runsSel.value = String(sw && sw.runsOn ? sw.runsOn : opts.runsOn || (kind === "virtual" && fromHost ? fromHost.id : 0));
+  if (!runsSel.value) runsSel.value = "0";
 
   const hostSel = $("swHost");
   hostSel.innerHTML = "";
@@ -3675,7 +3979,7 @@ function openSwitchDialog(sw, fromHost = null, returnTo = null, opts = {}) {
   upSel.innerHTML = "";
   addOpt(upSel, "", "Not recorded");
   addOpt(upSel, "router", "The router");
-  switches.filter(s => s !== sw && !below.has(s.id))
+  switches.filter(s => s !== sw && !below.has(s.id) && s.kind !== "virtual")
     .forEach(s => addOpt(upSel, "sw:" + s.id, `${s.name} ${kindPorts(s)}`));
   upSel.value = !sw ? "" : sw.uplink === "switch" ? "sw:" + sw.uplinkSwitch : sw.uplink;
 
@@ -3700,6 +4004,13 @@ function pickGatewayForSwitch() {
   }
 }
 function syncSwitchDialog(upPort) {
+  // A virtual switch has a machine instead of a device, a network and an uplink.
+  const virtual = $("swKind").value === "virtual";
+  for (const id of ["swPortsRow", "swHostRow", "swUpRow", "swHelp"]) $(id).style.display = virtual ? "none" : "";
+  $("swRunsRow").style.display = virtual ? "" : "none";
+  $("swHelpVirtual").style.display = virtual ? "" : "none";
+  $("swName").placeholder = virtual ? "e.g. vmbr0 or vSwitch0" : "e.g. Office SG1016DE";
+  if (virtual) { $("swNetRow").style.display = "none"; $("swUpPortRow").style.display = "none"; return; }
   $("swNetRow").style.display = Number($("swHost").value) ? "none" : "";
   const v = $("swUp").value;
   const parent = v.startsWith("sw:") ? switches.find(s => s.id === Number(v.slice(3))) : null;
@@ -3716,6 +4027,7 @@ async function saveSwitchDialog() {
   const v = $("swUp").value;
   const body = {
     kind: $("swKind").value,
+    runsOn: Number($("swRuns").value) || 0,
     name: $("swName").value.trim(),
     ports: Number($("swPorts").value) || 0,
     subnet: $("swNet").value,
@@ -3759,6 +4071,95 @@ async function deleteSwitchDialog() {
   toast(`Switch ${esc(sw.name)} deleted`);
   closeSwitchDialog();
   await refresh();
+}
+
+// ---- Type / icon ----
+// One picker for two jobs: a type for one device, or (ticked, or from
+// Settings) the icon for every device of a guessed type.
+let typeHost = null;     // the device being typed, or null in family mode
+let typeFamilyKey = null;   // the guessed type being given an icon, in family mode
+function typeIconSvg(kind) {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${TOPO_ICONS[kind] || TOPO_ICONS.device}"/></svg>`;
+}
+function openTypeDialog(h, family = null) {
+  typeHost = h;
+  typeFamilyKey = family;
+  const fam = h ? guessFamily(h.osGuess) : family;
+  const current = h ? (h.deviceType || "") : (typeIcons[family] || "");
+  const auto = h ? autoKind({ ...h, deviceType: "" }) : topoKind({ osGuess: family });
+  $("typeTitle").textContent = h ? "Type — " + nameOrIp(h) : `Icon for every "${family}" device`;
+  $("typeSub").textContent = h ? (h.osGuess ? "BAMF's guess: " + h.osGuess : "No guess yet") : "BAMF guesses this type; pick the icon it gets on the Map.";
+  const grid = $("typeGrid");
+  grid.innerHTML = "";
+  const opt = (key, label, note) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "type-opt" + (key === current ? " sel" : "");
+    b.innerHTML = typeIconSvg(key || auto) + `<span></span>` + (note ? `<span class="auto-note"></span>` : "");
+    b.children[1].textContent = label;
+    if (note) b.children[2].textContent = note;
+    b.onclick = () => saveType(key);
+    grid.appendChild(b);
+  };
+  opt("", "Automatic", h ? "BAMF's guess" : "the usual icon");
+  TYPE_DEFS.forEach(([k, label]) => opt(k, label));
+  // In device mode, offer the same icon for all its guessed type at once.
+  $("typeAllRow").style.display = h && fam ? "" : "none";
+  $("typeAll").checked = false;
+  $("typeAllText").textContent = fam ? `Use this icon for every "${fam}" device` : "";
+  showErr("typeErr", "");
+  $("plugModal").hidden = true;
+  $("typeModal").hidden = false;
+}
+function closeTypeDialog() { $("typeModal").hidden = true; typeHost = null; typeFamilyKey = null; }
+async function saveType(key) {
+  const h = typeHost;
+  const fam = h ? guessFamily(h.osGuess) : typeFamilyKey;
+  const everyOfType = !h || (fam && $("typeAll").checked);
+  try {
+    if (everyOfType) {
+      // The whole guessed type gets this icon; this device then follows it.
+      const r = await fetch("/api/settings/type-icons", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ icons: { [fam]: key } }),
+      });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); showErr("typeErr", d.error || "Couldn't save (HTTP " + r.status + ")."); return; }
+    }
+    if (h && (!everyOfType || h.deviceType)) {
+      const r = await fetch(`/api/hosts/${h.id}/type`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: everyOfType ? "" : key }),
+      });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); showErr("typeErr", d.error || "Couldn't save (HTTP " + r.status + ")."); return; }
+    }
+    toast(everyOfType
+      ? (key ? `Every "${esc(fam)}" device now shows as ${esc(typeLabel(key))}` : `"${esc(fam)}" devices are back to their usual icon`)
+      : (key ? `${esc(nameOrIp(h))} is now a ${esc(typeLabel(key).toLowerCase())}` : `${esc(nameOrIp(h))} is back to BAMF's guess`));
+    closeTypeDialog();
+    await refresh();
+  } catch {
+    showErr("typeErr", "Couldn't reach BAMF.");
+  }
+}
+function renderTypeIconList() {
+  const table = $("typeIconTable");
+  if (!table) return;
+  table.innerHTML = "";
+  const entries = Object.entries(typeIcons).sort((a, b) => a[0].localeCompare(b[0]));
+  $("typeIconEmpty").hidden = entries.length > 0;
+  for (const [fam, key] of entries) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="sw-name"></td><td class="set-eff"><span class="type-cell">${typeIconSvg(key).replace("<svg", '<svg class="type-ico"')}<span></span></span></td>
+      <td><button class="toggle ti-change">Change</button> <button class="toggle ti-reset">Reset</button></td>`;
+    tr.children[0].textContent = fam;
+    tr.querySelector(".type-cell span").textContent = typeLabel(key);
+    tr.querySelector(".ti-change").onclick = () => openTypeDialog(null, fam);
+    tr.querySelector(".ti-reset").onclick = async () => {
+      await fetch("/api/settings/type-icons", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ icons: { [fam]: "" } }),
+      });
+      await refresh();
+    };
+    table.appendChild(tr);
+  }
 }
 
 // ---- Find port ----
@@ -3878,7 +4279,8 @@ async function startBlink(host, boxId) {
       it, so you can close this and watch the Map; the blink keeps going until it ends or you
       press Stop. The port this BAMF machine is plugged into, and any cable towards the router or
       another switch, pulse too because the traffic passes through them: ignore those. A Wi-Fi
-      device pulses its access point's port instead.</div>`;
+      device pulses its access point's port instead, and a virtual machine the port of the
+      machine it runs on.</div>`;
   box.hidden = false;
   box.querySelector(".blink-stop").onclick = stopBlink;
   blinkBoxId = boxId;
@@ -3905,6 +4307,8 @@ async function startBlink(host, boxId) {
 let portsSwitch = null;
 let portsUnrecorded = [];   // on this switch with no port; kept unless picked on a port
 function openPortsDialog(sw) {
+  if (sw.kind === "virtual") return openVmDialog(sw);
+  document.querySelector("#portsModal .ports-find").style.display = "";
   portsSwitch = sw;
   $("portsTitle").textContent = "Ports — " + sw.name;
   $("portsSub").textContent = `${sw.ports} ports · ${uplinkText(sw)}`;
@@ -4018,6 +4422,7 @@ function closePortsDialog() { $("portsModal").hidden = true; portsSwitch = null;
 async function savePortsDialog() {
   const sw = portsSwitch;
   if (!sw) return;
+  if (sw.kind === "virtual") return saveVmDialog(sw);
   const sels = markPortDuplicates();
   const chosen = new Map();   // host id -> port
   for (const s of sels) {
@@ -4057,6 +4462,100 @@ async function savePortsDialog() {
   }
 }
 
+// A virtual switch's VMs: a checklist, not a port list. Devices whose MAC a
+// hypervisor gave out are marked and listed first, with one click to tick them.
+function openVmDialog(sw) {
+  portsSwitch = sw;
+  const on = runsOnHost(sw);
+  $("portsTitle").textContent = "VMs — " + sw.name;
+  $("portsSub").textContent = on ? `virtual switch on ${nameOrIp(on)} · ${on.ip}` : "virtual switch";
+  document.querySelector("#portsModal .ports-find").style.display = "none";
+  resetBlinkBox("portsBlink");
+  const swHostIds = new Set(switches.map(s => s.hostId).filter(Boolean));
+  const list = hosts.filter(h => !h.forgotten && !swHostIds.has(h.id) && h.id !== sw.runsOn && (!sw.subnet || h.subnet === sw.subnet))
+    .sort((a, b) => (b.switchId === sw.id) - (a.switchId === sw.id) || !!vmPlatform(b.mac) - !!vmPlatform(a.mac) || ipNum(a.ip) - ipNum(b.ip));
+  const table = $("portsTable");
+  table.innerHTML = "";
+  const tbl = document.createElement("table");
+  tbl.className = "vm-table";
+  let suggested = 0;
+  for (const h of list) {
+    const tr = document.createElement("tr");
+    const c1 = document.createElement("td"), c2 = document.createElement("td");
+    const box = document.createElement("input");
+    box.type = "checkbox"; box.className = "vm-pick"; box.dataset.id = h.id;
+    box.checked = h.switchId === sw.id;
+    box.id = "vm-" + h.id;
+    c1.appendChild(box);
+    const label = document.createElement("label");
+    label.htmlFor = box.id;
+    label.textContent = nameOrIp(h);
+    const ip = document.createElement("span");
+    ip.className = "vm-ip"; ip.textContent = h.ip;
+    label.appendChild(ip);
+    const plat = vmPlatform(h.mac);
+    if (plat) {
+      const b = document.createElement("span");
+      b.className = "vm-badge"; b.textContent = `${plat} MAC`;
+      label.appendChild(b);
+      if (!box.checked) suggested++;
+    }
+    const other = h.switchId && h.switchId !== sw.id ? switches.find(s => s.id === h.switchId) : null;
+    if (other) {
+      const w = document.createElement("span");
+      w.className = "vm-ip"; w.textContent = `— on ${other.name}`;
+      label.appendChild(w);
+    }
+    c2.appendChild(label);
+    tr.append(c1, c2);
+    tbl.appendChild(tr);
+  }
+  const holder = document.createElement("tr");
+  const cell = document.createElement("td");
+  cell.appendChild(tbl);
+  holder.appendChild(cell);
+  table.appendChild(holder);
+  const extra = $("portsExtra");
+  extra.innerHTML = "";
+  if (suggested) {
+    extra.append(`${suggested} device${suggested === 1 ? " has" : "s have"} a virtual-machine MAC address. `);
+    const tick = document.createElement("button");
+    tick.className = "toggle"; tick.type = "button"; tick.textContent = "Tick suggested";
+    tick.onclick = () => tbl.querySelectorAll(".vm-pick").forEach(b => {
+      const h = hosts.find(x => x.id === Number(b.dataset.id));
+      if (h && vmPlatform(h.mac)) b.checked = true;
+    });
+    extra.appendChild(tick);
+  } else if (!list.length) {
+    extra.textContent = "No other devices on this network yet.";
+  }
+  showErr("portsErr", "");
+  $("portsModal").hidden = false;
+}
+async function saveVmDialog(sw) {
+  const ids = [...$("portsTable").querySelectorAll(".vm-pick")].filter(b => b.checked).map(b => Number(b.dataset.id));
+  const btn = $("portsSave");
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/api/switches/${sw.id}/ports`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ports: ids.map(hostId => ({ hostId, port: 0 })) }),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      showErr("portsErr", d.error || "Couldn't save (HTTP " + r.status + ").");
+      return;
+    }
+    toast(`${esc(sw.name)}: ${ids.length} VM${ids.length === 1 ? "" : "s"} recorded`);
+    closePortsDialog();
+    await refresh();
+  } catch {
+    showErr("portsErr", "Couldn't reach BAMF.");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function renderSwitchList() {
   const table = $("swTable");
   if (!table) return;
@@ -4069,9 +4568,11 @@ function renderSwitchList() {
     tr.innerHTML = `<td class="sw-name"></td><td class="set-eff"></td><td><button class="toggle sw-ports-btn">Ports</button> <button class="toggle sw-edit-btn">Edit</button></td>`;
     tr.children[0].textContent = sw.name;
     tr.children[1].textContent = [
-      `${kindNoun(sw.kind)[0].toUpperCase() + kindNoun(sw.kind).slice(1)}, ${sw.ports} ports`, sw.subnet || "no network", host ? host.ip : "no address BAMF sees",
-      uplinkText(sw), `${n} device${n === 1 ? "" : "s"} recorded`,
-    ].join(" · ");
+      sw.kind === "virtual" ? "Virtual switch" : `${kindNoun(sw.kind)[0].toUpperCase() + kindNoun(sw.kind).slice(1)}, ${sw.ports} ports`,
+      sw.subnet || "no network", sw.kind === "virtual" ? null : host ? host.ip : "no address BAMF sees",
+      uplinkText(sw), `${n} ${sw.kind === "virtual" ? "VM" : "device"}${n === 1 ? "" : "s"} recorded`,
+    ].filter(Boolean).join(" · ");
+    if (sw.kind === "virtual") tr.querySelector(".sw-ports-btn").textContent = "VMs";
     tr.querySelector(".sw-ports-btn").onclick = () => openPortsDialog(sw);
     tr.querySelector(".sw-edit-btn").onclick = () => openSwitchDialog(sw);
     table.appendChild(tr);
@@ -4144,6 +4645,7 @@ async function refresh() {
     networkPlaces = data.networkPlaces || {};
     switches = data.switches || [];
     mapPositions = data.mapPositions || {};
+    typeIcons = data.typeIcons || {};
     syncBlink(data.blink, data.serverTime);
     activeArp = data.activeArp || activeArp;
     autoIgnoreRandom = !!data.autoIgnoreRandom;
@@ -4185,6 +4687,7 @@ async function refresh() {
     try { feedCache = await loadFeed(); } catch { /* keep old feed */ }
     render();
     renderSwitchList();
+    renderTypeIconList();
   } catch (e) {
     $("connDot").classList.add("err");
     console.error("refresh failed", e);
@@ -4321,7 +4824,11 @@ const THEMES = [
   { id: "blueprint",   name: "Blueprint",    sw: ["#0d2b52", "#7fffd4", "#a0d8ff"] },
   { id: "hackerred",   name: "Hacker Red",   sw: ["#0a0000", "#ff3333", "#ff8833"] },
   { id: "cottoncandy", name: "Cotton Candy", sw: ["#fdeef7", "#f47ca0", "#7ececa"] },
+  // Hidden until unlocked: type BAMF anywhere, or tap the logo five times.
+  { id: "christmas",   name: "Christmas",    sw: ["#0b1712", "#ff3b3b", "#3ddc6f"], secret: true },
+  { id: "halloween",   name: "Halloween",    sw: ["#0f0913", "#ff8c1a", "#8cff4f"], secret: true },
 ];
+function secretUnlocked() { try { return localStorage.getItem("bamf-secret") === "1"; } catch { return false; } }
 
 let themeMenuOpen = false;
 
@@ -4335,7 +4842,17 @@ function buildThemeMenu() {
   }
   menu.innerHTML = "";
   const cur = currentTheme();
+  const unlocked = secretUnlocked();
+  let headed = false;
   for (const t of THEMES) {
+    if (t.secret && !unlocked) continue;
+    if (t.secret && !headed) {
+      const h = document.createElement("div");
+      h.className = "theme-head";
+      h.textContent = "Secret";
+      menu.appendChild(h);
+      headed = true;
+    }
     const item = document.createElement("button");
     item.className = "theme-item" + (t.id === cur ? " active" : "");
     item.innerHTML = `
@@ -4348,10 +4865,10 @@ function buildThemeMenu() {
     };
     menu.appendChild(item);
   }
-  // position under the toggle button
+  // Under the toggle button, kept inside the screen on a narrow one.
   const r = $("themeToggle").getBoundingClientRect();
   menu.style.top = (r.bottom + 8) + "px";
-  menu.style.right = (window.innerWidth - r.right) + "px";
+  menu.style.right = Math.max(8, window.innerWidth - r.right) + "px";
 }
 
 function openThemeMenu() { buildThemeMenu(); $("themeMenu").classList.add("show"); themeMenuOpen = true; }
@@ -4377,7 +4894,221 @@ function applyTheme(theme) {
   // for a browser that blocks storage (private mode, strict site settings).
   try { localStorage.setItem("bamf-theme", theme); } catch {}
   try { window.name = "bamf-theme:" + theme; } catch {}
+  festive(theme);
 }
+
+// ---- holiday decorations ----
+// Drawn in a fixed layer over the page that never takes a click. Christmas:
+// multicoloured bulbs along the top and down both sides, twinkling at random
+// with the odd bright sparkle, ornaments swinging from the top string, and a
+// little snow. Halloween: cobwebs, a spider on its thread, flickering
+// jack-o'-lanterns, and now and then a bat or a ghost. With reduced motion
+// asked for, it all holds still and nothing new flies in.
+let festiveTimers = [];
+let festiveTheme = null;
+const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+function festive(theme) {
+  festiveTimers.forEach(t => { clearInterval(t); clearTimeout(t); });
+  festiveTimers = [];
+  $("festive")?.remove();
+  festiveTheme = theme === "christmas" || theme === "halloween" ? theme : null;
+  if (!festiveTheme) return;
+  const root = document.createElement("div");
+  root.id = "festive";
+  root.setAttribute("aria-hidden", "true");
+  document.body.appendChild(root);
+  if (festiveTheme === "christmas") buildChristmas(root); else buildHalloween(root);
+}
+// The lights are laid out for the window's width and height; redo them when it changes.
+let festiveResize = null;
+window.addEventListener("resize", () => {
+  if (!festiveTheme) return;
+  clearTimeout(festiveResize);
+  festiveResize = setTimeout(() => festive(festiveTheme), 250);
+});
+
+const BULB_COLORS = ["#ff3b3b", "#3ddc6f", "#3fa9ff", "#ffd23f", "#ff8c1a", "#c86bff"];
+function bulbSvg(x, y, angle) {
+  const c = BULB_COLORS[Math.floor(Math.random() * BULB_COLORS.length)];
+  const blink = Math.random() < 0.3;
+  return `<g class="xl ${blink ? "blink" : "twinkle"}" style="--c:${c};--d:${rnd(blink ? 1.2 : .7, blink ? 3.2 : 2.6).toFixed(2)}s;--o:-${rnd(0, 3).toFixed(2)}s"
+    transform="translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${angle})">
+    <rect class="xl-cap" x="-2.6" y="-1" width="5.2" height="4" rx="1"/>
+    <ellipse class="glass" cx="0" cy="8.5" rx="3.7" ry="5.8"/></g>`;
+}
+function buildChristmas(root) {
+  const W = window.innerWidth, H = window.innerHeight, NS = "http://www.w3.org/2000/svg";
+  // The top string: scallops between hooks, bulbs along each scallop.
+  const span = W < 700 ? 120 : 170, sag = 16;
+  let wire = "", bulbs = "", orns = "";
+  for (let x0 = 0, i = 0; x0 < W; x0 += span, i++) {
+    const x1 = x0 + span, cx = (x0 + x1) / 2;
+    wire += `M${x0} 2 Q${cx} ${2 * sag} ${x1} 2 `;
+    const n = Math.max(3, Math.round(span / 34));
+    for (let k = 0; k < n; k++) {
+      const t = (k + .5) / n, u = 1 - t;
+      const bx = u * u * x0 + 2 * u * t * cx + t * t * x1, by = u * u * 2 + 2 * u * t * 2 * sag + t * t * 2;
+      bulbs += bulbSvg(bx, by, Math.round((t - .5) * -40));
+    }
+    // Ornaments hang only over the header's empty middle stretch, clear of the
+    // version chips on the left and the scan status on the right.
+    if (i % 2 === 1 && x1 > W * 0.36 && x1 < W * 0.62) {
+      const len = rnd(16, 30), c = BULB_COLORS[(i * 7) % BULB_COLORS.length];
+      orns += `<g class="orn" style="transform-origin:${x1}px 2px;--d:${rnd(2.2, 3.6).toFixed(2)}s;--o:-${rnd(0, 3).toFixed(2)}s">
+        <line x1="${x1}" y1="2" x2="${x1}" y2="${(2 + len).toFixed(1)}"/>
+        <rect x="${x1 - 2.5}" y="${(len).toFixed(1)}" width="5" height="4" rx="1" fill="#c8b98a"/>
+        <circle cx="${x1}" cy="${(len + 12).toFixed(1)}" r="8.5" fill="${c}"/>
+        <circle cx="${(x1 - 3).toFixed(1)}" cy="${(len + 9).toFixed(1)}" r="2.4" fill="#fff" opacity=".55"/></g>`;
+    }
+  }
+  const top = document.createElementNS(NS, "svg");
+  top.setAttribute("width", W); top.setAttribute("height", 90);
+  top.style.left = "0"; top.style.top = "0";
+  top.innerHTML = `<path class="xl-wire" d="${wire}"/>${orns}${bulbs}`;
+  root.appendChild(top);
+  // Down both sides, a gently wavy string with the bulbs pointing inward.
+  for (const side of ["left", "right"]) {
+    let d = "", b = "";
+    const x = side === "left" ? 7 : 19;
+    for (let y = 30, k = 0; y < H; y += 38, k++) {
+      const wx = x + Math.sin(k) * 3;
+      d += (k ? "L" : "M") + wx.toFixed(1) + " " + y + " ";
+      b += bulbSvg(wx, y, side === "left" ? -90 : 90);
+    }
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("width", 26); svg.setAttribute("height", H);
+    svg.style.top = "0"; svg.style[side] = "0";
+    svg.innerHTML = `<path class="xl-wire" d="${d}"/>${b}`;
+    root.appendChild(svg);
+  }
+  if (calmMotion()) return;
+  // Every so often, one bulb flashes white.
+  const all = [...root.querySelectorAll(".xl")];
+  festiveTimers.push(setInterval(() => {
+    const el = all[Math.floor(Math.random() * all.length)];
+    el.classList.add("spark");
+    setTimeout(() => el.classList.remove("spark"), 160);
+  }, 450));
+  // A little snow.
+  for (let i = 0; i < 26; i++) {
+    const f = document.createElement("div");
+    const size = rnd(2, 5);
+    f.className = "snow";
+    f.style.cssText = `left:${rnd(0, 100).toFixed(1)}vw;width:${size}px;height:${size}px;--d:${rnd(9, 20).toFixed(1)}s;--o:-${rnd(0, 20).toFixed(1)}s;--x:${rnd(-40, 40).toFixed(0)}px`;
+    root.appendChild(f);
+  }
+}
+
+function cobweb(size) {
+  let d = "";
+  const spokes = [0, 15, 30, 45, 60, 75, 90].map(a => a * Math.PI / 180);
+  for (const a of spokes) d += `M0 0 L${(Math.cos(a) * size).toFixed(1)} ${(Math.sin(a) * size).toFixed(1)} `;
+  for (const r of [size * .22, size * .42, size * .64, size * .86]) {
+    spokes.forEach((a, i) => {
+      if (!i) { d += `M${(Math.cos(a) * r).toFixed(1)} ${(Math.sin(a) * r).toFixed(1)} `; return; }
+      const b = spokes[i - 1], m = (a + b) / 2, rr = r * .86;
+      d += `Q${(Math.cos(m) * rr).toFixed(1)} ${(Math.sin(m) * rr).toFixed(1)} ${(Math.cos(a) * r).toFixed(1)} ${(Math.sin(a) * r).toFixed(1)} `;
+    });
+  }
+  return `<path d="${d}"/>`;
+}
+const PUMPKIN = `<svg class="pumpkin" viewBox="0 0 60 52" width="52"><path d="M30 12c-2-6 1-10 6-11" stroke="#4d7a2a" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <ellipse cx="18" cy="31" rx="15" ry="19" fill="#e0680f"/><ellipse cx="42" cy="31" rx="15" ry="19" fill="#e0680f"/><ellipse cx="30" cy="31" rx="14" ry="20" fill="#f07818"/>
+  <path class="face" d="M17 25l6-6 5 6z M33 25l6-6 5 6z M16 34l5 4 4-3 5 4 5-4 4 3 5-4c-2 8-8 12-14 12s-12-4-14-12z"/></svg>`;
+const BAT = `<svg viewBox="0 0 64 28"><path d="M32 10c2-3 2-6 1-8l-1 4-1-4c-1 2-1 5 1 8-6-6-14-9-22-6 4 2 6 5 6 9-4-2-9-2-13 1 5 1 8 4 9 8 3-3 9-4 12-2 2 1 4 4 8 6 4-2 6-5 8-6 3-2 9-1 12 2 1-4 4-7 9-8-4-3-9-3-13-1 0-4 2-7 6-9-8-3-16 0-22 6z"/></svg>`;
+const GHOST = `<svg viewBox="0 0 54 64"><path d="M27 2C13 2 5 13 5 27v33l7-6 7 6 8-6 8 6 7-6 7 6V27C49 13 41 2 27 2z" fill="#f4eefa" opacity=".92"/>
+  <ellipse cx="19" cy="26" rx="4" ry="6" fill="#1a1020"/><ellipse cx="35" cy="26" rx="4" ry="6" fill="#1a1020"/><ellipse cx="27" cy="40" rx="5" ry="3.5" fill="#1a1020"/></svg>`;
+const SPIDER = `<svg viewBox="0 0 30 30" width="30" style="position:absolute;left:0;top:214px"><g stroke="#1a0d1f" stroke-width="1.6" fill="none" stroke-linecap="round">
+  <path d="M15 14L4 6M15 16L2 15M15 18L4 25M15 20L7 29M15 14L26 6M15 16L28 15M15 18L26 25M15 20L23 29"/></g>
+  <circle cx="15" cy="12" r="4" fill="#1a0d1f"/><ellipse cx="15" cy="19" rx="6" ry="7" fill="#1a0d1f"/><circle cx="13.5" cy="11" r="1" fill="#ff3b3b"/><circle cx="16.5" cy="11" r="1" fill="#ff3b3b"/></svg>`;
+
+function buildHalloween(root) {
+  const NS = "http://www.w3.org/2000/svg";
+  // Cobwebs in the top corners.
+  for (const corner of ["left", "right"]) {
+    const w = document.createElementNS(NS, "svg");
+    w.setAttribute("width", 170); w.setAttribute("height", 170);
+    w.setAttribute("class", "web");
+    w.style.top = "0"; w.style[corner] = "0";
+    if (corner === "right") w.style.transform = "scaleX(-1)";
+    w.innerHTML = cobweb(165);
+    root.appendChild(w);
+  }
+  // A spider on its thread.
+  const sp = document.createElement("div");
+  sp.className = "spider-wrap";
+  sp.style.left = rnd(28, 72).toFixed(1) + "vw";
+  sp.innerHTML = `<div class="spider-thread"></div>${SPIDER}`;
+  root.appendChild(sp);
+  // Jack-o'-lanterns in the bottom corners.
+  for (const corner of ["left", "right"]) {
+    const p = document.createElement("div");
+    p.style.cssText = `position:absolute;bottom:6px;${corner}:10px`;
+    p.innerHTML = PUMPKIN;
+    root.appendChild(p);
+  }
+  if (calmMotion()) return;
+  // Now and then, a bat flutters across; less often, a ghost drifts up.
+  const bat = () => {
+    const b = document.createElement("div");
+    b.className = "bat" + (Math.random() < .5 ? " rtl" : "");
+    b.style.cssText = `top:${rnd(12, 60).toFixed(0)}vh;--d:${rnd(7, 12).toFixed(1)}s`;
+    b.innerHTML = BAT;
+    b.addEventListener("animationend", e => { if (e.target === b) b.remove(); });
+    root.appendChild(b);
+    festiveTimers.push(setTimeout(bat, rnd(9000, 26000)));
+  };
+  const ghost = () => {
+    const g = document.createElement("div");
+    g.className = "ghost";
+    g.style.left = rnd(10, 85).toFixed(0) + "vw";
+    g.innerHTML = GHOST;
+    g.addEventListener("animationend", e => { if (e.target === g) g.remove(); });
+    root.appendChild(g);
+    festiveTimers.push(setTimeout(ghost, rnd(30000, 55000)));
+  };
+  festiveTimers.push(setTimeout(bat, 2500));
+  festiveTimers.push(setTimeout(ghost, rnd(12000, 20000)));
+}
+
+// ---- the secret ----
+// Type B-A-M-F anywhere that isn't a text box, or tap the logo five times
+// quickly (for phones), and the holiday themes unlock.
+function revealSecret() {
+  const first = !secretUnlocked();
+  try { localStorage.setItem("bamf-secret", "1"); } catch {}
+  $("secretEmoji").textContent = first ? "🎁" : ["🎄", "🎃", "🦇", "⭐", "👻"][Math.floor(Math.random() * 5)];
+  $("secretTitle").textContent = first ? "You found the secret!" : "Still a secret 🤫";
+  $("secretText").textContent = first
+    ? "BAMF unlocked two holiday themes. They're in the theme menu from now on, under Secret."
+    : "The holiday themes are already yours. Pick one:";
+  $("secretModal").hidden = false;
+  if (first) showSplat();
+}
+function closeSecret() { $("secretModal").hidden = true; }
+let secretTyped = "";
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey || !e.key || e.key.length !== 1) return;
+  const t = e.target;
+  if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+  secretTyped = (secretTyped + e.key.toLowerCase()).slice(-4);
+  if (secretTyped === "bamf") { secretTyped = ""; revealSecret(); }
+});
+let logoTaps = [];
+document.querySelector(".brand h1").addEventListener("click", () => {
+  const now = Date.now();
+  logoTaps = logoTaps.filter(t => now - t < 2500).concat(now);
+  if (logoTaps.length >= 5) { logoTaps = []; revealSecret(); }
+});
+$("secretClose").onclick = closeSecret;
+$("secretModal").onclick = e => { if (e.target.id === "secretModal") closeSecret(); };
+document.querySelectorAll("[data-secret]").forEach(b => b.onclick = () => {
+  applyTheme(b.dataset.secret);
+  closeSecret();
+  showSplat();
+});
 
 // Row density: a class on <html> so the head script can apply it before the
 // first paint, the same way the theme is handled.
@@ -4399,7 +5130,7 @@ renderDensityToggle();
 // before storage was used, then dark. Each read is guarded separately so a
 // browser that throws on storage access still gets a theme.
 (function initTheme() {
-  const valid = t => THEMES.some(x => x.id === t);
+  const valid = t => THEMES.some(x => x.id === t && (!x.secret || secretUnlocked()));
   let saved = null;
   try {
     const t = localStorage.getItem("bamf-theme");
@@ -4659,6 +5390,7 @@ $("swKind").onchange = () => {
     if (Object.values(KIND_PORTS).includes(Number($("swPorts").value))) $("swPorts").value = KIND_PORTS[kind];
     if (kind === "router") pickGatewayForSwitch();
   }
+  syncSwitchDialog(0);
 };
 $("swSave").onclick = saveSwitchDialog;
 $("swDelete").onclick = deleteSwitchDialog;
@@ -4671,6 +5403,9 @@ $("swName").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); save
 $("swAdd").onclick = () => openSwitchDialog(null);
 $("plugFind").onclick = () => { const h = plugHost; closePlugDialog(); if (h) jumpToHost(h.id); };
 $("plugBlinkBtn").onclick = () => { if (plugHost) startBlink(plugHost, "plugBlink"); };
+$("plugType").onclick = () => { const h = plugHost; closePlugDialog(); if (h) openTypeDialog(h); };
+$("typeCancel").onclick = closeTypeDialog;
+$("typeModal").onclick = e => { if (e.target.id === "typeModal") closeTypeDialog(); };
 $("blinkBarStop").onclick = stopBlink;
 $("portsFindBtn").onclick = () => {
   const h = hosts.find(x => x.id === Number($("portsFindHost").value));
@@ -4702,6 +5437,8 @@ document.addEventListener("keydown", e => {
   if (!$("swModal").hidden) { closeSwitchDialog(); return; }
   if (!$("plugModal").hidden) { closePlugDialog(); return; }
   if (!$("portsModal").hidden) { closePortsDialog(); return; }
+  if (!$("typeModal").hidden) { closeTypeDialog(); return; }
+  if (!$("secretModal").hidden) { closeSecret(); return; }
   if (!$("scanModal").hidden) { $("scanModal").hidden = true; return; }
   if (blink) { stopBlink(); return; }
   const openMenu = document.querySelector(".row-menu.show");
@@ -4796,7 +5533,7 @@ $("testWebhook").onclick = async () => {
 
 $("exportCsv").onclick = () => {
   const rows = applySort(visible());
-  const cols = ["name","dnsHostname","ip","mac","vendor","deviceGuess","network","online","known","ignored","firstSeen","lastSeen","switch","switchPort","portLocation"];
+  const cols = ["name","dnsHostname","ip","mac","vendor","deviceGuess","deviceType","network","online","known","ignored","firstSeen","lastSeen","switch","switchPort","portLocation"];
   const cell = v => {
     v = String(v ?? "");
     return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
@@ -4805,7 +5542,7 @@ $("exportCsv").onclick = () => {
   for (const h of rows) {
     lines.push([
       dispName(h), h.hostname === "\u2014" ? "" : h.hostname, h.ip, h.mac, h.vendor,
-      h.osGuess || "", h.subnet, h.online, h.known, h.ignored, h.firstSeen, h.lastSeen,
+      h.osGuess || "", h.deviceType ? typeLabel(h.deviceType) : "", h.subnet, h.online, h.known, h.ignored, h.firstSeen, h.lastSeen,
       switches.find(s => s.id === h.switchId)?.name || "", h.switchId && h.switchPort ? h.switchPort : "",
       h.switchId && h.switchPort ? portLabel(switches.find(s => s.id === h.switchId), h.switchPort) : ""
     ].map(cell).join(","));

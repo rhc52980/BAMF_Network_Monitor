@@ -12,23 +12,29 @@ namespace LanWatch.Services;
 /// <param name="Uplink">What the switch is plugged into: "" not recorded, "router", or "switch".</param>
 /// <param name="UplinkSwitch">For a "switch" uplink, the parent switch's id.</param>
 /// <param name="UplinkPort">For a "switch" uplink, the parent's port; 0 when not recorded.</param>
-/// <param name="Kind">"switch", "router" or "ap" (access point). All have ports and
-/// work the same way; the kind sets the Map's icon, and a router linked to the
-/// network's gateway becomes the top of the topology.</param>
+/// <param name="Kind">"switch", "router", "ap" (access point) or "virtual". All have
+/// ports and work the same way; the kind sets the Map's icon, and a router linked
+/// to the network's gateway becomes the top of the topology.</param>
+/// <param name="RunsOn">For a virtual switch (a Proxmox vmbr0, an ESXi vSwitch0,
+/// a Hyper-V external switch): the device it runs inside. It has no uplink of its
+/// own; its traffic leaves through that machine's cable.</param>
 public record SwitchRecord(
     long Id, string Name, int Ports, string Subnet, long HostId,
-    string Uplink, long UplinkSwitch, int UplinkPort, string Kind);
+    string Uplink, long UplinkSwitch, int UplinkPort, string Kind, long RunsOn);
 
 public record SwitchInput(
     string? Name, int Ports, string? Subnet, long HostId,
-    string? Uplink, long UplinkSwitch, int UplinkPort, string? Kind);
+    string? Uplink, long UplinkSwitch, int UplinkPort, string? Kind, long RunsOn);
 
 public partial class HostStore
 {
     public const int MaxSwitchPorts = 128;
-    public static readonly string[] SwitchKinds = { "switch", "router", "ap" };
+    public static readonly string[] SwitchKinds = { "switch", "router", "ap", "virtual" };
 
-    private static string KindNoun(string kind) => kind switch { "router" => "router", "ap" => "access point", _ => "switch" };
+    private static string KindNoun(string kind) => kind switch
+    {
+        "router" => "router", "ap" => "access point", "virtual" => "virtual switch", _ => "switch",
+    };
 
     private static void InitSwitches(SqliteConnection conn)
     {
@@ -77,6 +83,13 @@ public partial class HostStore
             alter.CommandText = "ALTER TABLE switches ADD COLUMN kind TEXT NOT NULL DEFAULT 'switch'";
             alter.ExecuteNonQuery();
         }
+        // Added in 1.28: the machine a virtual switch runs inside.
+        if (!cols.Contains("runs_on"))
+        {
+            using var alter = conn.CreateCommand();
+            alter.CommandText = "ALTER TABLE switches ADD COLUMN runs_on INTEGER NOT NULL DEFAULT 0";
+            alter.ExecuteNonQuery();
+        }
     }
 
     public List<SwitchRecord> GetSwitches()
@@ -92,11 +105,11 @@ public partial class HostStore
     {
         var list = new List<SwitchRecord>();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT id, name, ports, subnet, host_id, uplink, uplink_switch, uplink_port, kind FROM switches ORDER BY name COLLATE NOCASE, id";
+        cmd.CommandText = "SELECT id, name, ports, subnet, host_id, uplink, uplink_switch, uplink_port, kind, runs_on FROM switches ORDER BY name COLLATE NOCASE, id";
         using var r = cmd.ExecuteReader();
         while (r.Read())
             list.Add(new SwitchRecord(r.GetInt64(0), r.GetString(1), r.GetInt32(2), r.GetString(3),
-                r.GetInt64(4), r.GetString(5), r.GetInt64(6), r.GetInt32(7), r.GetString(8)));
+                r.GetInt64(4), r.GetString(5), r.GetInt64(6), r.GetInt32(7), r.GetString(8), r.GetInt64(9)));
         return list;
     }
 
@@ -158,10 +171,24 @@ public partial class HostStore
             var name = (input.Name ?? "").Trim();
             if (name.Length == 0) return (null, $"Give the {KindNoun(kind)} a name.");
             if (name.Length > 60) name = name[..60];
-            if (input.Ports < 1 || input.Ports > MaxSwitchPorts) return (null, $"Ports must be between 1 and {MaxSwitchPorts}.");
+            // A virtual switch has no numbered ports to speak of; its VMs are
+            // recorded on it with port 0.
+            var ports = kind == "virtual" ? Math.Clamp(input.Ports, 1, MaxSwitchPorts) : input.Ports;
+            if (ports < 1 || ports > MaxSwitchPorts) return (null, $"Ports must be between 1 and {MaxSwitchPorts}.");
 
             var subnet = (input.Subnet ?? "").Trim();
             long hostId = Math.Max(0, input.HostId);
+            long runsOn = 0;
+            if (kind == "virtual")
+            {
+                // It lives inside a machine: that machine gives it its network,
+                // and there is no separate device or uplink to record.
+                var machine = input.RunsOn > 0 ? GetByIdInternal(conn, input.RunsOn) : null;
+                if (machine is null) return (null, "Pick the machine the virtual switch runs on.");
+                runsOn = machine.Id;
+                subnet = machine.Subnet;
+                hostId = 0;
+            }
             if (hostId > 0)
             {
                 var host = GetByIdInternal(conn, hostId);
@@ -171,12 +198,13 @@ public partial class HostStore
                 subnet = host.Subnet;   // a switch BAMF can see lives where BAMF sees it
             }
 
-            var uplink = (input.Uplink ?? "").Trim().ToLowerInvariant();
+            var uplink = kind == "virtual" ? "" : (input.Uplink ?? "").Trim().ToLowerInvariant();
             long uplinkSwitch = 0; int uplinkPort = 0;
             if (uplink == "switch")
             {
                 var parent = all.FirstOrDefault(s => s.Id == input.UplinkSwitch);
                 if (parent is null) return (null, "The switch it's plugged into no longer exists.");
+                if (parent.Kind == "virtual") return (null, "Nothing can be cabled into a virtual switch; it lives inside its machine.");
                 if (id is long self)
                 {
                     // Walk up from the proposed parent; meeting this switch means a loop.
@@ -198,9 +226,9 @@ public partial class HostStore
                          + (SELECT COUNT(*) FROM switches WHERE uplink = 'switch' AND uplink_switch = $id AND uplink_port > $p)
                     """;
                 over.Parameters.AddWithValue("$id", shrinking);
-                over.Parameters.AddWithValue("$p", input.Ports);
+                over.Parameters.AddWithValue("$p", ports);
                 var n = Convert.ToInt32(over.ExecuteScalar());
-                if (n > 0) return (null, $"{n} device(s) are recorded on ports above {input.Ports}. Move them first.");
+                if (n > 0) return (null, $"{n} device(s) are recorded on ports above {ports}. Move them first.");
             }
 
             using var tx = conn.BeginTransaction();
@@ -210,24 +238,25 @@ public partial class HostStore
                 cmd.Transaction = tx;
                 cmd.CommandText = id is null
                     ? """
-                      INSERT INTO switches (name, ports, subnet, host_id, uplink, uplink_switch, uplink_port, kind)
-                      VALUES ($n, $p, $s, $h, $u, $us, $up, $k);
+                      INSERT INTO switches (name, ports, subnet, host_id, uplink, uplink_switch, uplink_port, kind, runs_on)
+                      VALUES ($n, $p, $s, $h, $u, $us, $up, $k, $ro);
                       SELECT last_insert_rowid();
                       """
                     : """
                       UPDATE switches SET name = $n, ports = $p, subnet = $s, host_id = $h,
-                             uplink = $u, uplink_switch = $us, uplink_port = $up, kind = $k
+                             uplink = $u, uplink_switch = $us, uplink_port = $up, kind = $k, runs_on = $ro
                       WHERE id = $id;
                       SELECT $id;
                       """;
                 cmd.Parameters.AddWithValue("$n", name);
-                cmd.Parameters.AddWithValue("$p", input.Ports);
+                cmd.Parameters.AddWithValue("$p", ports);
                 cmd.Parameters.AddWithValue("$s", subnet);
                 cmd.Parameters.AddWithValue("$h", hostId);
                 cmd.Parameters.AddWithValue("$u", uplink);
                 cmd.Parameters.AddWithValue("$us", uplinkSwitch);
                 cmd.Parameters.AddWithValue("$up", uplinkPort);
                 cmd.Parameters.AddWithValue("$k", kind);
+                cmd.Parameters.AddWithValue("$ro", runsOn);
                 if (id is not null) cmd.Parameters.AddWithValue("$id", id.Value);
                 savedId = Convert.ToInt64(cmd.ExecuteScalar());
             }
@@ -302,6 +331,7 @@ public partial class HostStore
             if (sw is null) return "That switch no longer exists.";
             var own = all.FirstOrDefault(s => s.HostId == hostId);
             if (own is not null) return $"This device is the switch \"{own.Name}\". Set what it's plugged into in that switch's settings.";
+            if (sw.Kind == "virtual" && sw.RunsOn == hostId) return $"This is the machine \"{sw.Name}\" runs on.";
             if (port < 0 || port > sw.Ports) return $"\"{sw.Name}\" has ports 1 to {sw.Ports}.";
 
             cmd.CommandText = """
@@ -341,6 +371,7 @@ public partial class HostStore
                 if (host is null) return "A device in the list no longer exists.";
                 var own = all.FirstOrDefault(s => s.HostId == hostId);
                 if (own is not null) return $"\"{own.Name}\" is a switch. Plug it in from its own settings.";
+                if (sw.Kind == "virtual" && sw.RunsOn == hostId) return $"The machine \"{sw.Name}\" runs on can't be one of its VMs.";
                 if (port < 0 || port > sw.Ports) return $"\"{sw.Name}\" has ports 1 to {sw.Ports}.";
             }
             var cleanLabels = new Dictionary<int, string>();
@@ -408,6 +439,7 @@ public partial class HostStore
         cmd.CommandText = """
             DELETE FROM placements WHERE host_id = $id;
             UPDATE switches SET host_id = 0 WHERE host_id = $id;
+            UPDATE switches SET runs_on = 0 WHERE runs_on = $id;
             """;
         cmd.Parameters.AddWithValue("$id", hostId);
         cmd.ExecuteNonQuery();

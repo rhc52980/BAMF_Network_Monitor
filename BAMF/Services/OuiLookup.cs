@@ -78,6 +78,12 @@ public class OuiLookup
         var clean = mac.Replace(":", "").Replace("-", "").ToUpperInvariant();
         if (clean.Length < 6) return "";
 
+        // A hypervisor's or container runtime's own prefix first: QEMU/KVM and
+        // Docker use locally administered MACs, and without this their VMs
+        // would be taken for randomising phones (and auto-ignored with them).
+        if (clean.StartsWith("525400", StringComparison.Ordinal)) return "QEMU/KVM virtual NIC";
+        if (clean.StartsWith("0242", StringComparison.Ordinal)) return "Docker virtual NIC";
+
         // Locally administered bit set => randomized MAC (phones doing privacy randomization)
         if (int.TryParse(clean[..2], System.Globalization.NumberStyles.HexNumber, null, out var firstByte)
             && (firstByte & 0x02) != 0 && (firstByte & 0x01) == 0)

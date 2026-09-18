@@ -311,6 +311,10 @@ survive IP changes.
   Amber CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized (dark
   + light), Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy.
   CRT themes get scanlines; each pick triggers a BAMF! splat. Choice persists.
+  There are also two seasonal themes you won't find in the list. They unlock the
+  way a friendly program would: just tell it its name. (On a phone, the logo is
+  listening.) With reduced motion turned on in your system settings, their
+  decorations stay still.
 
 ## Fonts and offline use
 
@@ -640,7 +644,7 @@ scan, or delete a thing.
 | GET | `/api/hosts/{id}/events` | One host's online/offline event history |
 | POST | `/api/hosts/{id}/forget` | Body `{"forgotten": true}` — soft-delete to the Forgotten tab (reversible) |
 | DELETE | `/api/hosts/{id}` | Permanently delete a host and its history (from the Forgotten tab) |
-| POST | `/api/switches` | Body `{"kind": "switch", "name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch, router or access point to the recorded layout. `kind` is `switch` (the default), `router` or `ap`. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
+| POST | `/api/switches` | Body `{"kind": "switch", "name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch, router or access point to the recorded layout. `kind` is `switch` (the default), `router`, `ap` or `virtual`; a virtual switch takes `runsOn` (the id of the machine it runs on) instead of a device, uplink or port count. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
 | POST | `/api/switches/{id}` | Same body — update a switch. Refuses loops and ports that would strand recorded devices |
 | DELETE | `/api/switches/{id}` | Delete a switch. Devices recorded on it go back to unrecorded; switches plugged into it lose that uplink |
 | POST | `/api/switches/{id}/ports` | Body `{"ports": [{"hostId": 3, "port": 1}, {"hostId": 4, "port": 2}], "labels": [{"port": 1, "label": "Living Room"}]}` — set everything on one switch at once. Hosts listed are placed on it (moving off any other switch; `port` 0 = not recorded), and hosts on it that aren't listed come off it. `labels`, when given, replaces the ports' locations (up to 40 characters; blank clears one); leave it out to keep them. Each switch in `GET /api/hosts` carries them as `portLabels` |
@@ -648,6 +652,8 @@ scan, or delete a thing.
 | POST | `/api/map/positions` | Body `{"subnet": "192.168.1.0/24", "positions": {"s:1": [120, 140], "h:7": null}}` — save where nodes sit on the topology Map for one network. Keys are `h:<host id>`, `s:<switch id>`, `gw`, `self`, `net` and `box`. A null position forgets that node, so it goes back to the automatic layout. `GET /api/hosts` returns them all as `mapPositions` |
 | DELETE | `/api/map/positions?subnet=…` | "Auto-arrange": forget every saved position on one network |
 | DELETE | `/api/blink` | Stop a running Find port blink. While one runs, `GET /api/hosts` reports it as `blink` (`hostId`, `started`, `until`) with the server's `serverTime`; bursts are on for [2k, 2k+1) seconds after `started` |
+| POST | `/api/hosts/{id}/type` | Body `{"type": "nas"}` — set a device's type, overriding the guess for its icon and type chip. Types: `router`, `switch`, `ap`, `camera`, `printer`, `tv`, `speaker`, `phone`, `tablet`, `laptop`, `desktop`, `server`, `nas`, `vm`, `game`, `iot`, `light`, `plug`, `device`. Empty goes back to the guess. `GET /api/hosts` returns it as `deviceType` |
+| POST | `/api/settings/type-icons` | Body `{"icons": {"Linux": "server"}}` — the icon for every device of a guessed type; an empty icon clears it. Returned in `GET /api/hosts` as `typeIcons` |
 | POST | `/api/hosts/{id}/plug` | Body `{"switchId": 1, "port": 3}` — record which switch port a device is plugged into. `switchId` 0 clears it; `port` 0 means "port not recorded". `GET /api/hosts` returns each host's `switchId` and `switchPort`, and the layout as `switches` |
 
 ## Device links and port check
@@ -887,6 +893,42 @@ port. The type sets the icon, and one thing more:
   and the gateway device BAMF sees is filled in for you.
 - **An access point's devices with no port** are drawn as its Wi-Fi clients.
 
+### Virtual switches and VMs
+
+A Proxmox or ESXi box, or a Hyper-V host, has a switch *inside* it: Proxmox's
+`vmbr0`, ESXi's `vSwitch0`, a Hyper-V external switch. Its VMs plug into that,
+not into a physical port. Record it as a **Virtual switch**, from
+**Add a virtual switch on this…** in the host's ⋯ menu, or with that type in
+the usual dialog. You pick the machine it **runs on**; there's no port count,
+device or uplink to fill in, because its traffic leaves through that machine's
+cable.
+
+- **On the map** it hangs off its machine with a dashed link. Its VMs are listed
+  underneath and labelled **VM**, so a Proxmox box plugged into your switch
+  reads `switch → port 3 → proxmox → vmbr0 → VMs`.
+- **Its VMs dialog** is a checklist, not a port list.
+- **Find port** on a VM pulses the port of the machine it runs on, which is the
+  physically true answer.
+
+**Recognising VMs.** Hypervisors give virtual network cards well-known MAC
+prefixes: Proxmox `BC:24:11`, QEMU/KVM `52:54:00`, VMware `00:50:56` and
+`00:0C:29`, Hyper-V `00:15:5D`, VirtualBox `08:00:27`, Xen `00:16:3E`,
+Parallels `00:1C:42`, and Docker `02:42`. A device with one of them gets a
+device guess such as *Virtual machine (Proxmox MAC)* and a VM icon. The VMs
+dialog marks those devices and lists them first, with **Tick suggested** to
+take them all in one click. It's a suggestion; nothing is recorded until you
+save.
+
+QEMU/KVM and Docker use *locally administered* MACs, the same kind a phone
+makes up when it randomises its address. So they're now named as virtual NICs
+and never taken for randomising phones. Before 1.28, with **Ignore devices with
+randomised MACs** on, such VMs were filed under Ignored. Any already there stay
+until you unignore them.
+
+**What BAMF can't see:** only *bridged* VMs, the ones with their own address on
+your network, appear at all. VMs behind NAT, or on an internal-only switch,
+never show up on the LAN, so no scanner can find them.
+
 If one has an address BAMF sees, pick it as its device, and the map shows it
 online or offline. A device that is itself one of these has
 **Make this a switch or router…** in its ⋯ menu.
@@ -947,6 +989,27 @@ with any switch, including unmanaged ones and budget "smart" switches such as
 TP-Link's Easy Smart line, which can't report which device is on which port.
 Only switches with SNMP or a visible MAC address table can, and BAMF doesn't
 ask them.
+
+## Setting a device's type and icon
+
+BAMF's device type is a guess, and so is the icon the Map draws from it. To
+overrule it, use **Type / icon…** in a device's ⋯ menu, or in the dialog you get
+by clicking it on the Map. Pick from Router, Switch, Access point, Camera,
+Printer, TV / media, Speaker, Phone, Tablet, Laptop, Desktop, Server, NAS,
+Virtual machine, Game console, Smart home, Light, Smart plug or Other.
+**Automatic** goes back to the guess.
+
+A type you set:
+- decides the device's icon on the Map;
+- decides which **Device type** chip it's counted under;
+- shows in the device list as "NAS · your type";
+- is found by search;
+- shows in `/api/hosts.txt` and the CSV export.
+
+**One icon for a whole guessed type.** Tick "use this icon for every *Linux*
+device" in the same picker, and every device BAMF guesses as Linux gets that
+icon. **Settings → Device icons** lists these choices, with **Change** and
+**Reset**. A type set on one device always wins over them.
 
 ## Filtering by device type
 
