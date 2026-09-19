@@ -50,14 +50,21 @@ public sealed class RuleService : BackgroundService
         foreach (var r in rules)
         {
             var kind = (r.Kind ?? "").ToLowerInvariant();
-            if (kind is not ("offline" or "online" or "hours")) return "Each rule is offline, online or hours.";
+            if (kind is not ("offline" or "online" or "hours" or "wake")) return "Each rule is offline, online, hours or wake.";
             var target = (r.Target ?? "any").Trim();
             if (!(target is "any" or "watched" || target.StartsWith("tag:") || target.StartsWith("host:"))) return "Pick what the rule watches.";
             if (kind == "hours" && (!TimeOnly.TryParse(r.From ?? "", out _) || !TimeOnly.TryParse(r.To ?? "", out _))) return "Give the hours rule a from and to time.";
+            if (kind == "wake")
+            {
+                if (!TimeOnly.TryParse(r.From ?? "", out _)) return "Give the wake rule a time.";
+                if (target == "any") return "Wake one device, a tag or the watched devices, not every device.";
+                if (!WakeDays.ContainsKey((r.To ?? "").Trim().ToLowerInvariant() is { Length: > 0 } d ? d : "daily")) return "Wake daily, on weekdays or at weekends.";
+            }
             var name = (r.Name ?? "").Trim();
             if (name.Length > 60) name = name[..60];
             clean.Add(new Rule(string.IsNullOrWhiteSpace(r.Id) ? Guid.NewGuid().ToString("N")[..8] : r.Id, name, kind, target,
-                Math.Clamp(r.Minutes, 0, 7 * 24 * 60), r.From ?? "", r.To ?? "", r.Enabled));
+                Math.Clamp(r.Minutes, 0, 7 * 24 * 60), r.From ?? "",
+                kind == "wake" ? ((r.To ?? "").Trim().ToLowerInvariant() is { Length: > 0 } days ? days : "daily") : r.To ?? "", r.Enabled));
         }
         if (clean.Count > 50) return "At most 50 rules.";
         _store.SetSetting("alertRules", JsonSerializer.Serialize(clean));
@@ -100,7 +107,7 @@ public sealed class RuleService : BackgroundService
                 foreach (var h in hosts.Where(h => Matches(rule.Target, h, tags)))
                 {
                     var key = rule.Id + ":" + h.Id;
-                    var name = h.CustomName != "" ? h.CustomName : h.Hostname != "" ? h.Hostname : h.Ip;
+                    var name = NameOf(h);
                     switch (rule.Kind)
                     {
                         case "offline":
@@ -119,6 +126,23 @@ public sealed class RuleService : BackgroundService
                             _online[key] = h.Online;
                             if (was == false && h.Online)
                                 await Fire(rule, $"{name} is back online", $"{name} ({h.Ip}) is online again. Rule: {Describe(rule)}.", ct);
+                            break;
+                        }
+                        case "wake":
+                        {
+                            // Once, at the set time, on the set days. A device that is
+                            // already up is left alone, but still counts as done today.
+                            if (!TimeOnly.TryParse(rule.From, out var at) || !WakeDays.TryGetValue(rule.To, out var days) || !days.Contains(local.DayOfWeek)) break;
+                            var since = (TimeOnly.FromDateTime(local) - at).TotalMinutes;
+                            if (since < 0 || since >= 10) break;
+                            var today = local.ToString("yyyy-MM-dd");
+                            if (_fired.TryGetValue(key, out var f) && f == today) break;
+                            _fired[key] = today; changed = true;
+                            if (h.Online) break;
+                            var ok = await WakeOnLan.WakeHostAsync(h);
+                            _log.LogInformation("Scheduled wake of {Name} ({Mac}): {Result}", name, h.Mac, ok ? "sent" : "failed");
+                            _store.AddAlert("wake", ok ? $"Woke {name} at {local:HH:mm}" : $"Couldn't wake {name}",
+                                ok ? $"Sent a Wake-on-LAN packet to {name} ({h.Mac}). Rule: {Describe(rule)}." : $"The Wake-on-LAN packet to {name} ({h.Mac}) couldn't be sent. Rule: {Describe(rule)}.");
                             break;
                         }
                         case "hours":
@@ -175,6 +199,22 @@ public sealed class RuleService : BackgroundService
         return false;
     }
 
+    /// <summary>A device's name for an alert: its own, its hostname, the router's name for it, or its address.</summary>
+    private string NameOf(HostRecord h)
+    {
+        if (h.CustomName != "") return h.CustomName;
+        if (h.Hostname != "") return h.Hostname;
+        return _store.GetRouterNames().TryGetValue(h.Mac, out var n) && n != "" ? n : h.Ip;
+    }
+
+    /// <summary>The days a wake rule runs on.</summary>
+    public static readonly Dictionary<string, DayOfWeek[]> WakeDays = new()
+    {
+        ["daily"] = Enum.GetValues<DayOfWeek>(),
+        ["weekdays"] = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday },
+        ["weekends"] = new[] { DayOfWeek.Saturday, DayOfWeek.Sunday },
+    };
+
     private static bool InWindow(DateTime local, string from, string to)
     {
         if (!TimeOnly.TryParse(from, out var f) || !TimeOnly.TryParse(to, out var t)) return false;
@@ -187,11 +227,12 @@ public sealed class RuleService : BackgroundService
         var who = r.Target == "any" ? "any device" : r.Target == "watched" ? "watched devices"
             : r.Target.StartsWith("tag:") ? $"devices tagged {r.Target[4..]}"
             : r.Target.StartsWith("host:") && long.TryParse(r.Target[5..], out var id) && _store.GetAll().FirstOrDefault(h => h.Id == id) is { } h
-                ? (h.CustomName != "" ? h.CustomName : h.Hostname != "" ? h.Hostname : h.Ip) : "one device";
+                ? NameOf(h) : "one device";
         return r.Kind switch
         {
             "offline" => $"{who} offline for more than {r.Minutes} min",
             "online" => $"{who} back online",
+            "wake" => $"wake {who} at {r.From}{(r.To == "weekdays" ? " on weekdays" : r.To == "weekends" ? " at weekends" : " every day")}",
             _ => $"{who} online between {r.From} and {r.To}",
         };
     }
@@ -226,7 +267,7 @@ public sealed class RuleService : BackgroundService
     {
         var (newly, closed, first) = _store.RecordPortScan(h.Id, scanned, open.Select(o => (o.Port, o.Service)));
         if (first || newly.Count == 0) return 0;
-        var name = h.CustomName != "" ? h.CustomName : h.Hostname != "" ? h.Hostname : h.Ip;
+        var name = NameOf(h);
         var list = string.Join(", ", newly.Select(p => p.Service != "" ? $"{p.Port} ({p.Service})" : p.Port.ToString()));
         var title = $"New open port{(newly.Count == 1 ? "" : "s")} on {name}: {list}";
         var detail = $"{name} ({h.Ip}) is now listening on {list}, which it wasn't the last time BAMF scanned it." +

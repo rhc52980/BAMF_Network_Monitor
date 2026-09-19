@@ -57,6 +57,8 @@ builder.Services.AddSingleton<ReportService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ReportService>());
 builder.Services.AddSingleton<MqttPublisher>();
 builder.Services.AddSingleton<SecurityCheck>();
+builder.Services.AddSingleton<RouterImport>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RouterImport>());
 builder.Services.AddSingleton<RuleService>();
 builder.Services.AddSingleton<RemoteService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RemoteService>());
@@ -172,6 +174,7 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
     var counters = scanner.Traffic.Counters();
     var dnsByDevice = scanner.Traffic.DnsByDevice();
     var openPorts = store.OpenPorts();
+    var routerNames = store.GetRouterNames();
     var hosts = store.GetAll().Select(h => new
     {
         id = h.Id,
@@ -189,6 +192,7 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         note = h.Note,
         osGuess = h.OsGuess,
         mdnsName = h.MdnsName,
+        routerName = routerNames.TryGetValue(h.Mac, out var rn) ? rn : null,
         mdnsServices = h.MdnsServices,
         link = h.Link,                                              // raw override, for editing
         linkUrl = DeviceLink.Resolve(h.Link, h.Ip, linkTemplate),   // resolved, for the href
@@ -750,6 +754,58 @@ app.MapPost("/api/settings/cert-watch", (ActiveArpRequest body, HostStore store)
     store.SetSetting("certWatch", body.Enabled ? "true" : "false");
     return Results.Ok();
 });
+// Names from the router, and the free addresses on each network.
+app.MapGet("/api/router-import", (RouterImport import) => Results.Json(import.Current));
+app.MapPost("/api/router-import/run", async (RouterImport import, CancellationToken ct) =>
+{
+    var n = await import.Run(ct);
+    return n < 0 ? Results.Json(import.Current, statusCode: 502) : Results.Json(import.Current);
+});
+app.MapPost("/api/router-import/apply", (RouterNamesApply body, HostStore store) =>
+    Results.Json(new { named = store.ApplyRouterNames(body.Overwrite) }));
+app.MapGet("/api/free-ips", (int? days, HostStore store, ScannerService scanner) =>
+{
+    var window = Math.Clamp(days ?? 90, 1, 3650);
+    var since = DateTime.UtcNow.AddDays(-window);
+    var places = scanner.NetworkPlaces();
+    var list = new List<object>();
+    foreach (var label in scanner.SubnetLabels)
+    {
+        var parts = label.Split('/');
+        if (parts.Length != 2 || !System.Net.IPAddress.TryParse(parts[0], out var net) || net.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork
+            || !int.TryParse(parts[1], out var prefix) || prefix < 16 || prefix > 30) continue;
+        var used = store.UsedAddresses(label, since);
+        if (places.TryGetValue(label, out var place))
+        {
+            if (place.Gateway is { } g) used.Add(g);
+            if (place.SelfIp is { } me) used.Add(me);
+        }
+        foreach (var gw in store.GetGateways().Where(g => g.Subnet == label)) used.Add(gw.Ip);
+        var bytes = net.GetAddressBytes();
+        var start = ((uint)bytes[0] << 24 | (uint)bytes[1] << 16 | (uint)bytes[2] << 8 | bytes[3]) & (uint.MaxValue << (32 - prefix));
+        var size = (int)((1u << (32 - prefix)) - 2);
+        string Ip(uint v) => $"{v >> 24}.{(v >> 16) & 255}.{(v >> 8) & 255}.{v & 255}";
+        var runs = new List<(uint From, uint To)>();
+        uint? runStart = null;
+        var free = 0;
+        for (uint v = start + 1; v <= start + (uint)size; v++)
+        {
+            var isFree = !used.Contains(Ip(v));
+            if (isFree) { free++; runStart ??= v; }
+            if ((!isFree || v == start + (uint)size) && runStart is { } rs) { runs.Add((rs, isFree ? v : v - 1)); runStart = null; }
+        }
+        var longest = runs.OrderByDescending(r => r.To - r.From).FirstOrDefault();
+        list.Add(new
+        {
+            subnet = label, size, used = size - free, free, days = window,
+            suggestion = runs.Count > 0 ? Ip(longest.From) : null,
+            runs = runs.OrderByDescending(r => r.To - r.From).ThenBy(r => r.From).Take(8)
+                .Select(r => new { from = Ip(r.From), to = Ip(r.To), count = (int)(r.To - r.From + 1) }),
+        });
+    }
+    return Results.Json(list);
+});
+
 app.MapGet("/api/security", (HostStore store, ScannerService scanner, SecurityCheck security) => Results.Json(SecurityJson(store, scanner, security)));
 // Check now: the common ports of every online known device, a UPnP search and
 // every HTTPS certificate, one after the other. About a minute on a home network.
@@ -1429,6 +1485,7 @@ record IgnoreRequest(bool Ignored);
 record WatchRequest(bool Watched);
 record ForgetRequest(bool Forgotten);
 record ActiveArpRequest(bool Enabled);
+record RouterNamesApply(bool Overwrite);
 record NightRequest(bool Enabled, string? From, string? To, string? Theme);
 record ScanSettingsRequest(
     int? ScanIntervalSeconds,

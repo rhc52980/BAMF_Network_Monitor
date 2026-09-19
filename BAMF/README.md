@@ -143,6 +143,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:ScanIntervalSeconds` | Seconds between scans. |
 | `Bamf:AutoIgnoreRandomizedMacs` | Auto-ignore new hosts with randomized MACs (default in shipped config: true). |
 | `Bamf:HookToken` | A token for the inbound webhooks, sent as `X-BAMF-Token` or `?token=`. With a `Password` set, it stands in for the password on those endpoints; without one, they're as open as the dashboard (default empty). |
+| `Bamf:RouterImport` | Read device names from your router every hour: `Kind` (`openwrt`, `opnsense`, `pfsense` or `unifi`), `Url`, and the credentials that router needs. Off while `Kind` is empty. See [Names from your router](#names-from-your-router). |
 | `Bamf:Remotes` | Other BAMF servers to show here, read-only: `[{"Name": "Cabin", "Url": "http://10.0.0.5:8840", "Password": ""}]`. See [Other BAMF servers](#other-bamf-servers). |
 | `Bamf:Mqtt:*` | Presence per device over MQTT: `Server` (set it to turn this on), `Port` (1883), `Tls`, `Username`, `Password`, `ClientId` (bamf), `TopicPrefix` (bamf), `Discovery` (true), `DiscoveryPrefix` (homeassistant). Read at startup only. See [MQTT](#mqtt-and-home-assistant). |
 | `Bamf:TrafficMonitor` | With Npcap, watch the wire receive-only: bytes in and out per device, and every DHCP and DNS server in use, alerting on new ones (default true). Also in Settings → Behaviour. See [Traffic, DHCP and DNS](#traffic-dhcp-and-dns). |
@@ -1051,6 +1052,10 @@ scan, or delete a thing.
 | GET | `/wall` | The wall display page. `?net=<cidr>` shows one network. See [Wall display](#wall-display) |
 | POST | `/api/settings/arp-watch` | Body `{"enabled": false}` — the ARP watch: IP conflicts, the gateway's MAC changing, another device claiming the gateway. On by default |
 | POST | `/api/settings/cert-watch` | Body `{"enabled": false}` — the certificate watch: HTTPS certificates read every morning, with expiry alerts. On by default |
+| GET | `/api/free-ips?days=90` | For each IPv4 network: `size`, `used`, `free`, the longest `runs` of free addresses and a `suggestion`. Used means seen in the last `days` (default 90), plus every device's current address, the gateway and this machine |
+| GET | `/api/router-import` | Router import status: `kind`, `host`, `enabled`, `lastRun`, `count`, `error` |
+| POST | `/api/router-import/run` | Read the router's list now; `502` with the status if it failed |
+| POST | `/api/router-import/apply` | Body `{"overwrite": false}` — copy router names into BAMF's own names, only for devices without one unless `overwrite`. Returns `{ "named": 3 }` |
 | GET | `/api/security` | What the hygiene card needs beyond `/api/hosts`: `certs` (per device and port: `subject`, `issuer`, `notAfter`, `selfSigned`, `error`), `upnp` (routers that answered a UPnP search), `gatewayMacs` (each network's gateway and the MAC last seen for it), `checkedAt` |
 | POST | `/api/security/check` | Check now: scans every online known device's common ports, searches for UPnP routers and reads every HTTPS certificate. Returns the same as `GET /api/security`; `409` if a check is already running |
 | POST | `/api/ports/watch` | Run that scan now; returns how many newly open ports it found |
@@ -1599,6 +1604,11 @@ rules and quiet hours** adds patience, groups and hours:
 - **Back online**, for the same targets.
 - **Online between** two times of day. "Devices tagged kids online between
   22:00 and 06:00" alerts once per device per day.
+- **Wake at** a time of day, every day, on weekdays or at weekends: "wake the
+  NAS at 07:00 on weekdays". It sends a Wake-on-LAN packet to one device, a
+  tag or the watched devices, at most once a day each, and leaves a device
+  alone if it's already up. Each wake shows under Activity → Alerts, but
+  isn't sent to the webhook.
 
 Each rule can be paused or deleted, and every alert it raises shows under
 **Activity → Alerts** as well as going to the webhook.
@@ -1894,6 +1904,57 @@ the target must have Wake-on-LAN enabled in its BIOS/UEFI and OS network
 adapter settings, and the BAMF server must have an interface on the target's
 subnet (magic packets are layer-2 broadcasts and don't route). Give a woken
 device a minute to boot; it'll flip to online on the next scan.
+
+To wake something on a schedule, add a **Wake at** rule under **Settings →
+Alert rules and quiet hours**: see [Alert rules and quiet hours](#alert-rules-and-quiet-hours).
+
+## Find a free address
+
+**Tools → Find a free address…** shows how full each network is, with a
+gauge, and the longest runs of addresses no device has used in the last 30
+days, 90 days or year, with one suggestion to copy. That's the address to
+give a new printer or server a static IP without colliding with anything.
+BAMF counts every address a device has answered on in that window, each
+device's current address however old, the gateway and this machine. It only
+knows the devices it has seen, so keep a static address outside the range
+your router's DHCP hands out.
+
+## Names from your router
+
+Your router hands out the addresses, and it usually knows each device by the
+name it asked for, or one you gave it in the router's own pages. BAMF can read
+that list every hour. A router's name for a device is shown when BAMF has no
+other name for it: after your own name and the resolved hostname, and before
+an mDNS name. **Settings → Names from your router → Use as names for unnamed
+devices** copies them into BAMF's own names, for devices that don't have one.
+
+It's off until you set it up in `appsettings.json`, since it needs the
+router's credentials:
+
+```jsonc
+"RouterImport": {
+  "Kind": "openwrt",               // openwrt, opnsense, pfsense or unifi
+  "Url": "https://192.168.1.1",
+  "Username": "root",              // OpenWrt and UniFi
+  "Password": "",
+  "ApiKey": "",                    // OPNsense and pfSense
+  "ApiSecret": "",                 // OPNsense
+  "Site": "default",               // UniFi
+  "IntervalMinutes": 60,
+  "VerifyCertificate": false       // routers usually have a self-signed certificate
+}
+```
+
+| Router | What it needs |
+|---|---|
+| **OpenWrt** | A user that can call `luci-rpc` over ubus (the `rpcd-mod-luci` package, which LuCI installs). `root` works. BAMF reads `getDHCPLeases`. |
+| **OPNsense** | An API key and secret (System → Access → Users → API keys) for a user allowed the DHCP lease pages. Works with the ISC DHCP server and with Kea. A description you set on a lease wins over the device's hostname. |
+| **pfSense** | The pfSense REST API package, and an API key. |
+| **UniFi** | A local account on a UniFi OS console (UDM, UDR, Cloud Key Gen2 and later) or a classic Network controller. A name you gave a client in UniFi wins over its hostname. |
+
+**Import now** reads the list straight away and says how many names it got,
+or why it couldn't. Names without a real name behind them (`*`, `unknown`) are
+skipped, and a hostname's domain is dropped.
 
 ## Multi-network setups
 
