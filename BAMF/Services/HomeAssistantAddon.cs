@@ -32,6 +32,7 @@ public static class HomeAssistantAddon
         if (o.TryGetProperty("active_arp", out var arp) && arp.ValueKind is JsonValueKind.True or JsonValueKind.False) map["Bamf:ActiveArpScan"] = arp.GetBoolean().ToString();
         if (o.TryGetProperty("traffic_monitor", out var tm) && tm.ValueKind is JsonValueKind.True or JsonValueKind.False) map["Bamf:TrafficMonitor"] = tm.GetBoolean().ToString();
         if (Str("password") is { } pw) map["Bamf:Password"] = pw;
+        if (Str("viewer_password") is { } vpw) map["Bamf:ViewerPassword"] = vpw;
         if (Str("webhook_url") is { } hook) map["Bamf:WebhookUrl"] = hook;
         if (Str("mqtt_server") is { Length: > 0 } mqtt)
         {
