@@ -140,6 +140,8 @@ git tag v1.9.0 && git push --tags
 | `Bamf:ActiveArpScan` | Use raw ARP scanning via Npcap/libpcap when available; falls back to ping sweep otherwise. |
 | `Bamf:ScanIntervalSeconds` | Seconds between scans. |
 | `Bamf:AutoIgnoreRandomizedMacs` | Auto-ignore new hosts with randomized MACs (default in shipped config: true). |
+| `Bamf:HookToken` | A token for the inbound webhooks, sent as `X-BAMF-Token` or `?token=`. With a `Password` set, it stands in for the password on those endpoints; without one, they're as open as the dashboard (default empty). |
+| `Bamf:Remotes` | Other BAMF servers to show here, read-only: `[{"Name": "Cabin", "Url": "http://10.0.0.5:8840", "Password": ""}]`. See [Other BAMF servers](#other-bamf-servers). |
 | `Bamf:Mqtt:*` | Presence per device over MQTT: `Server` (set it to turn this on), `Port` (1883), `Tls`, `Username`, `Password`, `ClientId` (bamf), `TopicPrefix` (bamf), `Discovery` (true), `DiscoveryPrefix` (homeassistant). Read at startup only. See [MQTT](#mqtt-and-home-assistant). |
 | `Bamf:TrafficMonitor` | With Npcap, watch the wire receive-only: bytes in and out per device, and every DHCP and DNS server in use, alerting on new ones (default true). Also in Settings → Behaviour. See [Traffic, DHCP and DNS](#traffic-dhcp-and-dns). |
 | `Bamf:LatencyProbe` | After each scan, ping every online device on the networks it covered and keep the round-trip time (default true). Also in Settings → Behaviour, which wins once changed there. See [Latency and uptime](#latency-and-uptime). |
@@ -328,6 +330,16 @@ survive IP changes.
 - **Port history and change alerts** - every port ever found open on a device
   is remembered, and a port that opens later is an alert. Optionally, a daily
   scan of every known device. See [Port history](#port-history-and-change-alerts).
+- **A timeline per device** - first seen, every online and offline, each
+  address move, ports opening and closing, and every alert that named it, in
+  one list in the History panel.
+- **Prometheus metrics** at `/metrics` - devices, presence, latency, uptime
+  and traffic, for Grafana. See [Prometheus](#prometheus-metrics).
+- **Inbound webhooks** - `POST /api/hooks/scan` and `/api/hooks/wake/{mac}`,
+  so Home Assistant or a script can ask for a scan or wake a machine. See
+  [Inbound webhooks](#inbound-webhooks).
+- **Other BAMF servers** - watch another site's BAMF, read-only, under its own
+  network tabs. See [Other BAMF servers](#other-bamf-servers).
 - **Bandwidth history** - bytes per device per hour, kept for the retention
   window, so the History panel shows the week and reports say who used the most.
 - **Scheduled reports** - a daily or weekly summary to your webhook: what's
@@ -897,6 +909,11 @@ scan, or delete a thing.
 | GET | `/api/hosts/{id}/events` | One host's online/offline event history |
 | GET | `/api/layout` | The recorded layout as one JSON file: switches and their kinds, uplinks and port labels; each device's placement, name, note, link, flags, type, tags and combined cards; declared gateways; type icons; Map positions. Devices are keyed by MAC and switches by their place in the file |
 | POST | `/api/layout` | Body: a file from `GET /api/layout`. Replaces the recorded layout. Returns `{"devices", "switches", "skipped"}`, `skipped` being the MACs this server hasn't seen, whose settings wait for a later import |
+| GET | `/api/hosts/{id}/timeline` | One device's story, newest first: `[{"at", "kind", "text"}]`, kinds `first`, `online`, `offline`, `address`, `port`, `portclosed` and `alert:<kind>` |
+| GET | `/metrics` | Prometheus text exposition: see [Prometheus metrics](#prometheus-metrics). `/api/prometheus` redirects here |
+| POST | `/api/hooks/scan` | Ask for a scan now, of every network or `?subnet=192.168.1.0/24`. See [Inbound webhooks](#inbound-webhooks) |
+| POST | `/api/hooks/wake/{mac}` | Send a Wake-on-LAN packet to a MAC (`AA:BB:…`, `AA-BB-…` or `AABB…`), known to BAMF or not |
+| GET | `/api/remotes` | The other BAMF servers being watched, their status, and their devices |
 | GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
 | GET | `/api/settings/rules` | The alert rules, quiet hours and port watch: `{"rules": [...], "quiet": {"from", "to", "digest", "now", "held"}, "portWatch"}` |
 | POST | `/api/settings/rules` | Body: the whole rule list, each `{"id", "name", "kind": "offline"\|"online"\|"hours", "target": "any"\|"watched"\|"tag:kids"\|"host:12", "minutes", "from", "to", "enabled"}`. `id` empty for a new rule |
@@ -1471,6 +1488,62 @@ and to the webhook.
 passive) scans every online known device's common ports at 4 am, so a port
 that opens is noticed without anyone running a scan. **Scan now** runs the
 same scan on demand.
+
+### Prometheus metrics
+
+`GET /metrics` serves the text format Prometheus scrapes, under the same
+password as the dashboard if one is set:
+
+- `bamf_devices_total` and `bamf_devices_online`, per network;
+- per device (labels `mac`, `name`, `ip`, `network`): `bamf_device_online`,
+  `bamf_device_latency_ms`, `bamf_device_uptime_7d_percent`, and
+  `bamf_device_rx_bytes_total` / `bamf_device_tx_bytes_total` while the
+  traffic monitor runs;
+- `bamf_last_scan_timestamp_seconds`, `bamf_traffic_monitor_running`, and
+  `bamf_info{version}`.
+
+A scrape every 30 or 60 seconds is plenty; nothing here is computed on the
+scrape beyond reading what the last scan left.
+
+### Inbound webhooks
+
+The way in, to go with MQTT going out:
+
+- `POST /api/hooks/scan` makes every network due now, or one with
+  `?subnet=192.168.1.0/24`. The scanner wakes straight away.
+- `POST /api/hooks/wake/{mac}` sends a Wake-on-LAN magic packet to that MAC,
+  directed at its network's broadcast address when BAMF knows the device.
+
+Set `Bamf:HookToken` and both require it, as an `X-BAMF-Token` header or
+`?token=`. With a `Password` set as well, the token stands in for the password
+on these two endpoints, so a Home Assistant `rest_command` needs only the
+token. Without a token they're as open as the rest of the dashboard.
+
+```yaml
+rest_command:
+  wake_desktop:
+    url: "http://bamf.local:8840/api/hooks/wake/AA:BB:CC:DD:EE:FF?token=…"
+    method: post
+```
+
+### Other BAMF servers
+
+A BAMF at another site can show in this dashboard, read-only. List it in
+`appsettings.json`:
+
+```json
+"Remotes": [
+  { "Name": "Cabin", "Url": "http://10.0.0.5:8840", "Password": "" }
+]
+```
+
+BAMF fetches each remote's `/api/hosts` once a minute. Its devices appear
+under network tabs named after it ("Cabin · 10.0.0.0/24"), with a **remote**
+tag on the tab and a site chip in place of the ⋯ menu, since nothing can be
+changed from here. **All networks** stays this server's own. A remote that
+can't be reached keeps its last answer and its tab says **stale**; the
+**Set in appsettings.json** card shows each remote's state. The Map draws
+this server's networks only.
 
 ### Scheduled reports
 

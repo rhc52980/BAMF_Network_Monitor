@@ -236,6 +236,65 @@ public partial class HostStore
         }
     }
 
+    /// <summary>
+    /// One device's story, newest first: first seen, every online and offline,
+    /// each address it moved to, each port first found open or found closed,
+    /// and every alert that named it.
+    /// </summary>
+    public List<(string At, string Kind, string Text)> Timeline(long hostId, int limit = 80)
+    {
+        var items = new List<(string, string, string)>();
+        HostRecord? h;
+        lock (_lock)
+        {
+            using var conn = Open();
+            h = GetByIdInternal(conn, hostId);
+            if (h is null) return items;
+            items.Add((h.FirstSeen, "first", "First seen"));
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT type, at FROM events WHERE host_id = $h ORDER BY at DESC LIMIT 200";
+                cmd.Parameters.AddWithValue("$h", hostId);
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) items.Add((r.GetString(1), r.GetString(0), r.GetString(0) == "online" ? "Came online" : "Went offline"));
+            }
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT ip, at FROM ip_history WHERE host_id = $h ORDER BY at";
+                cmd.Parameters.AddWithValue("$h", hostId);
+                using var r = cmd.ExecuteReader();
+                string? prev = null;
+                while (r.Read())
+                {
+                    var ip = r.GetString(0);
+                    if (prev is not null) items.Add((r.GetString(1), "address", $"Moved to {ip} (was {prev})"));
+                    prev = ip;
+                }
+            }
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT port, service, first_seen, last_seen, open FROM host_ports WHERE host_id = $h";
+                cmd.Parameters.AddWithValue("$h", hostId);
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    var name = r.GetString(1) != "" ? $"{r.GetInt32(0)} ({r.GetString(1)})" : r.GetInt32(0).ToString();
+                    items.Add((r.GetString(2), "port", $"Port {name} first found open"));
+                    if (r.GetInt64(4) == 0) items.Add((r.GetString(3), "portclosed", $"Port {name} no longer open"));
+                }
+            }
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT at, kind, title FROM alerts WHERE detail LIKE $ip OR detail LIKE $mac OR title LIKE $ip ORDER BY id DESC LIMIT 50";
+                cmd.Parameters.AddWithValue("$ip", "%" + h.Ip + "%");
+                cmd.Parameters.AddWithValue("$mac", "%" + h.Mac + "%");
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) items.Add((r.GetString(0), "alert:" + r.GetString(1), r.GetString(2)));
+            }
+        }
+        return items.OrderByDescending(i => i.Item1).Take(limit).ToList();
+    }
+
     private static void PruneAlertsAndTraffic(SqliteConnection conn, string cutoff)
     {
         foreach (var sql in new[] { "DELETE FROM alerts WHERE at < $cutoff", "DELETE FROM traffic_hourly WHERE hour < $cutoff" })

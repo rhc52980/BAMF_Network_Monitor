@@ -57,6 +57,8 @@ builder.Services.AddSingleton<ReportService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ReportService>());
 builder.Services.AddSingleton<MqttPublisher>();
 builder.Services.AddSingleton<RuleService>();
+builder.Services.AddSingleton<RemoteService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RemoteService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RuleService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MqttPublisher>());
 builder.Services.AddHttpClient();
@@ -95,12 +97,17 @@ if (!string.IsNullOrEmpty(app.Configuration["Bamf:Password"]))
 
 // ---------- optional HTTP Basic auth ----------
 var password = app.Configuration["Bamf:Password"];
+var hookToken = app.Configuration["Bamf:HookToken"];
+// An inbound webhook may carry the hook token instead of the password.
+static bool HookTokenOk(HttpContext ctx, string? token) =>
+    !string.IsNullOrEmpty(token) && ctx.Request.Path.StartsWithSegments("/api/hooks") &&
+    (CryptographicEquals(ctx.Request.Headers["X-BAMF-Token"].ToString(), token) || CryptographicEquals(ctx.Request.Query["token"].ToString(), token));
 if (!string.IsNullOrEmpty(password))
 {
     app.Use(async (ctx, next) =>
     {
         var header = ctx.Request.Headers.Authorization.ToString();
-        var ok = false;
+        var ok = HookTokenOk(ctx, hookToken);
         if (header.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
         {
             try
@@ -145,7 +152,7 @@ app.MapGet("/themes/{id}/{file}", (string id, string file, HttpContext ctx) =>
 
 // ---------- API ----------
 
-app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker updates, PortBlinker blinker) =>
+app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker updates, PortBlinker blinker, RemoteService remotesSvc) =>
 {
     var linkTemplate = app.Configuration["Bamf:DeviceLinkTemplate"];
     var placements = store.GetPlacements();
@@ -224,6 +231,9 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         latencyProbe = scanner.LatencyProbeEnabled,
         // The traffic monitor: bytes per device and DHCP/DNS watching, through Npcap.
         traffic = TrafficJson(scanner),
+        // Other BAMF servers' devices, read-only, and how each remote is doing.
+        remotes = remotesSvc.Hosts(),
+        remoteStatus = remotesSvc.Statuses,
         // Holiday Spirit: the dashboard wears Halloween through October and
         // Christmas from December 1st to 25th. Saved setting wins over appsettings.
         holidaySpirit = HolidaySpirit(store, app.Configuration),
@@ -823,7 +833,7 @@ app.MapPost("/api/settings/holiday-spirit", (ActiveArpRequest body, HostStore st
 // appsettings.json on purpose. Subnets in particular is the boundary the wildcard
 // port-scan guard depends on - a pattern can only expand across configured
 // networks, so letting the UI edit that list would dissolve the guarantee.
-app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChecker updates, IConfiguration cfg, ReportService reports, MqttPublisher mqtt, RuleService rulesSvc) =>
+app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChecker updates, IConfiguration cfg, ReportService reports, MqttPublisher mqtt, RuleService rulesSvc, RemoteService remotesSvc2) =>
 {
     var overrides = scanner.ReadIntervalOverrides();
     return Results.Ok(new
@@ -874,6 +884,8 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             databasePath = cfg["Bamf:DatabasePath"] ?? "bamf.db",
             autoDownloadOui = cfg.GetValue("Bamf:AutoDownloadOui", true),
             updateRepo = cfg["Bamf:UpdateRepo"] ?? "",
+            hookToken = !string.IsNullOrEmpty(cfg["Bamf:HookToken"]),
+            remotes = remotesSvc2.Statuses,
             mqtt = new
             {
                 configured = mqtt.Configured, server = mqtt.Configured ? mqtt.Server : null, connected = mqtt.Connected,
@@ -1130,6 +1142,87 @@ app.MapPost("/api/hosts/{id:long}/combine", (long id, CombineRequest body, HostS
     var error = store.SetInterfaceOf(id, body.ParentId);
     return error is null ? Results.Ok() : Results.BadRequest(new { error });
 });
+
+// ---------- inbound webhooks ----------
+// The way in, for Home Assistant and scripts: ask for a scan, or wake a
+// machine by MAC. With Bamf:HookToken set, the token (X-BAMF-Token header or
+// ?token=) is required here and also stands in for the password.
+bool HookAllowed(HttpContext ctx) => string.IsNullOrEmpty(hookToken) || HookTokenOk(ctx, hookToken);
+app.MapPost("/api/hooks/scan", (HttpContext ctx, string? subnet, ScannerService scanner) =>
+{
+    if (!HookAllowed(ctx)) return Results.Unauthorized();
+    if (!string.IsNullOrWhiteSpace(subnet) && !scanner.SubnetLabels.Contains(subnet.Trim(), StringComparer.OrdinalIgnoreCase))
+        return Results.BadRequest(new { error = $"{subnet} isn't a configured network." });
+    scanner.RequestScan(subnet);
+    return Results.Json(new { ok = true, networks = string.IsNullOrWhiteSpace(subnet) ? scanner.SubnetLabels : new[] { subnet.Trim() } });
+});
+app.MapPost("/api/hooks/wake/{mac}", async (HttpContext ctx, string mac, HostStore store) =>
+{
+    if (!HookAllowed(ctx)) return Results.Unauthorized();
+    var norm = mac.Replace('-', ':').ToUpperInvariant();
+    if (norm.Length == 12 && !norm.Contains(':')) norm = string.Join(":", Enumerable.Range(0, 6).Select(i => norm.Substring(i * 2, 2)));
+    var host = store.GetAll().FirstOrDefault(h => string.Equals(h.Mac, norm, StringComparison.OrdinalIgnoreCase));
+    System.Net.IPAddress? directed = null;
+    if (host is not null && host.Subnet.Contains('/'))
+    {
+        var parts = host.Subnet.Split('/');
+        if (System.Net.IPAddress.TryParse(parts[0], out var net) && int.TryParse(parts[1], out var prefix)) directed = WakeOnLan.DirectedBroadcast(net, prefix);
+    }
+    var ok = await WakeOnLan.WakeAsync(norm, directed);
+    return ok ? Results.Json(new { ok = true, mac = norm, known = host is not null }) : Results.BadRequest(new { error = "Could not send the magic packet (bad MAC?)" });
+});
+
+// ---------- Prometheus ----------
+// Devices, presence, latency, uptime and traffic in the text exposition format.
+app.MapGet("/metrics", (HostStore store, ScannerService scanner) =>
+{
+    static string L(string v) => v.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n");
+    var hosts = store.GetAll().Where(h => !h.Ignored && !h.Forgotten).ToList();
+    var latency = store.LatestLatency();
+    var uptimes = store.Uptimes();
+    var counters = scanner.Traffic.Counters();
+    var sb = new StringBuilder();
+    sb.AppendLine("# HELP bamf_devices_total Devices known on a network.\n# TYPE bamf_devices_total gauge");
+    sb.AppendLine("# HELP bamf_devices_online Devices online on a network.\n# TYPE bamf_devices_online gauge");
+    foreach (var g in hosts.GroupBy(h => h.Subnet))
+    {
+        sb.AppendLine($"bamf_devices_total{{network=\"{L(g.Key)}\"}} {g.Count()}");
+        sb.AppendLine($"bamf_devices_online{{network=\"{L(g.Key)}\"}} {g.Count(h => h.Online)}");
+    }
+    sb.AppendLine("# HELP bamf_device_online 1 when the device answered the last scan of its network.\n# TYPE bamf_device_online gauge");
+    sb.AppendLine("# HELP bamf_device_latency_ms Round-trip time of the last echo, milliseconds.\n# TYPE bamf_device_latency_ms gauge");
+    sb.AppendLine("# HELP bamf_device_uptime_7d_percent Share of the last 7 days the device was online.\n# TYPE bamf_device_uptime_7d_percent gauge");
+    sb.AppendLine("# HELP bamf_device_rx_bytes_total Bytes to the device since the traffic monitor started.\n# TYPE bamf_device_rx_bytes_total counter");
+    sb.AppendLine("# HELP bamf_device_tx_bytes_total Bytes from the device since the traffic monitor started.\n# TYPE bamf_device_tx_bytes_total counter");
+    foreach (var h in hosts)
+    {
+        var name = h.CustomName != "" ? h.CustomName : h.Hostname != "" ? h.Hostname : h.Ip;
+        var labels = $"mac=\"{L(h.Mac)}\",name=\"{L(name)}\",ip=\"{L(h.Ip)}\",network=\"{L(h.Subnet)}\"";
+        sb.AppendLine($"bamf_device_online{{{labels}}} {(h.Online ? 1 : 0)}");
+        if (latency.TryGetValue(h.Id, out var ms) && ms is not null) sb.AppendLine($"bamf_device_latency_ms{{{labels}}} {ms}");
+        if (uptimes.TryGetValue(h.Id, out var up) && up.Week is not null) sb.AppendLine($"bamf_device_uptime_7d_percent{{{labels}}} {up.Week.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        if (counters.TryGetValue(h.Mac, out var c))
+        {
+            sb.AppendLine($"bamf_device_rx_bytes_total{{{labels}}} {c.RxTotal}");
+            sb.AppendLine($"bamf_device_tx_bytes_total{{{labels}}} {c.TxTotal}");
+        }
+    }
+    sb.AppendLine("# HELP bamf_last_scan_timestamp_seconds When the last scan finished, Unix time.\n# TYPE bamf_last_scan_timestamp_seconds gauge");
+    if (scanner.LastScanUtc is { } last) sb.AppendLine($"bamf_last_scan_timestamp_seconds {new DateTimeOffset(last).ToUnixTimeSeconds()}");
+    sb.AppendLine("# HELP bamf_traffic_monitor_running 1 while the traffic monitor is capturing.\n# TYPE bamf_traffic_monitor_running gauge");
+    sb.AppendLine($"bamf_traffic_monitor_running {(scanner.Traffic.Running ? 1 : 0)}");
+    sb.AppendLine("# HELP bamf_info BAMF version.\n# TYPE bamf_info gauge");
+    sb.AppendLine($"bamf_info{{version=\"{L(version)}\"}} 1");
+    return Results.Text(sb.ToString(), "text/plain; version=0.0.4; charset=utf-8");
+});
+app.MapGet("/api/prometheus", (HttpContext ctx) => Results.Redirect("/metrics"));
+
+// One device's story, newest first.
+app.MapGet("/api/hosts/{id:long}/timeline", (long id, HostStore store) =>
+    Results.Json(store.Timeline(id).Select(t => new { at = t.At, kind = t.Kind, text = t.Text })));
+
+// Other BAMF servers being watched, and their devices.
+app.MapGet("/api/remotes", (RemoteService remotes) => Results.Json(new { remotes = remotes.Statuses, hosts = remotes.Hosts() }));
 
 // Switch 0 clears the placement; port 0 means "on this switch, port not recorded".
 app.MapPost("/api/hosts/{id:long}/plug", (long id, PlugRequest body, HostStore store) =>

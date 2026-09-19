@@ -53,6 +53,18 @@ public partial class ScannerService : BackgroundService
     private bool _npcapWarned;
     private DateTime _lastPruneUtc = DateTime.MinValue;
 
+    // Scans asked for from outside (an inbound webhook): the networks wanted,
+    // "*" for all, and a way to wake the loop from its wait.
+    private readonly System.Collections.Concurrent.ConcurrentQueue<string> _requests = new();
+    private CancellationTokenSource _wake = new();
+
+    /// <summary>Makes a network (or every network) due now and wakes the loop.</summary>
+    public void RequestScan(string? subnet)
+    {
+        _requests.Enqueue(string.IsNullOrWhiteSpace(subnet) ? "*" : subnet.Trim());
+        try { _wake.Cancel(); } catch { }
+    }
+
     /// <summary>When each network is next due, keyed by CIDR label.</summary>
     private readonly Dictionary<string, DateTime> _dueAt = new(StringComparer.OrdinalIgnoreCase);
 
@@ -396,6 +408,11 @@ public partial class ScannerService : BackgroundService
                 // than leaving it out, so the dashboard can count down to it.
                 foreach (var l in labels)
                     if (!disabled.Contains(l) && !_dueAt.ContainsKey(l)) _dueAt[l] = DateTime.UtcNow;
+                // Anything asked for from outside is due now.
+                while (_requests.TryDequeue(out var wanted))
+                    foreach (var l in labels)
+                        if (!disabled.Contains(l) && (wanted == "*" || string.Equals(wanted, l, StringComparison.OrdinalIgnoreCase)))
+                            _dueAt[l] = DateTime.UtcNow;
                 SubnetNextDue = new Dictionary<string, DateTime>(_dueAt, StringComparer.OrdinalIgnoreCase);
 
                 // Carry modes forward, mark paused networks as such, and drop any
@@ -503,8 +520,13 @@ public partial class ScannerService : BackgroundService
                 _log.LogError(ex, "Scan failed");
             }
 
-            try { await Task.Delay(WaitUntilNextDue(), ct); }
-            catch (OperationCanceledException) { break; }
+            try
+            {
+                _wake = new CancellationTokenSource();
+                using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _wake.Token);
+                await Task.Delay(WaitUntilNextDue(), linked.Token);
+            }
+            catch (OperationCanceledException) { if (ct.IsCancellationRequested) break; }
         }
     }
 
