@@ -137,6 +137,12 @@ app.UseStaticFiles();
 // ---------- drop-in themes ----------
 // Each folder in <install>/themes with a theme.json is a theme; see DropInThemes.
 var themesDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, app.Configuration["Bamf:ThemesPath"] ?? "themes"));
+// The wall display, /wall: a big-screen status board with no controls, for a
+// TV or a spare tablet. Static, so it sits behind the same Basic auth as the
+// dashboard.
+app.MapGet("/wall", () =>
+    Results.File(Path.Combine(app.Environment.WebRootPath ?? Path.Combine(AppContext.BaseDirectory, "wwwroot"), "wall.html"), "text/html"));
+
 app.MapGet("/api/themes", () => Results.Json(DropInThemes.List(themesDir).Select(t => new
 {
     id = t.Id, name = t.Name, swatch = t.Swatch, css = t.HasCss, js = t.HasJs,
@@ -237,6 +243,7 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         // Holiday Spirit: the dashboard wears Halloween through October and
         // Christmas from December 1st to 25th. Saved setting wins over appsettings.
         holidaySpirit = HolidaySpirit(store, app.Configuration),
+        night = NightJson(store),
         // Where the dashboard's feedback link points. Derived from the same
         // setting the update check uses, so a fork sends reports to its own
         // tracker rather than upstream's.
@@ -827,6 +834,25 @@ app.MapPost("/api/settings/holiday-spirit", (ActiveArpRequest body, HostStore st
     return Results.Ok();
 });
 
+app.MapPost("/api/settings/night", (NightRequest body, HostStore store) =>
+{
+    var clock = new System.Text.RegularExpressions.Regex(@"^([01]\d|2[0-3]):[0-5]\d$");
+    var from = body.From ?? "21:00";
+    var to = body.To ?? "06:00";
+    var theme = (body.Theme ?? "nightstreet").Trim().ToLowerInvariant();
+    if (!clock.IsMatch(from) || !clock.IsMatch(to))
+        return Results.BadRequest(new { error = "Times must be HH:MM, 24-hour." });
+    if (from == to)
+        return Results.BadRequest(new { error = "Night has to start and end at different times." });
+    if (!System.Text.RegularExpressions.Regex.IsMatch(theme, "^[a-z0-9-]{1,40}$"))
+        return Results.BadRequest(new { error = "That isn't a theme id." });
+    store.SetSetting("nightMode", body.Enabled ? "true" : "false");
+    store.SetSetting("nightFrom", from);
+    store.SetSetting("nightTo", to);
+    store.SetSetting("nightTheme", theme);
+    return Results.Ok();
+});
+
 // Everything the Settings tab renders, in one round trip. Split into what the
 // dashboard may change and what it may only display: anything that decides which
 // networks BAMF is allowed to touch, or that needs a restart to apply, stays in
@@ -872,6 +898,7 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             report = ReportJson(reports),
             rules = RulesJson(rulesSvc, scanner),
             holidaySpirit = HolidaySpirit(store, app.Configuration),
+            night = NightJson(store),
             updateCheck = updates.Enabled,
             webhookConfigured = !string.IsNullOrWhiteSpace(scanner.WebhookUrl),
             webhookMasked = MaskWebhook(scanner.WebhookUrl),
@@ -1280,6 +1307,17 @@ static object TrafficJson(ScannerService scanner) => new
 static bool HolidaySpirit(HostStore store, IConfiguration config) =>
     store.GetSetting("holidaySpirit") is string v ? v == "true" : config.GetValue("Bamf:HolidaySpirit", false);
 
+// Night mode: between two clock times, by each browser's own clock, every
+// dashboard wears the night theme. Saved from Settings; the defaults are
+// 9 pm to 6 am and Night Street.
+static object NightJson(HostStore store) => new
+{
+    enabled = store.GetSetting("nightMode") == "true",
+    from = store.GetSetting("nightFrom") ?? "21:00",
+    to = store.GetSetting("nightTo") ?? "06:00",
+    theme = store.GetSetting("nightTheme") ?? "nightstreet",
+};
+
 static string? MaskWebhook(string? url)
 {
     if (string.IsNullOrWhiteSpace(url)) return null;
@@ -1348,6 +1386,7 @@ record IgnoreRequest(bool Ignored);
 record WatchRequest(bool Watched);
 record ForgetRequest(bool Forgotten);
 record ActiveArpRequest(bool Enabled);
+record NightRequest(bool Enabled, string? From, string? To, string? Theme);
 record ScanSettingsRequest(
     int? ScanIntervalSeconds,
     int? PingConcurrency,

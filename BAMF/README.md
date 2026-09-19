@@ -507,7 +507,10 @@ Some themes have a little life in them:
   new device calls "Order up!", a finished scan rings "Ding!", and a device that
   goes offline gets its row stamped **86'd** (diner slang for "we're out"). On
   the Map, online devices get a squiggle of mustard, unknown ones a 🌭, and the
-  router a paper hat.
+  router a paper hat. With sound on (the 🔊 button, off until you click it) the
+  ding is a real desk bell, the cart rings a bicycle bell, the ketchup squirts,
+  a new device gets a little jingle, and one that goes offline gets the chord
+  every Windows 3.1 owner remembers.
 - **Steampunk**: walnut and leather, brass and copper. The name sits on a
   riveted brass nameplate, the panels have rivets in their corners, and the
   counts glow like nixie tubes. A copper steam pipe runs under the header, and
@@ -517,7 +520,10 @@ Some themes have a little life in them:
   device arrives by telegraph ticker tape, and a device that goes offline
   gets a hiss of steam on its row. On the Map, cables become copper pipes,
   running devices get a little turning cog, and the router wears a top hat.
-  More brass fittings:
+  With sound on (the 🔊 button, off until you click it) the valve hisses when
+  it lets off steam, the gears clank when a scan lands, a new device gets a
+  steam whistle, a device that goes offline a dull clunk, and one that comes
+  back a small bell. More brass fittings:
   - a **pressure gauge** in the header shows how much of your network is up,
     against the most seen online this session, and falls into the red and
     trembles if a lot drops off;
@@ -552,6 +558,21 @@ left open. Your own theme isn't touched: it comes back when the season ends.
 Pick another theme from the menu during a season and that browser keeps it
 until the next season. Switching Holiday Spirit off puts every dashboard back
 on its own theme.
+
+### Night mode
+
+Switch on **Night mode** under **Settings → Behaviour** and every dashboard
+wears a night theme between two clock times, by each screen's own clock, then
+goes back to its own theme in the morning. The defaults are 9 pm to 6 am and
+**Night Street**; pick any hours and any theme, including a drop-in. Night
+Street, Goat Night and Constellation were made for it, and Dark is the quiet
+choice for a screen in a bedroom.
+
+It works like Holiday Spirit: your own theme isn't touched and comes back at
+dawn, and an open dashboard changes over on its own, checked once a minute.
+Pick another theme from the menu during the night and that browser keeps it
+until the next night; pick the night theme again and Night mode takes over.
+During a Holiday Spirit season the holiday theme wins.
 
 ### Drop-in themes
 
@@ -642,6 +663,24 @@ Each dashboard tab has its own address: `/#settings`, `/#activity`,
 one and it opens straight to that tab; Back and Forward move between tabs
 you've visited. Handy for a phone home-screen shortcut that goes straight to
 **Who's home**, or a pinned Settings page.
+
+## Wall display
+
+**Tools → Wall display**, or open `/wall` directly: a status board for a TV
+on the wall, a spare tablet on a shelf, or a monitor in the rack. Big clock,
+how many devices are online out of how many, how many of those are unknown,
+one square per device (green online, amber online and unknown, dark offline),
+the last six comings and goings, and when the last scan ran. No controls, no
+menus: a tap or a key press goes to the dashboard.
+
+- `/wall?net=192.168.1.0/24` shows one network.
+- It's black behind everything, so an OLED shows nothing where nothing is,
+  and the board drifts a few pixels every minute so an older screen doesn't
+  burn the numbers in. With reduced motion on it holds still.
+- It refreshes every 15 seconds and says so if it loses BAMF. The pointer
+  hides when it hasn't moved.
+- Same password as the dashboard, if one is set. Kiosk browsers on a Pi or a
+  Fire tablet work; so does "Add to home screen" on a phone.
 
 ## Desktop shortcut (Windows)
 
@@ -919,6 +958,8 @@ scan, or delete a thing.
 | POST | `/api/settings/rules` | Body: the whole rule list, each `{"id", "name", "kind": "offline"\|"online"\|"hours", "target": "any"\|"watched"\|"tag:kids"\|"host:12", "minutes", "from", "to", "enabled"}`. `id` empty for a new rule |
 | POST | `/api/settings/quiet` | Body `{"from": "23:00", "to": "07:00", "digest": true}` — quiet hours in the server's local time; empty times clear them |
 | POST | `/api/settings/port-watch` | Body `{"enabled": true}` — scan every online known device's common ports daily at 4 am |
+| POST | `/api/settings/night` | Body `{"enabled": true, "from": "21:00", "to": "06:00", "theme": "nightstreet"}` — Night mode: every dashboard wears that theme between those clock times. `GET /api/settings` returns it as `editable.night`; `GET /api/hosts` as `night` |
+| GET | `/wall` | The wall display page. `?net=<cidr>` shows one network. See [Wall display](#wall-display) |
 | POST | `/api/ports/watch` | Run that scan now; returns how many newly open ports it found |
 | GET | `/api/hosts/{id}/ports` | Every port found open on a device, open now or once: `{"port", "service", "firstSeen", "lastSeen", "open"}`. A port scan (`/api/hosts/{id}/portscan`, which now returns `{"ports", "newlyOpen"}`) records here |
 | GET | `/api/hosts/{id}/traffic` | Bytes per hour for a device over the last 7 days (`?days=` for more): `[{"hour", "rx", "tx"}]` |
