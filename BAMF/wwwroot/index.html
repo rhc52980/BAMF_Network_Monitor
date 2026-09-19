@@ -996,6 +996,63 @@
     display: block; margin: 0 0 12px; padding: 8px 12px; border-radius: var(--radius); font-size: 13px;
     border: 1px solid var(--focus); color: var(--text);
   }
+  /* Floor plan: the plan as an image, with a pin per device at its spot. */
+  .floor-wrap { padding: 8px 24px 32px; }
+  .floor-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .floor-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .floor-tab { background: var(--panel); color: var(--text-dim); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  .floor-tab.active { color: var(--text); border-color: var(--focus); background: var(--panel-2); }
+  .floor-tab .n { margin-left: 6px; font-size: 11px; color: var(--text-dim); }
+  .floor-tab .n.off { color: var(--danger); }
+  .floor-tools { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--text-dim); }
+  .floor-tools select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; font: inherit; }
+  #floorEdit[aria-pressed="true"] { border-color: var(--focus); color: var(--focus); }
+  .floor-edit-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; font-size: 12.5px; }
+  .floor-edit-bar .hint { color: var(--text-dim); }
+  .danger-text { color: var(--danger); }
+  .floor-main { display: flex; gap: 14px; align-items: flex-start; }
+  .floor-stage { position: relative; flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); overflow: hidden; user-select: none; }
+  .floor-stage img { display: block; width: 100%; height: auto; pointer-events: none; }
+  .floor-stage.editing { touch-action: none; }
+  .floor-stage.arming { cursor: crosshair; }
+  .floor-pins { position: absolute; inset: 0; }
+  .fp-pin { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; z-index: 1; }
+  .fp-pin:hover { z-index: 3; }
+  .fp-pin .ico { position: relative; width: 30px; height: 30px; border-radius: 50%; background: var(--panel); border: 2.5px solid var(--led-off);
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0, 0, 0, .45); }
+  .fp-pin .ico svg { width: 17px; height: 17px; fill: none; stroke: var(--text); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .fp-pin.on .ico { border-color: var(--led-on); }
+  .fp-pin.warn .ico { border-color: var(--led-warn); }
+  .fp-pin.off .ico { border-color: var(--danger); }
+  .fp-pin.off .ico svg { opacity: .55; }
+  /* An offline device calls out: a ring that swells and fades. */
+  .fp-pin.off .ico::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--danger); animation: fp-ring 1.8s ease-out infinite; }
+  @keyframes fp-ring { from { transform: scale(.7); opacity: .9; } to { transform: scale(1.5); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .fp-pin.off .ico::after { animation: none; opacity: .6; } }
+  .fp-pin .lbl { font-size: 11px; line-height: 1.4; background: rgba(10, 14, 20, .78); color: #f2f5f8; padding: 0 6px; border-radius: 8px; white-space: nowrap; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+  .fp-pin.sel .ico { outline: 2px solid var(--focus); outline-offset: 3px; }
+  .fp-pin .rm { position: absolute; top: -10px; right: -12px; width: 18px; height: 18px; border-radius: 50%; border: 0; padding: 0;
+    background: var(--danger); color: #fff; font: 700 11px/18px sans-serif; cursor: pointer; display: none; }
+  .fp-pin.sel .rm { display: block; }
+  .floor-stage.dragging .fp-pin { cursor: grabbing; }
+  .floor-side { width: 270px; flex: none; display: flex; flex-direction: column; gap: 8px; }
+  .floor-side .modal-input { width: 100%; min-width: 0; margin: 0; }
+  .floor-list { max-height: 70vh; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+  .fl-sec { padding: 6px 10px 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-dim); }
+  .fl-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; border: 0; background: none; color: var(--text); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+  .fl-item:hover { background: var(--panel-2); }
+  .fl-item.armed { background: var(--panel-2); box-shadow: inset 3px 0 0 var(--focus); }
+  .fl-item .d { width: 8px; height: 8px; border-radius: 50%; background: var(--led-off); flex: none; }
+  .fl-item .d.on { background: var(--led-on); }
+  .fl-item small { margin-left: auto; color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+  body.viewer .floor-wrap .edit-only { display: none !important; }
+  @media (max-width: 700px) {
+    .floor-wrap { padding-left: 16px; padding-right: 16px; }
+    .floor-main { flex-direction: column; }
+    .floor-side { width: 100%; }
+    .floor-list { max-height: 40vh; }
+    .fp-pin .lbl { max-width: 90px; }
+  }
   /* What changed. */
   .chg-sec { margin-top: 8px; }
   .chg-sec:first-child { margin-top: 0; }
@@ -2677,6 +2734,7 @@
   <div class="views" role="tablist">
     <button class="view-btn active" data-view="devices">Devices</button>
     <button class="view-btn" data-view="map">Map</button>
+    <button class="view-btn" data-view="floor">Floor plan</button>
     <button class="view-btn" data-view="home">Who's home</button>
     <button class="view-btn" data-view="activity">Activity</button>
     <button class="view-btn" data-view="forgotten">Forgotten</button>
@@ -2752,6 +2810,34 @@
   <div class="map-legend map-net-legend" id="mapNetLegend" aria-label="Network colours" hidden></div>
   <div class="map-clusters" id="mapClusters"></div>
   <div class="empty" id="mapEmpty" hidden>No networks to draw yet.</div>
+</div>
+
+<div class="floor-wrap" id="floorWrap" hidden>
+  <div class="floor-bar">
+    <div class="floor-tabs" id="floorTabs"></div>
+    <button type="button" class="toggle edit-only" id="floorAdd" title="Upload a plan of a floor: a PNG, JPEG or WebP image, up to 12 MB">+ Add a floor</button>
+    <span class="floor-tools">
+      <label class="floor-show">Show <select id="floorShow"><option value="all">every device</option><option value="offline">offline only</option></select></label>
+      <button type="button" class="toggle edit-only" id="floorEdit" aria-pressed="false" title="Put devices on this floor, move them, or take them off">Place devices</button>
+    </span>
+  </div>
+  <div class="floor-edit-bar edit-only" id="floorEditBar" hidden>
+    <button type="button" class="toggle" id="floorRename">Rename floor</button>
+    <button type="button" class="toggle" id="floorReplace" title="Swap the image; devices stay where they are">Replace image</button>
+    <button type="button" class="toggle danger-text" id="floorDelete">Delete floor</button>
+    <span class="hint">Pick a device on the right, then click where it goes. Drag a pin to move it; select one and press ✕ to take it off.</span>
+  </div>
+  <div class="floor-main" id="floorMain">
+    <div class="floor-stage" id="floorStage"><img id="floorImg" alt="" draggable="false"><div class="floor-pins" id="floorPins"></div></div>
+    <aside class="floor-side" id="floorSide" hidden>
+      <input class="modal-input" id="floorFind" placeholder="Find a device" autocomplete="off">
+      <div class="floor-list" id="floorList"></div>
+    </aside>
+  </div>
+  <div class="empty" id="floorEmpty" hidden>
+    No floor plans yet. <span class="edit-only">Add a floor with a plan of your home: a photo of the fire-escape plan, a sketch, or an estate agent's floor plan all work. Then put each device in its room.</span>
+  </div>
+  <input type="file" id="floorFile" accept="image/png,image/jpeg,image/webp" hidden>
 </div>
 
 <div class="home-wrap" id="homeWrap" hidden>
@@ -3652,6 +3738,221 @@ function renderAlertsCard() {
     `<div class="alert-item k-${esc(a.kind)}"><div><b>${esc(a.title)}</b><span class="when">${esc(fmtAgo(a.at))}</span></div><div class="det">${esc(a.detail)}</div></div>`).join("")
     : `<div class="watch-note">Nothing yet. Rules, the port watch and the DHCP/DNS watch put their alerts here.</div>`;
 }
+// ---- Floor plan ----
+// A plan image per floor, and a pin for each device at its spot on one. Pins
+// take the device's state: green online, amber online and unknown, and red
+// with a swelling ring when offline, so the camera that dropped is easy to
+// find. Placing is click-to-place (pick a device, click the plan), which
+// works the same with a mouse and a finger; pins drag to move.
+let floorData = null, floorLoadedAt = 0, floorEditing = false, floorArmed = null, floorSel = null;
+let floorId = null;
+try { floorId = Number(localStorage.getItem("bamf-floor")) || null; } catch { }
+function loadFloors(force) {
+  if (!force && floorData && Date.now() - floorLoadedAt < 60e3) return Promise.resolve(floorData);
+  return fetch("/api/floors").then(r => r.ok ? r.json() : null).then(d => { if (d) { floorData = d; floorLoadedAt = Date.now(); } return floorData; }).catch(() => floorData);
+}
+function floorState(h) { return !h.online ? "off" : h.known ? "on" : "warn"; }
+async function renderFloor() {
+  const d = await loadFloors();
+  if (!d || view !== "floor") return;
+  const floors = d.floors;
+  if (!floors.some(f => f.id === floorId)) floorId = floors.length ? floors[0].id : null;
+  const byId = new Map(hosts.map(h => [h.id, h]));
+  // Floor tabs, each with how many of its devices are offline.
+  $("floorTabs").innerHTML = "";
+  for (const f of floors) {
+    const mine = d.places.filter(pl => pl.floorId === f.id).map(pl => byId.get(pl.hostId)).filter(Boolean);
+    const off = mine.filter(h => !h.online && !h.ignored).length;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "floor-tab" + (f.id === floorId ? " active" : "");
+    b.innerHTML = `${esc(f.name)}<span class="n${off ? " off" : ""}" title="${off ? off + " offline of " : ""}${mine.length} device${mine.length === 1 ? "" : "s"} on this floor">${off ? off + " off" : mine.length}</span>`;
+    b.onclick = () => { floorId = f.id; floorSel = null; try { localStorage.setItem("bamf-floor", f.id); } catch { } renderFloor(); };
+    $("floorTabs").appendChild(b);
+  }
+  const floor = floors.find(f => f.id === floorId);
+  $("floorEmpty").hidden = !!floor;
+  $("floorMain").hidden = !floor;
+  $("floorEdit").hidden = !floor;
+  $("floorEditBar").hidden = !floor || !floorEditing;
+  $("floorSide").hidden = !floor || !floorEditing;
+  $("floorEdit").setAttribute("aria-pressed", String(floorEditing));
+  $("floorEdit").textContent = floorEditing ? "Done" : "Place devices";
+  if (!floor) return;
+  const img = $("floorImg");
+  const src = `/api/floors/${floor.id}/image?v=${encodeURIComponent(floor.updated)}`;
+  if (img.getAttribute("src") !== src) { img.src = src; img.alt = "Floor plan: " + floor.name; }
+  const stage = $("floorStage");
+  stage.classList.toggle("editing", floorEditing);
+  stage.classList.toggle("arming", floorEditing && floorArmed !== null);
+  // Pins.
+  const offlineOnly = $("floorShow").value === "offline";
+  const pins = $("floorPins");
+  pins.innerHTML = "";
+  for (const pl of d.places.filter(pl => pl.floorId === floor.id)) {
+    const h = byId.get(pl.hostId);
+    if (!h || h.forgotten) continue;
+    if (offlineOnly && h.online) continue;
+    const pin = document.createElement("div");
+    pin.className = `fp-pin ${floorState(h)}` + (floorSel === h.id ? " sel" : "");
+    pin.style.left = (pl.x * 100) + "%";
+    pin.style.top = (pl.y * 100) + "%";
+    pin.dataset.id = h.id;
+    pin.title = `${nameOrIp(h)} · ${h.ip}\n${h.online ? (h.known ? "Online" : "Online, unknown") : "Offline, last seen " + fmtAgo(h.lastSeen)}` + (floorEditing ? "" : "\nClick to show it in Devices");
+    pin.innerHTML = `<span class="ico">${typeIconSvg(deviceKind(h))}</span><span class="lbl">${esc(nameOrIp(h))}</span>` +
+      (floorEditing ? `<button type="button" class="rm" title="Take it off this floor">✕</button>` : "");
+    pins.appendChild(pin);
+  }
+  if (floorEditing) renderFloorList(d, floor);
+}
+function renderFloorList(d, floor) {
+  const q = $("floorFind").value.trim().toLowerCase();
+  const placed = new Map(d.places.map(pl => [pl.hostId, pl.floorId]));
+  const names = new Map(d.floors.map(f => [f.id, f.name]));
+  const pool = hosts.filter(h => !h.remote && !h.forgotten && !h.ignored && (!q || matchesQuery(h, q)))
+    .sort((a, b) => nameOrIp(a).localeCompare(nameOrIp(b)));
+  const item = h => {
+    const where = placed.has(h.id) ? (placed.get(h.id) === floor.id ? "here" : "on " + names.get(placed.get(h.id))) : "";
+    return `<button type="button" class="fl-item${floorArmed === h.id ? " armed" : ""}" data-id="${h.id}"><span class="d${h.online ? " on" : ""}"></span>${esc(nameOrIp(h))}<small>${esc(where || h.ip)}</small></button>`;
+  };
+  const off = pool.filter(h => !placed.has(h.id)), elsewhere = pool.filter(h => placed.has(h.id));
+  $("floorList").innerHTML = (off.length ? `<div class="fl-sec">Not on a floor yet (${off.length})</div>` + off.map(item).join("") : "")
+    + (elsewhere.length ? `<div class="fl-sec">Already placed</div>` + elsewhere.map(item).join("") : "")
+    || `<div class="fl-sec">No devices match</div>`;
+}
+async function placeOnFloor(hostId, x, y) {
+  const r = await fetch(`/api/floors/${floorId}/places`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ hostId, x, y }) });
+  if (!r.ok) { toast("Couldn't place that device"); return; }
+  const d = floorData, pl = d.places.find(p => p.hostId === hostId);
+  if (pl) Object.assign(pl, { floorId, x, y }); else d.places.push({ hostId, floorId, x, y });
+  renderFloor();
+}
+async function removeFromFloor(hostId) {
+  const r = await fetch(`/api/floors/places/${hostId}`, { method: "DELETE" });
+  if (!r.ok) { toast("Couldn't take it off"); return; }
+  floorData.places = floorData.places.filter(p => p.hostId !== hostId);
+  floorSel = null;
+  renderFloor();
+}
+// Where a pointer is on the plan, as shares of its width and height.
+function floorPoint(e) {
+  const r = document.getElementById("floorImg").getBoundingClientRect();
+  return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))];
+}
+{
+  const stage = document.getElementById("floorStage");
+  let drag = null;
+  stage.addEventListener("pointerdown", e => {
+    const pin = e.target.closest(".fp-pin");
+    if (e.target.closest(".rm")) return;
+    if (!floorEditing) return;
+    // With a device picked from the list, a click anywhere places it, on top of another pin or not.
+    if (pin && floorArmed === null) {
+      const id = Number(pin.dataset.id);
+      floorSel = id;
+      document.querySelectorAll(".fp-pin.sel").forEach(p => p.classList.remove("sel"));
+      pin.classList.add("sel");
+      drag = { id, pin, moved: false, sx: e.clientX, sy: e.clientY };
+      try { stage.setPointerCapture(e.pointerId); } catch { }
+      e.preventDefault();
+    }
+  });
+  stage.addEventListener("pointermove", e => {
+    if (!drag) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
+    drag.moved = true;
+    stage.classList.add("dragging");
+    const [x, y] = floorPoint(e);
+    drag.pin.style.left = (x * 100) + "%";
+    drag.pin.style.top = (y * 100) + "%";
+  });
+  stage.addEventListener("pointerup", e => {
+    stage.classList.remove("dragging");
+    if (drag) {
+      const d = drag; drag = null;
+      if (d.moved) { const [x, y] = floorPoint(e); placeOnFloor(d.id, x, y); }
+      return;
+    }
+    // Click-to-place: a device picked in the list goes where the plan was clicked.
+    if (floorEditing && floorArmed !== null) {
+      const [x, y] = floorPoint(e);
+      const id = floorArmed;
+      floorArmed = null;
+      floorSel = id;
+      placeOnFloor(id, x, y);
+    }
+  });
+  stage.addEventListener("click", e => {
+    const rm = e.target.closest(".rm");
+    if (rm) { removeFromFloor(Number(rm.closest(".fp-pin").dataset.id)); return; }
+    const pin = e.target.closest(".fp-pin");
+    if (pin && !floorEditing) jumpToHost(Number(pin.dataset.id));
+  });
+}
+document.getElementById("floorList").addEventListener("click", e => {
+  const it = e.target.closest(".fl-item");
+  if (!it) return;
+  const id = Number(it.dataset.id);
+  floorArmed = floorArmed === id ? null : id;
+  renderFloor();
+  if (floorArmed !== null) toast(`Now click on the plan where ${nameOrIp(hosts.find(h => h.id === id))} goes`);
+});
+document.getElementById("floorFind").addEventListener("input", () => { if (floorData) renderFloorList(floorData, floorData.floors.find(f => f.id === floorId)); });
+document.getElementById("floorShow").onchange = () => renderFloor();
+document.getElementById("floorEdit").onclick = () => { floorEditing = !floorEditing; floorArmed = null; floorSel = null; renderFloor(); };
+// Adding a floor, or replacing a floor's image: the file picker, then its
+// size read in the browser, then the bytes as the request body.
+let floorPick = null;
+function pickFloorImage(then) { floorPick = then; const f = document.getElementById("floorFile"); f.value = ""; f.click(); }
+document.getElementById("floorFile").onchange = async e => {
+  const file = e.target.files[0];
+  if (!file || !floorPick) return;
+  if (file.size > 12 * 1024 * 1024) { toast("That image is over 12 MB"); return; }
+  const url = URL.createObjectURL(file);
+  const size = await new Promise(res => { const im = new Image(); im.onload = () => res([im.naturalWidth, im.naturalHeight]); im.onerror = () => res(null); im.src = url; });
+  URL.revokeObjectURL(url);
+  if (!size) { toast("That doesn't look like an image BAMF can use: PNG, JPEG or WebP"); return; }
+  const go = floorPick; floorPick = null;
+  await go(file, size[0], size[1]);
+};
+document.getElementById("floorAdd").onclick = () => {
+  const name = prompt("Name this floor (e.g. Ground floor, Upstairs, Garage):", floorData && floorData.floors.length ? "" : "Ground floor");
+  if (name === null) return;
+  pickFloorImage(async (file, w, h) => {
+    const r = await fetch(`/api/floors?name=${encodeURIComponent(name)}&width=${w}&height=${h}`, { method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't add that floor"); return; }
+    floorId = d.id;
+    try { localStorage.setItem("bamf-floor", d.id); } catch { }
+    floorEditing = true;
+    await loadFloors(true);
+    renderFloor();
+    toast("Floor added: pick a device on the right, then click where it goes");
+  });
+};
+document.getElementById("floorReplace").onclick = () => pickFloorImage(async (file, w, h) => {
+  const r = await fetch(`/api/floors/${floorId}?width=${w}&height=${h}`, { method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(d.error || "Couldn't replace the image"); return; }
+  await loadFloors(true); renderFloor(); toast("Image replaced; the devices kept their spots");
+});
+document.getElementById("floorRename").onclick = async () => {
+  const f = floorData.floors.find(x => x.id === floorId);
+  const name = prompt("Rename this floor:", f ? f.name : "");
+  if (!name) return;
+  const r = await fetch(`/api/floors/${floorId}?name=${encodeURIComponent(name)}`, { method: "POST" });
+  if (!r.ok) { toast("Couldn't rename it"); return; }
+  await loadFloors(true); renderFloor();
+};
+document.getElementById("floorDelete").onclick = async () => {
+  const f = floorData.floors.find(x => x.id === floorId);
+  if (!f || !confirm(`Delete "${f.name}"? Its devices come off the plan; nothing else is touched.`)) return;
+  const r = await fetch(`/api/floors/${floorId}`, { method: "DELETE" });
+  if (!r.ok) { toast("Couldn't delete it"); return; }
+  floorId = null; floorEditing = false;
+  await loadFloors(true); renderFloor();
+};
+
 // ---- Only on IPv6 ----
 let ipv6Cache = null, ipv6At = 0;
 function loadIpv6() {
@@ -6122,6 +6423,7 @@ function render() {
   $("tableWrap").hidden = !showTable;
   $("feedWrap").hidden = view !== "activity";
   $("homeWrap").hidden = view !== "home";
+  $("floorWrap").hidden = view !== "floor";
   $("settingsWrap").hidden = view !== "settings";
   $("mapWrap").hidden = view !== "map";
   $("statusFilters").style.display = view === "devices" ? "" : "none";
@@ -6141,6 +6443,7 @@ function render() {
     renderFeed();
   }
   if (view === "home") renderHome();
+  if (view === "floor") renderFloor();
   if (view === "map") renderMap();
   document.querySelectorAll("thead th[data-sort]").forEach(th => {
     th.classList.toggle("sorted", th.dataset.sort === sortKey);
@@ -12487,6 +12790,7 @@ document.addEventListener("keydown", e => {
     return;
   }
   if (!$("freeModal").hidden) { $("freeModal").hidden = true; return; }
+  if (floorArmed !== null) { floorArmed = null; renderFloor(); return; }
   if (!$("tagsModal").hidden) { closeTagsDialog(); return; }
   if (!$("cardsModal").hidden) { closeCardsDialog(); return; }
   if (!$("gwModal").hidden) { closeGatewayDialog(); return; }
@@ -12892,7 +13196,7 @@ $("setReset").onclick = async () => {
 // Views are addressable: /#settings opens the Settings tab, /#activity the
 // feed, and so on, so a tab can be bookmarked or pinned and Back/Forward
 // walk between them. The Devices view is the bare URL, no hash.
-const VIEWS = ["devices", "map", "home", "activity", "forgotten", "settings"];
+const VIEWS = ["devices", "map", "floor", "home", "activity", "forgotten", "settings"];
 function showView(name, { fromHash = false } = {}) {
   if (!VIEWS.includes(name)) name = "devices";
   document.querySelectorAll("[data-view]").forEach(x => x.classList.toggle("active", x.dataset.view === name));

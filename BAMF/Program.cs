@@ -885,6 +885,54 @@ app.MapGet("/api/free-ips", (int? days, HostStore store, ScannerService scanner)
     return Results.Json(list);
 });
 
+// Floor plans: an image per floor, uploaded as the raw request body, and
+// where each device sits on one. PNG, JPEG or WebP only, up to 12 MB: an SVG
+// could carry script, and these are served from this origin.
+app.MapGet("/api/floors", (HostStore store) => Results.Json(new
+{
+    floors = store.GetFloors().Select(f => new { id = f.Id, name = f.Name, width = f.Width, height = f.Height, updated = f.Updated }),
+    places = store.GetFloorPlaces().Select(p => new { hostId = p.HostId, floorId = p.FloorId, x = p.X, y = p.Y }),
+}));
+app.MapGet("/api/floors/{id:long}/image", (long id, HostStore store, HttpContext ctx) =>
+{
+    if (store.GetFloorImage(id) is not { } img) return Results.NotFound();
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers["Content-Security-Policy"] = "default-src 'none'; sandbox";
+    ctx.Response.Headers.CacheControl = "private, max-age=3600";
+    return Results.Bytes(img.Data, img.Mime);
+});
+app.MapPost("/api/floors", async (string? name, int? width, int? height, HttpContext ctx, HostStore store) =>
+{
+    var (mime, data, error) = await ReadFloorImage(ctx);
+    if (error is not null) return Results.BadRequest(new { error });
+    if (width is not (> 0 and <= 20000) || height is not (> 0 and <= 20000)) return Results.BadRequest(new { error = "The image's size didn't come through." });
+    var clean = (name ?? "").Trim();
+    var id = store.AddFloor(clean == "" ? "Floor" : clean.Length > 40 ? clean[..40] : clean, mime!, data!, width.Value, height.Value);
+    return Results.Json(new { id });
+});
+app.MapPost("/api/floors/{id:long}", async (long id, string? name, int? width, int? height, HttpContext ctx, HostStore store) =>
+{
+    // A new name (query string), a new image (body), or both.
+    string? mime = null; byte[]? data = null;
+    if ((ctx.Request.ContentLength ?? 0) > 0)
+    {
+        (mime, data, var error) = await ReadFloorImage(ctx);
+        if (error is not null) return Results.BadRequest(new { error });
+        if (width is not (> 0 and <= 20000) || height is not (> 0 and <= 20000)) return Results.BadRequest(new { error = "The image's size didn't come through." });
+    }
+    var clean = name?.Trim();
+    if (clean is { Length: > 40 }) clean = clean[..40];
+    return store.UpdateFloor(id, string.IsNullOrEmpty(clean) ? null : clean, mime, data, width ?? 0, height ?? 0) ? Results.Ok() : Results.NotFound();
+});
+app.MapDelete("/api/floors/{id:long}", (long id, HostStore store) => store.DeleteFloor(id) ? Results.Ok() : Results.NotFound());
+app.MapPost("/api/floors/{id:long}/places", (long id, FloorPlaceRequest body, HostStore store) =>
+    store.PlaceOnFloor(body.HostId, id, body.X, body.Y) ? Results.Ok() : Results.NotFound());
+app.MapDelete("/api/floors/places/{hostId:long}", (long hostId, HostStore store) =>
+{
+    store.RemoveFromFloor(hostId);
+    return Results.Ok();
+});
+
 // GreyNoise: has this network's public address been seen scanning the internet?
 // Off unless switched on; turning it on checks straight away.
 app.MapGet("/api/greynoise", (GreyNoiseCheck greynoise) => Results.Json(new { enabled = greynoise.Enabled, result = greynoise.Last }));
@@ -1498,6 +1546,29 @@ static object SecurityJson(HostStore store, ScannerService scanner, SecurityChec
     gatewayMacs = scanner.GatewayMacSnapshot(),
 };
 
+// A floor plan image from the request body: PNG, JPEG or WebP by its first
+// bytes, whatever the header claims, and no more than 12 MB.
+static async Task<(string? Mime, byte[]? Data, string? Error)> ReadFloorImage(HttpContext ctx)
+{
+    const int max = 12 * 1024 * 1024;
+    if (ctx.Request.ContentLength is > max) return (null, null, "That image is over 12 MB.");
+    using var ms = new MemoryStream();
+    var buf = new byte[81920];
+    int n;
+    while ((n = await ctx.Request.Body.ReadAsync(buf)) > 0)
+    {
+        ms.Write(buf, 0, n);
+        if (ms.Length > max) return (null, null, "That image is over 12 MB.");
+    }
+    var d = ms.ToArray();
+    string? mime =
+        d.Length > 8 && d[0] == 0x89 && d[1] == 0x50 && d[2] == 0x4E && d[3] == 0x47 ? "image/png" :
+        d.Length > 3 && d[0] == 0xFF && d[1] == 0xD8 && d[2] == 0xFF ? "image/jpeg" :
+        d.Length > 12 && d[0] == 'R' && d[1] == 'I' && d[2] == 'F' && d[3] == 'F' && d[8] == 'W' && d[9] == 'E' && d[10] == 'B' && d[11] == 'P' ? "image/webp" :
+        null;
+    return mime is null ? (null, null, "Use a PNG, JPEG or WebP image.") : (mime, d, null);
+}
+
 // Holiday Spirit, effective: a value saved from Settings wins over appsettings.json.
 static bool HolidaySpirit(HostStore store, IConfiguration config) =>
     store.GetSetting("holidaySpirit") is string v ? v == "true" : config.GetValue("Bamf:HolidaySpirit", false);
@@ -1582,6 +1653,7 @@ record WatchRequest(bool Watched);
 record ForgetRequest(bool Forgotten);
 record ActiveArpRequest(bool Enabled);
 record RouterNamesApply(bool Overwrite);
+record FloorPlaceRequest(long HostId, double X, double Y);
 record NightRequest(bool Enabled, string? From, string? To, string? Theme);
 record ScanSettingsRequest(
     int? ScanIntervalSeconds,
