@@ -97,7 +97,7 @@ optional daily update check you have to switch on, and your own webhook.
 
 ### See how it's laid out
 
-![The Map's whole-network view: two networks in one diagram, each device tagged with its network's colour. The home router is at the top with a device on its own port and BAMF beside it. A 16-port switch on the router's port 1 has its devices in port order with each port's location, including a Proxmox host whose virtual switch holds a VM from the other network. An access point has its Wi-Fi clients, an office switch is chained further along, and the second network's gateway has its own box of devices](docs/map.png)
+![The Map's whole-network view: two networks in one diagram, each device tagged with its network's colour. The home router is at the top with a device on its own port. A 16-port switch on the router's port 1 has its devices in port order with each port's location, including BAMF itself on port 3 and a Proxmox host whose virtual switch holds a VM from the other network. The Hallway access point broadcasts a Home and a Guest SSID, each with its devices joined by lightning bolts. An office switch is chained further along, and the second network's gateway sits beside the first network's box of devices](docs/map.png)
 
 The **Map** draws each network as a diagram: your router at the top with its own
 ports, your switches and access points under it, each one's devices in port
@@ -106,14 +106,15 @@ of device. **Whole network** puts every network in one diagram, drawn by the
 cabling, with each device tagged in its network's colour. Cabling isn't
 something ARP can see, so BAMF doesn't guess it. Record your switches under
 **Settings → Switches**, or just drag a device onto a switch on the map, and
-the map draws it as a cable. Anything you haven't recorded, like the Wi-Fi
-devices above, waits in an "On this network" box. Drag anything to arrange it
+the map draws it as a cable, or as a lightning bolt for a device on a
+wireless SSID. Anything you haven't recorded, like the two devices in the box
+above, waits in an "On this network" box. Drag anything to arrange it
 the way your house is laid out; it's saved, so it looks the same on every
 screen. It works with any switch, including unmanaged ones.
 
 ### Tune it without touching the server
 
-![The Settings tab: scan interval, probe concurrency, history retention, an on/off switch and scan interval per network, the recorded switches, and the instant toggles for active ARP, randomised MACs and update checks](docs/settings.png)
+![The Settings tab: scan interval, probe concurrency, history retention, an on/off switch and scan interval per network, the recorded switches, access point and SSIDs, and the instant toggles for active ARP, randomised MACs, Holiday Spirit and update checks](docs/settings.png)
 
 Scan cadence, probe concurrency and history retention are editable from the
 dashboard and applied on the next scan — no restart, no editing a file over SSH.
