@@ -406,7 +406,10 @@ Some themes have a little life in them:
   offline springs a leak on its row, and watched devices carry a red shut-off
   valve that closes when they drop. Unknown devices get an inspection tag.
   Rows ripple when you point at them, the search box is a drain port, and
-  rows get a wash as you type. Behind the page, a whole plant: glass-lined
+  rows get a wash as you type. With sound on (the 🔊 button beside the theme
+  button, off until you click it) the drips plop, a new device's valve
+  squeaks open, a device going offline leaks with a patter of drops, and a
+  finished scan surges through the mains. Behind the page, a whole plant: glass-lined
   mains with water running through them, up both sides and along the floor,
   branching off at a few heights to red valve wheels, with flanges along every
   run. Two pressure gauges read how much of your network is up, and a
@@ -418,7 +421,9 @@ Some themes have a little life in them:
   name, a finished scan sends up a column of bubbles, and a device going
   offline sinks for a moment. Watched devices have a pet fish that swims
   beside their name and floats still when they're down. On the Map, bubbles
-  drift up the pipes and a shell marks unknown devices.
+  drift up the pipes and a shell marks unknown devices. With sound on, the
+  bubbles burble as they rise, a new device arrives in a flurry of them, and
+  the pump hums quietly in the background; it stops in a background tab.
 - **Goat**: an alpine pasture behind the page, with snowy mountains, pines,
   drifting clouds and a goat keeping watch from a crag, under a barn-red
   header. A herd lives along the meadow at the bottom of the page, and every
@@ -1119,6 +1124,13 @@ one each: **Networks behind** the router, with every one of them hanging off it,
 each in its own colour. It works like the whole-network view, but only for
 that router's networks and the switches on them, and it keeps its own saved
 arrangement. Networks with a gateway of their own keep their own cards.
+
+**For the closet door.** **Print** on any topology map opens a clean white
+page: the whole drawing fitted to one landscape sheet, black lines and text, a
+title, the date and device count, and a legend. Nothing a theme adds comes
+along. The browser's print dialog opens on it; save it as a PDF from there if
+you'd rather. (If the page doesn't appear, the browser blocked the pop-up:
+allow pop-ups for BAMF.)
 
 **Room to see it all.** A topology map grows as tall as its drawing needs,
 up to nearly the height of the window, so a big network isn't squeezed into a

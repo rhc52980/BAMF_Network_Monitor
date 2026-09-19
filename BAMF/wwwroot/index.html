@@ -5098,6 +5098,7 @@ function buildClusterCard(c) {
     btn("+", "Zoom in", () => topoZoomBy(c.subnet, 0.8));
     btn("Fit", "Show everything", () => topoFit(c.subnet));
     btn("Auto-arrange", c.whole ? "Forget where you dragged things on this map" : "Forget where you dragged things on this network", () => topoAutoArrange(c.subnet));
+    btn("Print", "A clean white drawing of this map on one page, for the closet door", () => printTopoMap(c.subnet));
     btn(mapExpanded === c.subnet ? "Exit full screen" : "⛶ Full screen",
       mapExpanded === c.subnet ? "Back to the page (Esc)" : "Fill the screen with this map", () => toggleMapExpanded(c.subnet));
   }
@@ -5136,6 +5137,73 @@ function sizeTopoFrames(wrap) {
     const want = f.clientWidth * Number(f.dataset.ratio) + 24;
     f.style.height = Math.round(Math.max(360, Math.min(want, innerHeight * 0.92))) + "px";
   });
+}
+
+// ---- Print ----
+// A topology map as a clean white page: the drawing fitted to the paper with
+// black lines and text, a title, the date, and a legend. Nothing a theme adds
+// comes along. Opens in its own window and asks the browser to print it.
+function buildPrintHtml(subnet) {
+  const m = topoModels[subnet];
+  if (!m || !m.svg) return null;
+  const svg = m.svg.cloneNode(true);
+  // Tight bounds round what's drawn, so the page holds all of it.
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [key, n] of m.nodes) {
+    const q = m.final.get(key);
+    if (n.type === "box") { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0] + n.size[0]); y1 = Math.max(y1, q[1] + n.size[1]); }
+    else { x0 = Math.min(x0, q[0] - TOPO.T - 4); y0 = Math.min(y0, q[1] - TOPO.T - 30); x1 = Math.max(x1, q[0] + TOPO.T + 12 + (n.labelW || 120)); y1 = Math.max(y1, q[1] + TOPO.T + 6); }
+  }
+  const pad = 30;
+  svg.setAttribute("viewBox", `${(x0 - pad).toFixed(0)} ${(y0 - pad).toFixed(0)} ${(x1 - x0 + 2 * pad).toFixed(0)} ${(y1 - y0 + 2 * pad).toFixed(0)}`);
+  svg.setAttribute("class", "print-map");
+  svg.removeAttribute("style");
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  svg.querySelectorAll(".pkt, .t-hd, .t-mustard, .t-cog, .t-tophat, .t-paperhat, .t-drip, .blink-ring, .t-ghost, .t-pk, .t-hat, .t-gift, .ww-tag, .aq-shell, .t-deco-icon, .t-watch, title").forEach(e => e.remove());
+  svg.querySelectorAll("[tabindex]").forEach(e => e.removeAttribute("tabindex"));
+  const c = m.c;
+  const gwHost = c.group ? hosts.find(h => h.id === Number(subnet.slice(3))) : null;
+  const title = c.group ? `Networks behind ${gwHost ? nameOrIp(gwHost) : "the gateway"}` : c.whole ? "Whole network" : subnet;
+  const count = c.members.length;
+  const nets = c.whole ? c.nets.map(n => `<span><i style="background:${c.netColors[n]}"></i>${esc(n)}</span>`).join("") : "";
+  const css = `
+@page { size: landscape; margin: 10mm; }
+html, body { margin: 0; background: #fff; color: #111; font-family: "Segoe UI", system-ui, sans-serif; }
+body { padding: 6mm 8mm; box-sizing: border-box; min-height: 100vh; display: flex; flex-direction: column; }
+header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #111; padding-bottom: 4px; margin-bottom: 6px; }
+h1 { font-size: 18px; margin: 0; } .meta { font-size: 12px; color: #444; }
+.print-map { flex: 1; width: 100%; min-height: 0; height: calc(100vh - 34mm); }
+footer { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 11px; color: #333; padding-top: 6px; border-top: 1px solid #999; }
+footer span { display: inline-flex; align-items: center; gap: 6px; } footer i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+footer svg { width: 26px; height: 12px; }
+svg text { fill: #111; font-family: Consolas, "IBM Plex Mono", monospace; }
+.t-name { font-weight: 700; font-size: 12px; } .t-sub { font-size: 10px; fill: #555; } .t-port { font-size: 9px; fill: #555; }
+.t-tile { fill: #fff; stroke: #222; stroke-width: 1.6; } .t-icon { fill: none; stroke: #111; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.node.off .t-tile { stroke: #999; } .node.off text { fill: #777; } .node.unknown .t-tile { stroke: #b36b00; stroke-dasharray: 3 2; }
+.spoke { fill: none; stroke: #aaa; stroke-width: 1; } .spoke.cable { stroke: #222; stroke-width: 2; } .spoke.off { stroke-dasharray: 4 3; }
+.spoke.vlink { stroke: #666; stroke-dasharray: 4 3; } .spoke.bolt { stroke: #b36b00; stroke-width: 1.8; } .spoke.tunnel { stroke: #2f5fa8; stroke-width: 1.6; stroke-dasharray: 1 4; stroke-linecap: round; }
+.tbox rect, rect.t-boxrect { fill: #f7f7f7; stroke: #888; stroke-dasharray: 6 4; }
+.t-net { stroke: #fff; stroke-width: 1; }
+@media print { body { min-height: 0; } .print-map { height: 168mm; } }`;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>BAMF map — ${esc(title)}</title><style>${css}</style></head><body>` +
+    `<header><h1>${esc(title)}</h1><div class="meta">BAMF · ${esc(new Date().toLocaleString())} · ${count} device${count === 1 ? "" : "s"}</div></header>` +
+    svg.outerHTML +
+    `<footer><span><svg viewBox="0 0 26 12"><line x1="1" y1="6" x2="25" y2="6" stroke="#222" stroke-width="2"/></svg>cable you recorded</span>` +
+    `<span><svg viewBox="0 0 26 12"><line x1="1" y1="6" x2="25" y2="6" stroke="#aaa"/></svg>on this network</span>` +
+    `<span><svg viewBox="0 0 26 12"><line x1="1" y1="6" x2="25" y2="6" stroke="#222" stroke-width="2" stroke-dasharray="4 3"/></svg>offline</span>` +
+    `<span><svg viewBox="0 0 26 12"><path d="M1 6l6-4 4 6 5-6 4 6 5-4" fill="none" stroke="#b36b00" stroke-width="1.8"/></svg>wireless</span>` +
+    `<span><svg viewBox="0 0 26 12"><line x1="1" y1="6" x2="25" y2="6" stroke="#2f5fa8" stroke-width="1.6" stroke-dasharray="1 4" stroke-linecap="round"/></svg>VPN tunnel</span>` +
+    `<span><svg viewBox="0 0 26 12"><rect x="2" y="1" width="10" height="10" rx="2" fill="#fff" stroke="#b36b00" stroke-dasharray="3 2"/></svg>unknown device</span>` +
+    nets + `</footer></body></html>`;
+}
+function printTopoMap(subnet) {
+  const html = buildPrintHtml(subnet);
+  if (!html) { toast("Switch the map to Topology to print it"); return; }
+  const w = window.open("", "_blank");
+  if (!w) { toast("The browser blocked the print window. Allow pop-ups for BAMF and try again."); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+  w.focus();
+  setTimeout(() => { try { w.print(); } catch { } }, 400);
 }
 
 // One map at a time can fill the screen. The browser's own full screen is
@@ -7266,8 +7334,75 @@ function wwPipework() {
     ${ends.map(wheel).join("")}${gauge(L + 46, Math.round(H * .38))}${gauge(R - 46, Math.round(H * .58))}<g class="sprays"></g></svg><div class="ww-pool"></div>`;
 }
 
+// Sounds for the water themes, made in the browser like the goats' and the
+// storm's: a drip, a valve's squeak, the surge of a main, bubbles, and the
+// pump's hum. Off until the speaker button is clicked.
+let waterAudio = null;
+function waterCtx() {
+  try { waterAudio = waterAudio || new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; }
+  if (waterAudio.state === "suspended") waterAudio.resume?.().catch(() => {});
+  return waterAudio;
+}
+function noiseBuffer(ctx, secs, brown) {
+  const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * secs), ctx.sampleRate), d = buf.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < d.length; i++) { const w = Math.random() * 2 - 1; if (brown) { last = (last + .02 * w) / 1.02; d[i] = last * 3.5; } else d[i] = w; }
+  return buf;
+}
+function dripSound(vol = .22) {
+  const ctx = waterCtx(); if (!ctx) return;
+  const t = ctx.currentTime + .01, o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "sine";
+  o.frequency.setValueAtTime(rnd(1500, 2100), t);
+  o.frequency.exponentialRampToValueAtTime(rnd(520, 720), t + .09);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .008); g.gain.exponentialRampToValueAtTime(.001, t + .16);
+  o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + .18);
+}
+function squeakSound() {
+  const ctx = waterCtx(); if (!ctx) return;
+  const t = ctx.currentTime + .01, o = ctx.createOscillator(), v = ctx.createOscillator(), vd = ctx.createGain(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  o.type = "sawtooth"; o.frequency.setValueAtTime(700, t); o.frequency.linearRampToValueAtTime(1350, t + .35);
+  v.frequency.value = 11; vd.gain.value = 60; v.connect(vd).connect(o.frequency);
+  f.type = "bandpass"; f.frequency.value = 1100; f.Q.value = 4;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.11, t + .03); g.gain.setValueAtTime(.11, t + .3); g.gain.linearRampToValueAtTime(0, t + .42);
+  o.connect(f).connect(g).connect(ctx.destination); o.start(t); v.start(t); o.stop(t + .45); v.stop(t + .45);
+}
+function surgeSound() {
+  const ctx = waterCtx(); if (!ctx) return;
+  const t = ctx.currentTime + .01, src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  src.buffer = noiseBuffer(ctx, 1.6, true);
+  f.type = "lowpass"; f.frequency.setValueAtTime(220, t); f.frequency.exponentialRampToValueAtTime(1900, t + .5); f.frequency.exponentialRampToValueAtTime(260, t + 1.5);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.28, t + .35); g.gain.linearRampToValueAtTime(0, t + 1.5);
+  src.connect(f).connect(g).connect(ctx.destination); src.start(t); src.stop(t + 1.6);
+}
+function bubbleSound(n = 4, vol = .16) {
+  const ctx = waterCtx(); if (!ctx) return;
+  let t = ctx.currentTime + .02;
+  for (let i = 0; i < n; i++) {
+    const o = ctx.createOscillator(), g = ctx.createGain(), f0 = rnd(260, 480);
+    o.type = "sine"; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * 1.9, t + .07);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .01); g.gain.exponentialRampToValueAtTime(.001, t + .09);
+    o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + .1);
+    t += rnd(.06, .16);
+  }
+}
+// The aquarium's pump: a low hum and a soft rush of water that runs while sound is on.
+function pumpHum() {
+  const ctx = waterCtx(); if (!ctx) return null;
+  const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(), o = ctx.createOscillator(), og = ctx.createGain();
+  src.buffer = noiseBuffer(ctx, 4, true); src.loop = true;
+  f.type = "lowpass"; f.frequency.value = 240;
+  g.gain.setValueAtTime(0, ctx.currentTime); g.gain.linearRampToValueAtTime(.05, ctx.currentTime + 1.2);
+  src.connect(f).connect(g).connect(ctx.destination); src.start();
+  o.type = "sine"; o.frequency.value = 56; og.gain.value = .012; o.connect(og).connect(ctx.destination); o.start();
+  return { stop() { try { g.gain.setTargetAtTime(0, ctx.currentTime, .3); og.gain.setTargetAtTime(0, ctx.currentTime, .3); src.stop(ctx.currentTime + 1.2); o.stop(ctx.currentTime + 1.2); } catch { } } };
+}
+
 function buildWaterworks(root) {
   const calm = calmMotion(), c = waterCommon(root);
+  // Sound, behind the speaker button beside the theme button.
+  const soundOn = themeSoundButton("bamf-waterworks-sound", "Waterworks sounds on: click to mute",
+    "Waterworks sounds off: click for drips, valves and the surge", on => { if (on) dripSound(); });
   const bg = document.createElement("div");
   bg.id = "themeBg";
   bg.className = "theme-bg ww-bg";
@@ -7336,6 +7471,8 @@ function buildWaterworks(root) {
     d.style.cssText = `left:${(Math.floor(rnd(1, innerWidth / 240)) * 240 - 14).toFixed(0)}px;top:${c.below() + 10}px`;
     d.addEventListener("animationend", () => d.remove());
     root.appendChild(d);
+    // The plop, as the drop lands.
+    if (soundOn()) festiveTimers.push(setTimeout(() => dripSound(), 1500));
   }, 9000));
 
   // Search: a wash over the rows as you type.
@@ -7349,6 +7486,7 @@ function buildWaterworks(root) {
     const html = document.documentElement;
     html.classList.add("ww-surge");
     readGauges(true);
+    if (soundOn() && !document.hidden) surgeSound();
     festiveTimers.push(setTimeout(() => { html.classList.remove("ww-surge"); readGauges(false); }, 1300));
   };
   festiveStops.push(() => document.documentElement.classList.remove("ww-surge"));
@@ -7357,6 +7495,7 @@ function buildWaterworks(root) {
   // A new device: a valve spins open on the main and a tag drops with its name.
   festiveHooks.newDevice = h => {
     if (document.hidden) return;
+    if (soundOn()) squeakSound();
     const x = Math.round(innerWidth * .6);
     const v = document.createElement("div");
     v.className = "ww-newvalve";
@@ -7377,6 +7516,7 @@ function buildWaterworks(root) {
   festiveHooks.rendered = () => {
     const down = new Set(wentOffIds);
     if (wentOffIds.length) spray();
+    if (wentOffIds.length && soundOn() && !document.hidden) { dripSound(.3); festiveTimers.push(setTimeout(() => dripSound(.2), 220)); festiveTimers.push(setTimeout(() => dripSound(.12), 520)); }
     readGauges(false);
     for (const id of wentOffIds) {
       const cell = document.querySelector(`tr[data-id="${id}"] td.hostname`);
@@ -7439,6 +7579,21 @@ const AQ_COLOURS = [["#ff9f43", "#e8662a"], ["#ffd23f", "#e0a800"], ["#7ae0ff", 
 
 function buildAquarium(root) {
   const calm = calmMotion(), c = waterCommon(root);
+  // Sound: bubbles when they rise, and the pump's hum while it's on.
+  let hum = null;
+  const humOn = on => { if (on && !hum && !document.hidden) hum = pumpHum(); if (!on && hum) { hum.stop(); hum = null; } };
+  const soundOn = themeSoundButton("bamf-aquarium-sound", "Aquarium sounds on: click to mute",
+    "Aquarium sounds off: click for bubbles and the pump", on => { humOn(on); if (on) bubbleSound(3); });
+  if (soundOn()) {
+    // Browsers only allow sound after a click on the page.
+    const wake = () => humOn(soundOn());
+    document.addEventListener("pointerdown", wake, { once: true });
+    festiveStops.push(() => document.removeEventListener("pointerdown", wake));
+  }
+  const vis = () => humOn(soundOn() && !document.hidden);
+  document.addEventListener("visibilitychange", vis);
+  festiveStops.push(() => { document.removeEventListener("visibilitychange", vis); humOn(false); });
+  let lastBubbleSound = 0;
   const bg = document.createElement("div");
   bg.id = "themeBg";
   bg.className = "theme-bg aq-bg";
@@ -7464,6 +7619,8 @@ function buildAquarium(root) {
   };
   const bubbles = (n, x) => {
     if (calm || document.hidden) return;
+    // A column of bubbles always sounds; the odd ones drifting up, now and then.
+    if (soundOn() && (n >= 4 || Date.now() - lastBubbleSound > 12000)) { lastBubbleSound = Date.now(); bubbleSound(Math.min(n, 6), n >= 4 ? .16 : .09); }
     for (let i = 0; i < n; i++) {
       const b = document.createElement("i");
       b.className = "aq-bubble";
@@ -7497,6 +7654,7 @@ function buildAquarium(root) {
   // A new device swims in as a fish, with its name.
   festiveHooks.newDevice = h => {
     if (document.hidden) return;
+    if (soundOn()) bubbleSound(5, .18);
     const [b, f] = pick(AQ_COLOURS);
     const el = document.createElement("div");
     el.className = "aq-newfish";
