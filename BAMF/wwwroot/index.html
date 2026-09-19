@@ -6388,6 +6388,43 @@ const GOAT_COATS = [
 // Just the head, for the scan bar, the search box, the peek and the headbutt.
 const GOAT_HEAD = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="36 0 28 30">${goatInner(GOAT_COATS[0]).replace(/[\s\S]*<g class="g-head">/, "<g>")}</svg>`;
 
+// The goats' voice: a bleat made in the browser, so there's no audio file.
+// A sawtooth through "aah" formants, starting low for the b and falling off
+// at the end, with the fast wobble a goat's voice has. Off until the speaker
+// button turns it on; browsers only allow sound after a click anyway.
+let goatAudio = null;
+function goatBleatSound({ pitch = 1, length = .8, volume = .5 } = {}) {
+  try { goatAudio = goatAudio || new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
+  const ctx = goatAudio;
+  if (ctx.state === "suspended") ctx.resume?.().catch(() => {});
+  const t = ctx.currentTime + .02, f0 = 320 * pitch * (.92 + Math.random() * .16), wob = 7 + Math.random() * 3;
+  const osc = ctx.createOscillator();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(f0 * .78, t);
+  osc.frequency.exponentialRampToValueAtTime(f0, t + .08);
+  osc.frequency.setValueAtTime(f0, t + length * .65);
+  osc.frequency.exponentialRampToValueAtTime(f0 * .86, t + length);
+  const vib = ctx.createOscillator(), vibDepth = ctx.createGain();
+  vib.frequency.value = wob; vibDepth.gain.value = f0 * .07;
+  vib.connect(vibDepth).connect(osc.frequency);
+  const trem = ctx.createOscillator(), tremDepth = ctx.createGain(), tremGain = ctx.createGain();
+  trem.frequency.value = wob; tremDepth.gain.value = .3; tremGain.gain.value = .7;
+  trem.connect(tremDepth).connect(tremGain.gain);
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0, t);
+  env.gain.linearRampToValueAtTime(volume, t + .05);
+  env.gain.setValueAtTime(volume, t + length * .7);
+  env.gain.linearRampToValueAtTime(0, t + length);
+  const mix = ctx.createGain();
+  for (const [f, q, g] of [[760, 5, 1], [1250, 6, .7], [2650, 8, .3]]) {
+    const bp = ctx.createBiquadFilter(), gg = ctx.createGain();
+    bp.type = "bandpass"; bp.frequency.value = f * (pitch > 1.3 ? 1.18 : 1); bp.Q.value = q; gg.gain.value = g;
+    osc.connect(bp).connect(gg).connect(mix);
+  }
+  mix.connect(tremGain).connect(env).connect(ctx.destination);
+  for (const o of [osc, vib, trem]) { o.start(t); o.stop(t + length + .05); }
+}
+
 function buildGoat(root) {
   const calm = calmMotion();
   const html = document.documentElement;
@@ -6437,6 +6474,37 @@ function buildGoat(root) {
     festiveTimers.push(setTimeout(() => b.remove(), 950));
   };
 
+  // Sound: the speaker button beside the theme button. Off until it's
+  // clicked, remembered in this browser. The herd's idle bleats are rationed
+  // to one every eight seconds or so; the ones that mark an event always sound.
+  let soundOn = false;
+  try { soundOn = localStorage.getItem("bamf-goat-sound") === "1"; } catch {}
+  let lastVoice = 0;
+  const voice = (pitch, always) => {
+    if (!soundOn || document.hidden) return;
+    const now = Date.now();
+    if (!always && now - lastVoice < 8000) return;
+    lastVoice = now;
+    goatBleatSound({ pitch, length: pitch > 1.3 ? .55 : rnd(.7, .95) });
+  };
+  const speaker = document.createElement("button");
+  speaker.type = "button";
+  speaker.className = "arp-toggle goat-sound";
+  const showSpeaker = () => {
+    speaker.textContent = soundOn ? "🔊" : "🔇";
+    speaker.title = soundOn ? "Goat sounds on: click to mute" : "Goat sounds off: click to let the goats baaah";
+    speaker.setAttribute("aria-pressed", String(soundOn));
+  };
+  showSpeaker();
+  speaker.onclick = () => {
+    soundOn = !soundOn;
+    try { localStorage.setItem("bamf-goat-sound", soundOn ? "1" : "0"); } catch {}
+    showSpeaker();
+    if (soundOn) { lastVoice = 0; voice(1, true); }
+  };
+  $("themeToggle")?.before(speaker);
+  festiveStops.push(() => speaker.remove());
+
   // The herd. Each goat walks with a CSS transition on left; its actions are
   // promises, so a goat's life reads top to bottom.
   const W = () => innerWidth;
@@ -6463,7 +6531,10 @@ function buildGoat(root) {
       return sleep(d / speed * 1000).then(() => el.classList.remove("walking", "running"));
     };
     g.pose = (cls, ms) => { el.classList.add(cls); return sleep(ms).then(() => el.classList.remove(cls)); };
-    g.bleat = text => say(g.x + w * .55, innerHeight - 12 - g.h - 34, text || pick(["Meh-eh-eh!", "Baaaa!", "Mehhh.", "Maa?", "BLEHH!"]));
+    g.bleat = (text, always) => {
+      say(g.x + w * .55, innerHeight - 12 - g.h - 34, text || pick(["Baaah!", "Baa-aa-aah!", "BAAAH!", "Baaaah.", "Meh-eh-eh!", "Maa?"]));
+      voice(w < 50 ? 1.7 : rnd(.9, 1.15), always);
+    };
     return g;
   };
   const life = async g => {
@@ -6500,7 +6571,7 @@ function buildGoat(root) {
     boom(mid, innerHeight - 12 - a.h * .7);
     await Promise.all([a.walkTo(mid - a.w - 40, 120), b.walkTo(mid + 40, 120)]);
     await sleep(700);
-    if (Math.random() < .5) a.bleat("Hmph."); else b.bleat("MEHH!");
+    if (Math.random() < .5) a.bleat("Hmph.", true); else b.bleat("BAAAH!", true);
     await sleep(900);
     a.busy = b.busy = false;
   };
@@ -6565,7 +6636,7 @@ function buildGoat(root) {
   }
 
   // A scan finishes: somebody bleats.
-  festiveHooks.scanDone = () => { if (!calm && herd.length) pick(herd).bleat(); };
+  festiveHooks.scanDone = () => { if (herd.length) pick(herd).bleat(null, true); };
   // A new device arrives as a kid goat, pronking, with its name.
   festiveHooks.newDevice = async h => {
     if (document.hidden) return;
@@ -6576,6 +6647,7 @@ function buildGoat(root) {
     tag.textContent = `Baa! ${h ? nameOrIp(h) : "New device"}`;
     kid.el.appendChild(tag);
     await kid.walkTo(W() * .3, 150);
+    voice(1.8, true);
     for (let i = 0; i < 3; i++) await kid.pose("pronk", 700);
     await sleep(3000);
     tag.remove();
@@ -6621,7 +6693,10 @@ function buildGoat(root) {
     // Everything online: the herd celebrates.
     const live = hosts.filter(h => !h.ignored && !h.forgotten);
     const up = live.length > 0 && live.every(h => h.online);
-    if (up && allUp === false && !calm) herd.filter(g => !g.busy).forEach((g, i) => festiveTimers.push(setTimeout(() => g.pose("pronk", 700), i * 180)));
+    if (up && allUp === false) herd.filter(g => !g.busy).forEach((g, i) => festiveTimers.push(setTimeout(() => {
+      if (!calm) g.pose("pronk", 700);
+      if (i < 3) g.bleat(i ? "Baa!" : "BAAAAH!", true);
+    }, i * 350)));
     allUp = up;
   };
   // On the Map, a goat stands on the router: king of the hill.

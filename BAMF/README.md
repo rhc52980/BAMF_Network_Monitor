@@ -392,6 +392,12 @@ Some themes have a little life in them:
   wear a goat bell that rings while they're up, and when everything's online
   the herd celebrates. On the Map, cables are rope and a goat stands on the
   router, king of the hill.
+  The goats can baaah out loud, too. The 🔊 button that appears beside the
+  theme button in this theme turns their bleats on. They're made in the
+  browser, with no audio files, and they're off until you click it. The choice
+  is remembered in your browser. Idle bleats are kept to one every eight seconds
+  or so, while new devices, scans, headbutts and the celebration always get
+  theirs.
 - **Thunderstorm**: rain falls behind the page, in gusts that swing its angle,
   with clouds drifting along the top and splashes along the bottom. Every 20 to
   60 seconds a forked bolt of lightning cracks across the sky, which brightens
