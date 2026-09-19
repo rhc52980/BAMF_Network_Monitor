@@ -743,6 +743,9 @@
   }
 
   .table-wrap { padding: 0 24px 32px; overflow-x: auto; }
+  /* Forgotten has no status filters above the table, so the table would start
+     right under the search and Settings buttons. */
+  .table-wrap.bare { padding-top: 14px; }
   table { width: 100%; border-collapse: collapse; min-width: 880px; }
   thead th {
     text-align: left; font-family: "IBM Plex Mono", monospace;
@@ -915,7 +918,10 @@
   }
   .note-box .note-save:hover { border-color: var(--focus); }
 
-  .feed-wrap { padding: 0 24px 32px; }
+  /* The same top padding as the other views. Devices gets its breathing room
+     from the status filters above it; Activity has nothing there, so without
+     this the cards sit right under the search and Settings buttons. */
+  .feed-wrap { padding: 14px 24px 32px; }
   /* Traffic: a column when the monitor runs, and the cards on the Activity tab. */
   body:not(.has-traffic) .traffic-col { display: none; }
   td.traf { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; white-space: nowrap; color: var(--text-dim); }
@@ -1011,6 +1017,9 @@
   .floor-edit-bar .hint { color: var(--text-dim); }
   .danger-text { color: var(--danger); }
   .floor-main { display: flex; gap: 14px; align-items: flex-start; }
+  /* display:flex would otherwise beat the hidden attribute, so the editing
+     controls and the empty state would both sit there whatever's going on. */
+  .floor-main[hidden], .floor-edit-bar[hidden], .floor-side[hidden] { display: none; }
   .floor-stage { position: relative; flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); overflow: hidden; user-select: none; }
   .floor-stage img { display: block; width: 100%; height: auto; pointer-events: none; }
   .floor-stage.editing { touch-action: none; }
@@ -6427,6 +6436,7 @@ function render() {
   $("settingsWrap").hidden = view !== "settings";
   $("mapWrap").hidden = view !== "map";
   $("statusFilters").style.display = view === "devices" ? "" : "none";
+  $("tableWrap").classList.toggle("bare", view === "forgotten");
   renderGuessChips();
   renderTagChips();
   const newCount = hosts.filter(h => inNetwork(h) && !h.ignored && !h.forgotten && isNew(h)).length;
