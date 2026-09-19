@@ -63,6 +63,8 @@ copying it, and removing BAMF means deleting it plus the service.
 - **Linux** — `linux/install.sh` handles install *and* updates end to end
   (dependencies, build to `/opt/bamf`, systemd unit, start). For Proxmox LXC
   specifics see `linux/README-PROXMOX.md`.
+- **Docker** — `docker run` the image from GHCR on the host's network; nothing
+  to build. See [Docker](#docker).
 
 ## Build
 
@@ -287,7 +289,21 @@ covers common vendors; full names fill in on the next scan. You can also place
 
 Under ~700px wide the device table reflows into a card layout — one card per
 device with labeled fields — so it's usable one-handed on a phone without
-horizontal scrolling. The who's-home board and everything else adapt too.
+horizontal scrolling. The who's-home board and everything else adapt too:
+
+- A device's **⋯** menu and its "+N" address list open as a sheet from the
+  bottom of the screen, where a thumb already is, with a dimmed page behind it.
+  Tap outside the sheet to close it.
+- Dialogs (add a switch, plug into, scan ports, and the rest) are full width
+  and rise from the bottom, with their fields stacked under their labels.
+- The four stat cards sit two by two, so the device list starts on the first
+  screen. Activity rows put the name and what happened on one line and the
+  address, network and time underneath.
+- Buttons in the cards and the map tools are finger sized, and the page
+  respects the phone's safe areas (notch, home bar).
+
+Add the page to your home screen for a full-screen, app-like BAMF. A link with
+a `#tab` in it opens straight on that tab — see [Linking to a tab](#linking-to-a-tab).
 
 ## Notes
 
@@ -861,6 +877,42 @@ Uninstall:
 ```bash
 systemctl disable --now bamf && rm /etc/systemd/system/bamf.service && systemctl daemon-reload && rm -rf /opt/bamf
 ```
+
+## Docker
+
+An image is published to GHCR with every release, for amd64 and arm64 (so a
+Raspberry Pi works). It runs on the **host's network**: ARP only sees the
+network the process is actually on, and a bridged container is on Docker's
+network, not yours.
+
+```bash
+docker run -d --name bamf --restart unless-stopped \
+  --network host --cap-add NET_RAW --cap-add NET_ADMIN \
+  -v bamf-data:/data \
+  -e Bamf__Subnets__0=192.168.1.0/24 \
+  ghcr.io/rhc52980/bamf:latest
+```
+
+Then open http://localhost:8840. Or with Compose: copy `docker-compose.yml`
+from the repo, edit the subnet, and `docker compose up -d`.
+
+- **Configuration** — every key in `appsettings.json` can be an environment
+  variable, with `__` in place of the colon: `Bamf__ScanIntervalSeconds=30`,
+  `Bamf__Password=secret`, `Bamf__WebhookUrl=https://…`, a second network as
+  `Bamf__Subnets__1=…`. Or mount your own file over `/app/appsettings.json`.
+  Whatever you change in the Settings view is saved in the database, so it
+  survives a new image.
+- **Data** — the database lives in `/data` (the `bamf-data` volume above).
+  Keep that volume across updates: `docker pull` the new tag, remove the old
+  container, run the same command again.
+- **Capabilities** — `NET_RAW` and `NET_ADMIN` are what the active ARP scan and
+  the traffic monitor need; without them BAMF still runs on ping sweeps.
+- **Themes** — drop-in themes go in `/app/themes` (mount a folder there).
+- **Tags** — `ghcr.io/rhc52980/bamf:latest` follows the newest release;
+  `:1.39.0` pins a version. There's a `Dockerfile` in the repo if you'd rather
+  build it yourself: `docker build -t bamf .` from the repo root.
+- **Health** — the container checks `/api/hosts` every minute, so
+  `docker ps` shows it healthy or not.
 
 ## Using the API
 
