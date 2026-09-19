@@ -3093,7 +3093,7 @@ function renderTrafficCards() {
   }
   if (st.running && !top.length) talkers.innerHTML = `<div class="watch-note">Nothing counted yet.</div>`;
   $("talkersNote").textContent = st.running
-    ? "Bytes this machine can see: its own traffic plus broadcast and multicast on a switched network, or everything on a mirrored switch port."
+    ? "What this machine can see. On a switched network: its own traffic, plus broadcast and multicast, so the DHCP and DNS watch covers this machine and broadcast offers. On a mirrored (SPAN) switch port: everything, every device included."
     : "";
   const body = $("watchBody");
   const trust = (kind, ip, trusted) => `<button type="button" class="toggle" data-kind="${kind}" data-ip="${esc(ip)}" data-trusted="${trusted ? 0 : 1}" title="${trusted ? "Forget this server, so it alerts if seen again" : "Trust this server, so it never alerts"}">${trusted ? "Forget" : "Trust"}</button>`;

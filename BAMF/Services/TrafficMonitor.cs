@@ -64,6 +64,8 @@ public sealed class TrafficMonitor : IDisposable
     private readonly List<LibPcapLiveDevice> _devices = new();
     private Timer? _tick;
     private DateTime _startedUtc;
+    private long _framesAtCheck;
+    private int _quietWindows;
 
     public bool Running { get; private set; }
     public string? LastError { get; private set; }
@@ -96,10 +98,14 @@ public sealed class TrafficMonitor : IDisposable
         var opened = new List<string>();
         try
         {
-            foreach (var dev in LibPcapLiveDeviceList.Instance)
+            foreach (var shared in LibPcapLiveDeviceList.Instance)
             {
-                var mine = dev.Addresses.Any(a => a.Addr?.ipAddress is { } ip && localIps.Any(l => l.Equals(ip)));
+                var mine = shared.Addresses.Any(a => a.Addr?.ipAddress is { } ip && localIps.Any(l => l.Equals(ip)));
                 if (!mine) continue;
+                // A handle of its own. The device objects in the shared list are
+                // the ones the active ARP scan opens and closes each pass, and
+                // closing one of those would close this capture with it.
+                var dev = new LibPcapLiveDevice(shared.Interface);
                 try
                 {
                     dev.Open(DeviceModes.Promiscuous, 200);
@@ -206,6 +212,10 @@ public sealed class TrafficMonitor : IDisposable
     /// <summary>Closes the ten-second window: the rates read from it, and the strip moves on.</summary>
     public void RollWindow()
     {
+        // A capture that has gone quiet for two minutes has most likely lost its
+        // handle; stop, and the scanner's next pass starts it again.
+        if (Frames == _framesAtCheck) { if (++_quietWindows >= 12) { _quietWindows = 0; _log.LogWarning("Traffic monitor saw no frames for two minutes; restarting the capture"); Stop(); return; } }
+        else { _framesAtCheck = Frames; _quietWindows = 0; }
         lock (_lock)
         {
             foreach (var b in _byMac.Values)
