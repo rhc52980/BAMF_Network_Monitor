@@ -140,6 +140,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:ActiveArpScan` | Use raw ARP scanning via Npcap/libpcap when available; falls back to ping sweep otherwise. |
 | `Bamf:ScanIntervalSeconds` | Seconds between scans. |
 | `Bamf:AutoIgnoreRandomizedMacs` | Auto-ignore new hosts with randomized MACs (default in shipped config: true). |
+| `Bamf:TrafficMonitor` | With Npcap, watch the wire receive-only: bytes in and out per device, and every DHCP and DNS server in use, alerting on new ones (default true). Also in Settings → Behaviour. See [Traffic, DHCP and DNS](#traffic-dhcp-and-dns). |
 | `Bamf:LatencyProbe` | After each scan, ping every online device on the networks it covered and keep the round-trip time (default true). Also in Settings → Behaviour, which wins once changed there. See [Latency and uptime](#latency-and-uptime). |
 | `Bamf:HolidaySpirit` | `true` puts every dashboard in the Halloween theme from October 1st to 31st and the Christmas theme from December 1st to 25th (default false). Also in Settings → Behaviour, which wins once changed there. See [Holiday Spirit](#holiday-spirit). |
 | `Bamf:WebhookUrl` | Optional starting value for the notification webhook — the dashboard's **Tools → Notifications** saves over it. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use the dashboard's Test webhook button to verify. |
@@ -316,6 +317,10 @@ survive IP changes.
   and 30 days. See [Latency and uptime](#latency-and-uptime).
 - **New tab** - every device first seen in the last 7 days, so a weekly check
   takes ten seconds.
+- **Bandwidth per device** - with Npcap, bytes in and out per device: a Traffic
+  column and a Top talkers card. See [Traffic, DHCP and DNS](#traffic-dhcp-and-dns).
+- **DHCP and DNS watch** - an alert when a second DHCP server appears, or a
+  device starts asking a DNS server it never used before.
 - **Tags** - group devices as "kids", "IoT", "work" or whatever fits, then
   filter the list and the Map by tag. See [Tags](#tags).
 - **26 themes** - click the theme button for a picker: Dark, Light, Terminal,
@@ -868,6 +873,8 @@ scan, or delete a thing.
 | GET | `/api/portscan/pattern` | Wildcard scan: `?ip=*.245`, optional `?ports=...`. Expands only across configured subnets, capped at 256 addresses |
 | GET | `/api/events` | Network-wide activity feed (recent online/offline events, all hosts) |
 | GET | `/api/hosts/{id}/events` | One host's online/offline event history |
+| GET | `/api/traffic` | The traffic monitor's status, the top talkers with their five-minute strips, the DHCP and DNS servers seen, and the watch alerts. `GET /api/hosts` carries each host's `traffic` (`rx`, `tx` bytes per second; `rxTotal`, `txTotal`) and `dns` (the servers it asks) |
+| POST | `/api/traffic/trust` | Body `{"kind": "dhcp", "ip": "192.168.1.1", "trusted": true}` — trust a DHCP or DNS server so it never alerts, or forget it so it counts as new again |
 | GET | `/api/hosts/{id}/latency` | One host's latency samples over the last 24 hours (`?hours=` for more): `[{"at", "ms"}]`, `ms` null where the echo went unanswered. `GET /api/hosts` carries each host's latest as `latencyMs`, and its uptime over 7 and 30 days as `uptime7` and `uptime30` (percent) |
 | POST | `/api/hosts/{id}/tags` | Body `{"tags": ["kids", "IoT"]}` — replace a device's tags (up to 20, each up to 24 characters, no commas). `GET /api/hosts` lists each host's `tags` |
 | GET | `/api/hosts/{id}/ips` | One host's address history: each main address it has had, with when it began and ended |
@@ -1544,6 +1551,47 @@ if you'd rather it didn't.
   look for.
 
 Samples age out on the same window as events (`HistoryRetentionDays`).
+
+### Traffic, DHCP and DNS
+
+With the Npcap driver installed (the same one active ARP uses), BAMF can watch
+the wire, receive-only, and never sends a packet for it. Switch it under
+**Settings → Behaviour** or with `Bamf:TrafficMonitor`; it's on by default and
+does nothing without Npcap.
+
+**Bytes per device.** Every frame's source and destination are counted, so
+each device gets bytes in and out. The device list gains a **Traffic** column
+with the rate over the last ten seconds (sortable), the History panel shows
+totals and a five-minute strip, and the **Activity** tab opens with a **Top
+talkers** card: the devices that moved the most bytes since the monitor
+started, each with its strip.
+
+What this machine can see depends on where it sits. On an ordinary switched
+network it sees its own traffic plus broadcast and multicast, so the numbers
+are "traffic with the BAMF server" rather than the whole network's. Plug the
+server into a **mirrored (SPAN) port** on a managed switch, or an old hub,
+and it sees everything. The card says so.
+
+**DHCP servers.** Every DHCP offer or acknowledgement names the server that
+sent it. The **Network watch** card on the Activity tab lists every DHCP
+server seen, with its MAC, how many offers, and when. A second DHCP server
+appearing is the classic sign of a rogue router or a misconfigured box, so a
+server not seen before is an **alert**: in the card, in the log, and to your
+webhook. The first servers seen while BAMF has none on record are learned
+quietly.
+
+**DNS servers.** Every DNS query names the server the device asked. The card
+lists every DNS server in use with how many devices ask it, and each device's
+History panel says which it asks. Two things alert:
+
+- a DNS server no device on the network had used before;
+- a device that starts asking a server it never used before ("phone changed
+  DNS server: it now asks 8.8.8.8; before it used 192.168.1.1").
+
+Both are classic signs of a device whose settings were changed behind your
+back. **Trust** a server in the card so it never alerts, or **Forget** one so
+it counts as new again. Known servers are remembered across restarts, and each
+alert fires at most once a day per server or device.
 
 ### The New tab
 

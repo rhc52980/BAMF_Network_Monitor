@@ -49,6 +49,7 @@ builder.Services.AddSingleton(sp => new UpdateChecker(
     sp.GetRequiredService<ILogger<UpdateChecker>>(),
     version));
 builder.Services.AddSingleton<MdnsListener>();
+builder.Services.AddSingleton<TrafficMonitor>();
 builder.Services.AddSingleton<PortBlinker>();
 builder.Services.AddSingleton<ScannerService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ScannerService>());
@@ -148,6 +149,8 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
     var latency = store.LatestLatency();
     var uptimes = store.Uptimes();
     var tags = store.GetTags();
+    var counters = scanner.Traffic.Counters();
+    var dnsByDevice = scanner.Traffic.DnsByDevice();
     var hosts = store.GetAll().Select(h => new
     {
         id = h.Id,
@@ -183,6 +186,11 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         uptime7 = uptimes.TryGetValue(h.Id, out var up) ? up.Week : null,
         uptime30 = uptimes.TryGetValue(h.Id, out var up2) ? up2.Month : null,
         tags = tags.TryGetValue(h.Id, out var tg) ? tg : new List<string>(),
+        // Bytes per second in and out over the last ten seconds, and totals since the
+        // traffic monitor started, as seen from this machine. Null when it isn't running.
+        traffic = counters.TryGetValue(h.Mac, out var tc) ? new { rx = Math.Round(tc.Rx), tx = Math.Round(tc.Tx), rxTotal = tc.RxTotal, txTotal = tc.TxTotal } : null,
+        // The DNS servers this device asks, most used first.
+        dns = dnsByDevice.TryGetValue(h.Mac, out var dl) ? dl : new List<string>(),
         // Every address the device answers on, the main one (ip) first. More
         // than one current entry means it's on several at once, like a router
         // with an address on each network. Old ones stay listed until they age out.
@@ -205,6 +213,8 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         activeArp = new { enabled = scanner.ActiveArpEnabled, npcapAvailable = scanner.NpcapAvailable },
         autoIgnoreRandom = scanner.AutoIgnoreRandomEnabled,
         latencyProbe = scanner.LatencyProbeEnabled,
+        // The traffic monitor: bytes per device and DHCP/DNS watching, through Npcap.
+        traffic = TrafficJson(scanner),
         // Holiday Spirit: the dashboard wears Halloween through October and
         // Christmas from December 1st to 25th. Saved setting wins over appsettings.
         holidaySpirit = HolidaySpirit(store, app.Configuration),
@@ -559,6 +569,50 @@ app.MapPost("/api/hosts/{id:long}/tags", (long id, TagsRequest body, HostStore s
     return error is null ? Results.Ok() : Results.BadRequest(new { error });
 });
 
+// Everything the Activity tab's traffic cards show: top talkers with their
+// five-minute strips, the DHCP and DNS servers seen, and the watch alerts.
+app.MapGet("/api/traffic", (HostStore store, ScannerService scanner) =>
+{
+    var t = scanner.Traffic;
+    var hosts = store.GetAll().Where(h => !h.Forgotten).ToDictionary(h => h.Mac, h => h, StringComparer.OrdinalIgnoreCase);
+    string Name(string mac) => hosts.TryGetValue(mac, out var h) ? (h.CustomName != "" ? h.CustomName : h.Hostname != "" ? h.Hostname : h.Ip) : mac;
+    var top = t.Counters()
+        .Where(kv => hosts.ContainsKey(kv.Key) || kv.Value.RxTotal + kv.Value.TxTotal > 0)
+        .OrderByDescending(kv => kv.Value.RxTotal + kv.Value.TxTotal)
+        .Take(12)
+        .Select(kv => new
+        {
+            mac = kv.Key, hostId = hosts.TryGetValue(kv.Key, out var h) ? h.Id : 0, name = Name(kv.Key),
+            ip = hosts.TryGetValue(kv.Key, out var h2) ? h2.Ip : "",
+            rxTotal = kv.Value.RxTotal, txTotal = kv.Value.TxTotal, rx = Math.Round(kv.Value.Rx), tx = Math.Round(kv.Value.Tx), strip = kv.Value.Strip,
+        });
+    return Results.Json(new
+    {
+        status = TrafficJson(scanner),
+        top,
+        dhcp = t.DhcpServers().Select(s => new { s.Ip, s.Mac, name = Name(s.Mac), s.LastSeen, s.Offers, trusted = t.KnownDhcp.Contains(s.Ip) }),
+        dns = t.DnsServers().Select(s => new { s.Ip, s.LastSeen, s.Clients, s.Queries, trusted = t.KnownDns.Contains(s.Ip),
+            name = hosts.Values.FirstOrDefault(h => h.Ip == s.Ip) is { } dh ? (dh.CustomName != "" ? dh.CustomName : dh.Hostname) : "" }),
+        alerts = t.Alerts(),
+    });
+});
+
+// Trust a DHCP or DNS server (so it never alerts), or forget it (so it's new again).
+app.MapPost("/api/traffic/trust", (TrustRequest body, ScannerService scanner) =>
+{
+    var kind = (body.Kind ?? "").ToLowerInvariant();
+    if (kind is not ("dhcp" or "dns") || !System.Net.IPAddress.TryParse(body.Ip ?? "", out _))
+        return Results.BadRequest(new { error = "Say which DHCP or DNS server." });
+    scanner.Traffic.Trust(kind, body.Ip!, body.Trusted);
+    return Results.Ok();
+});
+
+app.MapPost("/api/settings/traffic-monitor", (ActiveArpRequest body, HostStore store) =>
+{
+    store.SetSetting("trafficMonitor", body.Enabled ? "true" : "false");
+    return Results.Ok();
+});
+
 app.MapPost("/api/settings/latency-probe", (ActiveArpRequest body, HostStore store) =>
 {
     store.SetSetting("latencyProbe", body.Enabled ? "true" : "false");
@@ -703,6 +757,8 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             activeArpAvailable = scanner.NpcapAvailable,
             autoIgnoreRandomizedMacs = scanner.AutoIgnoreRandomEnabled,
             latencyProbe = scanner.LatencyProbeEnabled,
+            trafficMonitor = scanner.TrafficMonitorEnabled,
+            trafficStatus = TrafficJson(scanner),
             holidaySpirit = HolidaySpirit(store, app.Configuration),
             updateCheck = updates.Enabled,
             webhookConfigured = !string.IsNullOrWhiteSpace(scanner.WebhookUrl),
@@ -994,6 +1050,17 @@ static List<object> SwitchesJson(HostStore store)
 
 // Enough of the URL to recognise which webhook is saved, never enough to use it.
 // A Discord URL ends /webhooks/<id>/<token>; the token is the secret.
+static object TrafficJson(ScannerService scanner) => new
+{
+    enabled = scanner.TrafficMonitorEnabled,
+    available = TrafficMonitor.Available,
+    running = scanner.Traffic.Running,
+    interfaces = scanner.Traffic.Interfaces,
+    error = scanner.Traffic.LastError,
+    since = scanner.Traffic.StartedUtc?.ToString("o"),
+    frames = scanner.Traffic.Frames,
+};
+
 // Holiday Spirit, effective: a value saved from Settings wins over appsettings.json.
 static bool HolidaySpirit(HostStore store, IConfiguration config) =>
     store.GetSetting("holidaySpirit") is string v ? v == "true" : config.GetValue("Bamf:HolidaySpirit", false);
@@ -1051,6 +1118,7 @@ record PlugRequest(long SwitchId, int Port);
 record GatewayRequest(string? Ip, bool Enabled);
 record CombineRequest(long ParentId);
 record TagsRequest(List<string>? Tags);
+record TrustRequest(string? Kind, string? Ip, bool Trusted);
 record PortEntry(long HostId, int Port);
 record BlinkRequest(int? Seconds);
 record DeviceTypeRequest(string? Type);

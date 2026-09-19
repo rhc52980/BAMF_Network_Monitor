@@ -315,9 +315,26 @@ public partial class ScannerService : BackgroundService
         }
     }
 
+    private readonly TrafficMonitor _traffic;
+    public TrafficMonitor Traffic => _traffic;
+
+    /// <summary>
+    /// Bytes per device and DHCP/DNS watching, through Npcap. Dashboard
+    /// setting wins over the file; only takes effect when Npcap is installed.
+    /// </summary>
+    public bool TrafficMonitorEnabled
+    {
+        get
+        {
+            var db = _store.GetSetting("trafficMonitor");
+            if (db is not null) return db == "true";
+            return _config.GetValue("Bamf:TrafficMonitor", true);
+        }
+    }
+
     public ScannerService(HostStore store, OuiLookup oui, IConfiguration config,
         IHttpClientFactory httpFactory, ILogger<ScannerService> log, UpdateChecker updates,
-        MdnsListener mdns)
+        MdnsListener mdns, TrafficMonitor traffic)
     {
         _store = store;
         _oui = oui;
@@ -326,6 +343,8 @@ public partial class ScannerService : BackgroundService
         _log = log;
         _updates = updates;
         _mdns = mdns;
+        _traffic = traffic;
+        _traffic.OnAlert = a => SendWatchAlert(a, CancellationToken.None);
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -345,6 +364,9 @@ public partial class ScannerService : BackgroundService
                 _mdns.EnsureRunning(MdnsEnabled);
 
                 var subnets = ResolveSubnets();
+                // Likewise the traffic monitor, on the interfaces that own the configured networks.
+                _traffic.EnsureRunning(TrafficMonitorEnabled && ArpScanner.IsAvailable,
+                    subnets.Select(s => FindLocalEndpoint(s.Network, s.Prefix)?.Ip).Where(ip => ip is not null).Select(ip => ip!).ToList());
                 var labels = subnets.Select(s => $"{s.Network}/{s.Prefix}").ToList();
                 SubnetLabels = labels;
                 // Built by hand rather than ToDictionary: a duplicate label would
@@ -1088,6 +1110,34 @@ public partial class ScannerService : BackgroundService
         catch (Exception ex)
         {
             _log.LogWarning(ex, "Watch alert failed for {Name}", name);
+        }
+    }
+
+    /// <summary>A DHCP or DNS watch alert, to the same webhook as everything else.</summary>
+    private async Task SendWatchAlert(TrafficMonitor.Alert a, CancellationToken ct)
+    {
+        var url = WebhookUrl;
+        if (string.IsNullOrWhiteSpace(url)) return;
+        try
+        {
+            var client = _httpFactory.CreateClient();
+            var format = ResolveFormat(url);
+            var payload = format == "discord" ? JsonSerializer.Serialize(new
+            {
+                username = "BAMF",
+                embeds = new[] { new { title = "🚨 " + a.Title, description = a.Detail, color = 0xF2716F,
+                    timestamp = DateTime.UtcNow.ToString("o"), footer = new { text = "BAMF network watch" } } },
+            }) : "";
+            var text = $"BAMF: {a.Title}. {a.Detail}";
+            var generic = JsonSerializer.Serialize(new { content = text, message = text, kind = a.Kind, title = a.Title, detail = a.Detail });
+            using var req = BuildAlertRequest(url, format, title: a.Title, message: a.Detail, priority: 5, tags: "rotating_light",
+                discordPayload: payload, genericPayload: generic);
+            using var resp = await client.SendAsync(req, ct);
+            _log.LogInformation("Watch alert ({Kind}) via {Format}: {Status}", a.Kind, format, (int)resp.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Watch alert failed");
         }
     }
 
