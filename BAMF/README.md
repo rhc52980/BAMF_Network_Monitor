@@ -309,11 +309,11 @@ survive IP changes.
   pattern over the last day, built from event history.
 - **Who's home board** - a tab showing your watched devices as presence tiles
   (green = home/online, grey = away/offline). Great for people-devices.
-- **25 themes** - click the theme button for a picker: Dark, Light, Terminal,
+- **26 themes** - click the theme button for a picker: Dark, Light, Terminal,
   Amber CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized (dark
   + light), Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
-  Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night
-  and Night Street. See [Theme](#theme).
+  Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
+  Night Street and Constellation. See [Theme](#theme).
   CRT themes get scanlines; each pick triggers a BAMF! splat. Choice persists.
   There are also two seasonal themes you won't find in the list. They unlock the
   way a friendly program would: just tell it its name. (On a phone, the logo is
@@ -345,8 +345,8 @@ your subnets and, if configured, the vendor-registry download and your webhook.
 The ◑ button in the header opens the theme menu: Dark, Light, Terminal, Amber
 CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
-Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night
-and Night Street. Your choice is remembered in your browser.
+Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
+Night Street and Constellation. Your choice is remembered in your browser.
 
 Some themes have a little life in them:
 
@@ -441,6 +441,16 @@ Some themes have a little life in them:
   road at the bottom. A new device arrives by taxi with its name on the roof
   sign, a finished scan brightens every lamp and the Map's wiring, and a device
   going offline puts a lamp out for a moment.
+- **Constellation**: the night sky, with your network written in it. Every
+  device is a star with its own place in the sky, and the stars are joined by
+  faint constellation lines. Unknown devices shine red and offline ones dim.
+  The moon's phase is how much of your network is up: full when everything is.
+  Behind them are the Milky Way, nebulae, a slowly turning spiral galaxy and a
+  ringed planet. Stars twinkle, a satellite blinks across now and then, and
+  shooting stars streak by. A finished scan brings a meteor shower. A new device
+  arrives as a bright shooting star and becomes a star of its own, with its
+  name beside it for a moment. A device going offline collapses in a flash. On
+  the Map, star dust twinkles along your cables.
 - **Hotdog Stand**: a tribute to Windows 3.1's loudest colour scheme. It's
   mustard yellow with ketchup-red title bars, in the bold system font, with a
   striped awning under the header. The next-scan bar is a sausage sliding into
