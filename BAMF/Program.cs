@@ -754,6 +754,39 @@ app.MapPost("/api/settings/cert-watch", (ActiveArpRequest body, HostStore store)
     store.SetSetting("certWatch", body.Enabled ? "true" : "false");
     return Results.Ok();
 });
+// When a device is usually online: a week of hours, over the last few weeks.
+app.MapGet("/api/hosts/{id:long}/presence", (long id, int? weeks, HostStore store) =>
+{
+    var w = Math.Clamp(weeks ?? 4, 1, 12);
+    return Results.Json(new { weeks = w, grid = store.Presence(id, w) });
+});
+
+// What changed over a period: arrivals, departures, moves, ports and alerts.
+app.MapGet("/api/changes", (int? days, HostStore store, ScannerService scanner) =>
+{
+    var d = Math.Clamp(days ?? 7, 1, 90);
+    var since = DateTime.UtcNow.AddDays(-d);
+    var c = store.ChangesSince(since);
+    var hosts = store.GetAll().ToDictionary(h => h.Id);
+    var routerNames = store.GetRouterNames();
+    string Name(long id) => hosts.TryGetValue(id, out var h)
+        ? h.CustomName != "" ? h.CustomName : h.Hostname != "" ? h.Hostname : routerNames.TryGetValue(h.Mac, out var rn) && rn != "" ? rn : h.Ip
+        : "";
+    string Ip(long id) => hosts.TryGetValue(id, out var h) ? h.Ip : "";
+    var counts = new Dictionary<string, int>(c.AlertCounts);
+    foreach (var a in scanner.Traffic.Alerts().Where(a => DateTime.TryParse(a.At, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var t) && t >= since))
+        counts[a.Kind] = counts.GetValueOrDefault(a.Kind) + 1;
+    object Dev(HostStore.ChangeDevice x) => new { hostId = x.Id, name = Name(x.Id), ip = Ip(x.Id), at = x.At, detail = x.Detail };
+    object Port(HostStore.ChangePort x) => new { hostId = x.HostId, name = Name(x.HostId), ip = Ip(x.HostId), port = x.Port, service = x.Service, at = x.At };
+    return Results.Json(new
+    {
+        days = d, since = since.ToString("o"),
+        arrived = c.Arrived.Select(Dev), left = c.Left.Select(Dev), moved = c.Moved.Select(Dev),
+        opened = c.Opened.Select(Port), closed = c.Closed.Select(Port),
+        alerts = counts, notable = c.Notable.Select(a => new { at = a.At, kind = a.Kind, title = a.Title }),
+    });
+});
+
 // Names from the router, and the free addresses on each network.
 app.MapGet("/api/router-import", (RouterImport import) => Results.Json(import.Current));
 app.MapPost("/api/router-import/run", async (RouterImport import, CancellationToken ct) =>

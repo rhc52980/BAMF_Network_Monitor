@@ -103,6 +103,32 @@ public sealed class ReportService : BackgroundService
         sb.AppendLine($"Went away: {goneText}");
         fields.Add(($"Went offline and stayed ({gone.Count})", goneText));
 
+        // Addresses that moved and ports that opened, from the same record as Activity's "What changed".
+        var changes = _store.ChangesSince(since);
+        var byId = all.ToDictionary(h => h.Id);
+        if (changes.Moved.Count > 0)
+        {
+            var t = string.Join("; ", changes.Moved.Where(m => byId.ContainsKey(m.Id)).Take(6).Select(m => $"{Name(byId[m.Id])} {m.Detail}"))
+                + (changes.Moved.Count > 6 ? $"; and {changes.Moved.Count - 6} more" : "");
+            sb.AppendLine($"Moved address: {t}");
+            fields.Add(($"Moved address ({changes.Moved.Count})", t));
+        }
+        if (changes.Opened.Count > 0)
+        {
+            var t = string.Join("; ", changes.Opened.Where(p => byId.ContainsKey(p.HostId)).Take(6)
+                .Select(p => $"{Name(byId[p.HostId])} {p.Port}{(p.Service != "" ? " (" + p.Service + ")" : "")}"))
+                + (changes.Opened.Count > 6 ? $"; and {changes.Opened.Count - 6} more" : "");
+            sb.AppendLine($"New open ports: {t}");
+            fields.Add(($"New open ports ({changes.Opened.Count})", t));
+        }
+        var security = changes.Notable.Where(a => a.Kind is "security" or "cert").ToList();
+        if (security.Count > 0)
+        {
+            var t = string.Join("; ", security.Take(5).Select(a => a.Title));
+            sb.AppendLine($"Security: {t}");
+            fields.Add(($"Security and certificates ({security.Count})", t));
+        }
+
         var flaps = _store.OfflineCounts(since);
         var flaky = all.Where(h => flaps.TryGetValue(h.Id, out var n) && n >= 2).OrderByDescending(h => flaps[h.Id]).FirstOrDefault();
         var flakyText = flaky is null ? "Nothing dropped more than once." : $"{Name(flaky)}: offline {flaps[flaky.Id]} times";
