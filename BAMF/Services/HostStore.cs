@@ -163,6 +163,7 @@ public partial class HostStore
         InitAddresses(conn);
         InitSecurity(conn);
         InitHelpers(conn);
+        InitIpv6(conn);
     }
 
     /// <summary>Every address a host has been seen at, oldest first, with when each began.</summary>

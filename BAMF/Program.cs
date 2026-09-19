@@ -22,6 +22,11 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     ContentRootPath = AppContext.BaseDirectory,
 });
 
+// As a Home Assistant add-on, the options from the add-on's Configuration tab
+// arrive as /data/options.json; they go on top of appsettings.json.
+if (File.Exists(HomeAssistantAddon.OptionsPath))
+    builder.Configuration.AddInMemoryCollection(HomeAssistantAddon.Read(HomeAssistantAddon.OptionsPath));
+
 // App version, from <Version> in BAMF.csproj. Builds may append a source
 // revision as "1.0.0+abc1234" — keep just the version itself. Computed before
 // the container is built because UpdateChecker needs it at construction.
@@ -175,6 +180,7 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
     var dnsByDevice = scanner.Traffic.DnsByDevice();
     var openPorts = store.OpenPorts();
     var routerNames = store.GetRouterNames();
+    var ipv6 = store.GetIpv6(DateTime.UtcNow.AddDays(-7));
     var hosts = store.GetAll().Select(h => new
     {
         id = h.Id,
@@ -193,6 +199,8 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         osGuess = h.OsGuess,
         mdnsName = h.MdnsName,
         routerName = routerNames.TryGetValue(h.Mac, out var rn) ? rn : null,
+        // IPv6 addresses seen in the last week: global first, link-local last.
+        ipv6 = ipv6.TryGetValue(h.Mac, out var v6) ? v6.Select(a => a.Ip).OrderBy(a => a.StartsWith("fe80", StringComparison.OrdinalIgnoreCase) ? 2 : a.StartsWith("fd", StringComparison.OrdinalIgnoreCase) || a.StartsWith("fc", StringComparison.OrdinalIgnoreCase) ? 1 : 0).ToList() : null,
         mdnsServices = h.MdnsServices,
         link = h.Link,                                              // raw override, for editing
         linkUrl = DeviceLink.Resolve(h.Link, h.Ip, linkTemplate),   // resolved, for the href
@@ -754,6 +762,21 @@ app.MapPost("/api/settings/cert-watch", (ActiveArpRequest body, HostStore store)
     store.SetSetting("certWatch", body.Enabled ? "true" : "false");
     return Results.Ok();
 });
+// The IPv6 watch: its state, and MACs seen only over IPv6.
+app.MapGet("/api/ipv6", (HostStore store, ScannerService scanner, OuiLookup oui) =>
+{
+    var known = store.GetAll().Select(h => h.Mac).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var only = store.GetIpv6(DateTime.UtcNow.AddDays(-7)).Where(kv => !known.Contains(kv.Key))
+        .Select(kv => new { mac = kv.Key, vendor = oui.Lookup(kv.Key), addresses = kv.Value.Select(a => a.Ip), lastSeen = kv.Value.Max(a => a.LastSeen) })
+        .OrderByDescending(x => x.lastSeen).ToList();
+    return Results.Json(new { enabled = scanner.Ipv6WatchEnabled, lastRead = scanner.LastIpv6Read?.ToString("o"), error = scanner.Ipv6Error, onlyIpv6 = only });
+});
+app.MapPost("/api/settings/ipv6-watch", (ActiveArpRequest body, HostStore store) =>
+{
+    store.SetSetting("ipv6Watch", body.Enabled ? "true" : "false");
+    return Results.Ok();
+});
+
 // When a device is usually online: a week of hours, over the last few weeks.
 app.MapGet("/api/hosts/{id:long}/presence", (long id, int? weeks, HostStore store) =>
 {
@@ -1008,6 +1031,7 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             latencyProbe = scanner.LatencyProbeEnabled,
             arpWatch = scanner.ArpWatchEnabled,
             certWatch = store.GetSetting("certWatch") != "false",
+            ipv6Watch = scanner.Ipv6WatchEnabled,
             trafficMonitor = scanner.TrafficMonitorEnabled,
             trafficStatus = TrafficJson(scanner),
             report = ReportJson(reports),

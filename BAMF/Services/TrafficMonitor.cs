@@ -79,6 +79,8 @@ public sealed class TrafficMonitor : IDisposable
     public Func<Alert, Task>? OnAlert { get; set; }
     /// <summary>Every ARP frame's sender address and MAC, for the ARP watch.</summary>
     public Action<string, string>? OnArp { get; set; }
+    /// <summary>Every IPv6 neighbour-discovery frame's sender MAC and address, for the IPv6 watch.</summary>
+    public Action<string, string>? OnNdp { get; set; }
 
     public TrafficMonitor(ILogger<TrafficMonitor> log, HostStore store)
     {
@@ -113,7 +115,7 @@ public sealed class TrafficMonitor : IDisposable
                 try
                 {
                     dev.Open(DeviceModes.Promiscuous, 200);
-                    dev.Filter = "ip or arp";
+                    dev.Filter = "ip or arp or icmp6";
                     dev.OnPacketArrival += OnPacket;
                     dev.StartCapture();
                     _devices.Add(dev);
@@ -194,6 +196,14 @@ public sealed class TrafficMonitor : IDisposable
             {
                 if (d.Length >= off + 18 && OnArp is { } arp)
                     arp(new IPAddress(new ReadOnlySpan<byte>(d, off + 14, 4)).ToString(), Mac(d, off + 8));
+                return;
+            }
+            // IPv6 neighbour discovery (router and neighbour solicitations and
+            // advertisements): the sender is on this link, so its MAC owns its address.
+            if (ethType == 0x86DD)
+            {
+                if (d.Length >= off + 41 && d[off + 6] == 58 && d[off + 40] is >= 133 and <= 136 && OnNdp is { } ndp)
+                    ndp(src, new IPAddress(new ReadOnlySpan<byte>(d, off + 8, 16)).ToString());
                 return;
             }
             if (ethType != 0x0800 || d.Length < off + 20) return;

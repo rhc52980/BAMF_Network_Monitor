@@ -80,9 +80,15 @@ optional daily update check you have to switch on, and your own webhook.
 - A **whole network** view that draws every network as one diagram, by the
   cabling you recorded, with each device tagged by its network's colour
 
+**Watching for trouble**
+- An ARP watch for IP conflicts and anything claiming to be your gateway
+- A hygiene card for risky open ports, plain-HTTP settings pages, UPnP and expiring HTTPS certificates
+- What changed this week, when each device is usually home, and IPv6 addresses beside the IPv4 ones
+
 **Operating it**
 - Version and build date in the header, the log and the API, so "which build is
   this?" is always answerable
+- Runs as a Windows service, a systemd service, a Docker container or a Home Assistant add-on
 - One script installs *and* updates, preserving your config and database
 - Scheduled nightly backups keeping 30 snapshots, safe to sync to cloud storage
 - Optional password (HTTP Basic), optional HTTPS

@@ -23,6 +23,24 @@ permissions:
   packages: write        # and to push the container image to GHCR
 
 jobs:
+  # The Home Assistant add-on pulls the image tagged with its own version, so
+  # a release whose add-on version lags the app would point it at an image
+  # that doesn't exist. Fail early instead.
+  addon-version:
+    name: Home Assistant add-on version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Compare with BAMF.csproj
+        run: |
+          APP=$(grep -oPm1 '(?<=<Version>)[^<]+' BAMF/BAMF.csproj)
+          ADDON=$(grep -oPm1 '^version:\s*"?\K[^"]+' homeassistant/bamf/config.yaml)
+          echo "app $APP, add-on $ADDON"
+          if [ "$APP" != "$ADDON" ]; then
+            echo "::error file=homeassistant/bamf/config.yaml::The add-on's version ($ADDON) must match BAMF.csproj ($APP)."
+            exit 1
+          fi
+
   build:
     name: Build ${{ matrix.rid }}
     runs-on: ubuntu-latest

@@ -981,6 +981,8 @@
   .pz i { display: block; height: 13px; border-radius: 2px; background: color-mix(in srgb, var(--led-on) calc(var(--v) * 100%), var(--panel-2)); }
   .pz i.na { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
   .pz-note { color: var(--text-dim); font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 6px; }
+  .v6-chip { margin-left: 6px; padding: 0 5px; font: 600 10px "IBM Plex Mono", monospace; line-height: 1.6; border-radius: 4px;
+    border: 1px solid var(--line); color: var(--text-dim); vertical-align: 1px; cursor: help; }
   /* What changed. */
   .chg-sec { margin-top: 8px; }
   .chg-sec:first-child { margin-top: 0; }
@@ -2866,6 +2868,12 @@
       <span class="set-field"><button type="button" class="arp-toggle" id="setArpWatch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
     </label>
     <label class="set-row">
+      <span class="set-label">Watch IPv6 neighbours
+        <span class="set-hint">Every five minutes, one ping to the all-nodes address on each network BAMF scans, then a read of this machine's IPv6 neighbour table; with the traffic monitor on, neighbour discovery on the wire as it happens. Each device's IPv6 addresses sit beside its IPv4 one, and devices seen only over IPv6 get their own card under Activity.</span>
+      </span>
+      <span class="set-field"><button type="button" class="arp-toggle" id="setIpv6Watch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+    </label>
+    <label class="set-row">
       <span class="set-label">Certificate watch
         <span class="set-hint">Every morning at 4:30, reads the certificate on each HTTPS port BAMF has found open, and alerts 14 days and 3 days before one expires, and when it has. Only ports a scan already found open are touched.</span>
       </span>
@@ -3055,6 +3063,11 @@
         <button type="button" class="export-btn" id="hygieneCheck">Check now</button>
         <span class="hint">Scans every online known device's common ports, asks your router about UPnP, and reads HTTPS certificates. About a minute.</span>
       </div>
+    </div>
+    <div class="act-card" id="v6Card" hidden>
+      <h3>Only on IPv6</h3>
+      <div class="sub">Devices seen over IPv6 this week that never answered BAMF's IPv4 scan: often a sleeping speaker or a phone with a private address.</div>
+      <div id="v6Body"></div>
     </div>
     <div class="act-card">
       <h3>Network watch</h3>
@@ -3424,7 +3437,7 @@ let trafficCache = null;    // the last /api/traffic answer, for the Activity ca
 let alertsCache = null;     // the last /api/alerts answer
 let securityCache = null;   // the last /api/security answer: certificates, UPnP, gateway MACs
 const presenceCache = {};   // device id -> its week of hours, for the History panel
-let arpWatch = true, certWatch = true;
+let arpWatch = true, certWatch = true, ipv6Watch = true;
 let rulesData = null;       // { rules, quiet, portWatch } from /api/settings
 let remoteStatus = [];      // other BAMF servers: [{ name, url, ok, error, hosts, ... }]
 const fmtBytes = n => n == null ? "—" : n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + " kB" : n < 1073741824 ? (n / 1048576).toFixed(1) + " MB" : (n / 1073741824).toFixed(2) + " GB";
@@ -3584,6 +3597,21 @@ function renderAlertsCard() {
     `<div class="alert-item k-${esc(a.kind)}"><div><b>${esc(a.title)}</b><span class="when">${esc(fmtAgo(a.at))}</span></div><div class="det">${esc(a.detail)}</div></div>`).join("")
     : `<div class="watch-note">Nothing yet. Rules, the port watch and the DHCP/DNS watch put their alerts here.</div>`;
 }
+// ---- Only on IPv6 ----
+let ipv6Cache = null, ipv6At = 0;
+function loadIpv6() {
+  if (ipv6Cache && Date.now() - ipv6At < 60e3) { renderIpv6(); return; }
+  fetch("/api/ipv6").then(r => r.ok ? r.json() : null).then(d => { if (d) { ipv6Cache = d; ipv6At = Date.now(); } renderIpv6(); }).catch(() => {});
+}
+function renderIpv6() {
+  const d = ipv6Cache, card = document.getElementById("v6Card");
+  if (!d || !card) return;
+  card.hidden = !d.enabled || !d.onlyIpv6.length;
+  $("v6Body").innerHTML = d.onlyIpv6.slice(0, 12).map(x =>
+    `<div class="chg-item"><span class="mono">${esc(x.mac)}</span><span class="det">${esc(x.vendor || "")}</span><span class="when">${esc(fmtAgo(x.lastSeen))}</span></div>` +
+    `<div class="chg-more mono">${[...x.addresses].map(esc).join(" · ")}</div>`).join("");
+}
+
 // ---- What changed ----
 // Arrivals, departures, moved addresses, ports that opened or closed, and
 // the alerts raised, over the last day, week or month. Fetched at most once
@@ -4104,8 +4132,8 @@ function visible(opts) {
 // in .245, and "192.168.2.*" finds a whole subnet.
 function matchesQuery(h, query) {
   if (!query) return true;
-  const fields = [h.customName, h.hostname, h.mdnsName, h.mdnsServices, h.ip, h.mac, h.vendor, h.note, h.osGuess, ...(h.tags || []),
-    h.deviceType ? typeLabel(h.deviceType) : "", ...(h.addresses || []).map(a => a.ip)].filter(Boolean);
+  const fields = [h.customName, h.hostname, h.mdnsName, h.routerName, h.mdnsServices, h.ip, h.mac, h.vendor, h.note, h.osGuess, ...(h.tags || []),
+    h.deviceType ? typeLabel(h.deviceType) : "", ...(h.addresses || []).map(a => a.ip), ...(h.ipv6 || [])].filter(Boolean);
   if (/[*?]/.test(query)) {
     let rx;
     try {
@@ -6029,6 +6057,7 @@ function render() {
     fetch("/api/alerts").then(r => r.json()).then(a => { alertsCache = a; renderAlertsCard(); renderHygiene(); }).catch(() => {});
     loadSecurity().then(renderHygiene);
     loadChanges();
+    loadIpv6();
     renderFeed();
   }
   if (view === "home") renderHome();
@@ -6102,7 +6131,8 @@ function render() {
         ${(h.tags || []).length ? `<span class="tag-row">${h.tags.map(t => `<span class="tag-chip">${esc(t)}</span>`).join("")}</span>` : ""}
       </td>
       <td class="ip" data-label="IP"><a href="${esc(h.linkUrl || ("http://" + h.ip))}" target="_blank" rel="noopener" title="Open ${esc(h.linkUrl || ("http://" + h.ip))}${h.link ? " (custom link)" : ""}">${esc(h.ip)}${h.link ? '<span class="link-flag" title="Custom link">⇗</span>' : ""}</a>${alsoAt(h).length
-        ? `<span class="more-wrap"><button class="ip-more" title="Also answers on ${esc(alsoAt(h).map(a => a.ip).join(", "))}">+${alsoAt(h).length}</button><div class="row-menu addr-menu">${addrMenuHtml(h)}</div></span>` : ""}</td>
+        ? `<span class="more-wrap"><button class="ip-more" title="Also answers on ${esc(alsoAt(h).map(a => a.ip).join(", "))}">+${alsoAt(h).length}</button><div class="row-menu addr-menu">${addrMenuHtml(h)}</div></span>` : ""}${(h.ipv6 || []).length
+        ? `<span class="v6-chip" title="IPv6: ${esc(h.ipv6.join(", "))}">v6</span>` : ""}</td>
       <td class="mac" data-label="MAC"><span class="mac-text">${esc(h.mac)}</span></td>
       <td class="vendor" data-label="Vendor">${esc(h.vendor)}${h.deviceType
         ? `<span class="os-guess" title="Type you set${h.osGuess ? " — BAMF guessed " + esc(h.osGuess) : ""}">${esc(typeLabel(h.deviceType))} · your type</span>`
@@ -6310,6 +6340,8 @@ function render() {
           (h.uptime30 != null && h.uptime30 < 100 ? ` <span title="Time offline over the last 30 days">(down ${(100 - h.uptime30).toFixed(1)}% of the month)</span>` : "") + `</div>`;
       }
       inner += buildPresence(presenceCache[h.id]);
+      if ((h.ipv6 || []).length)
+        inner += `<div class="lat-sum">IPv6: ${h.ipv6.map(a => `<span class="mono">${esc(a)}</span>`).join(" · ")}</div>`;
       // The device's story, newest first: sessions, moves, ports and alerts in one list.
       const tl = timelineCache[h.id] || [];
       if (tl.length > 1) {
@@ -11789,6 +11821,12 @@ function renderArpWatchToggle() {
   setToggleState(t, arpWatch);
   t.title = arpWatch ? "The ARP watch is on - click to stop it" : "Click to watch for IP conflicts and a changed gateway";
 }
+function renderIpv6WatchToggle() {
+  const t = $("setIpv6Watch");
+  if (!t) return;
+  setToggleState(t, ipv6Watch);
+  t.title = ipv6Watch ? "IPv6 addresses are watched - click to stop" : "Click to watch devices' IPv6 addresses";
+}
 function renderCertWatchToggle() {
   const t = $("setCertWatch");
   if (!t) return;
@@ -11800,6 +11838,8 @@ for (const [id, url, get, set, on, off] of [
     "The ARP watch is on", "The ARP watch is off"],
   ["setCertWatch", "/api/settings/cert-watch", () => certWatch, v => { certWatch = v; renderCertWatchToggle(); },
     "Certificates will be checked every morning at 4:30", "The certificate watch is off"],
+  ["setIpv6Watch", "/api/settings/ipv6-watch", () => ipv6Watch, v => { ipv6Watch = v; renderIpv6WatchToggle(); },
+    "IPv6 addresses will be watched", "The IPv6 watch is off"],
 ]) {
   $(id).onclick = async () => {
     const next = !get();
@@ -12547,8 +12587,10 @@ async function loadSettings() {
   fillRules();
   if (typeof e.arpWatch === "boolean") arpWatch = e.arpWatch;
   if (typeof e.certWatch === "boolean") certWatch = e.certWatch;
+  if (typeof e.ipv6Watch === "boolean") ipv6Watch = e.ipv6Watch;
   renderArpWatchToggle();
   renderCertWatchToggle();
+  renderIpv6WatchToggle();
   loadRouterImport();
 
   // The instant-apply toggles and the notifications card draw from the last
