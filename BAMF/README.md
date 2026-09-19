@@ -309,9 +309,11 @@ survive IP changes.
   pattern over the last day, built from event history.
 - **Who's home board** - a tab showing your watched devices as presence tiles
   (green = home/online, grey = away/offline). Great for people-devices.
-- **17 themes** - click the theme button for a picker: Dark, Light, Terminal,
+- **25 themes** - click the theme button for a picker: Dark, Light, Terminal,
   Amber CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized (dark
-  + light), Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy.
+  + light), Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
+  Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night
+  and Night Street. See [Theme](#theme).
   CRT themes get scanlines; each pick triggers a BAMF! splat. Choice persists.
   There are also two seasonal themes you won't find in the list. They unlock the
   way a friendly program would: just tell it its name. (On a phone, the logo is
@@ -343,8 +345,8 @@ your subnets and, if configured, the vendor-registry download and your webhook.
 The ◑ button in the header opens the theme menu: Dark, Light, Terminal, Amber
 CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
-Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium and Goat. Your
-choice is remembered in your browser.
+Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night
+and Night Street. Your choice is remembered in your browser.
 
 Some themes have a little life in them:
 
@@ -355,7 +357,15 @@ Some themes have a little life in them:
   device goes offline or changes address. On the Map, data flows along the
   cables you've recorded. Switching to Matrix plays a short intro, and every
   so often a white rabbit hops along the bottom. Follow it.
-- **Terminal**: a plain green screen with a blinking block cursor.
+- **Terminal**: Battlezone. The green vector world of the 1980 arcade tank
+  game lies behind the page, dimmed so the page stays readable: a ring of
+  mountains with the volcano spitting lava and the crescent moon, turning
+  slowly as you look around. Wireframe tanks prowl the plain, one for each
+  unknown device (up to four), and a saucer drifts over now and then. A radar
+  sweeps in the header with your score beside it. A finished scan fires a shell
+  at the nearest tank, and a hit scores 1000. A new device flashes **ENEMY IN
+  RANGE** and brings a tank in. A device going offline cracks the glass, as
+  taking a hit did in the arcade. Also a blinking block cursor.
 - **Synthwave**: a neon grid rolling toward a striped sunset.
 - **Amber CRT**: rounded glass at the edges, and a gentle phosphor flicker.
 - **Blueprint**: drawn on grid paper.
@@ -373,7 +383,13 @@ Some themes have a little life in them:
   offline springs a leak on its row, and watched devices carry a red shut-off
   valve that closes when they drop. Unknown devices get an inspection tag.
   Rows ripple when you point at them, the search box is a drain port, and
-  rows get a wash as you type.
+  rows get a wash as you type. Behind the page, a whole plant: glass-lined
+  mains with water running through them, up both sides and along the floor,
+  branching off at a few heights to red valve wheels, with flanges along every
+  run. Two pressure gauges read how much of your network is up, and a
+  reservoir ripples along the bottom. A scan turns the valve wheels and spikes
+  the gauges, and a device going offline makes a joint spray. On the Map, the
+  thin "on this network" lines are copper pipe.
 - **Aquarium**: fish, bubbles, swaying weed and gravel behind the glass, with
   light rays drifting through, and now and then a shark cruising past. A new device swims in as a fish carrying its
   name, a finished scan sends up a column of bubbles, and a device going
@@ -408,6 +424,23 @@ Some themes have a little life in them:
   flickers like a power cut. As they come back, the storm eases. A new device
   brings a bolt of lightning. On the Map, sparks run
   along your cables and offline devices drip.
+  It can be heard, too. The 🔊 button that appears beside the theme button in
+  this theme turns on rain, which gets heavier with the storm, and thunder
+  after each strike: a sharp crack and a long rolling rumble when it's close,
+  just a low far-off roll when it isn't. Like the goats, it's made in the
+  browser with no audio files, off until you click it, and remembered in your
+  browser. It goes quiet in a background tab.
+- **Goat Night**: the Goat theme after dark. The same herd and the same
+  jokes, on dark panels under a moonlit sky, with stars, a barn with a lit
+  window and fireflies over the meadow. With sound on, crickets chirp between
+  the bleats.
+- **Night Street**: a city block after dark. A skyline stands behind the
+  page, and its lit windows go up and down with how much of your network is
+  up (the odd one flickers with a TV). Street lamps pool light on the pavement:
+  one always buzzes, and moths circle a couple of them. Cars go by along the
+  road at the bottom. A new device arrives by taxi with its name on the roof
+  sign, a finished scan brightens every lamp and the Map's wiring, and a device
+  going offline puts a lamp out for a moment.
 - **Hotdog Stand**: a tribute to Windows 3.1's loudest colour scheme. It's
   mustard yellow with ketchup-red title bars, in the bold system font, with a
   striped awning under the header. The next-scan bar is a sausage sliding into
@@ -829,6 +862,7 @@ scan, or delete a thing.
 | DELETE | `/api/blink` | Stop a running Find port blink. While one runs, `GET /api/hosts` reports it as `blink` (`hostId`, `started`, `until`) with the server's `serverTime`; bursts are on for [2k, 2k+1) seconds after `started` |
 | POST | `/api/hosts/{id}/type` | Body `{"type": "nas"}` — set a device's type, overriding the guess for its icon and type chip. Types: `router`, `switch`, `ap`, `camera`, `printer`, `tv`, `speaker`, `phone`, `tablet`, `laptop`, `desktop`, `server`, `nas`, `vm`, `game`, `iot`, `light`, `plug`, `device`. Empty goes back to the guess. `GET /api/hosts` returns it as `deviceType` |
 | POST | `/api/settings/type-icons` | Body `{"icons": {"Linux": "server"}}` — the icon for every device of a guessed type; an empty icon clears it. Returned in `GET /api/hosts` as `typeIcons` |
+| POST | `/api/hosts/{id}/combine` | Body `{"parentId": 12}` — combine the device into another as one of its network cards; `parentId` 0 separates it again. `GET /api/hosts` gives each host's `interfaceOf` (0 for a device of its own). Returns 400 with `{"error": "…"}` for a device combined with itself, or one that's a switch's own device |
 | POST | `/api/hosts/{id}/gateway` | Body `{"ip": "192.168.1.1", "enabled": true}` — declare the device the gateway of the network that address is on (one of its own addresses), or stop declaring it. One gateway per network. `GET /api/hosts` lists them as `gateways`: `[{"subnet", "hostId", "ip"}]`. Returns 400 with `{"error": "…"}` for an address the device doesn't have, or a VPN's device |
 | POST | `/api/hosts/{id}/plug` | Body `{"switchId": 1, "port": 3}` — record which switch port a device is plugged into. `switchId` 0 clears it; `port` 0 means "port not recorded". `GET /api/hosts` returns each host's `switchId` and `switchPort`, and the layout as `switches` |
 
@@ -1043,6 +1077,11 @@ one each: **Networks behind** the router, with every one of them hanging off it,
 each in its own colour. It works like the whole-network view, but only for
 that router's networks and the switches on them, and it keeps its own saved
 arrangement. Networks with a gateway of their own keep their own cards.
+
+**Room to see it all.** A topology map grows as tall as its drawing needs,
+up to nearly the height of the window, so a big network isn't squeezed into a
+strip. **⛶ Full screen** on any topology map fills the whole screen with it,
+and Esc or **Exit full screen** puts it back.
 
 **Arranging the topology.** Drag anything wherever you like. It's saved on the
 server per network, so the layout is the same in every browser. Anything you
@@ -1486,6 +1525,26 @@ BAMF keeps them all:
   old one stops answering, and the device moves.
 - Six or more addresses on one MAC usually means **proxy ARP**, a router
   answering on behalf of other devices, and the list says so.
+
+### One device, several network cards
+
+A machine with a network card on each of your networks is a different case.
+Each card has its own MAC, so BAMF sees one device per card. BAMF's own server
+is the usual example: it has a card on every network it scans. **Network
+cards…** in a device's ⋯ menu combines them into one device:
+
+- Pick the device that's another card of this one and click **Combine**.
+  BAMF's own other cards, and devices with the same name, are suggested first.
+- The combined device answers on every card's addresses, with the card's MAC
+  shown beside each address that isn't its own. It's online if any card is. It
+  has one row in the device list.
+- On the **Map** it's drawn once. For BAMF that means once, under the switch
+  it's plugged into, on every network's map.
+- Where the card was plugged in and what it was declared the gateway of pass to
+  the device it joins. A card that is a switch's or router's own device can't
+  be combined into another; combine the other way round.
+- **Separate** in the same dialog makes a card a device of its own again. The
+  cards' own records are kept as they were, so nothing is lost.
 
 ## Limitations to be aware of
 

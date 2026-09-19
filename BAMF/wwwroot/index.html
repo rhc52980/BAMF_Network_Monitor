@@ -54,7 +54,7 @@
   }
   [data-theme="terminal"] {
     --bg: #020a02;
-    --panel: #041004;
+    --panel: rgba(4, 16, 4, .94);
     --panel-2: #072007;
     --line: #0d3d0d;
     --text: #33ff66;
@@ -76,6 +76,57 @@
     background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 3px);
     mix-blend-mode: multiply;
   }
+
+  /* ---- Night Street: a city after dark, under the street lamps ---- */
+  [data-theme="nightstreet"] body { background: #0b0e16; }
+  [data-theme="nightstreet"] header { background: linear-gradient(#141926, #0f131d); border-bottom: 1px solid #2c3348; box-shadow: 0 8px 30px rgba(255, 196, 107, .06); }
+  [data-theme="nightstreet"] .stat .num { color: #ffc46b; text-shadow: 0 0 12px rgba(255, 180, 80, .35); }
+  [data-theme="nightstreet"] .tab.active { background: rgba(255, 196, 107, .16); color: #ffd99a; }
+  [data-theme="nightstreet"] thead th { color: #ffc46b; }
+  [data-theme="nightstreet"] table, [data-theme="nightstreet"] .feed { background: rgba(13, 16, 25, .96); }
+  /* Walking past a row is walking under a lamp. */
+  [data-theme="nightstreet"] tbody tr:hover td { background: radial-gradient(ellipse 260px 60px at 90px 50%, rgba(255, 196, 107, .14), transparent 70%); }
+  [data-theme="nightstreet"] .map-svg .spoke.cable { stroke: #d9a24e; filter: drop-shadow(0 0 3px rgba(255, 180, 80, .55)); }
+  [data-theme="nightstreet"] .map-svg .t-tile { stroke: #6b5a3a; }
+  [data-theme="nightstreet"].ns-bright .map-svg .spoke.cable { stroke: #ffd99a; }
+  .ns-bg { overflow: hidden; background: linear-gradient(#04060c, #0b1020 45%, #161c30); }
+  .ns-bg svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ns-bg .ns-star { animation: ns-twinkle ease-in-out infinite alternate; }
+  @keyframes ns-twinkle { from { opacity: .15; } to { opacity: .9; } }
+  .ns-bg .ns-win { fill: #1a1f2e; transition: fill 1.2s; }
+  .ns-bg .ns-win.on { fill: #f7cf7e; }
+  .ns-bg .ns-win.on.tv { fill: #8fb6ff; animation: ns-tv 1.3s steps(3) infinite; }
+  @keyframes ns-tv { 33% { fill: #b4a0ff; } 66% { fill: #7fd0ff; } }
+  .ns-bg .ns-glow { transition: opacity .25s; }
+  .ns-bg .ns-lamp.out .ns-glow { opacity: 0; }
+  .ns-bg .ns-lamp.buzz .ns-glow { animation: ns-flicker 5s steps(1) infinite; }
+  @keyframes ns-flicker { 0%, 7%, 9%, 61%, 63.5%, 66%, 100% { opacity: 1; } 8%, 62%, 65% { opacity: .1; } }
+  html.ns-bright .ns-bg .ns-glow { opacity: 1; filter: brightness(1.5); }
+  .ns-road { position: absolute; left: 0; right: 0; bottom: 0; height: 26px; pointer-events: none;
+    background: linear-gradient(90deg, #c9b458 0 26px, transparent 26px 48px) 0 12px / 48px 2px repeat-x, #16181f; border-top: 3px solid #3a3d47; }
+  .ns-car { position: absolute; left: 0; animation: ns-drive linear forwards; }
+  .ns-car.lane2 { bottom: 13px; } .ns-car.lane1 { bottom: 1px; }
+  .ns-car.rtl { animation-name: ns-drive-rtl; }
+  .ns-car.rtl svg { transform: scaleX(-1); }
+  .ns-car svg { display: block; overflow: visible; }
+  @keyframes ns-drive { from { transform: translateX(-160px); } to { transform: translateX(calc(100vw + 40px)); } }
+  @keyframes ns-drive-rtl { from { transform: translateX(calc(100vw + 40px)); } to { transform: translateX(-160px); } }
+  .ns-taxi-sign { position: absolute; left: 12px; bottom: 20px; padding: 1px 6px; background: #ffe36b; color: #1a1a1a; border: 1px solid #1a1a1a; border-radius: 3px;
+    font: 700 11px "IBM Plex Mono", monospace; white-space: nowrap; }
+  .ns-car.rtl .ns-taxi-sign { left: auto; right: 12px; }
+  @media (prefers-reduced-motion: reduce) {
+    .ns-bg .ns-star, .ns-bg .ns-lamp.buzz .ns-glow, .ns-bg .ns-win.on.tv { animation: none !important; }
+  }
+
+  /* Terminal is Battlezone: the green vector battlefield behind the page. */
+  .bz-bg { background: #010601; }
+  [data-theme="terminal"] table, [data-theme="terminal"] .feed { background: rgba(3, 12, 3, .96); }
+  .bz-bg canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .6; }
+  .bz-radar { width: 30px; height: 30px; flex: none; }
+  .bz-score { font-size: 11px; letter-spacing: .12em; color: #33ff66; white-space: nowrap; text-shadow: 0 0 5px rgba(51, 255, 102, .7); }
+  .bz-msg { position: absolute; left: 50%; transform: translateX(-50%); color: #ff3b30; font: 700 15px "IBM Plex Mono", monospace; letter-spacing: .3em;
+    text-shadow: 0 0 8px rgba(255, 59, 48, .8); white-space: nowrap; animation: bz-msg 2.6s steps(1) forwards; }
+  @keyframes bz-msg { 0%, 20%, 40%, 60% { opacity: 1; } 10%, 30%, 50% { opacity: 0; } 90% { opacity: 1; } 100% { opacity: 0; } }
 
   [data-theme="amber"] {
     --bg:#0a0600; --panel:#140d02; --panel-2:#1f1404; --line:#3d2a0d;
@@ -195,6 +246,18 @@
     --bg:#032a3a; --panel:rgba(6, 52, 70, .84); --panel-2:rgba(10, 66, 88, .9); --line:#1b6480;
     --text:#dff6ff; --text-dim:#86c1d4; --led-on:#5ff0c8; --led-warn:#ffc15e;
     --led-off:#2d5b6b; --danger:#ff7a7a; --focus:#7ae0ff; --radius:14px;
+  }
+
+  [data-theme="nightstreet"] {
+    --bg:#0b0e16; --panel:rgba(17, 21, 32, .9); --panel-2:rgba(25, 30, 44, .94); --line:#2c3348;
+    --text:#e8e2d4; --text-dim:#8d92a5; --led-on:#6fe39a; --led-warn:#ffb347;
+    --led-off:#3a4052; --danger:#ff5b5b; --focus:#ffc46b; --radius:8px;
+  }
+
+  [data-theme="goatnight"] {
+    --bg:#0f1622; --panel:rgba(26, 33, 46, .94); --panel-2:rgba(34, 43, 58, .96); --line:#3a4a5e;
+    --text:#ece5d3; --text-dim:#9aa6b4; --led-on:#7fd36a; --led-warn:#f0b45a;
+    --led-off:#4a5566; --danger:#e8675c; --focus:#f5d77a; --radius:10px;
   }
 
   [data-theme="goat"] {
@@ -801,6 +864,10 @@
   .map-svg .drop-target .t-tile, .map-svg .t-box.drop-target { stroke: var(--focus); stroke-width: 3; stroke-dasharray: none; }
   .map-svg .node:focus-visible .t-tile { stroke: var(--focus); stroke-width: 3; }
   @media (max-width: 700px) { .topo-frame { height: 70vh; margin: 8px -14px -8px; } }
+  /* A map opened full screen: the card covers the window, its drawing fills it. */
+  body.map-expanded { overflow: hidden; }
+  .map-card.expanded { position: fixed; inset: 0; z-index: 420; border-radius: 0; border: 0; display: flex; flex-direction: column; }
+  .map-card.expanded .topo-frame { flex: 1; height: auto !important; margin: 8px -14px -8px; }
   tr.blink-on td { background: color-mix(in srgb, var(--focus) 16%, transparent); }
   .blink-box.err .blink-text { color: var(--danger); }
   .blink-help { color: var(--text-dim); font-size: 12px; margin-top: 6px; line-height: 1.5; }
@@ -857,6 +924,9 @@
   .gw-row input { grid-row: span 2; align-self: center; }
   .gw-row .gw-now { grid-column: 2; font-size: 12px; color: var(--text-dim); }
   .gw-row.disabled { cursor: default; opacity: .6; }
+  .card-row { display: flex; align-items: center; gap: 10px; }
+  .card-row .card-what { flex: 1; min-width: 0; }
+  .card-row .card-what small { display: block; color: var(--text-dim); font-size: 12px; }
   .map-svg .hub { fill: var(--panel-2); stroke: var(--line); stroke-width: 1.5; }
   .map-svg .hub-txt { font: 600 11px "IBM Plex Mono", monospace; fill: var(--text); text-anchor: middle; dominant-baseline: central; }
   .map-svg .node { cursor: pointer; }
@@ -1073,7 +1143,7 @@
   [data-theme="waterworks"] .stat, [data-theme="waterworks"] .map-card, [data-theme="waterworks"] .set-card, [data-theme="waterworks"] .modal {
     border: 1px solid #56636f; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 2px 6px rgba(0, 0, 0, .4);
   }
-  [data-theme="waterworks"] table, [data-theme="waterworks"] .feed { background: rgba(22, 29, 36, .9); }
+  [data-theme="waterworks"] table, [data-theme="waterworks"] .feed { background: rgba(22, 29, 36, .96); }
   [data-theme="waterworks"] thead th { color: #8fd3ff; }
   [data-theme="waterworks"] .tab.active { background: #1f6fae; color: #fff; }
   /* The next-scan bar: a glass sight tube filling with water. */
@@ -1121,6 +1191,7 @@
   @keyframes ww-wash { from { background-position: 0 -100%; } to { background-position: 0 100%; } }
   /* The Map: steel pipes with water pulsing toward each device, still where it's offline. */
   [data-theme="waterworks"] .map-svg .spoke.cable { stroke: #7d8b99; stroke-width: 5; stroke-linecap: round; }
+  [data-theme="waterworks"] .map-svg .spoke:not(.cable):not(.bolt):not(.tunnel):not(.vlink) { stroke: #b87333; stroke-width: 2.5; stroke-linecap: round; }
   [data-theme="waterworks"] .map-svg .pkt { display: inline; fill: none; stroke: #6cc8ff; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 5 16; animation: ww-pulse 1.1s linear infinite; }
   [data-theme="waterworks"] .map-svg .pkt.off { stroke: #56636f; animation: none; }
   [data-theme="waterworks"].ww-surge .map-svg .pkt { animation-duration: .3s; }
@@ -1129,7 +1200,29 @@
   @keyframes ww-fillup { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
   .map-svg .ww-tag { display: none; }
   [data-theme="waterworks"] .map-svg .tnode.dev.unknown .ww-tag { display: inline; }
-  .ww-side { position: absolute; top: 0; bottom: 0; width: 8px; background: linear-gradient(90deg, #3d4854, #9aa8b6 40%, #5d6b79 70%, #2b343d); opacity: .7; }
+  /* Behind the page: glass-lined mains with water running through them, flanges,
+     red valve wheels, pressure gauges reading how much of the network is up, and a
+     reservoir along the bottom. */
+  .ww-bg { overflow: hidden; background: radial-gradient(ellipse at 50% 0, #26313c, #1c232b 60%); }
+  .ww-bg svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .7; }
+  .ww-bg .rim { fill: none; stroke: #7d8b99; stroke-width: 18; stroke-linecap: round; stroke-linejoin: round; }
+  .ww-bg .bore { fill: none; stroke: #0f1a24; stroke-width: 11; stroke-linecap: round; stroke-linejoin: round; }
+  .ww-bg .shine { fill: none; stroke: rgba(210, 225, 240, .35); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform: translate(-3px, -3px); }
+  .ww-bg .flow { fill: none; stroke: #3aa0e8; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 12 18; opacity: .8; animation: ww-bgflow 1.8s linear infinite; }
+  .ww-bg .flow.fast { stroke: #6cc8ff; stroke-width: 3; stroke-dasharray: 4 30; opacity: .9; animation-duration: 1.1s; }
+  html.ww-surge .ww-bg .flow { animation-duration: .45s; }
+  @keyframes ww-bgflow { to { stroke-dashoffset: -60; } }
+  .ww-bg .flange { fill: #9aa8b6; stroke: #3d4854; stroke-width: 1; }
+  .ww-bg .wheel { transform-box: fill-box; transform-origin: center; transition: transform 1.2s ease-in-out; }
+  html.ww-surge .ww-bg .wheel { transform: rotate(270deg); }
+  .ww-bg .gauge .jitter { animation: ww-jitter 2.8s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 90%; }
+  @keyframes ww-jitter { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+  .ww-bg .spray { transform-box: fill-box; transform-origin: 0 50%; animation: ww-jet 2.2s ease-out forwards; }
+  @keyframes ww-jet { 0% { transform: scaleX(0); opacity: 0; } 15% { transform: scaleX(1); opacity: 1; } 80% { opacity: .9; } 100% { transform: scaleX(1.1); opacity: 0; } }
+  .ww-pool { position: absolute; left: 0; right: 0; bottom: 0; height: 24px; opacity: .85;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0 30%, rgba(190, 235, 255, .35) 40%, rgba(255, 255, 255, 0) 50%) 0 0 / 300px 100% repeat-x,
+      linear-gradient(#2b7fc0, #174a74); border-top: 2px solid #6cc8ff; animation: ww-pool 7s linear infinite; }
+  @keyframes ww-pool { to { background-position: 300px 0, 0 0; } }
   .ww-drip { position: absolute; width: 6px; height: 8px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: #6cc8ff; animation: ww-drip 2.2s ease-in forwards; }
   @keyframes ww-drip { 0% { transform: scale(.2); } 45% { transform: scale(1) translateY(0); } 100% { transform: translateY(160px); opacity: 0; } }
   .ww-newvalve { position: absolute; width: 30px; height: 30px; }
@@ -1194,48 +1287,49 @@
     [data-theme="waterworks"] header::after, [data-theme="waterworks"] .scan-fill, [data-theme="waterworks"] .map-svg .pkt,
     [data-theme="waterworks"] tbody tr:hover, [data-theme="waterworks"] tbody.ww-wash tr td, [data-theme="waterworks"] .stat .num.ww-roll,
     .ww-tank .wave, .ww-valve .handle, .ww-leak i, .ww-leak b, [data-theme="waterworks"] #mapClusters.ww-fill .map-card,
+    .ww-bg .flow, .ww-bg .gauge .jitter, .ww-bg .spray, .ww-pool,
     .aq-rays, .aq-weed, .aq-fish .tail, [data-theme="aquarium"] tr.aq-sink td, .aq-pet svg, [data-theme="aquarium"] .map-svg .pkt { animation: none !important; }
     [data-theme="waterworks"] tbody tr:hover { background-size: 1400px 1400px; }
   }
 
   /* ---- Goat: an alpine pasture, a barn, and a herd with opinions ---- */
-  [data-theme="goat"] body { background: #cfe8f5; }
-  [data-theme="goat"] header {
+  :is([data-theme="goat"], [data-theme="goatnight"]) body { background: #cfe8f5; }
+  :is([data-theme="goat"], [data-theme="goatnight"]) header {
     background: repeating-linear-gradient(90deg, #9e2b25 0 38px, #87231e 38px 40px); color: #fff;
     border-bottom: 4px solid #f5efe2; box-shadow: 0 3px 0 #6b1a16;
   }
-  [data-theme="goat"] header .scanline, [data-theme="goat"] header .fb-link { color: #fbe9e4; }
-  [data-theme="goat"] .brand h1 { color: #fff7e8; text-shadow: 0 2px 0 #5a1612; }
-  [data-theme="goat"] header .chip, [data-theme="goat"] header .chip.ver { background: #f5efe2; color: #6b1a16; border-color: #f5efe2; }
-  [data-theme="goat"] header .arp-toggle { background: #f5efe2; color: #6b1a16; }
-  [data-theme="goat"] .stat, [data-theme="goat"] .map-card, [data-theme="goat"] .set-card, [data-theme="goat"] .modal {
+  :is([data-theme="goat"], [data-theme="goatnight"]) header .scanline, :is([data-theme="goat"], [data-theme="goatnight"]) header .fb-link { color: #fbe9e4; }
+  :is([data-theme="goat"], [data-theme="goatnight"]) .brand h1 { color: #fff7e8; text-shadow: 0 2px 0 #5a1612; }
+  :is([data-theme="goat"], [data-theme="goatnight"]) header .chip, :is([data-theme="goat"], [data-theme="goatnight"]) header .chip.ver { background: #f5efe2; color: #6b1a16; border-color: #f5efe2; }
+  :is([data-theme="goat"], [data-theme="goatnight"]) header .arp-toggle { background: #f5efe2; color: #6b1a16; }
+  :is([data-theme="goat"], [data-theme="goatnight"]) .stat, :is([data-theme="goat"], [data-theme="goatnight"]) .map-card, :is([data-theme="goat"], [data-theme="goatnight"]) .set-card, :is([data-theme="goat"], [data-theme="goatnight"]) .modal {
     border: 2px solid #b89b6c; box-shadow: 0 3px 0 rgba(107, 82, 44, .35);
   }
-  [data-theme="goat"] table, [data-theme="goat"] .feed { background: rgba(253, 248, 236, .95); }
-  [data-theme="goat"] thead th { background: #6d8f3a; color: #fff; }
-  [data-theme="goat"] .tab.active { background: #6d8f3a; color: #fff; }
-  [data-theme="goat"] .stat .num { color: #9e2b25; }
-  [data-theme="goat"] .badge.unknown::before { content: "🐐 "; }
+  :is([data-theme="goat"], [data-theme="goatnight"]) table, :is([data-theme="goat"], [data-theme="goatnight"]) .feed { background: rgba(253, 248, 236, .95); }
+  :is([data-theme="goat"], [data-theme="goatnight"]) thead th { background: #6d8f3a; color: #fff; }
+  :is([data-theme="goat"], [data-theme="goatnight"]) .tab.active { background: #6d8f3a; color: #fff; }
+  :is([data-theme="goat"], [data-theme="goatnight"]) .stat .num { color: #9e2b25; }
+  :is([data-theme="goat"], [data-theme="goatnight"]) .badge.unknown::before { content: "🐐 "; }
   /* A goat peeks over a stats card when you point at it. */
-  [data-theme="goat"] .stat { position: relative; }
-  [data-theme="goat"] .stat::before {
+  :is([data-theme="goat"], [data-theme="goatnight"]) .stat { position: relative; }
+  :is([data-theme="goat"], [data-theme="goatnight"]) .stat::before {
     content: ""; position: absolute; right: 22px; top: -26px; width: 34px; height: 30px; pointer-events: none;
     background: var(--goat-head) no-repeat center / contain; transform: translateY(26px); opacity: 0;
     transition: transform .35s cubic-bezier(.3, 1.6, .5, 1), opacity .2s;
   }
-  [data-theme="goat"] .stat:hover::before { transform: translateY(0); opacity: 1; }
+  :is([data-theme="goat"], [data-theme="goatnight"]) .stat:hover::before { transform: translateY(0); opacity: 1; }
   /* A goat took a bite out of this card. It grows back. */
-  [data-theme="goat"] .stat.goat-bitten {
+  :is([data-theme="goat"], [data-theme="goatnight"]) .stat.goat-bitten {
     clip-path: polygon(0 0, calc(100% - 46px) 0, calc(100% - 42px) 7px, calc(100% - 34px) 11px, calc(100% - 26px) 9px,
       calc(100% - 19px) 14px, calc(100% - 11px) 12px, calc(100% - 5px) 17px, 100% 17px, 100% 100%, 0 100%);
   }
   /* The next-scan bar: a strip of grass, eaten away by a goat as the next scan comes due. */
-  [data-theme="goat"] .scan-track {
+  :is([data-theme="goat"], [data-theme="goatnight"]) .scan-track {
     overflow: visible; height: 10px; border-radius: 5px; background:
       repeating-linear-gradient(100deg, #7fb342 0 3px, #5f9a2e 3px 5px); box-shadow: inset 0 0 0 1px #4a7a22;
   }
-  [data-theme="goat"] .scan-fill { position: relative; border-radius: 5px 0 0 5px; background: repeating-linear-gradient(90deg, #8a6a44 0 4px, #7a5c3a 4px 7px); }
-  [data-theme="goat"] .scan-fill::after {
+  :is([data-theme="goat"], [data-theme="goatnight"]) .scan-fill { position: relative; border-radius: 5px 0 0 5px; background: repeating-linear-gradient(90deg, #8a6a44 0 4px, #7a5c3a 4px 7px); }
+  :is([data-theme="goat"], [data-theme="goatnight"]) .scan-fill::after {
     content: ""; position: absolute; right: -14px; top: -12px; width: 22px; height: 20px;
     background: var(--goat-head) no-repeat center / contain; animation: goat-munch .35s ease-in-out infinite alternate;
   }
@@ -1249,12 +1343,31 @@
   .goat-bell.still { animation: none; opacity: .5; }
   @keyframes goat-ring { 0%, 100% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } }
   /* An offline device's row gets headbutted. */
-  [data-theme="goat"] td.hostname { position: relative; }
-  [data-theme="goat"] tr.goat-shake td { animation: goat-shake .5s ease-out 1; }
+  :is([data-theme="goat"], [data-theme="goatnight"]) td.hostname { position: relative; }
+  :is([data-theme="goat"], [data-theme="goatnight"]) tr.goat-shake td { animation: goat-shake .5s ease-out 1; }
   @keyframes goat-shake { 0%, 100% { transform: none; } 20% { transform: translateX(7px) rotate(.5deg); } 45% { transform: translateX(-4px); } 70% { transform: translateX(2px); } }
   .goat-bonk { position: absolute; left: -40px; top: 50%; width: 38px; height: 32px; margin-top: -16px; pointer-events: none;
     background: var(--goat-head) no-repeat center / contain; animation: goat-charge 1.3s ease-in 1 forwards; }
   @keyframes goat-charge { 0% { transform: translateX(-30px); opacity: 0; } 25% { opacity: 1; } 40% { transform: translateX(30px) rotate(12deg); } 55% { transform: translateX(18px); } 85% { opacity: 1; } 100% { transform: translateX(18px); opacity: 0; } }
+
+  /* Goat Night: the same pasture after dark. */
+  [data-theme="goatnight"] body { background: #0f1622; }
+  [data-theme="goatnight"] header { background: repeating-linear-gradient(90deg, #5a1a17 0 38px, #4a1512 38px 40px); border-bottom-color: #8f836a; box-shadow: 0 3px 0 #2a0c0a, 0 6px 22px rgba(245, 215, 122, .12); }
+  [data-theme="goatnight"] header .chip, [data-theme="goatnight"] header .chip.ver, [data-theme="goatnight"] header .arp-toggle { background: #2a2320; color: #f5d77a; border-color: #5c4a33; }
+  [data-theme="goatnight"] .stat, [data-theme="goatnight"] .map-card, [data-theme="goatnight"] .set-card, [data-theme="goatnight"] .modal { border-color: #5c4a33; box-shadow: 0 3px 0 rgba(0, 0, 0, .45); }
+  [data-theme="goatnight"] table, [data-theme="goatnight"] .feed { background: rgba(20, 27, 38, .95); }
+  [data-theme="goatnight"] thead th, [data-theme="goatnight"] .tab.active { background: #3f5a2a; color: #f2eedf; }
+  [data-theme="goatnight"] .stat .num { color: #f0b45a; }
+  [data-theme="goatnight"] .scan-track { background: repeating-linear-gradient(100deg, #3e5e27 0 3px, #2f4b1d 3px 5px); box-shadow: inset 0 0 0 1px #243a15; }
+  .goat-bg.night { background: linear-gradient(#070b16, #111a2e 50%, #1c2638); }
+  .goat-bg.night .goat-cloud { background: #3a4660; opacity: .45; box-shadow: 40px -14px 0 4px #3a4660, 80px 2px 0 -2px #3a4660; }
+  .goat-star { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; animation: goat-twinkle ease-in-out infinite alternate; }
+  @keyframes goat-twinkle { from { opacity: .2; } to { opacity: 1; } }
+  .goat-fly { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #e8ff7a; box-shadow: 0 0 8px 3px rgba(232, 255, 122, .55);
+    animation: goat-fly ease-in-out infinite alternate, goat-glow 1.7s ease-in-out infinite alternate; }
+  @keyframes goat-fly { from { transform: translate(0, 0); } 33% { transform: translate(26px, -18px); } 66% { transform: translate(-14px, -30px); } to { transform: translate(18px, 6px); } }
+  @keyframes goat-glow { from { opacity: .15; } to { opacity: 1; } }
+  .goat-meadow.night { background: radial-gradient(circle at 20% 30%, #c8b24a 0 1.5px, transparent 2px) 0 0 / 53px 18px, linear-gradient(#34521f, #243a15); border-top-color: #1a2b0e; }
 
   /* The pasture behind the page. */
   .goat-bg { overflow: hidden; background: linear-gradient(#9fd3f0, #cfe8f5 55%, #e3f1e0); }
@@ -1302,13 +1415,13 @@
   .goat-tag { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 4px; padding: 2px 8px; background: #fdf8ec; color: #3b2e1f;
     border: 1.5px solid #9e2b25; border-radius: 8px; font: 700 12px "Space Grotesk", system-ui, sans-serif; white-space: nowrap; }
   /* The Map: rope for cables, and a goat standing on the router, king of the hill. */
-  [data-theme="goat"] .map-svg .spoke.cable { stroke: #a2804f; stroke-width: 3; stroke-dasharray: 7 2; }
-  [data-theme="goat"] .map-svg .t-tile { stroke: #8a6a44; }
+  :is([data-theme="goat"], [data-theme="goatnight"]) .map-svg .spoke.cable { stroke: #a2804f; stroke-width: 3; stroke-dasharray: 7 2; }
+  :is([data-theme="goat"], [data-theme="goatnight"]) .map-svg .t-tile { stroke: #8a6a44; }
 
   @media (prefers-reduced-motion: reduce) {
-    [data-theme="goat"] .scan-fill::after, .goat-munch.chewing, .goat-bell, [data-theme="goat"] tr.goat-shake td, .goat-bonk, .goat-cloud,
-    .goat-bg .crag-goat .g-head, .goat-svg .g-tail, .goat-svg .g-ear, .goat-bubble, .goat-boom { animation: none !important; }
-    [data-theme="goat"] .stat::before { transition: none; }
+    :is([data-theme="goat"], [data-theme="goatnight"]) .scan-fill::after, .goat-munch.chewing, .goat-bell, :is([data-theme="goat"], [data-theme="goatnight"]) tr.goat-shake td, .goat-bonk, .goat-cloud,
+    .goat-bg .crag-goat .g-head, .goat-svg .g-tail, .goat-svg .g-ear, .goat-bubble, .goat-boom, .goat-star, .goat-fly { animation: none !important; }
+    :is([data-theme="goat"], [data-theme="goatnight"]) .stat::before { transition: none; }
   }
 
   /* ---- holiday decorations: drawn over the page, never in the way ---- */
@@ -2366,6 +2479,29 @@
   <div class="scan-panel-body" id="scanPanelBody"></div>
 </div>
 
+<div class="modal-backdrop" id="cardsModal" hidden>
+  <div class="modal">
+    <div class="modal-title" id="cardsTitle">Network cards</div>
+    <div class="modal-note" id="cardsSub"></div>
+    <div class="gw-list" id="cardsList"></div>
+    <label class="modal-row">Add another card of this device
+      <select id="cardsPick"></select>
+    </label>
+    <p class="modal-help">
+      Each network card has its own MAC address, so BAMF sees a machine with a card on each of
+      your networks as a device per card. BAMF's own server is the usual one. Combine them and
+      they're one device: it answers on every card's addresses, and it's drawn once on the Map.
+      Where it's plugged in and what it's the gateway of go with the device you combine into.
+      Separate a card to make it a device of its own again; nothing about it is lost.
+    </p>
+    <div class="set-result" id="cardsErr"></div>
+    <div class="modal-actions">
+      <button class="toggle" id="cardsClose">Close</button>
+      <button class="export-btn" id="cardsAdd">Combine</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="gwModal" hidden>
   <div class="modal">
     <div class="modal-title" id="gwTitle">Gateway</div>
@@ -2908,6 +3044,33 @@ function curAddrs(h) {
   return list.length ? list : [{ ip: h.ip, subnet: h.subnet, linkUrl: h.linkUrl, lastSeen: h.lastSeen, current: true }];
 }
 function alsoAt(h) { return curAddrs(h).filter(a => a.ip !== h.ip); }
+
+// Network cards you combined into one device. Each card is its own record on
+// the server; here they fold into the device they belong to, which answers on
+// all their addresses, carries all their MACs, and is online if any card is.
+function foldInterfaces(list) {
+  const byId = new Map(list.map(h => [h.id, h]));
+  const cards = list.filter(h => h.interfaceOf && byId.has(h.interfaceOf) && !h.forgotten && !byId.get(h.interfaceOf).forgotten);
+  if (!cards.length) return list;
+  const out = list.filter(h => !cards.includes(h)).map(h => ({ ...h }));
+  const outById = new Map(out.map(h => [h.id, h]));
+  const own = h => (h.addresses && h.addresses.length ? h.addresses
+    : [{ ip: h.ip, subnet: h.subnet, linkUrl: h.linkUrl, lastSeen: h.lastSeen, current: true }]);
+  for (const k of cards) {
+    const d = outById.get(k.interfaceOf);
+    if (!d) continue;
+    if (!d.interfaces) { d.interfaces = []; d.macs = [d.mac]; d.addresses = own(d); }
+    d.interfaces.push(k);
+    d.macs.push(k.mac);
+    d.addresses = [...d.addresses, ...own(k).filter(a => !d.addresses.some(x => x.ip === a.ip))
+      .map(a => ({ ...a, mac: k.mac, cardId: k.id }))];
+    d.online = d.online || k.online;
+    if ((k.lastSeen || "") > (d.lastSeen || "")) d.lastSeen = k.lastSeen;
+  }
+  return out;
+}
+// Every MAC a device has: its own, and its combined cards'.
+function macsOf(h) { return h.macs || [h.mac]; }
 function onNet(h, net) { return h.subnet === net || curAddrs(h).some(a => a.subnet === net); }
 // The device as one network sees it, at its address there. For the Map.
 function onNetView(h, net) {
@@ -2922,10 +3085,10 @@ function addrMenuHtml(h) {
   const list = curAddrs(h);
   const rows = list.map(a => `<div class="addr-row">
       <a class="mono" href="${esc(a.linkUrl || ("http://" + a.ip))}" target="_blank" rel="noopener" title="Open ${esc(a.linkUrl || ("http://" + a.ip))}">${esc(a.ip)}</a>
-      <span class="addr-net">${esc(a.subnet || "—")}</span>
+      <span class="addr-net">${esc(a.subnet || "—")}${a.mac ? `<br><span class="mono" title="On a network card you combined into this device">${esc(a.mac)}</span>` : ""}</span>
       <span class="addr-seen">${a.ip === h.ip ? "main" : "seen " + fmtAgo(a.lastSeen)}${declaredGws.some(g => g.hostId === h.id && g.ip === a.ip) ? " · gateway" : ""}</span>
     </div>`).join("");
-  return `<div class="addr-head">Answers on ${list.length} addresses</div>${rows}` +
+  return `<div class="addr-head">Answers on ${list.length} addresses${h.interfaces ? ` · ${h.interfaces.length + 1} network cards` : ""}</div>${rows}` +
     (list.length >= PROXY_ARP_HINT
       ? `<div class="addr-note">That many usually means proxy ARP: a router answering on behalf of other devices.</div>` : "");
 }
@@ -3233,7 +3396,7 @@ function mapClusters() {
     // A device on several networks is drawn on each, at its address there.
     const members = hosts.filter(h => onNet(h, subnet) && !h.ignored && !h.forgotten).map(h => onNetView(h, subnet));
     const selfMac = (place.selfMac || "").toUpperCase();
-    let self = selfMac ? members.find(h => (h.mac || "").toUpperCase() === selfMac) || null : null;
+    let self = selfMac ? members.find(h => macsOf(h).some(m => (m || "").toUpperCase() === selfMac)) || null : null;
     // The gateway you declared, or the routing table's.
     const gwAt = gatewayOf(subnet);
     let gw = !gwAt ? null
@@ -3372,6 +3535,7 @@ function mapTitle(h, role) {
   const lines = [dispName(h) === "—" ? h.ip : dispName(h), `${h.ip} · ${h.mac}`];
   const others = curAddrs(h).filter(a => a.ip !== h.ip).map(a => a.ip);
   if (others.length) lines.push("Also at " + others.join(", "));
+  if (h.interfaces) lines.push(`${h.interfaces.length + 1} network cards: ${macsOf(h).join(", ")}`);
   if (h.vendor) lines.push(h.vendor);
   lines.push(h.deviceType ? "Type: " + typeLabel(h.deviceType) + " (yours)" : h.osGuess ? "Guess: " + h.osGuess : "No guess yet");
   const sw = h.switchId ? switches.find(s => s.id === h.switchId) : null;
@@ -4632,6 +4796,8 @@ function buildClusterCard(c) {
     btn("+", "Zoom in", () => topoZoomBy(c.subnet, 0.8));
     btn("Fit", "Show everything", () => topoFit(c.subnet));
     btn("Auto-arrange", c.whole ? "Forget where you dragged things on this map" : "Forget where you dragged things on this network", () => topoAutoArrange(c.subnet));
+    btn(mapExpanded === c.subnet ? "Exit full screen" : "⛶ Full screen",
+      mapExpanded === c.subnet ? "Back to the page (Esc)" : "Fill the screen with this map", () => toggleMapExpanded(c.subnet));
   }
   if (c.mode !== "skipped") head.appendChild(tools);
   if (empty) {
@@ -4645,6 +4811,9 @@ function buildClusterCard(c) {
     const frame = document.createElement("div");
     frame.className = "topo-frame";
     frame.appendChild(buildTopologySvg(c));
+    // How tall the drawing is for its width, so the frame can grow to fit it.
+    const b = topoBounds(topoModels[c.subnet]);
+    if (b && b[2] > 0) frame.dataset.ratio = (b[3] / b[2]).toFixed(3);
     const hint = document.createElement("div");
     hint.className = "topo-hint";
     hint.textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? "Hold ⌘ or Ctrl and scroll to zoom" : "Hold Ctrl and scroll to zoom";
@@ -4653,8 +4822,36 @@ function buildClusterCard(c) {
   } else {
     card.appendChild(buildClusterSvg(c));
   }
+  if (mapExpanded === c.subnet) card.classList.add("expanded");
   return card;
 }
+
+// A topology frame is as tall as its drawing needs for its width: from a
+// short strip for a small network up to nearly the whole window for a big one.
+function sizeTopoFrames(wrap) {
+  if (innerWidth <= 700) return;
+  wrap.querySelectorAll(".topo-frame[data-ratio]").forEach(f => {
+    const want = f.clientWidth * Number(f.dataset.ratio) + 24;
+    f.style.height = Math.round(Math.max(360, Math.min(want, innerHeight * 0.92))) + "px";
+  });
+}
+
+// One map at a time can fill the screen. The browser's own full screen is
+// asked for too, when it allows it; leaving that leaves this as well.
+let mapExpanded = null;
+function toggleMapExpanded(subnet) {
+  mapExpanded = mapExpanded === subnet ? null : subnet;
+  document.body.classList.toggle("map-expanded", !!mapExpanded);
+  try {
+    if (mapExpanded && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
+    if (!mapExpanded && document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  } catch { }
+  mapSig = null;
+  renderMap();
+}
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement && mapExpanded) toggleMapExpanded(mapExpanded);
+});
 
 function renderMap() {
   const wrap = $("mapClusters");
@@ -4681,6 +4878,9 @@ function renderMap() {
     wrap.innerHTML = "";
     clusters.forEach(c => wrap.appendChild(buildClusterCard(c)));
     $("mapEmpty").hidden = clusters.length > 0;
+    // A map that was full screen and has gone (the view changed) lets go of it.
+    if (mapExpanded && !clusters.some(c => c.subnet === mapExpanded)) toggleMapExpanded(mapExpanded);
+    sizeTopoFrames(wrap);
   }
   // What changes between polls without moving anything: status, tooltips,
   // the dashed spoke of an offline device, and the counts.
@@ -4933,6 +5133,7 @@ function render() {
         if (!vmPlatform(h.mac)) addItem("Add a virtual switch on this…", () => openSwitchDialog(null, null, null, { kind: "virtual", runsOn: h.id }));
       }
       if (!vpnOfHost(h)) addItem(gwNetsOf(h).length ? "Gateway ✓…" : "Gateway…", () => openGatewayDialog(h));
+      addItem(h.interfaces ? `Network cards (${h.interfaces.length + 1})…` : "Network cards…", () => openCardsDialog(h));
       addItem("Identify device", () => identifyHost(h));
       addItem("Scan ports", () => scanPorts(h, more, null));
       addItem("Scan custom ports…", () => {
@@ -5442,6 +5643,78 @@ async function deleteSwitchDialog() {
   toast(`Switch ${esc(sw.name)} deleted`);
   closeSwitchDialog();
   await refresh();
+}
+
+// ---- Network cards ----
+// Combine a machine's network cards, each seen as a device of its own, into one.
+let cardsHost = null;
+// BAMF's own cards, one per network it has an address on.
+function selfMacs() { return Object.values(networkPlaces).map(p => (p.selfMac || "").toUpperCase()).filter(Boolean); }
+function openCardsDialog(h) {
+  cardsHost = h;
+  $("cardsTitle").textContent = "Network cards — " + nameOrIp(h);
+  const isSelf = macsOf(h).some(m => selfMacs().includes((m || "").toUpperCase()));
+  $("cardsSub").textContent = isSelf ? "This is the machine running BAMF." : `${h.ip} · ${h.vendor || "unknown vendor"}`;
+  const list = $("cardsList");
+  list.innerHTML = "";
+  const row = (card, main) => {
+    const r = document.createElement("div");
+    r.className = "card-row";
+    const addrs = (card.addresses && card.addresses.length ? card.addresses.filter(a => a.current && !a.cardId) : [{ ip: card.ip }]).map(a => a.ip);
+    r.innerHTML = `<span class="card-what"><span class="mono">${esc(card.mac)}</span> · ${esc(card.vendor || "unknown vendor")}
+      <small>${esc(addrs.join(", ") || card.ip)} · ${esc(card.subnet || "no network")}${main ? " · this device's own card" : ""}</small></span>`;
+    if (!main) {
+      const b = document.createElement("button");
+      b.className = "toggle"; b.type = "button"; b.textContent = "Separate";
+      b.title = "Make this card a device of its own again";
+      b.onclick = () => combineCard(card.id, 0);
+      r.appendChild(b);
+    }
+    list.appendChild(r);
+  };
+  row(h, true);
+  (h.interfaces || []).forEach(k => row(k, false));
+  // Anything else can be added; BAMF's own other cards, and devices with the
+  // same name, are the likely ones and come first.
+  const sel = $("cardsPick");
+  sel.innerHTML = "";
+  const nm = x => (x.customName || (x.hostname !== "—" ? x.hostname : "") || x.mdnsName || "").toLowerCase();
+  const likely = x => (isSelf && selfMacs().includes((x.mac || "").toUpperCase())) || (nm(h) && nm(x) === nm(h));
+  const pool = hosts.filter(x => x.id !== h.id && !x.forgotten).sort((a, b) =>
+    likely(b) - likely(a) || (a.subnet || "").localeCompare(b.subnet || "") || ipNum(a.ip) - ipNum(b.ip));
+  const none = document.createElement("option");
+  none.value = "0"; none.textContent = "Pick the device that's another card of this one…";
+  sel.appendChild(none);
+  for (const x of pool) {
+    const o = document.createElement("option");
+    o.value = x.id;
+    o.textContent = (likely(x) ? "★ " : "") + `${nameOrIp(x)} · ${x.ip} · ${x.mac}` + (isSelf && selfMacs().includes((x.mac || "").toUpperCase()) ? " · BAMF's own card" : "");
+    sel.appendChild(o);
+  }
+  const first = pool.find(likely);
+  sel.value = first ? String(first.id) : "0";
+  showErr("cardsErr", "");
+  $("cardsModal").hidden = false;
+}
+function closeCardsDialog() { $("cardsModal").hidden = true; cardsHost = null; }
+async function combineCard(cardId, parentId) {
+  const h = cardsHost;
+  try {
+    const r = await fetch(`/api/hosts/${cardId}/combine`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ parentId }),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      showErr("cardsErr", d.error || "Couldn't save (HTTP " + r.status + ").");
+      return;
+    }
+    await refresh();
+    const now = h && hosts.find(x => x.id === h.id);
+    if (now) openCardsDialog(now); else closeCardsDialog();
+    toast(parentId ? "Network card combined" : "Network card separated: it's a device of its own again");
+  } catch {
+    showErr("cardsErr", "Couldn't reach BAMF.");
+  }
 }
 
 // ---- Gateway ----
@@ -6162,18 +6435,19 @@ async function refresh() {
     }
     $("feedbackLink").href = feedbackHref();
 
-    const incoming = data.hosts || [];
+    const raw = data.hosts || [];
 
     // toast on newly-appearing unknown hosts (after first load)
     if (knownMacs) {
-      for (const h of incoming) {
+      for (const h of raw) {
         if (!knownMacs.has(h.mac) && !h.known && !h.ignored && !h.forgotten) {
           toast(`New host on <span class="mono">${esc(h.subnet)}</span>: <span class="mono">${esc(h.mac)}</span> at <span class="mono">${esc(h.ip)}</span>`);
           festiveHooks.newDevice?.(h);
         }
       }
     }
-    knownMacs = new Set(incoming.map(h => h.mac));
+    knownMacs = new Set(raw.map(h => h.mac));
+    const incoming = foldInterfaces(raw);
 
     // For the Matrix glitch: devices that just went offline or moved address.
     const before = new Map(hosts.map(h => [h.id, h]));
@@ -6330,6 +6604,8 @@ const THEMES = [
   { id: "waterworks",  name: "Waterworks",   sw: ["#1c232b", "#39b6ff", "#e8483b"] },
   { id: "aquarium",    name: "Aquarium",     sw: ["#032a3a", "#5ff0c8", "#ff9f43"] },
   { id: "goat",        name: "Goat",         sw: ["#9e2b25", "#fdf8ec", "#6d8f3a"] },
+  { id: "goatnight",   name: "Goat Night",   sw: ["#0f1622", "#f5d77a", "#5a1a17"] },
+  { id: "nightstreet", name: "Night Street", sw: ["#0b0e16", "#ffc46b", "#6fe39a"] },
   // Hidden until unlocked: type BAMF anywhere, or tap the logo five times.
   { id: "christmas",   name: "Christmas",    sw: ["#0b1712", "#ff3b3b", "#3ddc6f"], secret: true },
   { id: "halloween",   name: "Halloween",    sw: ["#0f0913", "#ff8c1a", "#8cff4f"], secret: true },
@@ -6505,7 +6781,8 @@ let festiveHooks = {};
 let festiveStops = [];
 let festivePrev = null;
 const THEME_FX = { christmas: (r, sw) => buildChristmas(r, sw), halloween: (r, sw) => buildHalloween(r, sw),
-  matrix: buildMatrix, synthwave: buildSynthwave, hackerred: buildHackerRed, cottoncandy: buildCottonCandy, storm: buildStorm, hotdog: buildHotdog, steampunk: buildSteampunk, waterworks: buildWaterworks, aquarium: buildAquarium, goat: buildGoat };
+  matrix: buildMatrix, synthwave: buildSynthwave, hackerred: buildHackerRed, cottoncandy: buildCottonCandy, storm: buildStorm, hotdog: buildHotdog, terminal: buildTerminal, steampunk: buildSteampunk, waterworks: buildWaterworks, aquarium: buildAquarium, goat: buildGoat,
+  goatnight: (r, sw) => buildGoat(r, sw, true), nightstreet: buildNightStreet };
 const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
@@ -6563,9 +6840,75 @@ function waterCommon(root) {
   };
 }
 
+// The pipework behind the page, laid out for the window: a riser up each
+// side joined by a main along the floor, runs branching off the risers at a
+// few heights to a valve wheel, flanges along every run, and two gauges.
+function wwPipework() {
+  const W = innerWidth, H = innerHeight, L = 24, R = W - 24, F = H - 42;
+  const runs = [`M${L} 40V${F - 24}Q${L} ${F} ${L + 24} ${F}H${R - 24}Q${R} ${F} ${R} ${F - 24}V40`];
+  const ends = [];
+  [.26, .46, .66].forEach((f, i) => {
+    const y = Math.round(H * f), len = Math.round(W * (.04 + .02 * i)), left = i % 2 === 0;
+    const x0 = left ? L : R, x1 = left ? L + len : R - len, dir = left ? 1 : -1;
+    runs.push(`M${x0} ${y}H${x1}Q${x1 + 20 * dir} ${y} ${x1 + 20 * dir} ${y + 20}V${y + 70}`);
+    ends.push([x1 + 20 * dir, y + 78]);
+    // and a shorter one off the other riser
+    const y2 = y + Math.round(H * .08), x2 = left ? R - len * .6 : L + len * .6;
+    runs.push(`M${left ? R : L} ${y2}H${x2}`);
+    ends.push([x2 - 12 * dir, y2]);
+  });
+  const pipe = d => `<path class="rim" d="${d}"/><path class="bore" d="${d}"/><path class="flow" d="${d}"/><path class="flow fast" d="${d}"/><path class="shine" d="${d}"/>`;
+  const wheel = ([x, y]) => `<g transform="translate(${x} ${y})"><circle r="9" fill="#5d6b79"/><g class="wheel"><circle r="14" fill="none" stroke="#e8483b" stroke-width="4"/>
+    <path d="M0 -14V14M-14 0H14M-10 -10L10 10M-10 10L10 -10" stroke="#e8483b" stroke-width="2.2"/><circle r="4" fill="#b8352b"/></g></g>`;
+  const gauge = (x, y) => `<g class="gauge" transform="translate(${x} ${y})"><circle r="30" fill="#5d6b79"/><circle r="26" fill="#16202a" stroke="#2b343d" stroke-width="2"/>
+    ${Array.from({ length: 9 }, (_, i) => { const a = (-120 + i * 30) * Math.PI / 180; return `<path d="M${(19 * Math.sin(a)).toFixed(1)} ${(-19 * Math.cos(a)).toFixed(1)}L${(23 * Math.sin(a)).toFixed(1)} ${(-23 * Math.cos(a)).toFixed(1)}" stroke="#9aa8b6" stroke-width="${i % 2 ? 1 : 2}"/>`; }).join("")}
+    <path d="M${(22 * Math.sin(-2.1)).toFixed(1)} ${(-22 * Math.cos(-2.1)).toFixed(1)}A22 22 0 0 1 ${(22 * Math.sin(-1.2)).toFixed(1)} ${(-22 * Math.cos(-1.2)).toFixed(1)}" fill="none" stroke="#e8483b" stroke-width="3"/>
+    <text y="13" text-anchor="middle" font-size="6" font-family="IBM Plex Mono, monospace" fill="#9aa8b6">PSI</text>
+    <g class="needle"><g class="jitter"><path d="M-1.6 0L0 -22L1.6 0z" fill="#e8483b"/></g></g><circle r="3" fill="#9aa8b6"/></g>`;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${runs.map(pipe).join("")}<g class="flanges"></g>
+    ${ends.map(wheel).join("")}${gauge(L + 46, Math.round(H * .38))}${gauge(R - 46, Math.round(H * .58))}<g class="sprays"></g></svg><div class="ww-pool"></div>`;
+}
+
 function buildWaterworks(root) {
   const calm = calmMotion(), c = waterCommon(root);
-  root.insertAdjacentHTML("beforeend", `<div class="ww-side" style="left:0"></div><div class="ww-side" style="right:0"></div>`);
+  const bg = document.createElement("div");
+  bg.id = "themeBg";
+  bg.className = "theme-bg ww-bg";
+  bg.setAttribute("aria-hidden", "true");
+  bg.innerHTML = wwPipework();
+  document.body.prepend(bg);
+  // A flange every so often along each run, square to the pipe.
+  const flanges = bg.querySelector(".flanges");
+  for (const path of bg.querySelectorAll("path.rim")) {
+    const len = path.getTotalLength();
+    for (let d = 70; d < len - 40; d += 190) {
+      const a = path.getPointAtLength(d), b = path.getPointAtLength(d + 1);
+      const deg = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+      flanges.insertAdjacentHTML("beforeend", `<rect class="flange" x="-3" y="-13" width="6" height="26" rx="1" transform="translate(${a.x.toFixed(1)} ${a.y.toFixed(1)}) rotate(${deg.toFixed(1)})"/>`);
+    }
+  }
+  // The gauges read the share of devices online; a scan spikes them.
+  const needles = [...bg.querySelectorAll(".needle")];
+  const readGauges = spike => {
+    const live = hosts.filter(h => !h.ignored && !h.forgotten), on = live.filter(h => h.online).length;
+    const share = live.length ? on / live.length : 1;
+    needles.forEach((n, i) => n.setAttribute("transform", `rotate(${(-120 + 240 * Math.min(1, share + (spike ? .25 : 0)) - i * 6).toFixed(1)})`));
+  };
+  readGauges(false);
+  // A joint that sprays when a device drops.
+  const sprays = bg.querySelector(".sprays");
+  const spray = () => {
+    if (calm || document.hidden) return;
+    const fl = [...flanges.children];
+    if (!fl.length) return;
+    const f = pick(fl);
+    const m = /translate\(([-\d.]+) ([-\d.]+)\)/.exec(f.getAttribute("transform"));
+    if (!m) return;
+    const g = svgEl("g", { transform: `translate(${m[1]} ${m[2] - 6})` });
+    g.innerHTML = `<g class="spray"><path d="M0 0q30 -14 60 6M0 0q34 -4 56 16M0 0q24 -22 50 -8" fill="none" stroke="#6cc8ff" stroke-width="2" stroke-dasharray="3 4" stroke-linecap="round"/></g>`;
+    sprays.appendChild(g);
+    festiveTimers.push(setTimeout(() => g.remove(), 2400));
+  };
 
   // The tank: devices online now against the most seen online this session.
   const tank = document.createElement("div");
@@ -6608,7 +6951,8 @@ function buildWaterworks(root) {
   const surge = () => {
     const html = document.documentElement;
     html.classList.add("ww-surge");
-    festiveTimers.push(setTimeout(() => html.classList.remove("ww-surge"), 1300));
+    readGauges(true);
+    festiveTimers.push(setTimeout(() => { html.classList.remove("ww-surge"); readGauges(false); }, 1300));
   };
   festiveStops.push(() => document.documentElement.classList.remove("ww-surge"));
   festiveHooks.scanDone = surge;
@@ -6635,6 +6979,8 @@ function buildWaterworks(root) {
   let lastView = view;
   festiveHooks.rendered = () => {
     const down = new Set(wentOffIds);
+    if (wentOffIds.length) spray();
+    readGauges(false);
     for (const id of wentOffIds) {
       const cell = document.querySelector(`tr[data-id="${id}"] td.hostname`);
       if (!cell) continue;
@@ -6871,7 +7217,22 @@ function goatBleatSound({ pitch = 1, length = .8, volume = .5 } = {}) {
   for (const o of [osc, vib, trem]) { o.start(t); o.stop(t + length + .05); }
 }
 
-function buildGoat(root) {
+// A cricket, for Goat Night: three quick high chirps.
+function cricketSound() {
+  try { goatAudio = goatAudio || new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
+  const ctx = goatAudio, f = 4200 + Math.random() * 600;
+  for (let i = 0; i < 3; i++) {
+    const t = ctx.currentTime + .03 + i * .11, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "sine"; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(.05, t + .012);
+    g.gain.linearRampToValueAtTime(0, t + .06);
+    o.connect(g).connect(ctx.destination);
+    o.start(t); o.stop(t + .07);
+  }
+}
+
+function buildGoat(root, switched, night = false) {
   const calm = calmMotion();
   const html = document.documentElement;
   html.style.setProperty("--goat-head", `url("data:image/svg+xml,${encodeURIComponent(GOAT_HEAD)}")`);
@@ -6881,25 +7242,39 @@ function buildGoat(root) {
   // The pasture: clouds, mountains with snow, pines, a crag with a goat on it.
   const bg = document.createElement("div");
   bg.id = "themeBg";
-  bg.className = "theme-bg goat-bg";
+  bg.className = "theme-bg goat-bg" + (night ? " night" : "");
   bg.setAttribute("aria-hidden", "true");
+  // Day, or the same hills by moonlight.
+  const K = night
+    ? { sun: "#f4f1dc", far: "#1e2a3c", snow: "#aab6c8", near: "#18241f", grass: "#1f3318", crag: "#3a3a40", cragLine: "#2a2a30", pine: "#12201a", trunk: "#2a2118", front: "#1a2c14" }
+    : { sun: "#fff4c2", far: "#9fb8c9", snow: "#fff", near: "#7d9a86", grass: "#8fbf5a", crag: "#8c8579", cragLine: "#6e685e", pine: "#3f6b3a", trunk: "#5b4a36", front: "#79a94a" };
   const pines = [[80, 610], [140, 640], [1330, 600], [1400, 630], [1460, 610], [620, 650], [690, 665]]
-    .map(([x, y]) => `<g transform="translate(${x} ${y})"><path d="M0 0l-26 60h52z M0 -30l-20 48h40z M0 -56l-14 38h28z" fill="#3f6b3a"/><rect x="-4" y="60" width="8" height="14" fill="#5b4a36"/></g>`).join("");
-  bg.innerHTML = [["6vh", 120, -30], ["16vh", 170, -100], ["10vh", 140, -60]]
+    .map(([x, y]) => `<g transform="translate(${x} ${y})"><path d="M0 0l-26 60h52z M0 -30l-20 48h40z M0 -56l-14 38h28z" fill="${K.pine}"/><rect x="-4" y="60" width="8" height="14" fill="${K.trunk}"/></g>`).join("");
+  // Stars only come out at night.
+  const stars = night ? Array.from({ length: 70 }, (_, i) =>
+    `<i class="goat-star" style="left:${(i * 37.3) % 100}vw;top:${(i * 53.7) % 46}vh;animation-duration:${(1.4 + (i % 5) * .6).toFixed(1)}s;animation-delay:-${i % 7}s;${i % 9 ? "" : "width:3px;height:3px;"}"></i>`).join("") : "";
+  bg.innerHTML = stars + [["6vh", 120, -30], ["16vh", 170, -100], ["10vh", 140, -60]]
     .map(([top, s, d]) => `<div class="goat-cloud" style="top:${top};animation-duration:${s}s;animation-delay:${d}s"></div>`).join("") +
     `<svg class="scene goat-svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice">
-      <circle cx="1320" cy="150" r="60" fill="#fff4c2" opacity=".9"/>
-      <path d="M0 520L180 300L300 420L470 210L640 430L800 260L980 470L1150 230L1330 440L1480 300L1600 400V900H0z" fill="#9fb8c9"/>
-      <path d="M470 210L420 272L452 262L476 286L500 258L530 268z M1150 230L1100 290L1130 282L1152 304L1178 276L1210 286z M800 260L760 312L790 304L806 322L826 300L850 308z" fill="#fff"/>
-      <path d="M0 640L220 470L400 580L600 450L820 600L1040 470L1240 590L1450 480L1600 560V900H0z" fill="#7d9a86"/>
-      <path d="M0 720Q400 620 800 700T1600 680V900H0z" fill="#8fbf5a"/>
-      <path d="M1180 700l40-120 70-40 60 30 30 90 20 40z" fill="#8c8579" stroke="#6e685e" stroke-width="3"/>
+      ${night ? `<circle cx="1320" cy="150" r="80" fill="#f4f1dc" opacity=".12"/><circle cx="1320" cy="150" r="52" fill="#f4f1dc"/>
+        <circle cx="1302" cy="138" r="9" fill="#dcd8c0"/><circle cx="1336" cy="168" r="6" fill="#dcd8c0"/><circle cx="1330" cy="128" r="4" fill="#dcd8c0"/>`
+        : `<circle cx="1320" cy="150" r="60" fill="${K.sun}" opacity=".9"/>`}
+      <path d="M0 520L180 300L300 420L470 210L640 430L800 260L980 470L1150 230L1330 440L1480 300L1600 400V900H0z" fill="${K.far}"/>
+      <path d="M470 210L420 272L452 262L476 286L500 258L530 268z M1150 230L1100 290L1130 282L1152 304L1178 276L1210 286z M800 260L760 312L790 304L806 322L826 300L850 308z" fill="${K.snow}"/>
+      <path d="M0 640L220 470L400 580L600 450L820 600L1040 470L1240 590L1450 480L1600 560V900H0z" fill="${K.near}"/>
+      <path d="M0 720Q400 620 800 700T1600 680V900H0z" fill="${K.grass}"/>
+      <path d="M1180 700l40-120 70-40 60 30 30 90 20 40z" fill="${K.crag}" stroke="${K.cragLine}" stroke-width="3"/>
       <g class="crag-goat" transform="translate(1262 492) scale(1.3)">${goatInner(GOAT_COATS[0])}</g>
+      ${night ? `<g opacity=".9"><rect x="560" y="690" width="70" height="46" fill="#3a1512"/><path d="M552 692L595 660L638 692z" fill="#2a0e0c"/>
+        <rect x="586" y="704" width="18" height="16" fill="#f5d77a" opacity=".85"/><rect x="586" y="704" width="18" height="16" fill="none" stroke="#2a0e0c" stroke-width="2"/><path d="M595 704v16M586 712h18" stroke="#2a0e0c" stroke-width="1.5"/></g>` : ""}
       ${pines}
-      <path d="M0 800Q400 740 800 790T1600 770V900H0z" fill="#79a94a"/>
+      <path d="M0 800Q400 740 800 790T1600 770V900H0z" fill="${K.front}"/>
     </svg>`;
+  // Fireflies over the meadow at night.
+  if (night) bg.insertAdjacentHTML("beforeend", Array.from({ length: 16 }, (_, i) =>
+    `<i class="goat-fly" style="left:${(i * 61.7) % 96 + 2}vw;bottom:${6 + (i * 13) % 26}vh;animation-duration:${(5 + (i % 4) * 1.5).toFixed(1)}s, ${(1.2 + (i % 3) * .5).toFixed(1)}s;animation-delay:-${i % 6}s, -${i % 4}s"></i>`).join(""));
   document.body.prepend(bg);
-  root.insertAdjacentHTML("beforeend", `<div class="goat-meadow"></div>`);
+  root.insertAdjacentHTML("beforeend", `<div class="goat-meadow${night ? " night" : ""}"></div>`);
 
   // A speech bubble over something.
   const say = (x, y, text) => {
@@ -6950,6 +7325,9 @@ function buildGoat(root) {
   };
   $("themeToggle")?.before(speaker);
   festiveStops.push(() => speaker.remove());
+  if (night && !calm) festiveTimers.push(setInterval(() => {
+    if (soundOn && !document.hidden && Math.random() < .6) cricketSound();
+  }, 7000));
 
   // The herd. Each goat walks with a CSS transition on left; its actions are
   // promises, so a goat's life reads top to bottom.
@@ -7453,8 +7831,120 @@ function buildCottonCandy(root) {
 // come back. The lightning never flashes the screen:
 // one soft brightening, at most every 20 seconds, and none at all under
 // reduced motion.
+// A speaker button beside the theme button, for a theme that makes sound.
+// Off until clicked, remembered in this browser under its own key. Returns
+// whether sound is on now.
+function themeSoundButton(key, onTitle, offTitle, onChange) {
+  let on = false;
+  try { on = localStorage.getItem(key) === "1"; } catch {}
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "arp-toggle goat-sound";
+  const show = () => {
+    b.textContent = on ? "🔊" : "🔇";
+    b.title = on ? onTitle : offTitle;
+    b.setAttribute("aria-pressed", String(on));
+  };
+  show();
+  b.onclick = () => {
+    on = !on;
+    try { localStorage.setItem(key, on ? "1" : "0"); } catch {}
+    show();
+    onChange(on);
+  };
+  $("themeToggle")?.before(b);
+  festiveStops.push(() => b.remove());
+  return () => on;
+}
+
+// The storm's sound, made in the browser like the goats' bleats: rain as
+// filtered noise, and thunder as a crack and a long low rumble, softer and
+// later the further away the strike.
+let stormAudio = null;
+function stormSound() {
+  try { stormAudio = stormAudio || new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; }
+  const ctx = stormAudio;
+  const noise = (secs, brown) => {
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * secs), ctx.sampleRate), d = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < d.length; i++) {
+      const w = Math.random() * 2 - 1;
+      if (brown) { last = (last + .02 * w) / 1.02; d[i] = last * 3.5; } else d[i] = w;
+    }
+    return buf;
+  };
+  const white = noise(2, false), brown = noise(6, true);
+  const master = ctx.createGain();
+  master.gain.value = 0;
+  master.connect(ctx.destination);
+  // Rain: looping noise, band-limited to a hiss, loudness set by the storm.
+  const rain = ctx.createBufferSource();
+  rain.buffer = white; rain.loop = true;
+  const hp = ctx.createBiquadFilter(), lp = ctx.createBiquadFilter(), rainGain = ctx.createGain();
+  hp.type = "highpass"; hp.frequency.value = 400;
+  lp.type = "lowpass"; lp.frequency.value = 5200;
+  rainGain.gain.value = .05;
+  rain.connect(hp).connect(lp).connect(rainGain).connect(master);
+  rain.start();
+  return {
+    ctx,
+    on(yes) {
+      if (yes && ctx.state === "suspended") ctx.resume?.().catch(() => {});
+      master.gain.setTargetAtTime(yes ? 1 : 0, ctx.currentTime, .4);
+    },
+    rain(level) { rainGain.gain.setTargetAtTime(.03 + .09 * level, ctx.currentTime, 1.5); },
+    thunder(near) {
+      // near: 1 overhead, 0 far off.
+      const t = ctx.currentTime + .02;
+      if (near > .55) {
+        const crack = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+        crack.buffer = white;
+        f.type = "highpass"; f.frequency.value = 900;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(.55 * near, t + .01);
+        g.gain.exponentialRampToValueAtTime(.001, t + .45);
+        crack.connect(f).connect(g).connect(master);
+        crack.start(t, Math.random()); crack.stop(t + .5);
+      }
+      const len = 3.5 + 3 * Math.random();
+      const rum = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      rum.buffer = brown;
+      f.type = "lowpass"; f.frequency.value = 90 + 260 * near;
+      const peak = .35 + .6 * near, at = t + .08 + (1 - near) * .5;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(peak, at);
+      // It rolls: a few swells as it dies away.
+      for (let k = 1; k <= 4; k++) g.gain.linearRampToValueAtTime(peak * (k % 2 ? .45 : .8) / k, at + len * k / 5);
+      g.gain.linearRampToValueAtTime(0, t + len);
+      rum.connect(f).connect(g).connect(master);
+      rum.start(t, Math.random() * 2); rum.stop(t + len + .1);
+    },
+    stop() { try { rain.stop(); } catch {} master.disconnect(); },
+  };
+}
+
 function buildStorm(root) {
   const calm = calmMotion();
+  // Sound, if it's switched on: the speaker button beside the theme button.
+  let snd = null;
+  const soundOn = themeSoundButton("bamf-storm-sound", "Storm sounds on: click to mute",
+    "Storm sounds off: click for rain and thunder", on => {
+      if (on && !snd) snd = stormSound();
+      snd?.on(on);
+      if (on) snd?.rain(intensity);
+    });
+  if (soundOn()) {
+    snd = stormSound();
+    // Browsers only allow sound after a click on the page.
+    const wake = () => snd?.on(soundOn());
+    document.addEventListener("pointerdown", wake, { once: true });
+    festiveStops.push(() => document.removeEventListener("pointerdown", wake));
+    snd?.on(true);
+  }
+  // Nothing plays in a background tab.
+  const vis = () => { if (!snd) return; if (document.hidden) snd.ctx.suspend?.().catch(() => {}); else if (soundOn()) snd.ctx.resume?.().catch(() => {}); };
+  document.addEventListener("visibilitychange", vis);
+  festiveStops.push(() => { document.removeEventListener("visibilitychange", vis); snd?.stop(); snd = null; });
   const bg = document.createElement("div");
   bg.id = "themeBg";
   bg.className = "theme-bg st-bg";
@@ -7473,7 +7963,8 @@ function buildStorm(root) {
   // How hard it's raining, 0.35 to 1: devices that went offline this session
   // and haven't come back push it up.
   const down = new Set();
-  let intensity = .4;
+  var intensity = .4;
+  snd?.rain(intensity);
   const MAX = Math.round(Math.min(520, W * H / 2600));
   const drop = () => ({ x: rnd(-W * .2, W * 1.1), y: rnd(-H, 0), len: rnd(10, 22), v: rnd(11, 17) });
   const drops = Array.from({ length: MAX }, drop);
@@ -7523,11 +8014,13 @@ function buildStorm(root) {
     // One soft brightening of the sky, never a white screen.
     flash.classList.remove("on"); void flash.offsetWidth; flash.classList.add("on");
     // Thunder follows, later the further away it struck.
+    const delay = rnd(700, 2600);
     festiveTimers.push(setTimeout(() => {
+      if (soundOn() && !document.hidden) snd?.thunder(1 - (delay - 700) / 1900);
       const hd = document.querySelector("header");
       if (!hd) return;
       hd.classList.remove("st-rumble"); void hd.offsetWidth; hd.classList.add("st-rumble");
-    }, rnd(700, 2600)));
+    }, delay));
   };
   // Lightning every 20-60 s in a light storm, more often in a heavy one; never under 20 s.
   const nextStrike = () => festiveTimers.push(setTimeout(() => { strike(); nextStrike(); },
@@ -7604,6 +8097,7 @@ function buildStorm(root) {
     off.forEach(id => down.add(id));
     back.forEach(id => down.delete(id));
     intensity = Math.min(1, .4 + .15 * down.size);
+    snd?.rain(intensity);
   };
   // Rows whose device just went offline flicker like a power cut.
   festiveHooks.rendered = () => {
@@ -7614,6 +8108,390 @@ function buildStorm(root) {
       festiveTimers.push(setTimeout(() => tr.classList.remove("st-flicker"), 1000));
     }
     wentOffIds = [];
+  };
+}
+
+// Night Street: a city block after dark. A skyline whose lit windows are how
+// much of the network is up, street lamps pooling light on the pavement (one
+// always buzzes, and moths circle a couple), and traffic along the road at
+// the bottom. A new device arrives by taxi with its name on the roof sign; a
+// finished scan brightens every lamp; a device going offline puts one out
+// for a moment.
+const NS_CAR = (body, roof) => `<svg width="70" height="24" viewBox="0 0 70 24">
+  <path d="M68 14L150 2V26z" fill="url(#nsBeam)" opacity=".8"/>
+  <path d="M4 16v-5q0-3 3-3h10l7-6h22l8 6h9q4 0 4 4v4z" fill="${body}"/>
+  <path d="M26 3h9v6h-15z M38 3h7l7 6h-14z" fill="${roof}"/>
+  <circle cx="17" cy="17" r="4.5" fill="#0c0d10"/><circle cx="54" cy="17" r="4.5" fill="#0c0d10"/>
+  <circle cx="17" cy="17" r="1.8" fill="#6b6f78"/><circle cx="54" cy="17" r="1.8" fill="#6b6f78"/>
+  <rect x="64" y="10" width="4" height="3" rx="1" fill="#fff6d0"/><rect x="3" y="10" width="3" height="3" rx="1" fill="#ff3b3b"/>
+  <defs><linearGradient id="nsBeam" x1="0" x2="1"><stop offset="0" stop-color="#fff2c0" stop-opacity=".55"/><stop offset="1" stop-color="#fff2c0" stop-opacity="0"/></linearGradient></defs></svg>`;
+
+function buildNightStreet(root) {
+  const calm = calmMotion();
+  const W = innerWidth, H = innerHeight, WALK = H - 30;   // the pavement's top edge, just above the road
+  const bg = document.createElement("div");
+  bg.id = "themeBg";
+  bg.className = "theme-bg ns-bg";
+  bg.setAttribute("aria-hidden", "true");
+  // The skyline: blocks of every height, each with a grid of windows.
+  let x = -10, blocks = "", wins = [];
+  const shades = ["#0f1320", "#121725", "#0d111b", "#141a29"];
+  while (x < W) {
+    const bw = Math.round(rnd(70, 150)), bh = Math.round(rnd(140, Math.min(440, H * .58))), top = WALK - bh;
+    blocks += `<rect x="${x}" y="${top}" width="${bw}" height="${bh}" fill="${pick(shades)}"/>`;
+    if (Math.random() < .3) blocks += `<rect x="${x + bw / 2 - 1}" y="${top - 26}" width="2" height="26" fill="#1c2233"/><circle cx="${x + bw / 2}" cy="${top - 27}" r="2" fill="#ff4a4a" class="ns-star"/>`;
+    for (let wy = top + 14; wy < WALK - 34; wy += 22)
+      for (let wx = x + 10; wx < x + bw - 16; wx += 18) wins.push(`<rect class="ns-win" x="${wx}" y="${wy}" width="8" height="11"/>`);
+    x += bw + Math.round(rnd(3, 18));
+  }
+  const stars = Array.from({ length: 40 }, (_, i) =>
+    `<circle class="ns-star" cx="${((i * 97.3) % 100) * W / 100}" cy="${((i * 41.9) % 30) * H / 100}" r="${i % 7 ? .9 : 1.4}" fill="#fff" style="animation-duration:${(1.5 + (i % 4) * .7).toFixed(1)}s;animation-delay:-${i % 5}s"/>`).join("");
+  // Lamps along the pavement, each with a cone of light and a pool under it.
+  const lamps = [];
+  for (let lx = 110; lx < W - 40; lx += 290) lamps.push(lx);
+  const lampSvg = lamps.map((lx, i) => {
+    const hy = WALK - 210, hx = lx + 34;
+    const moths = !calm && i % 3 === 1 ? [0, 120, 240].map(a => `<g transform="rotate(${a})"><circle cx="11" r="1.3" fill="#d8d0b8">
+        <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="${2.4 + a / 200}s" repeatCount="indefinite"/></circle></g>`).join("") : "";
+    return `<g class="ns-lamp${i === 1 ? " buzz" : ""}">
+      <g class="ns-glow"><path d="M${hx - 6} ${hy + 6}L${hx - 80} ${WALK}H${hx + 80}L${hx + 6} ${hy + 6}z" fill="url(#nsCone)"/>
+        <ellipse cx="${hx}" cy="${WALK + 2}" rx="95" ry="12" fill="url(#nsPool)"/><circle cx="${hx}" cy="${hy + 5}" r="16" fill="url(#nsPool)"/></g>
+      <path d="M${lx} ${WALK}V${hy - 8}q0-14 16-14h14q6 0 6 6" fill="none" stroke="#2b303c" stroke-width="5"/>
+      <path d="M${hx - 12} ${hy}h24l-5 6h-14z" fill="#3a3f4c"/><rect class="ns-glow" x="${hx - 7}" y="${hy + 5}" width="14" height="3" rx="1.5" fill="#fff0c4"/>
+      <g transform="translate(${hx} ${hy + 5})">${moths}</g></g>`;
+  }).join("");
+  bg.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <defs><linearGradient id="nsCone" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffcf7a" stop-opacity=".42"/><stop offset="1" stop-color="#ffcf7a" stop-opacity=".02"/></linearGradient>
+      <radialGradient id="nsPool"><stop offset="0" stop-color="#ffcf7a" stop-opacity=".5"/><stop offset="1" stop-color="#ffcf7a" stop-opacity="0"/></radialGradient></defs>
+    ${stars}
+    <circle cx="${W * .82}" cy="${H * .13}" r="30" fill="#e9e4cf"/><circle cx="${W * .82 + 13}" cy="${H * .13 - 7}" r="27" fill="#070a14"/>
+    ${blocks}${wins.join("")}
+    <rect x="0" y="${WALK}" width="${W}" height="${H - WALK}" fill="#23262f"/><rect x="0" y="${WALK}" width="${W}" height="2" fill="#3a3d47"/>
+    ${lampSvg}</svg>`;
+  document.body.prepend(bg);
+  root.insertAdjacentHTML("beforeend", `<div class="ns-road"></div>`);
+
+  // Lit windows: a share of them, going up and down with the network.
+  const winEls = [...bg.querySelectorAll(".ns-win")];
+  const lightWindows = (all = false) => {
+    const live = hosts.filter(h => !h.ignored && !h.forgotten), on = live.filter(h => h.online).length;
+    const want = Math.round(winEls.length * (.18 + .5 * (live.length ? on / live.length : 1)));
+    let lit = winEls.filter(w => w.classList.contains("on"));
+    // A window or two at a time, as people get home or go to bed.
+    let steps = calm || all ? winEls.length : 6;
+    while (lit.length < want && steps-- > 0) { const w = pick(winEls.filter(x => !x.classList.contains("on"))); if (!w) break; w.classList.add("on"); if (Math.random() < .08) w.classList.add("tv"); lit.push(w); }
+    while (lit.length > want && steps-- > 0) { const w = lit.splice(Math.floor(Math.random() * lit.length), 1)[0]; w.classList.remove("on", "tv"); }
+  };
+  lightWindows(true);
+  if (!calm) festiveTimers.push(setInterval(() => {
+    if (document.hidden) return;
+    // Someone switches a light, somewhere.
+    const w = pick(winEls);
+    if (w?.classList.contains("on")) { w.classList.remove("on", "tv"); festiveTimers.push(setTimeout(lightWindows, 4000)); }
+    else lightWindows();
+  }, 3500));
+
+  // Traffic.
+  const car = (opts = {}) => {
+    if (calm || document.hidden) return;
+    const rtl = opts.rtl ?? Math.random() < .5;
+    const el = document.createElement("div");
+    el.className = `ns-car ${rtl ? "rtl lane2" : "lane1"}`;
+    const [body, roof] = opts.taxi ? ["#f2c230", "#a7c7e7"] : pick([["#3a5a8c", "#9fb8d8"], ["#8c2f2f", "#b8c8d8"], ["#d8d8d8", "#6b7a8c"], ["#2f6b4f", "#a8c8b8"], ["#4a3a6b", "#b8b0d8"]]);
+    el.innerHTML = NS_CAR(body, roof) + (opts.taxi ? `<span class="ns-taxi-sign">${esc(opts.taxi)}</span>` : "");
+    el.style.animationDuration = (opts.taxi ? 11 : rnd(6, 10)).toFixed(1) + "s";
+    el.addEventListener("animationend", () => el.remove());
+    root.appendChild(el);
+  };
+  const traffic = () => festiveTimers.push(setTimeout(() => { car(); traffic(); }, rnd(9000, 22000)));
+  traffic();
+
+  // A scan brightens every lamp, and the Map's wiring with them.
+  festiveHooks.scanDone = () => {
+    const html = document.documentElement;
+    html.classList.add("ns-bright");
+    festiveTimers.push(setTimeout(() => html.classList.remove("ns-bright"), 1200));
+  };
+  festiveStops.push(() => document.documentElement.classList.remove("ns-bright"));
+  festiveHooks.newDevice = h => car({ taxi: "NEW: " + (h ? nameOrIp(h) : "a device"), rtl: false });
+  const lampEls = [...bg.querySelectorAll(".ns-lamp")];
+  festiveHooks.netChange = off => {
+    if (!off.length || calm) return;
+    const l = pick(lampEls.filter(x => !x.classList.contains("out")));
+    if (!l) return;
+    l.classList.add("out");
+    festiveTimers.push(setTimeout(() => l.classList.remove("out"), 6000));
+  };
+  festiveHooks.rendered = () => lightWindows();
+}
+
+// Terminal: Battlezone, the 1980 arcade tank game, in green vectors behind
+// the page. Mountains ring the horizon with the volcano and the moon, and the
+// view slowly turns. Wireframe tanks prowl, one for each unknown device (a few
+// at most), and a saucer drifts over now and then. A finished scan fires a
+// shell at the nearest tank; a new device brings a tank in with ENEMY IN
+// RANGE; a device going offline cracks the glass, as a hit did in the arcade.
+// A radar sweeps in the header, with the score beside it.
+const BZ_TANK = (() => {
+  // Prisms as 4 bottom + 4 top corners, [x, y, z]; z is forward.
+  const prism = (b, t) => [...b, ...t];
+  const parts = [
+    prism([[-1.5, 0, -2], [1.5, 0, -2], [1.5, 0, 2.1], [-1.5, 0, 2.1]], [[-1.3, .8, -1.8], [1.3, .8, -1.8], [1.3, .8, 1.5], [-1.3, .8, 1.5]]),
+    prism([[-.8, .8, -1.1], [.8, .8, -1.1], [.8, .8, .6], [-.8, .8, .6]], [[-.55, 1.45, -.9], [.55, 1.45, -.9], [.55, 1.45, .2], [-.55, 1.45, .2]]),
+    prism([[-.12, 1.02, .3], [.12, 1.02, .3], [.12, 1.02, 2.8], [-.12, 1.02, 2.8]], [[-.12, 1.24, .3], [.12, 1.24, .3], [.12, 1.24, 2.8], [-.12, 1.24, 2.8]]),
+  ];
+  const segs = [];
+  for (const v of parts) for (const [a, b] of [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]]) segs.push([v[a], v[b]]);
+  return segs;
+})();
+const BZ_SAUCER = (() => {
+  const segs = [], ring = [];
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; ring.push([Math.cos(a) * 2, 3.2, Math.sin(a) * 2]); }
+  ring.forEach((p, i) => { segs.push([p, ring[(i + 1) % 8]], [p, [0, 4.1, 0]], [p, [0, 2.6, 0]]); });
+  return segs;
+})();
+
+function buildTerminal(root) {
+  const calm = calmMotion();
+  const bg = document.createElement("div");
+  bg.id = "themeBg";
+  bg.className = "theme-bg bz-bg";
+  bg.setAttribute("aria-hidden", "true");
+  bg.innerHTML = "<canvas></canvas>";
+  document.body.prepend(bg);
+  const cv = bg.querySelector("canvas"), ctx = cv.getContext("2d");
+  const W = innerWidth, H = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.scale(dpr, dpr);
+  const HZ = Math.round(H * .62), F = W * .55, CAM = 2.2, RING = Math.round(2 * Math.PI * F);
+  const G = "#33ff66";
+
+  // The horizon's ring of mountains, and where the volcano and moon stand on it.
+  const ridge = [];
+  for (let x = 0; x <= RING; x += 50) ridge.push([x, x % RING === 0 ? 30 : 12 + Math.abs(Math.sin(x * .013) * 46 + Math.sin(x * .031) * 22) + (x / 50 % 3 === 0 ? 14 : 0)]);
+  const VOLCANO = 850, MOON = 1900;
+  let heading = 0;
+  const lava = [];
+
+  // The radar and score in the header.
+  const radar = document.createElement("canvas");
+  radar.className = "bz-radar";
+  radar.width = radar.height = 60;
+  const score = document.createElement("span");
+  score.className = "bz-score";
+  const track = document.querySelector(".scanline .scan-track");
+  track?.parentElement.insertBefore(radar, track);
+  radar.after(score);
+  festiveStops.push(() => { radar.remove(); score.remove(); });
+  let kills = 0;
+  const showScore = () => { score.textContent = `SCORE ${String(kills * 1000).padStart(5, "0")}`; };
+  showScore();
+
+  const enemies = [];
+  const shells = [];
+  const bits = [];
+  let crack = null;
+  const want = () => Math.min(4, 1 + hosts.filter(h => !h.known && !h.ignored && !h.forgotten).length);
+  const spawn = (type = "tank") => {
+    // Somewhere ahead, off to one side, heading across the view.
+    const a = heading / RING * Math.PI * 2 + rnd(-.7, .7), d = rnd(45, 90);
+    enemies.push({ type, x: Math.sin(a) * d, z: Math.cos(a) * d, dir: rnd(0, Math.PI * 2), v: type === "saucer" ? 5 : rnd(1.5, 3), turnAt: 0, spin: 0 });
+  };
+  for (let i = 0; i < want(); i++) spawn();
+
+  // World to screen, turned by the view's heading.
+  const view = (x, y, z) => {
+    const a = -heading / RING * Math.PI * 2, c = Math.cos(a), s2 = Math.sin(a);
+    const xr = x * c + z * s2, zr = -x * s2 + z * c;
+    if (zr < 3) return null;
+    return [W / 2 + xr / zr * F, HZ + (CAM - y) / zr * F];
+  };
+  const drawModel = (segs, e, yaw, lift = 0) => {
+    const c = Math.cos(yaw), s2 = Math.sin(yaw);
+    ctx.beginPath();
+    for (const [p, q] of segs) {
+      const A = view(e.x + p[0] * c + p[2] * s2, p[1] + lift, e.z - p[0] * s2 + p[2] * c);
+      const B = view(e.x + q[0] * c + q[2] * s2, q[1] + lift, e.z - q[0] * s2 + q[2] * c);
+      if (!A || !B) continue;
+      ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]);
+    }
+    ctx.stroke();
+  };
+
+  const draw = now => {
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = G; ctx.fillStyle = G; ctx.lineWidth = 1.3;
+    ctx.shadowColor = G; ctx.shadowBlur = 4;
+    // Horizon, mountains, volcano and moon, scrolling as the view turns.
+    ctx.beginPath(); ctx.moveTo(0, HZ); ctx.lineTo(W, HZ); ctx.stroke();
+    const off = -(heading % RING);
+    for (let k = -1; k <= Math.ceil(W / RING) + 1; k++) {
+      const base = off + k * RING;
+      if (base > W || base + RING < 0) continue;
+      ctx.beginPath();
+      ridge.forEach(([x, h], i) => { const px = base + x, py = HZ - h; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+      ctx.stroke();
+      const vx = base + VOLCANO;
+      ctx.beginPath(); ctx.moveTo(vx - 150, HZ); ctx.lineTo(vx - 26, HZ - 118); ctx.lineTo(vx + 26, HZ - 118); ctx.lineTo(vx + 150, HZ);
+      ctx.moveTo(vx - 26, HZ - 118); ctx.lineTo(vx - 8, HZ - 106); ctx.lineTo(vx + 8, HZ - 110); ctx.lineTo(vx + 26, HZ - 118); ctx.stroke();
+      const mx = base + MOON, my = HZ - 190;
+      ctx.beginPath(); ctx.arc(mx, my, 26, -Math.PI * .6, Math.PI * .6, true); ctx.arc(mx + 12, my, 22, Math.PI * .55, -Math.PI * .55); ctx.stroke();
+    }
+    // The volcano spits vector lava.
+    if (!calm && Math.random() < .08) lava.push({ x: VOLCANO + rnd(-14, 14), y: 118, vx: rnd(-1.4, 1.4), vy: rnd(3, 5.5) });
+    ctx.beginPath();
+    for (let i = lava.length - 1; i >= 0; i--) {
+      const l = lava[i];
+      l.x += l.vx; l.y += l.vy; l.vy -= .16;
+      if (l.y < 70) { lava.splice(i, 1); continue; }
+      for (let k = -1; k <= 1; k++) { const px = off + k * RING + l.x; ctx.moveTo(px, HZ - l.y); ctx.lineTo(px - l.vx * 2, HZ - l.y + l.vy * 2); }
+    }
+    ctx.stroke();
+    // Enemies, far ones first.
+    const t = now / 1000;
+    enemies.sort((a, b) => Math.hypot(b.x, b.z) - Math.hypot(a.x, a.z));
+    for (const e of enemies) {
+      if (e.type === "saucer") drawModel(BZ_SAUCER, e, e.spin, 1 + Math.sin(t * 2) * .4);
+      else drawModel(BZ_TANK, e, e.dir);
+    }
+    // Shells, and the pieces of what they hit.
+    ctx.beginPath();
+    for (const sh of shells) {
+      const A = view(sh.x, 1.1, sh.z), B = view(sh.x - sh.vx * .3, 1.1, sh.z - sh.vz * .3);
+      if (A && B) { ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); }
+    }
+    for (const b of bits) {
+      const A = view(b.x, b.y, b.z), B = view(b.x + b.dx, b.y + b.dy, b.z + b.dz);
+      if (A && B) { ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); }
+    }
+    ctx.stroke();
+    // The gunsight.
+    ctx.shadowBlur = 0; ctx.globalAlpha = .55;
+    const cx = W / 2, cy = HZ + 40;
+    ctx.beginPath();
+    ctx.moveTo(cx - 40, cy - 18); ctx.lineTo(cx - 40, cy - 28); ctx.lineTo(cx - 12, cy - 28);
+    ctx.moveTo(cx + 40, cy - 18); ctx.lineTo(cx + 40, cy - 28); ctx.lineTo(cx + 12, cy - 28);
+    ctx.moveTo(cx - 40, cy + 18); ctx.lineTo(cx - 40, cy + 28); ctx.lineTo(cx - 12, cy + 28);
+    ctx.moveTo(cx + 40, cy + 18); ctx.lineTo(cx + 40, cy + 28); ctx.lineTo(cx + 12, cy + 28);
+    ctx.moveTo(cx, cy - 28); ctx.lineTo(cx, cy - 44); ctx.moveTo(cx, cy + 28); ctx.lineTo(cx, cy + 44);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    // A hit: cracks across the glass, fading.
+    if (crack) {
+      const age = now - crack.born;
+      if (age > 2600) crack = null;
+      else {
+        ctx.globalAlpha = 1 - age / 2600;
+        ctx.strokeStyle = "#b8ffc8"; ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        for (const line of crack.lines) line.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    }
+  };
+
+  // The radar: a sweep, with a blip for each enemy.
+  const rctx = radar.getContext("2d");
+  const drawRadar = now => {
+    rctx.clearRect(0, 0, 60, 60);
+    rctx.strokeStyle = G; rctx.fillStyle = G; rctx.lineWidth = 1.5;
+    rctx.beginPath(); rctx.arc(30, 30, 27, 0, Math.PI * 2); rctx.stroke();
+    rctx.beginPath(); rctx.moveTo(30, 5); rctx.lineTo(30, 10); rctx.stroke();
+    const a = calm ? -Math.PI / 2 : now / 900 % (Math.PI * 2);
+    rctx.beginPath(); rctx.moveTo(30, 30); rctx.lineTo(30 + Math.cos(a) * 26, 30 + Math.sin(a) * 26); rctx.stroke();
+    const h = -heading / RING * Math.PI * 2;
+    for (const e of enemies) {
+      const xr = e.x * Math.cos(h) + e.z * Math.sin(h), zr = -e.x * Math.sin(h) + e.z * Math.cos(h);
+      const d = Math.hypot(xr, zr);
+      if (d > 110) continue;
+      rctx.fillRect(30 + xr / 110 * 26 - 1.5, 30 - zr / 110 * 26 - 1.5, 3, 3);
+    }
+  };
+
+  const message = text => {
+    const hd = document.querySelector("header");
+    const m = document.createElement("div");
+    m.className = "bz-msg";
+    m.textContent = text;
+    m.style.top = ((hd?.getBoundingClientRect().bottom || 60) + 14) + "px";
+    root.appendChild(m);
+    festiveTimers.push(setTimeout(() => m.remove(), 2700));
+  };
+  const explode = e => {
+    for (const [p, q] of BZ_TANK.filter((_, i) => i % 2 === 0))
+      bits.push({ x: e.x + p[0], y: p[1], z: e.z + p[2], dx: q[0] - p[0], dy: q[1] - p[1], dz: q[2] - p[2], vx: rnd(-6, 6), vy: rnd(3, 9), vz: rnd(-6, 6), life: 1.6 });
+  };
+
+  if (calm) {
+    // Reduced motion: the battlefield, still.
+    draw(0); drawRadar(0);
+  } else {
+    let raf = 0, last = 0;
+    const frame = now => {
+      raf = requestAnimationFrame(frame);
+      if (now - last < 33) return;
+      const dt = Math.min(.1, (now - last) / 1000);
+      last = now;
+      heading = (heading + dt * 14) % RING;
+      for (const e of enemies) {
+        if (e.type === "saucer") { e.spin += dt * 2; e.x += Math.cos(e.dir) * e.v * dt; e.z += Math.sin(e.dir) * e.v * dt; continue; }
+        if (now > e.turnAt) { e.dir += rnd(-.9, .9); e.turnAt = now + rnd(3000, 7000); }
+        e.x += Math.sin(e.dir) * e.v * dt; e.z += Math.cos(e.dir) * e.v * dt;
+      }
+      // Anything wandered out of range comes back somewhere else.
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const d = Math.hypot(enemies[i].x, enemies[i].z);
+        if (d > 140 || d < 8) { const was = enemies[i].type; enemies.splice(i, 1); if (was === "tank") spawn(); }
+      }
+      while (enemies.filter(e => e.type === "tank").length < want()) spawn();
+      for (let i = shells.length - 1; i >= 0; i--) {
+        const sh = shells[i];
+        sh.x += sh.vx * dt; sh.z += sh.vz * dt; sh.life -= dt;
+        const hit = enemies.find(e => e.type === "tank" && Math.hypot(e.x - sh.x, e.z - sh.z) < 3);
+        if (hit) {
+          explode(hit);
+          enemies.splice(enemies.indexOf(hit), 1);
+          shells.splice(i, 1);
+          kills++; showScore();
+          festiveTimers.push(setTimeout(() => spawn(), 4000));
+        } else if (sh.life <= 0) shells.splice(i, 1);
+      }
+      for (let i = bits.length - 1; i >= 0; i--) {
+        const b = bits[i];
+        b.x += b.vx * dt; b.y = Math.max(0, b.y + b.vy * dt); b.z += b.vz * dt; b.vy -= 12 * dt; b.life -= dt;
+        if (b.life <= 0) bits.splice(i, 1);
+      }
+      draw(now); drawRadar(now);
+    };
+    raf = requestAnimationFrame(frame);
+    festiveStops.push(() => cancelAnimationFrame(raf));
+    // A saucer passes over every so often.
+    festiveTimers.push(setInterval(() => { if (!document.hidden && !enemies.some(e => e.type === "saucer")) spawn("saucer"); }, 45000));
+  }
+
+  festiveHooks.scanDone = () => {
+    if (calm || document.hidden) return;
+    // Fire at the nearest tank in front, or straight ahead.
+    const a = heading / RING * Math.PI * 2;
+    const ahead = enemies.filter(e => e.type === "tank").sort((p, q) => Math.hypot(p.x, p.z) - Math.hypot(q.x, q.z))[0];
+    const tx = ahead ? ahead.x : Math.sin(a) * 60, tz = ahead ? ahead.z : Math.cos(a) * 60, d = Math.hypot(tx, tz) || 1;
+    shells.push({ x: 0, z: 0, vx: tx / d * 40, vz: tz / d * 40, life: 3 });
+  };
+  festiveHooks.newDevice = () => {
+    message("ENEMY IN RANGE");
+    if (!calm) spawn();
+  };
+  festiveHooks.netChange = off => {
+    if (!off.length || calm || document.hidden) return;
+    const x0 = rnd(W * .25, W * .75), y0 = rnd(H * .3, H * .7), lines = [];
+    for (let k = 0; k < 7; k++) {
+      let x = x0, y = y0, ang = k / 7 * Math.PI * 2 + rnd(-.3, .3);
+      const line = [[x, y]];
+      for (let j = 0; j < 5; j++) { ang += rnd(-.5, .5); const len = rnd(30, 90); x += Math.cos(ang) * len; y += Math.sin(ang) * len; line.push([x, y]); }
+      lines.push(line);
+    }
+    crack = { lines, born: performance.now() };
   };
 }
 
@@ -8672,6 +9550,13 @@ $("notifyUrl").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $
 // Cancel both close without saving, Clear saves an empty note.
 $("noteSave").onclick = () => saveNoteDialog($("noteText").value);
 $("noteClear").onclick = () => saveNoteDialog("");
+$("cardsClose").onclick = closeCardsDialog;
+$("cardsAdd").onclick = () => {
+  const id = Number($("cardsPick").value);
+  if (!id) { showErr("cardsErr", "Pick the device to combine into this one."); return; }
+  if (cardsHost) combineCard(id, cardsHost.id);
+};
+$("cardsModal").onclick = e => { if (e.target.id === "cardsModal") closeCardsDialog(); };
 $("gwCancel").onclick = closeGatewayDialog;
 $("gwSave").onclick = saveGatewayDialog;
 $("gwModal").onclick = e => { if (e.target.id === "gwModal") closeGatewayDialog(); };
@@ -8748,6 +9633,7 @@ document.addEventListener("keydown", e => {
     $("search").blur();
     return;
   }
+  if (!$("cardsModal").hidden) { closeCardsDialog(); return; }
   if (!$("gwModal").hidden) { closeGatewayDialog(); return; }
   if (!$("noteModal").hidden) { closeNoteDialog(); return; }
   if (!$("swModal").hidden) { closeSwitchDialog(); return; }
@@ -8757,6 +9643,7 @@ document.addEventListener("keydown", e => {
   if (!$("secretModal").hidden) { closeSecret(); return; }
   if (!$("scanModal").hidden) { $("scanModal").hidden = true; return; }
   if (blink) { stopBlink(); return; }
+  if (mapExpanded) { toggleMapExpanded(mapExpanded); return; }
   const openMenu = document.querySelector(".row-menu.show");
   if (openMenu) { openMenu.classList.remove("show"); return; }
   if (toolsOpen) { toolsOpen = false; $("toolsMenu").classList.remove("show"); return; }
