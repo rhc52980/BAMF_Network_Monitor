@@ -405,8 +405,8 @@ The ◑ button in the header opens the theme menu: Dark, Light, Terminal, Amber
 CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
 Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
-Night Street, Constellation and Claw Machine. Your choice is remembered in
-your browser.
+Night Street, Constellation, Claw Machine and Claw Machine Dusk. Your choice
+is remembered in your browser.
 
 Some themes have a little life in them:
 
@@ -546,6 +546,12 @@ Some themes have a little life in them:
   cables. With sound on (the 🔊 button, off until you click it) you get the
   coin, the gantry motor, the clunk of the claw, a jingle for a win and a
   sad trombone for a miss.
+- **Claw Machine Dusk**: the same cabinet after hours, for anyone who finds
+  the arcade a bit much. Slate instead of purple, with dusty rose, teal and
+  amber in place of the neon. The bulbs are dimmer and chase at half the
+  speed, the counts glow soft amber, the neon tubes are turned down, and the
+  prizes are faded pastels. Everything else plays the same, claw and 🕹
+  button included.
 - **Hotdog Stand**: a tribute to Windows 3.1's loudest colour scheme. It's
   mustard yellow with ketchup-red title bars, in the bold system font, with a
   striped awning under the header. The next-scan bar is a sausage sliding into
