@@ -960,8 +960,9 @@
   .quiet-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 8px 0; font-size: 13px; }
   .quiet-row input[type=time] { width: 110px; }
   .alert-item { border-left: 3px solid var(--led-warn); padding: 4px 10px; margin: 4px 0; font-size: 12.5px; }
-  .alert-item.rule { border-color: var(--focus); } .alert-item.dhcp, .alert-item.dns, .alert-item.security { border-color: var(--danger); }
-  .alert-item.cert { border-color: var(--led-warn); } .alert-item.wake { border-color: var(--led-on); }
+  /* Kinds are prefixed: a bare .port is the segment grid's LED square. */
+  .alert-item.k-rule { border-color: var(--focus); } .alert-item.k-dhcp, .alert-item.k-dns, .alert-item.k-security { border-color: var(--danger); }
+  .alert-item.k-cert { border-color: var(--led-warn); } .alert-item.k-wake { border-color: var(--led-on); }
   /* The hygiene card: one line per finding, worst first. */
   .hy-item { display: grid; grid-template-columns: 58px 1fr; gap: 8px; align-items: start; padding: 6px 4px; border-top: 1px solid var(--line); font-size: 12.5px; }
   .hy-item:first-child { border-top: 0; }
@@ -973,6 +974,23 @@
   .hy-item.low .hy-sev { background: var(--panel-2); color: var(--text-dim); }
   .hy-item .who { color: var(--text-dim); margin-left: 6px; }
   .hy-item .det { color: var(--text-dim); margin-top: 2px; }
+  /* When a device is usually online: a week of hours, Monday first. */
+  .pz { display: grid; grid-template-columns: 34px repeat(24, minmax(8px, 1fr)); gap: 2px; max-width: 560px; margin: 4px 0 10px; font-size: 10.5px; }
+  .pz .d { color: var(--text-dim); font-family: "IBM Plex Mono", monospace; align-self: center; }
+  .pz .hr { color: var(--text-dim); font-family: "IBM Plex Mono", monospace; white-space: nowrap; overflow: visible; }
+  .pz i { display: block; height: 13px; border-radius: 2px; background: color-mix(in srgb, var(--led-on) calc(var(--v) * 100%), var(--panel-2)); }
+  .pz i.na { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+  .pz-note { color: var(--text-dim); font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 6px; }
+  /* What changed. */
+  .chg-sec { margin-top: 8px; }
+  .chg-sec:first-child { margin-top: 0; }
+  .chg-sec h4 { margin: 0 0 3px; font-size: 12px; font-weight: 600; color: var(--text-dim); }
+  .chg-item { display: flex; gap: 8px; align-items: baseline; font-size: 12.5px; padding: 2px 4px; border-radius: 4px; }
+  .chg-item.link { cursor: pointer; } .chg-item.link:hover { background: var(--panel-2); }
+  .chg-item .det { color: var(--text-dim); font-family: "IBM Plex Mono", monospace; font-size: 11.5px; }
+  .chg-item .when { margin-left: auto; color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+  .chg-more { font-size: 11.5px; color: var(--text-dim); padding-left: 4px; }
+  .act-card h3 .free-days { font-size: 12px; font-weight: 400; margin-left: 6px; }
   /* Find a free address. */
   .free-days { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; font: inherit; }
   .free-net { padding: 10px 0; border-top: 1px solid var(--line); }
@@ -990,6 +1008,7 @@
   .hy-more { margin-top: 6px; background: none; border: 0; padding: 2px 4px; color: var(--focus); font: inherit; font-size: 12px; cursor: pointer; }
   .hy-more:hover { text-decoration: underline; }
   .hy-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .hy-actions .export-btn { white-space: nowrap; flex-shrink: 0; }
   .hy-actions .hint { font-size: 11.5px; color: var(--text-dim); }
   .alert-item .when { color: var(--text-dim); font-size: 11px; margin-left: 6px; }
   .alert-item .det { color: var(--text-dim); }
@@ -1002,10 +1021,11 @@
   .tl-item { display: grid; grid-template-columns: 118px 14px 1fr; gap: 8px; align-items: baseline; font-size: 12.5px; }
   .tl-item .when { color: var(--text-dim); font-family: "IBM Plex Mono", monospace; font-size: 11px; white-space: nowrap; }
   .tl-item .ico { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); display: inline-block; }
-  .tl-item.online .ico { background: var(--led-on); } .tl-item.offline .ico { background: var(--led-off); }
-  .tl-item.address .ico { background: var(--focus); } .tl-item.port .ico { background: var(--led-warn); border-radius: 2px; }
-  .tl-item.portclosed .ico { background: var(--led-off); border-radius: 2px; } .tl-item.alert .ico { background: var(--danger); }
-  .tl-item.first .ico { background: var(--text); }
+  /* Kinds are prefixed, as on alerts: a bare .port is the segment grid's LED square. */
+  .tl-item.k-online .ico { background: var(--led-on); } .tl-item.k-offline .ico { background: var(--led-off); }
+  .tl-item.k-address .ico { background: var(--focus); } .tl-item.k-port .ico { background: var(--led-warn); border-radius: 2px; }
+  .tl-item.k-portclosed .ico { background: var(--led-off); border-radius: 2px; } .tl-item.k-alert .ico { background: var(--danger); }
+  .tl-item.k-first .ico { background: var(--text); }
   tr.is-remote td { opacity: .9; }
   .remote-chip { display: inline-block; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text-dim); font-size: 11px; white-space: nowrap; }
   .nettab .remote-tag { margin-left: 6px; font-size: 10px; color: var(--text-dim); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; }
@@ -3011,6 +3031,11 @@
 
 <div class="feed-wrap" id="feedWrap" hidden>
   <div class="act-cards" id="actCards" hidden>
+    <div class="act-card" id="changesCard">
+      <h3>What changed <select id="chgDays" class="free-days" aria-label="Period"><option value="1">in 24 hours</option><option value="7" selected>this week</option><option value="30">in 30 days</option></select></h3>
+      <div class="sub" id="chgSub"></div>
+      <div id="chgBody"></div>
+    </div>
     <div class="act-card">
       <h3>Top talkers</h3>
       <div class="sub" id="talkersSub"></div>
@@ -3398,6 +3423,7 @@ let trafficStatus = {};     // { enabled, available, running, interfaces, error,
 let trafficCache = null;    // the last /api/traffic answer, for the Activity cards
 let alertsCache = null;     // the last /api/alerts answer
 let securityCache = null;   // the last /api/security answer: certificates, UPnP, gateway MACs
+const presenceCache = {};   // device id -> its week of hours, for the History panel
 let arpWatch = true, certWatch = true;
 let rulesData = null;       // { rules, quiet, portWatch } from /api/settings
 let remoteStatus = [];      // other BAMF servers: [{ name, url, ok, error, hosts, ... }]
@@ -3555,9 +3581,72 @@ function renderAlertsCard() {
   const body = $("alertsBody");
   const list = alertsCache || [];
   body.innerHTML = list.length ? list.slice(0, 12).map(a =>
-    `<div class="alert-item ${esc(a.kind)}"><div><b>${esc(a.title)}</b><span class="when">${esc(fmtAgo(a.at))}</span></div><div class="det">${esc(a.detail)}</div></div>`).join("")
+    `<div class="alert-item k-${esc(a.kind)}"><div><b>${esc(a.title)}</b><span class="when">${esc(fmtAgo(a.at))}</span></div><div class="det">${esc(a.detail)}</div></div>`).join("")
     : `<div class="watch-note">Nothing yet. Rules, the port watch and the DHCP/DNS watch put their alerts here.</div>`;
 }
+// ---- What changed ----
+// Arrivals, departures, moved addresses, ports that opened or closed, and
+// the alerts raised, over the last day, week or month. Fetched at most once
+// a minute while Activity is open, or when the period changes.
+let changesCache = null, changesAt = 0;
+function loadChanges(force) {
+  if (!force && changesCache && Date.now() - changesAt < 60e3 && changesCache.days == document.getElementById("chgDays").value) { renderChanges(); return; }
+  fetch("/api/changes?days=" + document.getElementById("chgDays").value).then(r => r.ok ? r.json() : null)
+    .then(c => { if (c) { changesCache = c; changesAt = Date.now(); } renderChanges(); }).catch(() => {});
+}
+function renderChanges() {
+  const c = changesCache, body = $("chgBody");
+  if (!c || !body) return;
+  const port = x => `${x.port}${x.service ? " " + x.service : ""}`;
+  const secs = [
+    ["Arrived", c.arrived, x => x.detail],
+    ["Left", c.left, () => "last seen"],
+    ["Moved address", c.moved, x => x.detail],
+    ["Ports opened", c.opened, port],
+    ["Ports closed", c.closed, port],
+  ].filter(([, list]) => list.length);
+  const kinds = { rule: "rules", port: "port", security: "security", cert: "certificate", dhcp: "DHCP", dns: "DNS", wake: "wake" };
+  const alerts = Object.entries(c.alerts || {}).filter(([, n]) => n > 0);
+  const total = secs.reduce((n, [, l]) => n + l.length, 0);
+  $("chgSub").textContent = !total && !alerts.length ? "Nothing changed." : secs.map(([t, l]) => `${l.length} ${t.toLowerCase()}`).join(" · ");
+  body.innerHTML = "";
+  for (const [title, list, detail] of secs) {
+    const sec = document.createElement("div");
+    sec.className = "chg-sec";
+    sec.innerHTML = `<h4>${esc(title)} (${list.length})</h4>`;
+    for (const x of list.slice(0, 5)) {
+      const row = document.createElement("div");
+      row.className = "chg-item" + (x.hostId ? " link" : "");
+      row.innerHTML = `<span>${esc(x.name || x.ip)}</span><span class="det">${esc(detail(x) || "")}</span><span class="when">${esc(fmtAgo(x.at))}</span>`;
+      if (x.hostId) { row.title = "Show this device"; row.onclick = () => jumpToHost(x.hostId); }
+      sec.appendChild(row);
+    }
+    if (list.length > 5) sec.insertAdjacentHTML("beforeend", `<div class="chg-more">and ${list.length - 5} more</div>`);
+    body.appendChild(sec);
+  }
+  if (alerts.length) body.insertAdjacentHTML("beforeend", `<div class="chg-sec"><h4>Alerts</h4><div class="chg-item"><span>${
+    alerts.map(([k, n]) => `${n} ${esc(kinds[k] || k)}`).join(" · ")}</span></div></div>`);
+}
+document.getElementById("chgDays").onchange = () => loadChanges(true);
+
+// When a device is usually online, from its History panel: seven rows of
+// 24 hours, darker the more of that hour it was online.
+function buildPresence(p) {
+  if (!p || !p.grid || !p.grid.some(row => row.some(v => v !== null))) return "";
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const hour = h => new Date(2000, 0, 1, h).toLocaleTimeString([], { hour: "numeric" });
+  let html = `<div class="history-sub">When it's online<span class="pz-note">last ${p.weeks} weeks, by hour, in the server's time</span></div><div class="pz"><span></span>`;
+  for (let h = 0; h < 24; h++) html += `<span class="hr">${h % 6 === 0 ? esc(hour(h)) : ""}</span>`;
+  p.grid.forEach((row, d) => {
+    html += `<span class="d">${days[d]}</span>`;
+    row.forEach((v, h) => {
+      const tip = `${days[d]} ${hour(h)}: ${v === null ? "not seen yet" : `online ${Math.round(v * 100)}% of the time`}`;
+      html += v === null ? `<i class="na" title="${esc(tip)}"></i>` : `<i style="--v:${v}" title="${esc(tip)}"></i>`;
+    });
+  });
+  return html + `</div>`;
+}
+
 // ---- Network hygiene ----
 // Findings from what BAMF already knows: the ports found open on each device
 // (by any port scan, the port watch or Check now), the certificates on their
@@ -5939,6 +6028,7 @@ function render() {
     loadTraffic().then(t => { trafficCache = t; renderTrafficCards(); }).catch(() => {});
     fetch("/api/alerts").then(r => r.json()).then(a => { alertsCache = a; renderAlertsCard(); renderHygiene(); }).catch(() => {});
     loadSecurity().then(renderHygiene);
+    loadChanges();
     renderFeed();
   }
   if (view === "home") renderHome();
@@ -6219,11 +6309,12 @@ function render() {
           (h.uptime30 != null ? `<b>${h.uptime30}%</b> over 30 days` : "") +
           (h.uptime30 != null && h.uptime30 < 100 ? ` <span title="Time offline over the last 30 days">(down ${(100 - h.uptime30).toFixed(1)}% of the month)</span>` : "") + `</div>`;
       }
+      inner += buildPresence(presenceCache[h.id]);
       // The device's story, newest first: sessions, moves, ports and alerts in one list.
       const tl = timelineCache[h.id] || [];
       if (tl.length > 1) {
         inner += `<div class="history-sub">Timeline</div><div class="tl">` + tl.slice(0, 60).map(t =>
-          `<div class="tl-item ${esc(t.kind.startsWith("alert") ? "alert" : t.kind)}"><span class="when">${esc(fmtExact(t.at))}</span><span class="ico"></span><span>${esc(t.text)}</span></div>`).join("") + `</div>`;
+          `<div class="tl-item k-${esc(t.kind.startsWith("alert") ? "alert" : t.kind)}"><span class="when">${esc(fmtExact(t.at))}</span><span class="ico"></span><span>${esc(t.text)}</span></div>`).join("") + `</div>`;
       }
       inner += buildLatencyChart(latencyCache[h.id] || []);
       if (h.traffic) {
@@ -6380,6 +6471,7 @@ async function openHistory(host) {
     try { portsCache[host.id] = await (await fetch(`/api/hosts/${host.id}/ports`)).json(); } catch { portsCache[host.id] = []; }
     try { timelineCache[host.id] = await (await fetch(`/api/hosts/${host.id}/timeline`)).json(); } catch { timelineCache[host.id] = []; }
     try { weekCache[host.id] = await (await fetch(`/api/hosts/${host.id}/traffic?days=7`)).json(); } catch { weekCache[host.id] = []; }
+    try { presenceCache[host.id] = await (await fetch(`/api/hosts/${host.id}/presence?weeks=4`)).json(); } catch { presenceCache[host.id] = null; }
     render();
   }
 }

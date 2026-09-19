@@ -1038,6 +1038,8 @@ scan, or delete a thing.
 | GET | `/api/hosts/{id}/events` | One host's online/offline event history |
 | GET | `/api/layout` | The recorded layout as one JSON file: switches and their kinds, uplinks and port labels; each device's placement, name, note, link, flags, type, tags and combined cards; declared gateways; type icons; Map positions. Devices are keyed by MAC and switches by their place in the file |
 | POST | `/api/layout` | Body: a file from `GET /api/layout`. Replaces the recorded layout. Returns `{"devices", "switches", "skipped"}`, `skipped` being the MACs this server hasn't seen, whose settings wait for a later import |
+| GET | `/api/hosts/{id}/presence?weeks=4` | When a device is usually online: `grid`, 7 rows (Monday first) of 24 hours, each the share of that hour it was online over the last `weeks` (1 to 12), or `null` before BAMF first saw it. Server's local time |
+| GET | `/api/changes?days=7` | What changed over the last `days` (1 to 90): `arrived`, `left`, `moved` (with `detail` "old → new"), `opened` and `closed` ports, and `alerts` counted by kind |
 | GET | `/api/hosts/{id}/timeline` | One device's story, newest first: `[{"at", "kind", "text"}]`, kinds `first`, `online`, `offline`, `address`, `port`, `portclosed` and `alert:<kind>` |
 | GET | `/metrics` | Prometheus text exposition: see [Prometheus metrics](#prometheus-metrics). `/api/prometheus` redirects here |
 | POST | `/api/hooks/scan` | Ask for a scan now, of every network or `?subnet=192.168.1.0/24`. See [Inbound webhooks](#inbound-webhooks) |
@@ -1702,6 +1704,8 @@ time BAMF sends a summary to the same webhook the alerts use:
 - the **flakiest** device, the one that dropped most often;
 - the **longest offline** known device, and for how long;
 - the **least reliable**, by 7-day uptime;
+- devices that **moved address**, and ports that **opened**;
+- any **security** or **certificate** alerts;
 - any DHCP or DNS **watch alerts**;
 - the **top talkers**, when the traffic monitor is running.
 
@@ -1995,6 +1999,33 @@ if you'd rather it didn't.
   look for.
 
 Samples age out on the same window as events (`HistoryRetentionDays`).
+
+### When it's online
+
+A device's **History** panel has a week of hours under the uptime line:
+seven rows, Monday to Sunday, of 24 hours each, darker the more of that hour
+the device was online over the last four weeks. A laptop that's home on
+weekday evenings, a console that only wakes at weekends, a camera that drops
+every night at 2 am: the pattern shows at a glance. Point at an hour for its
+share. It's built from the same online and offline history as uptime, in the
+server's time zone, and an hour before BAMF first saw the device is left
+blank.
+
+### What changed
+
+The **What changed** card on the **Activity** tab sums up the last 24 hours,
+7 days or 30 days:
+
+- devices that **arrived**, first seen in the period;
+- devices that **left**: went offline in the period and are still off;
+- devices that **moved address**, from which address to which;
+- **ports opened**: found open in the period on a device that had been scanned
+  before, so a device's first scan doesn't count as everything opening at once;
+- **ports closed**: open at an earlier scan, not at a later one;
+- how many **alerts** of each kind were raised.
+
+Click a device to jump to it. The scheduled report carries the address moves,
+new open ports and security and certificate alerts too.
 
 ### Traffic, DHCP and DNS
 
