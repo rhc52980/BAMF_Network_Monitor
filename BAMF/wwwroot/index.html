@@ -755,6 +755,11 @@
   .watch-note { font-size: 11.5px; color: var(--text-dim); margin-top: 8px; }
   .traf-strip { display: flex; align-items: flex-end; gap: 2px; height: 28px; width: 100%; max-width: 640px; margin: 4px 0 8px; }
   .traf-strip i { flex: 1; background: var(--led-on); opacity: .6; min-height: 1px; }
+  .report-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 10px 0 6px; }
+  .report-row select { min-width: 110px; }
+  .report-preview { white-space: pre-wrap; font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--text-dim); background: var(--panel-2); border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
+  .layout-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  .layout-actions .note { font-size: 12px; color: var(--text-dim); }
   .settings-wrap { padding: 8px 24px 32px; max-width: 820px; }
   .set-card {
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
@@ -2417,6 +2422,12 @@
     <div class="modal-actions">
       <button class="export-btn" id="swAdd">Add a switch or router</button>
     </div>
+    <div class="layout-actions">
+      <button class="toggle" id="layoutExport" title="Download everything you recorded as one JSON file">Export layout</button>
+      <button class="toggle" id="layoutImport" title="Replace the recorded layout with one from a file">Import layout…</button>
+      <input type="file" id="layoutFile" accept=".json,application/json" hidden>
+      <span class="note">Switches, ports, SSIDs, gateways, network cards, names, notes, tags and Map positions, keyed by MAC, so the file works on another server.</span>
+    </div>
   </div>
 
   <div class="set-card" id="typeIconCard">
@@ -2522,6 +2533,25 @@
       <button class="export-btn" id="notifySave">Save &amp; test</button>
     </div>
     <div class="modal-result" id="notifyResult"></div>
+    <div class="set-card-title" style="margin-top:18px">Scheduled report</div>
+    <p class="modal-help">
+      A summary to the same webhook: how many devices are up, what's new, what went away, the
+      flakiest device, the longest offline, the least reliable, any watch alerts, and the top
+      talkers. Daily covers the last 24 hours; weekly the last 7 days.
+    </p>
+    <div class="report-row">
+      <label>Send <select id="reportSchedule"><option value="off">never</option><option value="daily">daily</option><option value="weekly">weekly</option></select></label>
+      <label id="reportDayWrap">on <select id="reportDay"><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option></select></label>
+      <label>at <select id="reportHour"></select></label>
+      <span class="note" id="reportTz"></span>
+    </div>
+    <div class="modal-note" id="reportStatus"></div>
+    <div class="modal-actions">
+      <button class="toggle" id="reportPreview">Preview</button>
+      <button class="toggle" id="reportSend">Send now</button>
+      <button class="export-btn" id="reportSave">Save schedule</button>
+    </div>
+    <div class="modal-result" id="reportResult"></div>
   </div>
 
   <div class="set-card">
@@ -10193,6 +10223,92 @@ function fillNotify() {
     : "No webhook saved — alerts are off.";
   $("notifyClear").style.display = webhookConfigured ? "" : "none";
 }
+// ---- Scheduled report ----
+function fillReport(r) {
+  const hourSel = $("reportHour");
+  if (!hourSel.options.length) for (let h = 0; h < 24; h++) { const o = document.createElement("option"); o.value = h; o.textContent = `${String(h).padStart(2, "0")}:00`; hourSel.appendChild(o); }
+  $("reportSchedule").value = r.schedule || "off";
+  $("reportHour").value = String(r.hour ?? 8);
+  $("reportDay").value = String(r.day ?? 1);
+  $("reportTz").textContent = r.timeZone ? `(${r.timeZone}, the server's clock)` : "";
+  syncReportRow();
+  $("reportStatus").textContent = (r.schedule || "off") === "off" ? "Off."
+    : `Next: ${r.next ? new Date(r.next).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" }) : "—"}` +
+      (r.lastSent ? ` · last sent ${fmtAgo(r.lastSent)}` : " · never sent yet") +
+      (webhookConfigured ? "" : " · no webhook saved, so nothing will go out");
+}
+function syncReportRow() {
+  const sch = $("reportSchedule").value;
+  $("reportDayWrap").style.display = sch === "weekly" ? "" : "none";
+  $("reportHour").parentElement.style.display = sch === "off" ? "none" : "";
+}
+$("reportSchedule").onchange = syncReportRow;
+$("reportSave").onclick = async () => {
+  const out = $("reportResult");
+  try {
+    const r = await fetch("/api/settings/report", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ schedule: $("reportSchedule").value, hour: Number($("reportHour").value), day: Number($("reportDay").value) }) });
+    const d = await r.json();
+    if (!r.ok) { out.innerHTML = `<span class="none">${esc(d.error || "Couldn't save.")}</span>`; return; }
+    fillReport(d);
+    out.innerHTML = "";
+    toast(d.schedule === "off" ? "Scheduled report off" : `Report ${d.schedule}, at ${String(d.hour).padStart(2, "0")}:00`);
+  } catch { out.innerHTML = `<span class="none">Couldn't reach BAMF.</span>`; }
+};
+$("reportPreview").onclick = async () => {
+  const out = $("reportResult");
+  out.innerHTML = `<span class="scan-progress">Composing…</span>`;
+  try {
+    const d = await (await fetch("/api/reports/preview")).json();
+    out.innerHTML = `<div class="report-preview"><b>${esc(d.title)}</b>\n${esc(d.text)}</div>`;
+  } catch { out.innerHTML = `<span class="none">Couldn't reach BAMF.</span>`; }
+};
+$("reportSend").onclick = async () => {
+  const out = $("reportResult");
+  out.innerHTML = `<span class="scan-progress">Sending…</span>`;
+  try {
+    const r = await fetch("/api/reports/send", { method: "POST" });
+    const d = await r.json();
+    out.innerHTML = d.ok ? `<span class="scan-progress">Sent.</span><div class="report-preview"><b>${esc(d.title)}</b>\n${esc(d.text)}</div>`
+      : `<span class="none">${esc(d.error || "Not sent.")}</span>` + (d.text ? `<div class="report-preview"><b>${esc(d.title)}</b>\n${esc(d.text)}</div>` : "");
+    if (d.ok) loadSettings();
+  } catch { out.innerHTML = `<span class="none">Couldn't reach BAMF.</span>`; }
+};
+
+// ---- Layout export and import ----
+$("layoutExport").onclick = async () => {
+  try {
+    const r = await fetch("/api/layout");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `bamf-layout-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    toast("Layout exported");
+  } catch { toast("Couldn't export the layout"); }
+};
+$("layoutImport").onclick = () => $("layoutFile").click();
+$("layoutFile").onchange = async () => {
+  const f = $("layoutFile").files[0];
+  $("layoutFile").value = "";
+  if (!f) return;
+  let body;
+  try { body = JSON.parse(await f.text()); } catch { toast("That isn't a JSON file"); return; }
+  const n = (body.switches || []).length, m = (body.devices || []).length;
+  if (!confirm(`Replace the recorded layout with this file (${n} switch${n === 1 ? "" : "es"}, ${m} device${m === 1 ? "" : "s"})? Everything recorded here is replaced. The devices themselves aren't affected.`)) return;
+  try {
+    const r = await fetch("/api/layout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (!r.ok) { toast(esc(d.error || "Couldn't import")); return; }
+    toast(`Layout imported: ${d.switches} switch${d.switches === 1 ? "" : "es"}, ${d.devices} device${d.devices === 1 ? "" : "s"}` +
+      (d.skipped.length ? `. ${d.skipped.length} device${d.skipped.length === 1 ? " isn't" : "s aren't"} known here yet: import again once BAMF has seen ${d.skipped.length === 1 ? "it" : "them"}.` : ""));
+    await refresh();
+    loadSettings();
+  } catch { toast("Couldn't reach BAMF"); }
+};
+
 // Tools ▾ → Notifications… used to open a dialog; it now goes to the card, so
 // the old habit still lands somewhere sensible.
 $("notifySetup").onclick = () => {
@@ -10510,6 +10626,8 @@ async function loadSettings() {
       ? `Listening on ${(ms.interfaces || []).join(", ")} · ${ms.packets || 0} announcements heard.`
       : (ms.error ? `Not listening: ${ms.error}` : "Starting on the next scan.");
 
+  fillReport(e.report || {});
+
   // The instant-apply toggles and the notifications card draw from the last
   // /api/hosts poll rather than this endpoint, so refresh them here too.
   renderArpToggle();
@@ -10609,6 +10727,10 @@ async function loadSettings() {
     ["Database", ro.databasePath || "—"],
     ["OUI auto-download", ro.autoDownloadOui ? "on" : "off"],
     ["Update repo", ro.updateRepo || "—"],
+    ["MQTT", !ro.mqtt || !ro.mqtt.configured ? "off (set Bamf:Mqtt:Server to publish presence for Home Assistant)"
+      : `${ro.mqtt.server} · ${ro.mqtt.connected ? "connected" : "not connected" + (ro.mqtt.error ? ": " + ro.mqtt.error : "")}` +
+        ` · ${Number(ro.mqtt.published || 0).toLocaleString()} published` + (ro.mqtt.lastPublish ? `, last ${fmtAgo(ro.mqtt.lastPublish)}` : "") +
+        ` · topics ${ro.mqtt.topicPrefix}/… · discovery ${ro.mqtt.discovery ? "on" : "off"}`],
   ].forEach(([k, v]) => {
     const dk = document.createElement("div");
     dk.className = "set-ro-k";

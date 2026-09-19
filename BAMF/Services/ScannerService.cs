@@ -1113,6 +1113,38 @@ public partial class ScannerService : BackgroundService
         }
     }
 
+    /// <summary>
+    /// A scheduled report: a titled block of text, as an embed with fields on
+    /// Discord and as text elsewhere. True when the endpoint accepted it.
+    /// </summary>
+    public async Task<bool> SendReport(string title, string text, IReadOnlyList<(string Name, string Value)> fields, CancellationToken ct)
+    {
+        var url = WebhookUrl;
+        if (string.IsNullOrWhiteSpace(url)) return false;
+        try
+        {
+            var client = _httpFactory.CreateClient();
+            var format = ResolveFormat(url);
+            var payload = format == "discord" ? JsonSerializer.Serialize(new
+            {
+                username = "BAMF",
+                embeds = new[] { new { title, color = 0x4FB3D9, fields = fields.Select(f => new { name = f.Name, value = f.Value.Length > 1000 ? f.Value[..1000] : f.Value, inline = false }).ToArray(),
+                    timestamp = DateTime.UtcNow.ToString("o"), footer = new { text = "BAMF scheduled report" } } },
+            }) : "";
+            var generic = JsonSerializer.Serialize(new { content = title + "\n" + text, message = text, title, fields = fields.Select(f => new { name = f.Name, value = f.Value }) });
+            using var req = BuildAlertRequest(url, format, title: title, message: text, priority: 3, tags: "clipboard",
+                discordPayload: payload, genericPayload: generic);
+            using var resp = await client.SendAsync(req, ct);
+            _log.LogInformation("Report via {Format}: {Status}", format, (int)resp.StatusCode);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Report failed");
+            return false;
+        }
+    }
+
     /// <summary>A DHCP or DNS watch alert, to the same webhook as everything else.</summary>
     private async Task SendWatchAlert(TrafficMonitor.Alert a, CancellationToken ct)
     {

@@ -53,6 +53,10 @@ builder.Services.AddSingleton<TrafficMonitor>();
 builder.Services.AddSingleton<PortBlinker>();
 builder.Services.AddSingleton<ScannerService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ScannerService>());
+builder.Services.AddSingleton<ReportService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ReportService>());
+builder.Services.AddSingleton<MqttPublisher>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<MqttPublisher>());
 builder.Services.AddHttpClient();
 
 var app = builder.Build();
@@ -607,6 +611,45 @@ app.MapPost("/api/traffic/trust", (TrustRequest body, ScannerService scanner) =>
     return Results.Ok();
 });
 
+// The recorded layout as one file, and back again. Export names devices by MAC
+// and switches by their place in the file, so it means the same on another server.
+app.MapGet("/api/layout", (HostStore store) =>
+{
+    var json = store.ExportLayout(version).ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+    return Results.Text(json, "application/json", System.Text.Encoding.UTF8);
+});
+app.MapPost("/api/layout", (System.Text.Json.JsonElement body, HostStore store) =>
+{
+    var r = store.ImportLayout(body);
+    return r.Error is null ? Results.Json(new { r.Devices, r.Switches, r.Skipped }) : Results.BadRequest(new { error = r.Error });
+});
+
+// Scheduled reports: off, daily or weekly at an hour of the server's local day.
+app.MapPost("/api/settings/report", (ReportRequest body, HostStore store, ReportService reports) =>
+{
+    var schedule = (body.Schedule ?? "off").ToLowerInvariant();
+    if (schedule is not ("off" or "daily" or "weekly")) return Results.BadRequest(new { error = "Schedule is off, daily or weekly." });
+    store.SetSetting("reportSchedule", schedule);
+    store.SetSetting("reportHour", Math.Clamp(body.Hour ?? 8, 0, 23).ToString());
+    store.SetSetting("reportDay", Math.Clamp(body.Day ?? 1, 0, 6).ToString());
+    return Results.Json(ReportJson(reports));
+});
+// Sends the report now, whatever the schedule, and returns what was sent.
+app.MapPost("/api/reports/send", async (ReportService reports, ScannerService scanner, CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(scanner.WebhookUrl)) return Results.BadRequest(new { error = "No webhook saved. Add one above first." });
+    var schedule = reports.Schedule == "weekly" ? "weekly" : "daily";
+    var (title, text, _) = reports.Compose(schedule == "weekly" ? TimeSpan.FromDays(7) : TimeSpan.FromDays(1));
+    var ok = await reports.SendAsync(schedule, ct);
+    return ok ? Results.Json(new { ok = true, title, text }) : Results.Json(new { ok = false, error = "The webhook endpoint didn't accept it.", title, text });
+});
+// The report as it would be sent, for a look before turning it on.
+app.MapGet("/api/reports/preview", (ReportService reports) =>
+{
+    var (title, text, _) = reports.Compose(reports.Schedule == "weekly" ? TimeSpan.FromDays(7) : TimeSpan.FromDays(1));
+    return Results.Json(new { title, text });
+});
+
 app.MapPost("/api/settings/traffic-monitor", (ActiveArpRequest body, HostStore store) =>
 {
     store.SetSetting("trafficMonitor", body.Enabled ? "true" : "false");
@@ -723,7 +766,7 @@ app.MapPost("/api/settings/holiday-spirit", (ActiveArpRequest body, HostStore st
 // appsettings.json on purpose. Subnets in particular is the boundary the wildcard
 // port-scan guard depends on - a pattern can only expand across configured
 // networks, so letting the UI edit that list would dissolve the guarantee.
-app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChecker updates, IConfiguration cfg) =>
+app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChecker updates, IConfiguration cfg, ReportService reports, MqttPublisher mqtt) =>
 {
     var overrides = scanner.ReadIntervalOverrides();
     return Results.Ok(new
@@ -759,6 +802,7 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             latencyProbe = scanner.LatencyProbeEnabled,
             trafficMonitor = scanner.TrafficMonitorEnabled,
             trafficStatus = TrafficJson(scanner),
+            report = ReportJson(reports),
             holidaySpirit = HolidaySpirit(store, app.Configuration),
             updateCheck = updates.Enabled,
             webhookConfigured = !string.IsNullOrWhiteSpace(scanner.WebhookUrl),
@@ -772,6 +816,12 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             databasePath = cfg["Bamf:DatabasePath"] ?? "bamf.db",
             autoDownloadOui = cfg.GetValue("Bamf:AutoDownloadOui", true),
             updateRepo = cfg["Bamf:UpdateRepo"] ?? "",
+            mqtt = new
+            {
+                configured = mqtt.Configured, server = mqtt.Configured ? mqtt.Server : null, connected = mqtt.Connected,
+                error = mqtt.LastError, published = mqtt.Published, lastPublish = mqtt.LastPublishUtc?.ToString("o"),
+                discovery = cfg.GetValue("Bamf:Mqtt:Discovery", true), topicPrefix = cfg["Bamf:Mqtt:TopicPrefix"] ?? "bamf",
+            },
         },
         minIntervalSeconds = ScannerService.MinIntervalSeconds,
     });
@@ -1050,6 +1100,13 @@ static List<object> SwitchesJson(HostStore store)
 
 // Enough of the URL to recognise which webhook is saved, never enough to use it.
 // A Discord URL ends /webhooks/<id>/<token>; the token is the secret.
+static object ReportJson(ReportService reports) => new
+{
+    schedule = reports.Schedule, hour = reports.Hour, day = reports.Day,
+    lastSent = reports.LastSent?.ToString("o"), next = reports.NextDue()?.ToString("o"),
+    timeZone = TimeZoneInfo.Local.StandardName,
+};
+
 static object TrafficJson(ScannerService scanner) => new
 {
     enabled = scanner.TrafficMonitorEnabled,
@@ -1119,6 +1176,7 @@ record GatewayRequest(string? Ip, bool Enabled);
 record CombineRequest(long ParentId);
 record TagsRequest(List<string>? Tags);
 record TrustRequest(string? Kind, string? Ip, bool Trusted);
+record ReportRequest(string? Schedule, int? Hour, int? Day);
 record PortEntry(long HostId, int Port);
 record BlinkRequest(int? Seconds);
 record DeviceTypeRequest(string? Type);

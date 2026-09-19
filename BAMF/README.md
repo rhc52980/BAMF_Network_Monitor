@@ -140,6 +140,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:ActiveArpScan` | Use raw ARP scanning via Npcap/libpcap when available; falls back to ping sweep otherwise. |
 | `Bamf:ScanIntervalSeconds` | Seconds between scans. |
 | `Bamf:AutoIgnoreRandomizedMacs` | Auto-ignore new hosts with randomized MACs (default in shipped config: true). |
+| `Bamf:Mqtt:*` | Presence per device over MQTT: `Server` (set it to turn this on), `Port` (1883), `Tls`, `Username`, `Password`, `ClientId` (bamf), `TopicPrefix` (bamf), `Discovery` (true), `DiscoveryPrefix` (homeassistant). Read at startup only. See [MQTT](#mqtt-and-home-assistant). |
 | `Bamf:TrafficMonitor` | With Npcap, watch the wire receive-only: bytes in and out per device, and every DHCP and DNS server in use, alerting on new ones (default true). Also in Settings → Behaviour. See [Traffic, DHCP and DNS](#traffic-dhcp-and-dns). |
 | `Bamf:LatencyProbe` | After each scan, ping every online device on the networks it covered and keep the round-trip time (default true). Also in Settings → Behaviour, which wins once changed there. See [Latency and uptime](#latency-and-uptime). |
 | `Bamf:HolidaySpirit` | `true` puts every dashboard in the Halloween theme from October 1st to 31st and the Christmas theme from December 1st to 25th (default false). Also in Settings → Behaviour, which wins once changed there. See [Holiday Spirit](#holiday-spirit). |
@@ -321,6 +322,14 @@ survive IP changes.
   column and a Top talkers card. See [Traffic, DHCP and DNS](#traffic-dhcp-and-dns).
 - **DHCP and DNS watch** - an alert when a second DHCP server appears, or a
   device starts asking a DNS server it never used before.
+- **Scheduled reports** - a daily or weekly summary to your webhook: what's
+  new, what went away, the flakiest, the longest offline. See
+  [Scheduled reports](#scheduled-reports).
+- **Export and import the layout** - everything you recorded as one JSON file,
+  keyed by MAC, for backup or a move to a new server. See
+  [Export and import the layout](#export-and-import-the-layout).
+- **Home Assistant** - presence per device over MQTT, with discovery, so
+  automations can fire when someone gets home. See [MQTT](#mqtt-and-home-assistant).
 - **Tags** - group devices as "kids", "IoT", "work" or whatever fits, then
   filter the list and the Map by tag. See [Tags](#tags).
 - **26 themes** - click the theme button for a picker: Dark, Light, Terminal,
@@ -873,6 +882,11 @@ scan, or delete a thing.
 | GET | `/api/portscan/pattern` | Wildcard scan: `?ip=*.245`, optional `?ports=...`. Expands only across configured subnets, capped at 256 addresses |
 | GET | `/api/events` | Network-wide activity feed (recent online/offline events, all hosts) |
 | GET | `/api/hosts/{id}/events` | One host's online/offline event history |
+| GET | `/api/layout` | The recorded layout as one JSON file: switches and their kinds, uplinks and port labels; each device's placement, name, note, link, flags, type, tags and combined cards; declared gateways; type icons; Map positions. Devices are keyed by MAC and switches by their place in the file |
+| POST | `/api/layout` | Body: a file from `GET /api/layout`. Replaces the recorded layout. Returns `{"devices", "switches", "skipped"}`, `skipped` being the MACs this server hasn't seen, whose settings wait for a later import |
+| POST | `/api/settings/report` | Body `{"schedule": "daily", "hour": 8, "day": 1}` — the scheduled report: `off`, `daily` or `weekly`, the hour (0–23, the server's local time) and, for weekly, the day (0 Sunday to 6 Saturday) |
+| POST | `/api/reports/send` | Send the report now, whatever the schedule; returns what was sent |
+| GET | `/api/reports/preview` | The report as it would be sent |
 | GET | `/api/traffic` | The traffic monitor's status, the top talkers with their five-minute strips, the DHCP and DNS servers seen, and the watch alerts. `GET /api/hosts` carries each host's `traffic` (`rx`, `tx` bytes per second; `rxTotal`, `txTotal`) and `dns` (the servers it asks) |
 | POST | `/api/traffic/trust` | Body `{"kind": "dhcp", "ip": "192.168.1.1", "trusted": true}` — trust a DHCP or DNS server so it never alerts, or forget it so it counts as new again |
 | GET | `/api/hosts/{id}/latency` | One host's latency samples over the last 24 hours (`?hours=` for more): `[{"at", "ms"}]`, `ms` null where the echo went unanswered. `GET /api/hosts` carries each host's latest as `latencyMs`, and its uptime over 7 and 30 days as `uptime7` and `uptime30` (percent) |
@@ -1395,6 +1409,27 @@ Priorities: a new device or an offline alert is high (ntfy 4, Gotify 8); a
 recovery or a test is normal. ntfy alerts carry emoji tags so the notification
 shows a 🔴 for offline and a 🟢 for recovered without any setup on your side.
 
+### Scheduled reports
+
+Under **Settings → Notifications → Scheduled report**, pick **daily** or
+**weekly**, a day for weekly, and an hour (the server's local time). At that
+time BAMF sends a summary to the same webhook the alerts use:
+
+- how many devices there are and how many are online;
+- **new devices** first seen in the period (the last 24 hours, or the last 7
+  days for a weekly report);
+- devices that **went away**: went offline in the period and are still off;
+- the **flakiest** device, the one that dropped most often;
+- the **longest offline** known device, and for how long;
+- the **least reliable**, by 7-day uptime;
+- any DHCP or DNS **watch alerts**;
+- the **top talkers**, when the traffic monitor is running.
+
+On Discord it's an embed with a field per item; on ntfy, Gotify and generic
+webhooks it's text. **Preview** shows what would go out, and **Send now** sends
+it straight away. The API has `/api/settings/report`, `/api/reports/send` and
+`/api/reports/preview`.
+
 ### Discord
 
 In Discord: *Server Settings → Integrations → Webhooks → New Webhook*, pick a
@@ -1613,6 +1648,63 @@ to add or remove it. Tags show as small chips under the device's name.
   every device carrying one tag, so the board can show "kids" one moment and
   "IoT" the next.
 - Search matches tags as well.
+
+### Export and import the layout
+
+**Settings → Switches and routers** has **Export layout** and **Import
+layout…**. Export downloads one JSON file with everything you recorded:
+
+- switches, routers, access points, SSIDs, VPNs and virtual switches, what
+  each is plugged into, and every port label;
+- which port each device is on;
+- each device's name, note, link, known/watched/ignored flags, type and tags;
+- combined network cards, declared gateways, type icons, and where you dragged
+  things on the Map.
+
+Devices are keyed by **MAC** and switches by their place in the file, so the
+file means the same thing on another server. Keep it as a backup, or use it
+to move BAMF to a new machine: install, let it scan, then import.
+
+**Import replaces the recorded layout wholesale**; the devices themselves and
+their history aren't touched. A device in the file that this server hasn't
+seen yet is skipped, and the import says so; import again once BAMF has seen
+it and its settings are filled in. `GET /api/layout` and `POST /api/layout`
+do the same from a script.
+
+### MQTT and Home Assistant
+
+Give BAMF an MQTT broker and every device becomes a presence entity in Home
+Assistant, so automations can run when someone gets home or the last phone
+leaves. Set it in `appsettings.json` (and only there, since the broker
+password has no business in the dashboard), then restart:
+
+```json
+"Mqtt": {
+  "Server": "homeassistant.local",
+  "Port": 1883,
+  "Username": "bamf",
+  "Password": "…",
+  "TopicPrefix": "bamf",
+  "Discovery": true
+}
+```
+
+- Each device (not ignored, not forgotten) gets a retained `home` or
+  `not_home` on `bamf/<mac>/state` (the MAC without colons, lower case), and
+  its details (`ip`, `name`, `vendor`, `network`, `last_seen`, `latency_ms`,
+  `known`, `watched`) as JSON on `bamf/<mac>/attributes`. `bamf/status` says
+  whether BAMF itself is connected, with a last will of `offline`.
+- With **Discovery** on (the default), BAMF publishes Home Assistant's MQTT
+  discovery config for each device, so each shows up as a `device_tracker`
+  under **Settings → Devices & services → MQTT** with no YAML. Turn it off if
+  you'd rather write your own.
+- Presence is published within a few seconds of a scan, and only when it
+  changed. A device you ignore, forget or delete is taken back off the broker.
+- `Tls: true` for a broker on 8883. The **Set in appsettings.json** card on the
+  Settings tab shows whether BAMF is connected and how much it has published.
+
+BAMF speaks MQTT 3.1.1 itself (connect, publish, ping), so there's no extra
+dependency, and it never subscribes to anything.
 
 ### One device, several addresses
 

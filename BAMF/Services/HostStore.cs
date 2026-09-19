@@ -694,8 +694,15 @@ public partial class HostStore
     {
         lock (_lock)
         {
-            var list = new List<HostRecord>();
             using var conn = Open();
+            return GetAllInternal(conn);
+        }
+    }
+
+    private static List<HostRecord> GetAllInternal(SqliteConnection conn)
+    {
+        {
+            var list = new List<HostRecord>();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = """
                 SELECT id, mac, ip, hostname, custom_name, vendor, subnet, online, known, ignored, watched, forgotten, note, first_seen, last_seen, os_guess, link, mdns_name, mdns_services
