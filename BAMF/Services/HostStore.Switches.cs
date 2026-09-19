@@ -17,7 +17,9 @@ namespace LanWatch.Services;
 /// to the network's gateway becomes the top of the topology.</param>
 /// <param name="RunsOn">For a virtual switch (a Proxmox vmbr0, an ESXi vSwitch0,
 /// a Hyper-V external switch): the device it runs inside. It has no uplink of its
-/// own; its traffic leaves through that machine's cable.</param>
+/// own; its traffic leaves through that machine's cable. For a wireless SSID
+/// ("ssid"): the id of the access point (a switch record) that broadcasts it.
+/// Its devices connect over the air, so they're recorded with port 0.</param>
 public record SwitchRecord(
     long Id, string Name, int Ports, string Subnet, long HostId,
     string Uplink, long UplinkSwitch, int UplinkPort, string Kind, long RunsOn);
@@ -29,12 +31,15 @@ public record SwitchInput(
 public partial class HostStore
 {
     public const int MaxSwitchPorts = 128;
-    public static readonly string[] SwitchKinds = { "switch", "router", "ap", "virtual" };
+    public static readonly string[] SwitchKinds = { "switch", "router", "ap", "virtual", "ssid" };
 
     private static string KindNoun(string kind) => kind switch
     {
-        "router" => "router", "ap" => "access point", "virtual" => "virtual switch", _ => "switch",
+        "router" => "router", "ap" => "access point", "virtual" => "virtual switch", "ssid" => "wireless SSID", _ => "switch",
     };
+
+    /// <summary>Kinds that live inside something else, with no cable of their own to plug into.</summary>
+    private static bool IsInner(string kind) => kind is "virtual" or "ssid";
 
     private static void InitSwitches(SqliteConnection conn)
     {
@@ -171,9 +176,10 @@ public partial class HostStore
             var name = (input.Name ?? "").Trim();
             if (name.Length == 0) return (null, $"Give the {KindNoun(kind)} a name.");
             if (name.Length > 60) name = name[..60];
-            // A virtual switch has no numbered ports to speak of; its VMs are
-            // recorded on it with port 0.
-            var ports = kind == "virtual" ? Math.Clamp(input.Ports, 1, MaxSwitchPorts) : input.Ports;
+            // A virtual switch and an SSID have no numbered ports to speak of;
+            // their devices are recorded with port 0. An access point isn't asked
+            // for a port count; it keeps whatever it had, or 1.
+            var ports = IsInner(kind) || kind == "ap" ? Math.Clamp(input.Ports, 1, MaxSwitchPorts) : input.Ports;
             if (ports < 1 || ports > MaxSwitchPorts) return (null, $"Ports must be between 1 and {MaxSwitchPorts}.");
 
             var subnet = (input.Subnet ?? "").Trim();
@@ -189,6 +195,18 @@ public partial class HostStore
                 subnet = machine.Subnet;
                 hostId = 0;
             }
+            else if (kind == "ssid")
+            {
+                // An SSID is broadcast by an access point. It can carry its own
+                // network (a guest SSID usually does), or share the AP's.
+                var ap = all.FirstOrDefault(s => s.Id == input.RunsOn);
+                if (ap is null || ap.Kind != "ap") return (null, "Pick the access point that broadcasts this SSID.");
+                runsOn = ap.Id;
+                if (subnet.Length == 0) subnet = ap.Subnet;
+                hostId = 0;
+            }
+            if (id is long changing && kind != "ap" && all.Any(s => s.Kind == "ssid" && s.RunsOn == changing))
+                return (null, "This access point has wireless SSIDs. Delete them first, or keep it an access point.");
             if (hostId > 0)
             {
                 var host = GetByIdInternal(conn, hostId);
@@ -198,13 +216,14 @@ public partial class HostStore
                 subnet = host.Subnet;   // a switch BAMF can see lives where BAMF sees it
             }
 
-            var uplink = kind == "virtual" ? "" : (input.Uplink ?? "").Trim().ToLowerInvariant();
+            var uplink = IsInner(kind) ? "" : (input.Uplink ?? "").Trim().ToLowerInvariant();
             long uplinkSwitch = 0; int uplinkPort = 0;
             if (uplink == "switch")
             {
                 var parent = all.FirstOrDefault(s => s.Id == input.UplinkSwitch);
                 if (parent is null) return (null, "The switch it's plugged into no longer exists.");
                 if (parent.Kind == "virtual") return (null, "Nothing can be cabled into a virtual switch; it lives inside its machine.");
+                if (parent.Kind == "ssid") return (null, "Nothing can be cabled into a wireless SSID.");
                 if (id is long self)
                 {
                     // Walk up from the proposed parent; meeting this switch means a loop.
@@ -303,6 +322,25 @@ public partial class HostStore
             check.CommandText = "SELECT changes()";
             var deleted = Convert.ToInt64(check.ExecuteScalar()) > 0;
             ForgetMapNode(conn, $"s:{id}", tx);
+            // An access point's SSIDs go with it; their devices become unplaced.
+            var ssids = new List<long>();
+            using (var find = conn.CreateCommand())
+            {
+                find.Transaction = tx;
+                find.CommandText = "SELECT id FROM switches WHERE kind = 'ssid' AND runs_on = $id";
+                find.Parameters.AddWithValue("$id", id);
+                using var r = find.ExecuteReader();
+                while (r.Read()) ssids.Add(r.GetInt64(0));
+            }
+            foreach (var sid in ssids)
+            {
+                using var drop = conn.CreateCommand();
+                drop.Transaction = tx;
+                drop.CommandText = "DELETE FROM placements WHERE switch_id = $s; DELETE FROM switches WHERE id = $s;";
+                drop.Parameters.AddWithValue("$s", sid);
+                drop.ExecuteNonQuery();
+                ForgetMapNode(conn, $"s:{sid}", tx);
+            }
             tx.Commit();
             return deleted;
         }
@@ -439,7 +477,7 @@ public partial class HostStore
         cmd.CommandText = """
             DELETE FROM placements WHERE host_id = $id;
             UPDATE switches SET host_id = 0 WHERE host_id = $id;
-            UPDATE switches SET runs_on = 0 WHERE runs_on = $id;
+            UPDATE switches SET runs_on = 0 WHERE runs_on = $id AND kind = 'virtual';
             """;
         cmd.Parameters.AddWithValue("$id", hostId);
         cmd.ExecuteNonQuery();

@@ -843,6 +843,9 @@
   .map-svg { display: block; width: 100%; height: auto; }
   .map-svg .spoke { stroke: var(--line); stroke-width: 1; }
   .map-svg .spoke.off { stroke-dasharray: 3 3; }
+  /* A wireless connection: a lightning bolt from an SSID to its device. */
+  .map-svg .spoke.bolt { fill: none; stroke: var(--led-warn); stroke-width: 1.8; stroke-linejoin: miter; stroke-linecap: round; }
+  .map-svg .spoke.bolt.off { stroke: var(--led-off); }
   .map-svg .hub { fill: var(--panel-2); stroke: var(--line); stroke-width: 1.5; }
   .map-svg .hub-txt { font: 600 11px "IBM Plex Mono", monospace; fill: var(--text); text-anchor: middle; dominant-baseline: central; }
   .map-svg .node { cursor: pointer; }
@@ -2240,6 +2243,13 @@
       <span class="set-field"><button type="button" class="arp-toggle" id="setRand" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
     </label>
     <label class="set-row">
+      <span class="set-label">Holiday Spirit
+        <span class="set-hint">Every dashboard wears the Halloween theme from October 1st to 31st and the Christmas theme from December 1st to 25th, then goes back to its own theme. Pick another theme during the season and that browser keeps it until the next one.</span>
+        <span class="set-hint" id="setHolidayStatus"></span>
+      </span>
+      <span class="set-field"><button type="button" class="arp-toggle" id="setHoliday" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+    </label>
+    <label class="set-row">
       <span class="set-label">Check GitHub daily for a newer release
         <span class="set-hint">Off by default. Read-only: it only reads the latest release tag and never downloads or installs anything. The only outbound call BAMF makes that you didn't ask for.</span>
         <span class="set-hint" id="setUpdStatus"></span>
@@ -2437,6 +2447,10 @@
     <div class="blink-box" id="portsBlink" hidden></div>
     <table class="ports-table" id="portsTable"></table>
     <div class="modal-note" id="portsExtra"></div>
+    <p class="modal-help" id="ssidHelp" hidden>
+      Tick the devices that connect to this SSID and save once. Devices from any network can be
+      added. A device already recorded on another switch moves here when you save.
+    </p>
     <p class="modal-help" id="vmsHelp" hidden>
       Tick the devices that run as VMs on this machine and save once. Devices from any network can
       be added. A device already recorded on another switch moves here when you save.
@@ -2465,10 +2479,14 @@
         <option value="router">Router / gateway</option>
         <option value="ap">Access point</option>
         <option value="virtual">Virtual switch (Proxmox, ESXi, Hyper-V)</option>
+        <option value="ssid">Wireless SSID (on an access point)</option>
       </select>
     </label>
     <label class="modal-row" id="swRunsRow">Runs on
       <select id="swRuns"></select>
+    </label>
+    <label class="modal-row" id="swApRow">On access point
+      <select id="swAp"></select>
     </label>
     <label class="modal-row">Name
       <input id="swName" class="modal-input" maxlength="60" placeholder="e.g. Office SG1016DE" autocomplete="off">
@@ -2493,6 +2511,16 @@
       switch online or offline, and its network comes from that device. Leave it at None for an
       unmanaged switch, or one on an address BAMF doesn't scan.
     </p>
+    <p class="modal-help" id="swHelpAp">
+      An access point has no ports to fill in: devices reach it over the air. Give it a wireless
+      SSID for each network it broadcasts, then tick the devices on each SSID. On the Map the
+      SSIDs hang off the access point, with a lightning bolt to each device.
+    </p>
+    <p class="modal-help" id="swHelpSsid">
+      A wireless SSID is a network an access point broadcasts, like "Home" or "Guest". Pick the
+      access point, and the network the SSID puts its devices on. Then tick the devices that
+      connect to it.
+    </p>
     <p class="modal-help" id="swHelpVirtual">
       A virtual switch lives inside a machine: Proxmox's vmbr0, ESXi's vSwitch0, a Hyper-V
       external switch. Pick that machine. Its VMs' traffic leaves through that machine's cable, so
@@ -2501,6 +2529,7 @@
     <div class="set-result" id="swErr"></div>
     <div class="modal-actions">
       <button class="toggle" id="swDelete">Delete</button>
+      <button class="toggle" id="swAddSsid" title="Save this access point, then add a wireless SSID to it">Add a wireless SSID</button>
       <button class="toggle" id="swCancel">Cancel</button>
       <button class="export-btn" id="swSave">Save</button>
     </div>
@@ -2564,6 +2593,10 @@ let typeIcons = {};        // guessed type -> icon the user chose for all of the
 let switches = [];         // the switch layout the user recorded: [{ id, name, ports, subnet, hostId, uplink, uplinkSwitch, uplinkPort }]
 let activeArp = { enabled: false, npcapAvailable: false };
 let autoIgnoreRandom = false;
+// Holiday Spirit, from the server. Remembered in this browser too, so the
+// holiday theme is up from the first paint rather than after the first poll.
+let holidaySpirit = false;
+try { holidaySpirit = localStorage.getItem("bamf-holiday-spirit") === "1"; } catch {}
 let webhookConfigured = false;
 let webhookMasked = null;   // masked form only; the server never sends the full URL
 let webhookFormat = "auto"; // auto | ntfy | gotify | json
@@ -3169,6 +3202,11 @@ function mapClusters() {
     const placed = members.filter(h => h !== self && h !== gw && swById.has(h.switchId));
     const shown = new Set(switches.filter(s => s.subnet === subnet).map(s => s.id));
     placed.forEach(h => shown.add(h.switchId));
+    // A wireless SSID is drawn with the access point that broadcasts it.
+    for (const id of [...shown]) {
+      const sw = swById.get(id);
+      if (sw && sw.kind === "ssid" && swById.has(sw.runsOn)) shown.add(sw.runsOn);
+    }
     for (const id of [...shown]) {
       let sw = swById.get(id);
       while (sw && sw.uplink === "switch" && swById.has(sw.uplinkSwitch) && !shown.has(sw.uplinkSwitch)) {
@@ -3472,14 +3510,20 @@ function buildClusterSvg(c) {
 }
 
 // Switches, routers and access points are one kind of record with a type.
+// Kinds that live inside something else and have no cable of their own.
+function innerKind(kind) { return kind === "virtual" || kind === "ssid"; }
+// The access point a wireless SSID is broadcast by.
+function apOf(sw) { return sw && sw.kind === "ssid" && sw.runsOn ? switches.find(s => s.id === sw.runsOn && s.kind === "ap") || null : null; }
 function kindNoun(kind) {
-  return kind === "router" ? "router" : kind === "ap" ? "access point" : kind === "virtual" ? "virtual switch" : "switch";
+  return kind === "router" ? "router" : kind === "ap" ? "access point" : kind === "virtual" ? "virtual switch" : kind === "ssid" ? "wireless SSID" : "switch";
 }
 // The machine a virtual switch runs on.
 function runsOnHost(sw) { return sw && sw.kind === "virtual" && sw.runsOn ? hosts.find(h => h.id === sw.runsOn) || null : null; }
 // "(router, 4 ports)", "(8 ports)" for a plain switch, "(virtual switch on proxmox)".
 function kindPorts(sw) {
   if (sw.kind === "virtual") { const on = runsOnHost(sw); return `(virtual switch${on ? " on " + nameOrIp(on) : ""})`; }
+  if (sw.kind === "ssid") { const ap = apOf(sw); return `(wireless SSID${ap ? " on " + ap.name : ""})`; }
+  if (sw.kind === "ap") return "(access point)";
   return `(${sw.kind && sw.kind !== "switch" ? kindNoun(sw.kind) + ", " : ""}${sw.ports} ports)`;
 }
 // Hypervisors give virtual NICs well-known MAC prefixes; the same list as the server's.
@@ -3506,6 +3550,7 @@ function portText(sw, port) {
 
 function uplinkText(sw) {
   if (sw.kind === "virtual") { const on = runsOnHost(sw); return on ? `Runs on ${nameOrIp(on)}` : "Machine not recorded"; }
+  if (sw.kind === "ssid") { const ap = apOf(sw); return ap ? `Broadcast by ${ap.name}` : "Access point not recorded"; }
   if (sw.uplink === "router") return "Plugged into the router";
   if (sw.uplink === "switch") {
     const up = switches.find(s => s.id === sw.uplinkSwitch);
@@ -3520,6 +3565,16 @@ function switchTitle(sw) {
   if (sw.kind === "virtual") {
     return [sw.name, "Virtual switch · your record", uplinkText(sw), `${n} VM${n === 1 ? "" : "s"} recorded on it`,
       "Click to choose its VMs"].join("\n");
+  }
+  if (sw.kind === "ssid") {
+    return [sw.name, "Wireless SSID · your record", uplinkText(sw), sw.subnet || "no network",
+      `${n} device${n === 1 ? "" : "s"} on it`, "Click to choose its devices"].join("\n");
+  }
+  if (sw.kind === "ap") {
+    const ssids = switches.filter(x => x.kind === "ssid" && x.runsOn === sw.id);
+    return [sw.name, "Access point · your record", host ? `${host.ip} · ${host.mac}` : "No address BAMF sees",
+      uplinkText(sw), ssids.length ? `SSIDs: ${ssids.map(x => x.name).join(", ")}` : "No SSIDs yet",
+      "Click to add a wireless SSID"].join("\n");
   }
   const lines = [sw.name, `${sw.ports}-port ${kindNoun(sw.kind)} · your record`];
   if (host) {
@@ -3698,6 +3753,26 @@ function topoModel(c) {
     return reach;
   };
 
+  // A wireless SSID hangs to the right of its access point, the way a virtual
+  // switch hangs off its machine, and its devices connect with a lightning bolt.
+  const ssidAll = c.switches.filter(s => s.kind === "ssid");
+  const hangSsids = (ap, apKey, hx, hy, col, dx) => {
+    let reach = 0;
+    for (const ss of ssidAll.filter(s => s.runsOn === ap.id && !hung.has(s.id))) {
+      hung.add(ss.id);
+      const vy = Math.max(hy, col.bottom + 30);
+      const key = "s:" + ss.id;
+      add(key, { type: "switch", sw: ss, host: null, parent: apKey, auto: [hx + dx, vy], edge: { style: "vside", vlink: true } });
+      const devs = c.placed.filter(h => h.switchId === ss.id).sort(byPort);
+      devs.forEach((h, j) => add("h:" + h.id, { type: "dev", host: h, parent: key,
+        auto: [hx + dx + TOPO.PORT_INDENT, vy + 64 + j * TOPO.ROW],
+        edge: { style: "bolt", cable: false, sw: ss, port: 0 } }));
+      col.bottom = vy + 40 + devs.length * TOPO.ROW;
+      reach = Math.max(reach, dx + (devs.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 190 : 2 * TOPO.T + 30 + ss.name.length * TOPO.CHAR));
+    }
+    return reach;
+  };
+
   const place = (sw, left, parentKey, edge) => {   // returns the region's width
     if (seen.has(sw.id)) return 0;
     seen.add(sw.id);
@@ -3713,9 +3788,15 @@ function topoModel(c) {
     devs.forEach((h, i) => {
       vsReach = Math.max(vsReach, hang(h.id, "h:" + h.id, left + TOPO.T + TOPO.PORT_INDENT, y1 + 70 + i * TOPO.ROW, col));
     });
-    let width = Math.max(devs.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 190 : 0, 2 * TOPO.T + 30 + sw.name.length * TOPO.CHAR,
-      vsReach ? TOPO.PORT_INDENT + TOPO.T + vsReach + 20 : 0);
-    c.switches.filter(s => s.kind !== "virtual" && s.uplink === "switch" && s.uplinkSwitch === sw.id && shown.has(s.id))
+    // An access point's SSIDs, clear of any devices recorded straight on it.
+    const ssidReach = sw.kind === "ap"
+      ? hangSsids(sw, key, left + TOPO.T, y1, { bottom: -1e9 }, devs.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 210 : TOPO.VS_DX)
+      : 0;
+    // Room for the name, or the line under it ("16 ports · 192.168.30.104"), whichever is longer.
+    const label = Math.max(sw.name.length, innerKind(sw.kind) ? 0 : (`${sw.ports} ports`.length + (sw.hostId ? 18 : 0)));
+    let width = Math.max(devs.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 190 : 0, 2 * TOPO.T + 30 + label * TOPO.CHAR,
+      vsReach ? TOPO.PORT_INDENT + TOPO.T + vsReach + 20 : 0, ssidReach ? TOPO.T + ssidReach + 20 : 0);
+    c.switches.filter(s => !innerKind(s.kind) && s.uplink === "switch" && s.uplinkSwitch === sw.id && shown.has(s.id))
       .sort((a, b) => (a.uplinkPort || 1e9) - (b.uplinkPort || 1e9))
       .forEach(k => {
         const w = place(k, left + width + TOPO.COL_GAP, key, { style: "chain", cable: true, sw, port: k.uplinkPort });
@@ -3740,7 +3821,7 @@ function topoModel(c) {
     }
     const onRoot = s => t.rec && s.uplink === "switch" && s.uplinkSwitch === t.rec.id;
     const mine = s => onRoot(s) || (!(s.uplink === "switch" && shown.has(s.uplinkSwitch)) && (!c.whole || ownerOf(s.subnet) === t));
-    c.switches.filter(s => !topRecs.has(s.id) && s.kind !== "virtual" && mine(s))
+    c.switches.filter(s => !topRecs.has(s.id) && !innerKind(s.kind) && mine(s))
       .sort((a, b) => (onRoot(b) || b.uplink === "router") - (onRoot(a) || a.uplink === "router") || (a.uplinkPort || 1e9) - (b.uplinkPort || 1e9))
       .forEach(sw => {
         const edge = onRoot(sw)
@@ -3753,15 +3834,18 @@ function topoModel(c) {
     // Virtual switches whose machine isn't in a switch's list (it's in the box,
     // it's the router or BAMF, or it isn't on this network): their own place at
     // the end of the switch row, with a dashed link back to the machine.
-    const leftover = vsAll.filter(vs => !hung.has(vs.id) && (!c.whole || ownerOf(vs.subnet) === t));
+    // Likewise an SSID whose access point isn't on this card.
+    const leftover = [...vsAll, ...ssidAll].filter(vs => !hung.has(vs.id) && (!c.whole || ownerOf(vs.subnet) === t));
     for (const vs of leftover) {
       hung.add(vs.id);
       const key = "s:" + vs.id;
-      add(key, { type: "switch", sw: vs, host: null, parent: null, pendingParent: vs.runsOn, auto: [x + TOPO.T, y1], edge: { style: "vlink", vlink: true } });
+      const ssid = vs.kind === "ssid";
+      add(key, { type: "switch", sw: vs, host: null, parent: null,
+        ...(ssid ? { pendingSwitch: vs.runsOn } : { pendingParent: vs.runsOn }), auto: [x + TOPO.T, y1], edge: { style: "vlink", vlink: true } });
       const vms = c.placed.filter(h => h.switchId === vs.id).sort(byPort);
       vms.forEach((h, j) => add("h:" + h.id, { type: "dev", host: h, parent: key,
         auto: [x + TOPO.T + TOPO.PORT_INDENT, y1 + 70 + j * TOPO.ROW],
-        edge: { style: "list", cable: false, sw: vs, port: 0 } }));
+        edge: { style: ssid ? "bolt" : "list", cable: false, sw: vs, port: 0 } }));
       x += Math.max(vms.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 190 : 0, 2 * TOPO.T + 30 + vs.name.length * TOPO.CHAR) + TOPO.COL_GAP;
     }
 
@@ -3812,6 +3896,12 @@ function topoModel(c) {
   // Now every node exists, link each leftover virtual switch to its machine
   // (wherever that is on this card), or to the top if it isn't on it.
   for (const n of nodes.values()) {
+    if (n.pendingSwitch !== undefined) {
+      // An SSID away from its access point links to the AP if it's on the card, or the top.
+      n.parent = nodes.has("s:" + n.pendingSwitch) ? "s:" + n.pendingSwitch : (c.whole ? ownerOf(n.sw.subnet) : main).key;
+      delete n.pendingSwitch;
+      continue;
+    }
     if (n.pendingParent === undefined) continue;
     const id = n.pendingParent;
     const top = tops.find(t => (t.rec && t.rec.hostId === id) || (t.gw && !t.gw.synthetic && t.gw.id === id));
@@ -3856,6 +3946,14 @@ function topoPath(style, a, b, fromLabelW) {
     return `M${f(sx)} ${f(a[1])} H${f(mx)} V${f(b[1])} H${f(b[0] - T)}`;
   }
   if (style === "vlink") return `M${f(a[0])} ${f(a[1] + T)} L${f(b[0])} ${f(b[1] - T)}`;
+  // Wireless: a lightning bolt from the SSID to the device.
+  if (style === "bolt") {
+    const x0 = a[0] + T * .5, y0 = a[1] + T, x1 = b[0] - T - 3, y1 = b[1];
+    const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+    const amp = Math.min(9, len / 7);
+    const pts = [[x0, y0], ...[[.3, 1], [.42, -1], [.58, 1], [.7, -1]].map(([t, sg]) => [x0 + dx * t + nx * amp * sg, y0 + dy * t + ny * amp * sg]), [x1, y1]];
+    return "M" + pts.map(q => `${f(q[0])} ${f(q[1])}`).join("L");
+  }
   if (style === "list") return `M${f(a[0])} ${f(a[1] + T)} V${f(b[1])} H${f(b[0] - T)}`;
   if (style === "chain") {
     const top = Math.min(a[1], b[1]) - T - 26;
@@ -3968,7 +4066,7 @@ function buildTopologySvg(c) {
 
   for (const [key, n] of m.nodes) {
     if (n.edge && n.parent) {
-      const path = svgEl("path", { class: "spoke" + (n.edge.cable ? " cable" : "") + (n.edge.vlink ? " vlink" : "") + (n.type === "dev" && !n.host.online ? " off" : "") });
+      const path = svgEl("path", { class: "spoke" + (n.edge.cable ? " cable" : "") + (n.edge.vlink ? " vlink" : "") + (n.edge.style === "bolt" ? " bolt" : "") + (n.type === "dev" && !n.host.online ? " off" : "") });
       if (n.type === "dev") path.setAttribute("data-id", n.host.id);
       gEdges.appendChild(path);
       // Shown only by some themes: something flowing along a recorded cable.
@@ -4020,12 +4118,18 @@ function topoNodeEl(m, key, n) {
   let cls, kind, name, sub, tip;
   if (n.type === "switch") {
     cls = h ? mapNodeClass(h, "sw") : "node sw";
-    kind = n.sw.kind === "router" ? "router" : n.sw.kind === "ap" ? "ap" : n.sw.kind === "virtual" ? "vswitch" : "switch";
+    kind = n.sw.kind === "router" ? "router" : n.sw.kind === "ap" || n.sw.kind === "ssid" ? "ap" : n.sw.kind === "virtual" ? "vswitch" : "switch";
     name = n.sw.name;
     if (n.sw.kind === "virtual") {
       const on = runsOnHost(n.sw);
       cls += " virtual";
       sub = "virtual switch" + (on ? " · on " + nameOrIp(on) : "");
+    } else if (n.sw.kind === "ssid") {
+      const ap = apOf(n.sw);
+      cls += " virtual";
+      sub = "wireless SSID" + (ap ? " · on " + ap.name : "");
+    } else if (n.sw.kind === "ap") {
+      sub = "access point" + (h ? " · " + h.ip : "");
     } else {
       sub = (n.sw.kind && n.sw.kind !== "switch" ? kindNoun(n.sw.kind) + " · " : "") + `${n.sw.ports} ports` + (h ? " · " + h.ip : "");
     }
@@ -4148,7 +4252,7 @@ function topoActivate(m, key, target = null) {
 function topoDropTarget(m, key) {
   const n = m.nodes.get(key), p = m.final.get(key);
   if (n.type !== "dev" && n.type !== "switch") return null;
-  if (n.type === "switch" && n.sw.kind === "virtual") return null;   // it lives inside its machine
+  if (n.type === "switch" && innerKind(n.sw.kind)) return null;   // it lives inside its machine or access point
   const below = new Set();
   if (n.type === "switch") {
     const walk = k => { for (const [kk, nn] of m.nodes) if (nn.parent === k && nn.type === "switch" && !below.has(kk)) { below.add(kk); walk(kk); } };
@@ -4156,7 +4260,7 @@ function topoDropTarget(m, key) {
   }
   for (const [k, t] of m.nodes) {
     if (k === key || below.has(k)) continue;
-    if (n.type === "switch" && t.type === "switch" && t.sw.kind === "virtual") continue;
+    if (n.type === "switch" && t.type === "switch" && innerKind(t.sw.kind)) continue;
     if (t.type === "switch" || (t.type === "root" && n.type === "switch")) {
       const q = m.final.get(k);
       if (Math.hypot(q[0] - p[0], q[1] - p[1]) < 30) return { key: k, node: t };
@@ -4676,7 +4780,8 @@ function render() {
       addItem("Type / icon…", () => openTypeDialog(h));
       const ownSwitch = switches.find(s => s.hostId === h.id);
       if (ownSwitch) {
-        addItem(ownSwitch.kind === "virtual" ? "VMs…" : "Ports…", () => openPortsDialog(ownSwitch));
+        if (ownSwitch.kind === "ap") addItem("Add a wireless SSID…", () => openSwitchDialog(null, null, null, { kind: "ssid", runsOn: ownSwitch.id }));
+        else addItem(ownSwitch.kind === "virtual" ? "VMs…" : "Ports…", () => openPortsDialog(ownSwitch));
         addItem(`Edit ${kindNoun(ownSwitch.kind)}…`, () => openSwitchDialog(ownSwitch));
       } else {
         addItem(h.switchId ? "Change plugged into…" : "Plugged into…", () => openPlugDialog(h));
@@ -4967,7 +5072,7 @@ function openPlugDialog(host, preselect = null) {
 }
 function syncPlugPort(current) {
   const sw = switches.find(s => String(s.id) === $("plugSwitch").value);
-  $("plugPortRow").style.display = sw && sw.kind !== "virtual" ? "" : "none";
+  $("plugPortRow").style.display = sw && !innerKind(sw.kind) ? "" : "none";
   if (sw) fillPortSelect($("plugPort"), sw, current, { hostId: plugHost?.id });
 }
 function closePlugDialog() { $("plugModal").hidden = true; plugHost = null; plugAfterSave = null; blinkTick(); }
@@ -4976,7 +5081,7 @@ async function savePlugDialog() {
   if (!h) return;
   const switchId = Number($("plugSwitch").value) || 0;
   const target = switches.find(s => s.id === switchId);
-  const port = switchId && target && target.kind !== "virtual" ? Number($("plugPort").value) || 0 : 0;
+  const port = switchId && target && !innerKind(target.kind) ? Number($("plugPort").value) || 0 : 0;
   const btn = $("plugSave");
   btn.disabled = true;
   try {
@@ -5005,13 +5110,13 @@ async function savePlugDialog() {
 
 let swEditing = null;    // the switch being edited; null when adding one
 let swReturnTo = null;   // a device whose "Plugged into" dialog sent us here
-const KIND_PORTS = { switch: 8, router: 4, ap: 2, virtual: 1 };   // a starting port count for a new one
+const KIND_PORTS = { switch: 8, router: 4, ap: 1, virtual: 1, ssid: 1 };   // a starting port count for a new one
 function openSwitchDialog(sw, fromHost = null, returnTo = null, opts = {}) {
   swEditing = sw;
   swReturnTo = returnTo;
   const kind = sw ? (sw.kind || "switch") : opts.kind || (fromHost && isGatewayHost(fromHost) ? "router" : "switch");
   $("swKind").value = kind;
-  $("swTitle").textContent = sw ? `Edit ${kindNoun(kind)} — ${sw.name}` : "Add a switch, router or access point";
+  $("swTitle").textContent = sw ? `Edit ${kindNoun(kind)} — ${sw.name}` : kind === "ssid" ? "Add a wireless SSID" : "Add a switch, router or access point";
   $("swName").value = sw ? sw.name : fromHost ? nameOrIp(fromHost) : "";
   $("swPorts").value = sw ? sw.ports : KIND_PORTS[kind] || 1;
   // The machine a virtual switch runs on: any device BAMF sees.
@@ -5027,8 +5132,22 @@ function openSwitchDialog(sw, fromHost = null, returnTo = null, opts = {}) {
       o.value = h.id; o.textContent = `${nameOrIp(h)} · ${h.ip}`;
       runsSel.appendChild(o);
     });
-  runsSel.value = String(sw && sw.runsOn ? sw.runsOn : opts.runsOn || (kind === "virtual" && fromHost ? fromHost.id : 0));
+  runsSel.value = String(kind === "virtual" && sw && sw.runsOn ? sw.runsOn
+    : kind === "virtual" && opts.runsOn ? opts.runsOn : kind === "virtual" && fromHost ? fromHost.id : 0);
   if (!runsSel.value) runsSel.value = "0";
+  // The access point a wireless SSID is broadcast by.
+  const apSel = $("swAp");
+  apSel.innerHTML = "";
+  const noAp = document.createElement("option");
+  noAp.value = "0"; noAp.textContent = switches.some(x => x.kind === "ap") ? "Pick the access point…" : "No access points yet: add one first";
+  apSel.appendChild(noAp);
+  switches.filter(x => x.kind === "ap").forEach(a => {
+    const o = document.createElement("option");
+    o.value = a.id; o.textContent = a.name + (a.subnet ? ` · ${a.subnet}` : "");
+    apSel.appendChild(o);
+  });
+  apSel.value = String(kind === "ssid" ? (sw ? sw.runsOn : opts.runsOn || 0) : 0);
+  if (!apSel.value) apSel.value = "0";
 
   const hostSel = $("swHost");
   hostSel.innerHTML = "";
@@ -5050,7 +5169,9 @@ function openSwitchDialog(sw, fromHost = null, returnTo = null, opts = {}) {
   const nets = [...new Set([...subnets, ...hosts.map(h => h.subnet).filter(Boolean), ...(sw && sw.subnet ? [sw.subnet] : [])])]
     .sort((a, b) => ipNum(a.split("/")[0]) - ipNum(b.split("/")[0]));
   nets.forEach(n => addOpt(netSel, n, n));
+  const apOfNew = kind === "ssid" && opts.runsOn ? switches.find(x => x.id === opts.runsOn) : null;
   netSel.value = sw && sw.subnet ? sw.subnet
+    : apOfNew && apOfNew.subnet && nets.includes(apOfNew.subnet) ? apOfNew.subnet
     : opts.subnet && nets.includes(opts.subnet) ? opts.subnet
     : (network !== "all" && nets.includes(network) ? network : nets[0] || "");
   if (!sw && !fromHost && kind === "router") pickGatewayForSwitch();
@@ -5066,7 +5187,7 @@ function openSwitchDialog(sw, fromHost = null, returnTo = null, opts = {}) {
   upSel.innerHTML = "";
   addOpt(upSel, "", "Not recorded");
   addOpt(upSel, "router", "The router");
-  switches.filter(s => s !== sw && !below.has(s.id) && s.kind !== "virtual")
+  switches.filter(s => s !== sw && !below.has(s.id) && !innerKind(s.kind))
     .forEach(s => addOpt(upSel, "sw:" + s.id, `${s.name} ${kindPorts(s)}`));
   upSel.value = !sw ? "" : sw.uplink === "switch" ? "sw:" + sw.uplinkSwitch : sw.uplink;
 
@@ -5092,12 +5213,21 @@ function pickGatewayForSwitch() {
 }
 function syncSwitchDialog(upPort) {
   // A virtual switch has a machine instead of a device, a network and an uplink.
-  const virtual = $("swKind").value === "virtual";
-  for (const id of ["swPortsRow", "swHostRow", "swUpRow", "swHelp"]) $(id).style.display = virtual ? "none" : "";
+  // A wireless SSID has an access point and a network. An access point isn't
+  // asked for ports: its devices connect over the air, through its SSIDs.
+  const kind = $("swKind").value;
+  const virtual = kind === "virtual", ssid = kind === "ssid", ap = kind === "ap";
+  for (const id of ["swHostRow", "swUpRow", "swHelp"]) $(id).style.display = virtual || ssid ? "none" : "";
+  $("swPortsRow").style.display = virtual || ssid || ap ? "none" : "";
   $("swRunsRow").style.display = virtual ? "" : "none";
+  $("swApRow").style.display = ssid ? "" : "none";
   $("swHelpVirtual").style.display = virtual ? "" : "none";
-  $("swName").placeholder = virtual ? "e.g. vmbr0 or vSwitch0" : "e.g. Office SG1016DE";
+  $("swHelpSsid").style.display = ssid ? "" : "none";
+  $("swHelpAp").style.display = ap ? "" : "none";
+  $("swAddSsid").style.display = ap ? "" : "none";
+  $("swName").placeholder = virtual ? "e.g. vmbr0 or vSwitch0" : ssid ? "e.g. Home or Guest" : ap ? "e.g. Hallway AP" : "e.g. Office SG1016DE";
   if (virtual) { $("swNetRow").style.display = "none"; $("swUpPortRow").style.display = "none"; return; }
+  if (ssid) { $("swNetRow").style.display = ""; $("swUpPortRow").style.display = "none"; return; }
   $("swNetRow").style.display = Number($("swHost").value) ? "none" : "";
   const v = $("swUp").value;
   const parent = v.startsWith("sw:") ? switches.find(s => s.id === Number(v.slice(3))) : null;
@@ -5110,11 +5240,14 @@ function closeSwitchDialog() {
   swEditing = null; swReturnTo = null;
   return back;
 }
+// "Add a wireless SSID" in an access point's dialog saves the AP, then opens a new SSID on it.
+let swThenSsid = false;
 async function saveSwitchDialog() {
   const v = $("swUp").value;
+  const kind = $("swKind").value;
   const body = {
-    kind: $("swKind").value,
-    runsOn: Number($("swRuns").value) || 0,
+    kind,
+    runsOn: Number(kind === "ssid" ? $("swAp").value : $("swRuns").value) || 0,
     name: $("swName").value.trim(),
     ports: Number($("swPorts").value) || 0,
     subnet: $("swNet").value,
@@ -5131,14 +5264,16 @@ async function saveSwitchDialog() {
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { showErr("swErr", d.error || "Couldn't save (HTTP " + r.status + ")."); return; }
-    toast(`Switch ${esc(d.name)} saved`);
+    toast(`${kindNoun(d.kind || kind)[0].toUpperCase() + kindNoun(d.kind || kind).slice(1)} ${esc(d.name)} saved`);
     const wasNew = !swEditing;
     const back = closeSwitchDialog();
     await refresh();
-    if (back) {
+    if (swThenSsid && d.kind === "ap") {
+      openSwitchDialog(null, null, null, { kind: "ssid", runsOn: d.id });
+    } else if (back) {
       const h = hosts.find(x => x.id === back.id);
       if (h) openPlugDialog(h, d.id);
-    } else if (wasNew) {
+    } else if (wasNew && d.kind !== "ap") {
       // A new switch has nothing on it yet; the next thing to do is fill it in.
       const sw = switches.find(x => x.id === d.id);
       if (sw) openPortsDialog(sw);
@@ -5147,6 +5282,7 @@ async function saveSwitchDialog() {
     showErr("swErr", "Couldn't reach BAMF.");
   } finally {
     btn.disabled = false;
+    swThenSsid = false;
   }
 }
 async function deleteSwitchDialog() {
@@ -5394,9 +5530,11 @@ async function startBlink(host, boxId) {
 let portsSwitch = null;
 let portsUnrecorded = [];   // on this switch with no port; kept unless picked on a port
 function openPortsDialog(sw) {
-  if (sw.kind === "virtual") return openVmDialog(sw);
+  if (innerKind(sw.kind)) return openVmDialog(sw);
+  // An access point has no ports to fill in: its dialog is where SSIDs are added.
+  if (sw.kind === "ap") return openSwitchDialog(sw);
   document.querySelector("#portsModal .ports-find").style.display = "";
-  $("portsHelp").hidden = false; $("vmsHelp").hidden = true;
+  $("portsHelp").hidden = false; $("vmsHelp").hidden = true; $("ssidHelp").hidden = true;
   portsSwitch = sw;
   $("portsTitle").textContent = "Ports — " + sw.name;
   $("portsSub").textContent = `${sw.ports} ports · ${uplinkText(sw)}`;
@@ -5510,7 +5648,7 @@ function closePortsDialog() { $("portsModal").hidden = true; portsSwitch = null;
 async function savePortsDialog() {
   const sw = portsSwitch;
   if (!sw) return;
-  if (sw.kind === "virtual") return saveVmDialog(sw);
+  if (innerKind(sw.kind)) return saveVmDialog(sw);
   const sels = markPortDuplicates();
   const chosen = new Map();   // host id -> port
   for (const s of sels) {
@@ -5554,21 +5692,25 @@ async function savePortsDialog() {
 // hypervisor gave out are marked and listed first, with one click to tick them.
 function openVmDialog(sw) {
   portsSwitch = sw;
-  const on = runsOnHost(sw);
-  $("portsTitle").textContent = "VMs — " + sw.name;
-  $("portsSub").textContent = on ? `virtual switch on ${nameOrIp(on)} · ${on.ip}` : "virtual switch";
+  const ssid = sw.kind === "ssid";
+  const on = runsOnHost(sw), ap = apOf(sw);
+  $("portsTitle").textContent = (ssid ? "Devices — " : "VMs — ") + sw.name;
+  $("portsSub").textContent = ssid ? (ap ? `wireless SSID on ${ap.name}` : "wireless SSID")
+    : on ? `virtual switch on ${nameOrIp(on)} · ${on.ip}` : "virtual switch";
   document.querySelector("#portsModal .ports-find").style.display = "none";
-  $("portsHelp").hidden = true; $("vmsHelp").hidden = false;
+  $("portsHelp").hidden = true; $("vmsHelp").hidden = ssid; $("ssidHelp").hidden = !ssid;
   resetBlinkBox("portsBlink");
   const swHostIds = new Set(switches.map(s => s.hostId).filter(Boolean));
   // Any network, not just the machine's own: a hypervisor often bridges VMs
   // onto other networks and VLANs. Grouped by network, the switch's own first.
   const home = sw.subnet || (on && on.subnet) || "";
-  const list = hosts.filter(h => !h.forgotten && !swHostIds.has(h.id) && h.id !== sw.runsOn && (!h.ignored || h.switchId === sw.id));
+  // A virtual switch's own machine can't be one of its VMs. (An SSID's runsOn
+  // is an access point's switch id, not a device, so it excludes nothing.)
+  const list = hosts.filter(h => !h.forgotten && !swHostIds.has(h.id) && !(sw.kind === "virtual" && h.id === sw.runsOn) && (!h.ignored || h.switchId === sw.id));
   const nets = [...new Set(list.map(h => h.subnet || ""))].sort((a, b) =>
     (b === home) - (a === home) || ipNum((a || "0.0.0.0").split("/")[0]) - ipNum((b || "0.0.0.0").split("/")[0]));
   const byNet = nets.map(net => [net, list.filter(h => (h.subnet || "") === net)
-    .sort((a, b) => (b.switchId === sw.id) - (a.switchId === sw.id) || !!vmPlatform(b.mac) - !!vmPlatform(a.mac) || ipNum(a.ip) - ipNum(b.ip))]);
+    .sort((a, b) => (b.switchId === sw.id) - (a.switchId === sw.id) || (!ssid && !!vmPlatform(b.mac) - !!vmPlatform(a.mac)) || ipNum(a.ip) - ipNum(b.ip))]);
   const table = $("portsTable");
   table.innerHTML = "";
   const tbl = document.createElement("table");
@@ -5597,7 +5739,7 @@ function openVmDialog(sw) {
       const ip = document.createElement("span");
       ip.className = "vm-ip"; ip.textContent = h.ip;
       label.appendChild(ip);
-      const plat = vmPlatform(h.mac);
+      const plat = sw.kind === "virtual" ? vmPlatform(h.mac) : null;
       if (plat) {
         const b = document.createElement("span");
         b.className = "vm-badge"; b.textContent = `${plat} MAC`;
@@ -5651,7 +5793,8 @@ async function saveVmDialog(sw) {
       showErr("portsErr", d.error || "Couldn't save (HTTP " + r.status + ").");
       return;
     }
-    toast(`${esc(sw.name)}: ${ids.length} VM${ids.length === 1 ? "" : "s"} recorded`);
+    toast(sw.kind === "ssid" ? `${esc(sw.name)}: ${ids.length} device${ids.length === 1 ? "" : "s"} on this SSID`
+      : `${esc(sw.name)}: ${ids.length} VM${ids.length === 1 ? "" : "s"} recorded`);
     closePortsDialog();
     await refresh();
   } catch {
@@ -5672,13 +5815,20 @@ function renderSwitchList() {
     const tr = document.createElement("tr");
     tr.innerHTML = `<td class="sw-name"></td><td class="set-eff"></td><td><button class="toggle sw-ports-btn">Ports</button> <button class="toggle sw-edit-btn">Edit</button></td>`;
     tr.children[0].textContent = sw.name;
+    const ssids = sw.kind === "ap" ? switches.filter(x => x.kind === "ssid" && x.runsOn === sw.id) : [];
     tr.children[1].textContent = [
-      sw.kind === "virtual" ? "Virtual switch" : `${kindNoun(sw.kind)[0].toUpperCase() + kindNoun(sw.kind).slice(1)}, ${sw.ports} ports`,
-      sw.subnet || "no network", sw.kind === "virtual" ? null : host ? host.ip : "no address BAMF sees",
-      uplinkText(sw), `${n} ${sw.kind === "virtual" ? "VM" : "device"}${n === 1 ? "" : "s"} recorded`,
+      sw.kind === "virtual" ? "Virtual switch" : sw.kind === "ssid" ? "Wireless SSID" : sw.kind === "ap" ? "Access point"
+        : `${kindNoun(sw.kind)[0].toUpperCase() + kindNoun(sw.kind).slice(1)}, ${sw.ports} ports`,
+      sw.subnet || "no network", innerKind(sw.kind) ? null : host ? host.ip : "no address BAMF sees",
+      uplinkText(sw),
+      sw.kind === "ap" ? (ssids.length ? `SSIDs: ${ssids.map(x => x.name).join(", ")}` : "no SSIDs yet")
+        : `${n} ${sw.kind === "virtual" ? "VM" : "device"}${n === 1 ? "" : "s"} recorded`,
     ].filter(Boolean).join(" · ");
-    if (sw.kind === "virtual") tr.querySelector(".sw-ports-btn").textContent = "VMs";
-    tr.querySelector(".sw-ports-btn").onclick = () => openPortsDialog(sw);
+    const pb = tr.querySelector(".sw-ports-btn");
+    if (sw.kind === "virtual") pb.textContent = "VMs";
+    if (sw.kind === "ssid") pb.textContent = "Devices";
+    if (sw.kind === "ap") pb.textContent = "Add SSID";
+    pb.onclick = () => sw.kind === "ap" ? openSwitchDialog(null, null, null, { kind: "ssid", runsOn: sw.id }) : openPortsDialog(sw);
     tr.querySelector(".sw-edit-btn").onclick = () => openSwitchDialog(sw);
     table.appendChild(tr);
   }
@@ -5755,6 +5905,10 @@ async function refresh() {
     syncBlink(data.blink, data.serverTime);
     activeArp = data.activeArp || activeArp;
     autoIgnoreRandom = !!data.autoIgnoreRandom;
+    if (typeof data.holidaySpirit === "boolean" && data.holidaySpirit !== holidaySpirit) {
+      holidaySpirit = data.holidaySpirit;
+      try { localStorage.setItem("bamf-holiday-spirit", holidaySpirit ? "1" : "0"); } catch {}
+    }
     updateInfo = data.update || null;
     appVersion = data.version || appVersion;
     buildDate = data.buildDate || buildDate;
@@ -5765,6 +5919,8 @@ async function refresh() {
     $("testWebhook").style.display = webhookConfigured ? "" : "none";
     renderArpToggle();
     renderRandToggle();
+    renderHolidayToggle();
+    applyHolidaySpirit();
     renderUpdateToggle();
     $("subnetLabel").textContent = subnets.length === 1
       ? subnets[0]
@@ -5987,7 +6143,7 @@ function buildThemeMenu() {
       <span class="sw">${t.sw.map(c => `<i style="background:${esc(c)}"></i>`).join("")}</span>
       <span class="tn">${esc(t.name)}</span>`;
     item.onclick = () => {
-      applyTheme(t.id);
+      pickThemeFromMenu(t.id);
       showSplat();
       closeThemeMenu();
     };
@@ -6011,7 +6167,7 @@ document.addEventListener("click", (e) => {
     closeThemeMenu();
 });
 
-function applyTheme(theme) {
+function applyTheme(theme, { holiday = false } = {}) {
   document.documentElement.setAttribute("data-theme", theme);
   const t = THEMES.find(x => x.id === theme);
   $("themeIcon").textContent = "\u25d1"; // half-filled circle = "theme"
@@ -6020,8 +6176,12 @@ function applyTheme(theme) {
   // restarts. window.name only ever survived a reload of the same tab, which
   // is why the theme kept snapping back to dark. Keep writing it as a fallback
   // for a browser that blocks storage (private mode, strict site settings).
-  try { localStorage.setItem("bamf-theme", theme); } catch {}
-  try { window.name = "bamf-theme:" + theme; } catch {}
+  // A theme put on by Holiday Spirit isn't this browser's own choice, so it
+  // isn't saved: the saved one comes back when the season ends.
+  if (!holiday) {
+    try { localStorage.setItem("bamf-theme", theme); } catch {}
+    try { window.name = "bamf-theme:" + theme; } catch {}
+  }
   const prev = festivePrev;
   festive(theme);
   redrawMapForTheme();
@@ -6037,6 +6197,62 @@ function applyTheme(theme) {
     });
   }
 }
+// ---- Holiday Spirit ----
+// With it on, every dashboard wears Halloween through October and Christmas
+// from December 1st to 25th, by this browser's date, then goes back to its
+// own theme on November 1st and December 26th. Checked on every poll, so an
+// open dashboard changes over at midnight. Picking another theme from the menu
+// during a season keeps that pick in this browser until the next season.
+function holidaySeason(d = new Date()) {
+  if (d.getMonth() === 9) return "halloween";
+  if (d.getMonth() === 11 && d.getDate() <= 25) return "christmas";
+  return null;
+}
+const seasonKey = season => `${season}-${new Date().getFullYear()}`;
+let holidayShowing = null;
+function applyHolidaySpirit() {
+  const season = holidaySpirit ? holidaySeason() : null;
+  let kept = null;
+  try { kept = localStorage.getItem("bamf-holiday-kept"); } catch {}
+  if (season && kept !== seasonKey(season)) {
+    holidayShowing = season;
+    if (currentTheme() !== season) applyTheme(season, { holiday: true });
+  } else if (holidayShowing) {
+    // The season is over, or Holiday Spirit was switched off: back to this browser's own theme.
+    holidayShowing = null;
+    let own = null;
+    try { own = localStorage.getItem("bamf-theme"); } catch {}
+    applyTheme(own || "dark", { holiday: true });
+  }
+}
+function pickThemeFromMenu(id) {
+  const season = holidaySpirit ? holidaySeason() : null;
+  if (season && id === season) {
+    // Back to the season's theme: Holiday Spirit takes over again.
+    try { localStorage.removeItem("bamf-holiday-kept"); } catch {}
+    holidayShowing = season;
+    applyTheme(id, { holiday: true });
+    return;
+  }
+  if (season) {
+    try { localStorage.setItem("bamf-holiday-kept", seasonKey(season)); } catch {}
+    holidayShowing = null;
+  }
+  applyTheme(id);
+}
+function renderHolidayToggle() {
+  const t = $("setHoliday");
+  if (!t) return;
+  setToggleState(t, holidaySpirit);
+  const season = holidaySeason();
+  const name = season === "halloween" ? "Halloween" : "Christmas";
+  $("setHolidayStatus").textContent = !holidaySpirit ? ""
+    : season ? (holidayShowing ? `It's ${name}: the ${name} theme is on until ${season === "halloween" ? "November 1st" : "December 26th"}.`
+      : `It's ${name}, but this browser picked its own theme for the season.`)
+    : "Next up: " + (new Date().getMonth() === 10 ? "Christmas on December 1st." : "Halloween on October 1st.");
+  t.title = holidaySpirit ? "Holiday Spirit is on - click to turn off" : "Click to turn on Holiday Spirit";
+}
+
 // Map decorations are drawn with the map, so a theme change redraws it.
 function redrawMapForTheme() {
   mapSig = null;
@@ -7993,6 +8209,7 @@ renderDensityToggle();
     } catch {}
   }
   applyTheme(saved || "dark");
+  applyHolidaySpirit();
 })();
 
 function renderUpdateToggle() {
@@ -8054,6 +8271,22 @@ function renderRandToggle() {
     ? "New devices with randomized MACs are auto-filed under Ignored - click to disable"
     : "Click to auto-ignore new devices with randomized MACs (phone privacy addresses)";
 }
+
+$("setHoliday").onclick = async () => {
+  const next = !holidaySpirit;
+  try {
+    const r = await fetch("/api/settings/holiday-spirit", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }),
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    holidaySpirit = next;
+    try { localStorage.setItem("bamf-holiday-spirit", next ? "1" : "0"); localStorage.removeItem("bamf-holiday-kept"); } catch {}
+    applyHolidaySpirit();
+    renderHolidayToggle();
+    toast(next ? "Holiday Spirit is on: Halloween through October, Christmas from December 1st to 25th"
+      : "Holiday Spirit is off: dashboards keep their own theme all year");
+  } catch (e) { console.error(e); toast("Couldn't save Holiday Spirit - see the server log"); }
+};
 
 $("setRand").onclick = async () => {
   const next = !autoIgnoreRandom;
@@ -8241,6 +8474,7 @@ $("swKind").onchange = () => {
   syncSwitchDialog(0);
 };
 $("swSave").onclick = saveSwitchDialog;
+$("swAddSsid").onclick = () => { swThenSsid = true; saveSwitchDialog(); };
 $("swDelete").onclick = deleteSwitchDialog;
 $("swCancel").onclick = () => {
   const back = closeSwitchDialog();
@@ -8494,6 +8728,7 @@ async function loadSettings() {
   // /api/hosts poll rather than this endpoint, so refresh them here too.
   renderArpToggle();
   renderRandToggle();
+  renderHolidayToggle();
   renderUpdateToggle();
   fillNotify();
 

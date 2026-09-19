@@ -189,6 +189,9 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         scanModes = scanner.SubnetModes,
         activeArp = new { enabled = scanner.ActiveArpEnabled, npcapAvailable = scanner.NpcapAvailable },
         autoIgnoreRandom = scanner.AutoIgnoreRandomEnabled,
+        // Holiday Spirit: the dashboard wears Halloween through October and
+        // Christmas from December 1st to 25th. Saved setting wins over appsettings.
+        holidaySpirit = HolidaySpirit(store, app.Configuration),
         // Where the dashboard's feedback link points. Derived from the same
         // setting the update check uses, so a fork sends reports to its own
         // tracker rather than upstream's.
@@ -618,6 +621,12 @@ app.MapPost("/api/settings/auto-ignore-random", (ActiveArpRequest body, HostStor
     return Results.Ok();
 });
 
+app.MapPost("/api/settings/holiday-spirit", (ActiveArpRequest body, HostStore store) =>
+{
+    store.SetSetting("holidaySpirit", body.Enabled ? "true" : "false");
+    return Results.Ok();
+});
+
 // Everything the Settings tab renders, in one round trip. Split into what the
 // dashboard may change and what it may only display: anything that decides which
 // networks BAMF is allowed to touch, or that needs a restart to apply, stays in
@@ -657,6 +666,7 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             activeArpScan = scanner.ActiveArpEnabled,
             activeArpAvailable = scanner.NpcapAvailable,
             autoIgnoreRandomizedMacs = scanner.AutoIgnoreRandomEnabled,
+            holidaySpirit = HolidaySpirit(store, app.Configuration),
             updateCheck = updates.Enabled,
             webhookConfigured = !string.IsNullOrWhiteSpace(scanner.WebhookUrl),
             webhookMasked = MaskWebhook(scanner.WebhookUrl),
@@ -929,6 +939,10 @@ static List<object> SwitchesJson(HostStore store)
 
 // Enough of the URL to recognise which webhook is saved, never enough to use it.
 // A Discord URL ends /webhooks/<id>/<token>; the token is the secret.
+// Holiday Spirit, effective: a value saved from Settings wins over appsettings.json.
+static bool HolidaySpirit(HostStore store, IConfiguration config) =>
+    store.GetSetting("holidaySpirit") is string v ? v == "true" : config.GetValue("Bamf:HolidaySpirit", false);
+
 static string? MaskWebhook(string? url)
 {
     if (string.IsNullOrWhiteSpace(url)) return null;

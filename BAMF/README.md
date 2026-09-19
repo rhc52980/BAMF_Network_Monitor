@@ -140,6 +140,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:ActiveArpScan` | Use raw ARP scanning via Npcap/libpcap when available; falls back to ping sweep otherwise. |
 | `Bamf:ScanIntervalSeconds` | Seconds between scans. |
 | `Bamf:AutoIgnoreRandomizedMacs` | Auto-ignore new hosts with randomized MACs (default in shipped config: true). |
+| `Bamf:HolidaySpirit` | `true` puts every dashboard in the Halloween theme from October 1st to 31st and the Christmas theme from December 1st to 25th (default false). Also in Settings → Behaviour, which wins once changed there. See [Holiday Spirit](#holiday-spirit). |
 | `Bamf:WebhookUrl` | Optional starting value for the notification webhook — the dashboard's **Tools → Notifications** saves over it. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use the dashboard's Test webhook button to verify. |
 | `Bamf:Password` | Optional. If set, the UI/API require it via HTTP Basic auth (any username). Over plain HTTP the credential is only base64-encoded — see [What BAMF talks to](#what-bamf-talks-to). |
 | `Bamf:DatabasePath` | SQLite file, relative to the exe. |
@@ -444,6 +445,22 @@ Some themes have a little life in them:
 None of it runs while the tab is in the background. With reduced motion switched
 on in your system settings, it all holds still: Matrix shows a still wall of
 glyphs instead of rain.
+
+### Holiday Spirit
+
+Switch on **Holiday Spirit** under **Settings → Behaviour** (or set
+`HolidaySpirit` to `true` in `appsettings.json`) and every dashboard dresses up
+for the holidays:
+
+- **Halloween theme** from **October 1st** to **31st**, back to its own theme on
+  November 1st;
+- **Christmas theme** from **December 1st** to **25th**, back on December 26th.
+
+It goes by each browser's date and changes over by itself, even on a dashboard
+left open. Your own theme isn't touched: it comes back when the season ends.
+Pick another theme from the menu during a season and that browser keeps it
+until the next season. Switching Holiday Spirit off puts every dashboard back
+on its own theme.
 
 ### Drop-in themes
 
@@ -802,7 +819,7 @@ scan, or delete a thing.
 | GET | `/api/hosts/{id}/ips` | One host's address history: each main address it has had, with when it began and ended |
 | POST | `/api/hosts/{id}/forget` | Body `{"forgotten": true}` — soft-delete to the Forgotten tab (reversible) |
 | DELETE | `/api/hosts/{id}` | Permanently delete a host and its history (from the Forgotten tab) |
-| POST | `/api/switches` | Body `{"kind": "switch", "name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch, router or access point to the recorded layout. `kind` is `switch` (the default), `router`, `ap` or `virtual`; a virtual switch takes `runsOn` (the id of the machine it runs on) instead of a device, uplink or port count. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
+| POST | `/api/switches` | Body `{"kind": "switch", "name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch, router or access point to the recorded layout. `kind` is `switch` (the default), `router`, `ap`, `virtual` or `ssid`; a virtual switch takes `runsOn` (the id of the machine it runs on) instead of a device, uplink or port count, and a wireless SSID takes `runsOn` as the id of its access point (a switch record of kind `ap`), with an optional `subnet` for its own network. Devices on a virtual switch or SSID are recorded with port 0. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
 | POST | `/api/switches/{id}` | Same body — update a switch. Refuses loops and ports that would strand recorded devices |
 | DELETE | `/api/switches/{id}` | Delete a switch. Devices recorded on it go back to unrecorded; switches plugged into it lose that uplink |
 | POST | `/api/switches/{id}/ports` | Body `{"ports": [{"hostId": 3, "port": 1}, {"hostId": 4, "port": 2}], "labels": [{"port": 1, "label": "Living Room"}]}` — set everything on one switch at once. Hosts listed are placed on it (moving off any other switch; `port` 0 = not recorded), and hosts on it that aren't listed come off it. `labels`, when given, replaces the ports' locations (up to 40 characters; blank clears one); leave it out to keep them. Each switch in `GET /api/hosts` carries them as `portLabels` |
@@ -1058,8 +1075,9 @@ and access points, under **Settings → Switches and routers**, or with
 **+ Switch / router** on a network's card on the map, which picks that network
 for you. Each one has:
 
-- a **type**: switch, router or access point;
-- a name, and how many ports it has;
+- a **type**: switch, router, access point, virtual switch or wireless SSID;
+- a name, and how many ports it has (not asked for an access point, an SSID or
+  a virtual switch);
 - what it's plugged into: the router, a port on another switch or router, or
   not recorded.
 
@@ -1071,6 +1089,25 @@ port. The type sets the icon, and one thing more:
   port and location on the cable, like a switch's. Pick **Router** in the dialog
   and the gateway device BAMF sees is filled in for you.
 - **An access point's devices with no port** are drawn as its Wi-Fi clients.
+
+### Access points and wireless SSIDs
+
+An access point isn't asked for a port count or its devices: devices reach it
+over the air. Instead, give it a **wireless SSID** for each network it
+broadcasts, like "Home" and "Guest". Use **Add a wireless SSID** in its dialog,
+**Add SSID** beside it in Settings, **Add a wireless SSID…** in its device's ⋯
+menu, or pick the **Wireless SSID** type and choose its access point.
+
+- An SSID has its own network, since a guest SSID usually puts its devices on
+  a different one from the main SSID. It defaults to the access point's.
+- Its **Devices** dialog is a checklist of every device BAMF sees, from any
+  network, like a virtual switch's VMs. **Plugged into…** on a device offers
+  SSIDs too, with no port to pick.
+- **On the Map** an SSID works like a virtual switch: it hangs off its access
+  point on a dashed link, with its devices listed under it. Each device is
+  connected by a **lightning bolt**, to show it's wireless.
+- Deleting an access point deletes its SSIDs, and their devices go back to not
+  recorded. An access point can't be changed to another type while it has SSIDs.
 
 ### Virtual switches and VMs
 
