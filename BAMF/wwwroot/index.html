@@ -760,6 +760,25 @@
   .report-preview { white-space: pre-wrap; font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--text-dim); background: var(--panel-2); border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
   .layout-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
   .layout-actions .note { font-size: 12px; color: var(--text-dim); }
+  .rule-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+  .rule-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .rule-row .txt { flex: 1; min-width: 0; }
+  .rule-row .txt small { display: block; color: var(--text-dim); font-size: 11.5px; }
+  .rule-row.off .txt { opacity: .55; }
+  .rule-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  .rule-form select, .rule-form input { min-width: 0; }
+  .rule-form input[type=number] { width: 70px; } .rule-form input[type=time] { width: 110px; }
+  .quiet-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 8px 0; font-size: 13px; }
+  .quiet-row input[type=time] { width: 110px; }
+  .alert-item { border-left: 3px solid var(--led-warn); padding: 4px 10px; margin: 4px 0; font-size: 12.5px; }
+  .alert-item.rule { border-color: var(--focus); } .alert-item.dhcp, .alert-item.dns { border-color: var(--danger); }
+  .alert-item .when { color: var(--text-dim); font-size: 11px; margin-left: 6px; }
+  .alert-item .det { color: var(--text-dim); }
+  .port-hist { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+  .port-hist .port-chip.was { opacity: .55; text-decoration: line-through; }
+  .traf-week { display: flex; align-items: flex-end; gap: 1px; height: 44px; width: 100%; max-width: 640px; margin: 4px 0 8px; }
+  .traf-week i { flex: 1; background: var(--led-on); opacity: .65; min-height: 1px; }
+  .traf-week i.day { border-left: 1px solid var(--line); }
   .settings-wrap { padding: 8px 24px 32px; max-width: 820px; }
   .set-card {
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
@@ -2507,6 +2526,41 @@
     </label>
   </div>
 
+  <div class="set-card" id="rulesCard">
+    <div class="set-card-title">Alert rules and quiet hours</div>
+    <p class="modal-help">
+      Alerts of your own: a device or a group offline for longer than you'd like, one coming back,
+      or one online when it shouldn't be. Each fires once per occurrence, to the webhook below.
+      Quiet hours hold every alert and deliver them as one summary when the quiet ends.
+    </p>
+    <div class="rule-list" id="ruleList"></div>
+    <div class="rule-form">
+      <select id="ruleKind"><option value="offline">Offline for more than</option><option value="online">Back online</option><option value="hours">Online between</option></select>
+      <input id="ruleMinutes" type="number" min="1" max="10080" value="15" title="minutes"> <span id="ruleMinLbl">min</span>
+      <input id="ruleFrom" type="time" value="22:00" hidden><span id="ruleAnd" hidden>and</span><input id="ruleTo" type="time" value="06:00" hidden>
+      <span>for</span>
+      <select id="ruleTarget"></select>
+      <input id="ruleName" class="modal-input" placeholder="name (optional)" maxlength="60" style="width:150px">
+      <button type="button" class="export-btn" id="ruleAdd">Add rule</button>
+    </div>
+    <div class="set-result" id="rulesErr"></div>
+    <div class="set-card-title" style="margin-top:14px">Quiet hours</div>
+    <div class="quiet-row">
+      <label>From <input id="quietFrom" type="time"></label>
+      <label>to <input id="quietTo" type="time"></label>
+      <label><input id="quietDigest" type="checkbox" checked> send what was held as one summary when the quiet ends</label>
+      <button type="button" class="toggle" id="quietClear">Clear</button>
+      <button type="button" class="export-btn" id="quietSave">Save</button>
+    </div>
+    <div class="modal-note" id="quietStatus"></div>
+    <label class="set-row" style="margin-top:10px">
+      <span class="set-label">Watch ports daily
+        <span class="set-hint">Scan every online known device's common ports once a day, at 4 am, and alert when a port is open that wasn't last time. A manual port scan records the same history. Off by default: a scan is active, not passive.</span>
+      </span>
+      <span class="set-field"><button type="button" class="arp-toggle" id="setPortWatch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button> <button type="button" class="toggle" id="portWatchNow" title="Scan every online known device now">Scan now</button></span>
+    </label>
+  </div>
+
   <div class="set-card">
     <div class="set-card-title">Notifications</div>
     <p class="modal-help">
@@ -2571,6 +2625,11 @@
       <div class="sub" id="talkersSub"></div>
       <div class="talkers" id="talkers"></div>
       <div class="watch-note" id="talkersNote"></div>
+    </div>
+    <div class="act-card">
+      <h3>Alerts</h3>
+      <div class="sub">What BAMF raised: rules, ports, DHCP and DNS.</div>
+      <div id="alertsBody"></div>
     </div>
     <div class="act-card">
       <h3>Network watch</h3>
@@ -2924,6 +2983,8 @@ let tagFilter = null;     // a tag chip; null = every device
 let latencyProbe = true;
 let trafficStatus = {};     // { enabled, available, running, interfaces, error, since, frames }
 let trafficCache = null;    // the last /api/traffic answer, for the Activity cards
+let alertsCache = null;     // the last /api/alerts answer
+let rulesData = null;       // { rules, quiet, portWatch } from /api/settings
 const fmtBytes = n => n == null ? "—" : n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + " kB" : n < 1073741824 ? (n / 1048576).toFixed(1) + " MB" : (n / 1073741824).toFixed(2) + " GB";
 const fmtRate = n => n == null ? "—" : n < 1024 ? Math.round(n) + " B/s" : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + " kB/s" : (n / 1048576).toFixed(1) + " MB/s";
 const NEW_DAYS = 7;       // the New tab: devices first seen this recently
@@ -2965,6 +3026,8 @@ let expandedId = null;       // host whose history is open
 let eventsCache = {};        // hostId -> events array
 let ipsCache = {};           // hostId -> [{ip, from, to}] oldest first
 let latencyCache = {};       // hostId -> [{at, ms}] oldest first, last 24 h
+let portsCache = {};         // hostId -> [{port, service, firstSeen, lastSeen, open}]
+let weekCache = {};          // hostId -> [{hour, rx, tx}] over 7 days
 let feedCache = [];          // network-wide activity feed
 
 function fmtExact(iso) {
@@ -3067,8 +3130,16 @@ async function loadTraffic() {
 }
 // The Activity tab's two cards: who's moving the most bytes, and the DHCP
 // and DNS servers in use with any alerts about them.
+function renderAlertsCard() {
+  const body = $("alertsBody");
+  const list = alertsCache || [];
+  body.innerHTML = list.length ? list.slice(0, 12).map(a =>
+    `<div class="alert-item ${esc(a.kind)}"><div><b>${esc(a.title)}</b><span class="when">${esc(fmtAgo(a.at))}</span></div><div class="det">${esc(a.detail)}</div></div>`).join("")
+    : `<div class="watch-note">Nothing yet. Rules, the port watch and the DHCP/DNS watch put their alerts here.</div>`;
+}
 function renderTrafficCards() {
   const wrap = $("actCards");
+  renderAlertsCard();
   const t = trafficCache;
   if (!t) { wrap.hidden = true; return; }
   wrap.hidden = false;
@@ -3098,9 +3169,6 @@ function renderTrafficCards() {
   const body = $("watchBody");
   const trust = (kind, ip, trusted) => `<button type="button" class="toggle" data-kind="${kind}" data-ip="${esc(ip)}" data-trusted="${trusted ? 0 : 1}" title="${trusted ? "Forget this server, so it alerts if seen again" : "Trust this server, so it never alerts"}">${trusted ? "Forget" : "Trust"}</button>`;
   let html = "";
-  if (t.alerts && t.alerts.length) {
-    html += t.alerts.slice(0, 5).map(a => `<div class="watch-alert"><div><b>${esc(a.title)}</b> <span class="when">${esc(fmtAgo(a.at))}</span></div><div class="det">${esc(a.detail)}</div></div>`).join("");
-  }
   html += `<div class="sub" style="margin-top:8px">DHCP servers</div><div class="watch-list">` +
     ((t.dhcp || []).map(d => `<div class="watch-row"><span class="mono">${esc(d.ip)}</span><span class="meta">${esc(d.name && d.name !== d.mac ? d.name + " · " : "")}${esc(d.mac)} · ${d.offers} offer${d.offers === 1 ? "" : "s"} · last ${esc(fmtAgo(d.lastSeen))}</span>${trust("dhcp", d.ip, d.trusted)}</div>`).join("")
       || `<div class="watch-note">${st.running ? "No DHCP offer seen yet. One shows up the next time a device asks for an address." : "Not watching."}</div>`) + `</div>`;
@@ -5323,6 +5391,7 @@ function render() {
   if (view === "activity") {
     // The cards want the traffic answer; fetch it with each refresh while the tab is open.
     loadTraffic().then(t => { trafficCache = t; renderTrafficCards(); }).catch(() => {});
+    fetch("/api/alerts").then(r => r.json()).then(a => { alertsCache = a; renderAlertsCard(); }).catch(() => {});
     renderFeed();
   }
   if (view === "home") renderHome();
@@ -5597,6 +5666,26 @@ function render() {
           ` · now ↓${fmtRate(h.traffic.rx)} ↑${fmtRate(h.traffic.tx)}</div>`;
         if (tt) { const smax = Math.max(1, ...tt.strip); inner += `<div class="traf-strip" title="Bytes per ten seconds over the last five minutes">${tt.strip.map(v => `<i style="height:${Math.max(4, Math.round(100 * v / smax))}%"></i>`).join("")}</div>`; }
       }
+      // Ports found open, now or once, from the last scans.
+      const pl = portsCache[h.id] || [];
+      if (pl.length) {
+        const open = pl.filter(x => x.open), was = pl.filter(x => !x.open);
+        inner += `<div class="lat-sum">Ports: <b>${open.length}</b> open at the last scan${open.length ? " (" + esc(fmtAgo(open[0].lastSeen)) + ")" : ""}` +
+          (was.length ? ` · ${was.length} closed since an earlier scan` : "") + `</div><div class="port-hist">` +
+          open.map(x => `<span class="port-chip" title="Open since ${esc(fmtExact(x.firstSeen))}">${x.port}${x.service ? " " + esc(x.service) : ""}</span>`).join("") +
+          was.map(x => `<span class="port-chip was" title="Last seen open ${esc(fmtExact(x.lastSeen))}">${x.port}${x.service ? " " + esc(x.service) : ""}</span>`).join("") + `</div>`;
+      }
+      // Bytes per hour over the last week, from the traffic monitor's history.
+      const wk = weekCache[h.id] || [];
+      if (wk.length) {
+        const total = wk.reduce((a, r) => a + r.rx + r.tx, 0), rx = wk.reduce((a, r) => a + r.rx, 0);
+        const byHour = new Map(wk.map(r => [r.hour, r.rx + r.tx]));
+        const bars = []; const now = new Date(); now.setUTCMinutes(0, 0, 0);
+        for (let i = 167; i >= 0; i--) { const d = new Date(now.getTime() - i * 36e5); bars.push({ v: byHour.get(d.toISOString().slice(0, 13) + ":00:00Z") || 0, day: d.getUTCHours() === 0 }); }
+        const max = Math.max(1, ...bars.map(b => b.v));
+        inner += `<div class="lat-sum">Traffic this week: <b>${fmtBytes(total)}</b> (${fmtBytes(rx)} in, ${fmtBytes(total - rx)} out), by hour</div>` +
+          `<div class="traf-week" title="Bytes per hour over the last 7 days">${bars.map(b => `<i class="${b.day ? "day" : ""}" style="height:${Math.max(2, Math.round(100 * b.v / max))}%"></i>`).join("")}</div>`;
+      }
       if (h.dns && h.dns.length) inner += `<div class="lat-sum">DNS: asks <b>${esc(h.dns[0])}</b>${h.dns.length > 1 ? " (also " + esc(h.dns.slice(1).join(", ")) + ")" : ""}</div>`;
       if (sessions.length === 0) {
         inner += `<div class="history-empty">No history recorded yet. Sessions appear as this host comes and goes.</div>`;
@@ -5722,6 +5811,8 @@ async function openHistory(host) {
     try { eventsCache[host.id] = await loadEvents(host.id); } catch { eventsCache[host.id] = []; }
     try { ipsCache[host.id] = await loadIps(host.id); } catch { ipsCache[host.id] = []; }
     try { latencyCache[host.id] = await loadLatency(host.id); } catch { latencyCache[host.id] = []; }
+    try { portsCache[host.id] = await (await fetch(`/api/hosts/${host.id}/ports`)).json(); } catch { portsCache[host.id] = []; }
+    try { weekCache[host.id] = await (await fetch(`/api/hosts/${host.id}/traffic?days=7`)).json(); } catch { weekCache[host.id] = []; }
     render();
   }
 }
@@ -6826,9 +6917,11 @@ async function scanPorts(host, _btn, spec) {
   try {
     const q = spec ? "?ports=" + encodeURIComponent(spec) : "";
     const r = await fetch(`/api/hosts/${host.id}/portscan${q}`);
-    const ports = await r.json();
+    const data = await r.json();
+    const ports = Array.isArray(data) ? data : data.ports;
     el.classList.remove("busy");
-    el.querySelector(".scan-entry-body").innerHTML = portChips(host.ip, ports);
+    el.querySelector(".scan-entry-body").innerHTML = portChips(host.ip, ports) +
+      (data.newlyOpen ? `<div class="watch-note">${data.newlyOpen} port${data.newlyOpen === 1 ? "" : "s"} open that ${data.newlyOpen === 1 ? "wasn't" : "weren't"} last time.</div>` : "");
   } catch (e) {
     el.classList.remove("busy");
     el.querySelector(".scan-entry-body").innerHTML = `<span class="none">Scan failed.</span>`;
@@ -10381,6 +10474,94 @@ function fillNotify() {
     : "No webhook saved — alerts are off.";
   $("notifyClear").style.display = webhookConfigured ? "" : "none";
 }
+// ---- Alert rules, quiet hours, port watch ----
+function ruleTargets() {
+  const out = [["any", "any device"], ["watched", "watched devices"]];
+  for (const t of allTags()) out.push(["tag:" + t, "devices tagged " + t]);
+  for (const h of hosts.filter(x => !x.forgotten && !x.ignored).sort((a, b) => nameOrIp(a).localeCompare(nameOrIp(b)))) out.push(["host:" + h.id, nameOrIp(h)]);
+  return out;
+}
+function fillRules() {
+  const d = rulesData;
+  if (!d) return;
+  const list = $("ruleList");
+  list.innerHTML = "";
+  if (!d.rules.length) list.innerHTML = `<div class="modal-note">No rules yet. Watched devices already alert the moment they drop or return; rules add patience, groups and hours.</div>`;
+  for (const r of d.rules) {
+    const row = document.createElement("div");
+    row.className = "rule-row" + (r.enabled ? "" : " off");
+    row.innerHTML = `<button type="button" class="arp-toggle" aria-pressed="${r.enabled}" title="${r.enabled ? "On - click to pause" : "Paused - click to turn on"}"><span class="pill"></span><span class="tstate"></span></button>` +
+      `<span class="txt">${esc(r.text)}${r.name ? `<small>${esc(r.name)}</small>` : ""}</span><button type="button" class="toggle" title="Delete this rule">Delete</button>`;
+    const tog = row.querySelector(".arp-toggle"); setToggleState(tog, r.enabled);
+    tog.onclick = () => saveRules(d.rules.map(x => x.id === r.id ? { ...x, enabled: !x.enabled } : x));
+    row.querySelector(".toggle").onclick = () => saveRules(d.rules.filter(x => x.id !== r.id));
+    list.appendChild(row);
+  }
+  const sel = $("ruleTarget");
+  const want = sel.value;
+  sel.innerHTML = ruleTargets().map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("");
+  if ([...sel.options].some(o => o.value === want)) sel.value = want;
+  syncRuleForm();
+  $("quietFrom").value = d.quiet.from || ""; $("quietTo").value = d.quiet.to || "";
+  $("quietDigest").checked = !!d.quiet.digest;
+  $("quietStatus").textContent = !d.quiet.from ? "No quiet hours: alerts go out as they happen."
+    : `Quiet from ${d.quiet.from} to ${d.quiet.to}${d.quiet.now ? " · quiet now" : ""}${d.quiet.held ? ` · ${d.quiet.held} alert${d.quiet.held === 1 ? "" : "s"} held` : ""}.`;
+  const pw = $("setPortWatch");
+  setToggleState(pw, !!d.portWatch);
+  pw.title = d.portWatch ? "Ports are scanned daily - click to stop" : "Click to scan every known device's ports daily";
+}
+function syncRuleForm() {
+  const k = $("ruleKind").value;
+  $("ruleMinutes").hidden = k !== "offline"; $("ruleMinLbl").hidden = k !== "offline";
+  $("ruleFrom").hidden = k !== "hours"; $("ruleAnd").hidden = k !== "hours"; $("ruleTo").hidden = k !== "hours";
+}
+$("ruleKind").onchange = syncRuleForm;
+async function saveRules(rules) {
+  try {
+    const r = await fetch("/api/settings/rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rules) });
+    const d = await r.json();
+    if (!r.ok) { showErr("rulesErr", d.error || "Couldn't save."); return; }
+    showErr("rulesErr", "");
+    rulesData = d; fillRules();
+  } catch { showErr("rulesErr", "Couldn't reach BAMF."); }
+}
+$("ruleAdd").onclick = () => {
+  const kind = $("ruleKind").value;
+  const rule = { id: "", name: $("ruleName").value.trim(), kind, target: $("ruleTarget").value,
+    minutes: Number($("ruleMinutes").value) || 15, from: $("ruleFrom").value, to: $("ruleTo").value, enabled: true };
+  saveRules([...(rulesData ? rulesData.rules : []), rule]).then(() => { $("ruleName").value = ""; toast("Rule added"); });
+};
+async function saveQuiet(from, to) {
+  try {
+    const r = await fetch("/api/settings/quiet", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to, digest: $("quietDigest").checked }) });
+    const d = await r.json();
+    if (!r.ok) { showErr("rulesErr", d.error || "Couldn't save."); return; }
+    showErr("rulesErr", "");
+    rulesData = d; fillRules();
+    toast(from ? `Quiet hours ${from}–${to}` : "Quiet hours cleared");
+  } catch { showErr("rulesErr", "Couldn't reach BAMF."); }
+}
+$("quietSave").onclick = () => saveQuiet($("quietFrom").value, $("quietTo").value);
+$("quietClear").onclick = () => saveQuiet("", "");
+$("setPortWatch").onclick = async () => {
+  const next = !(rulesData && rulesData.portWatch);
+  try {
+    await fetch("/api/settings/port-watch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }) });
+    if (rulesData) rulesData.portWatch = next;
+    fillRules();
+    toast(next ? "Ports will be scanned daily at 4 am" : "Daily port scan off");
+  } catch { toast("Couldn't save that"); }
+};
+$("portWatchNow").onclick = async () => {
+  const b = $("portWatchNow"); b.disabled = true; b.textContent = "Scanning…";
+  try {
+    const d = await (await fetch("/api/ports/watch", { method: "POST" })).json();
+    toast(d.newlyOpen ? `Port scan done: ${d.newlyOpen} newly open port${d.newlyOpen === 1 ? "" : "s"} (see Activity → Alerts)` : "Port scan done: nothing new");
+  } catch { toast("Couldn't reach BAMF"); }
+  finally { b.disabled = false; b.textContent = "Scan now"; }
+};
+
 // ---- Scheduled report ----
 function fillReport(r) {
   const hourSel = $("reportHour");
@@ -10785,6 +10966,8 @@ async function loadSettings() {
       : (ms.error ? `Not listening: ${ms.error}` : "Starting on the next scan.");
 
   fillReport(e.report || {});
+  rulesData = e.rules || null;
+  fillRules();
 
   // The instant-apply toggles and the notifications card draw from the last
   // /api/hosts poll rather than this endpoint, so refresh them here too.

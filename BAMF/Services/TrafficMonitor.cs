@@ -42,6 +42,7 @@ public sealed class TrafficMonitor : IDisposable
         public long RxTotal, TxTotal;
         public long RxWindow, TxWindow;               // bytes in the ten seconds now being counted
         public long RxPrev, TxPrev;                   // the last full ten seconds, which the rates read
+        public long RxHour, TxHour;                   // since the last flush to the hourly table
         public readonly long[] Strip = new long[30]; // bytes in+out per ten seconds, last five minutes
         public int StripAt;
     }
@@ -66,6 +67,7 @@ public sealed class TrafficMonitor : IDisposable
     private DateTime _startedUtc;
     private long _framesAtCheck;
     private int _quietWindows;
+    private int _windowsSinceFlush;
 
     public bool Running { get; private set; }
     public string? LastError { get; private set; }
@@ -145,6 +147,7 @@ public sealed class TrafficMonitor : IDisposable
     private void Stop()
     {
         try { _tick?.Dispose(); } catch { }
+        FlushHourly();
         _tick = null;
         foreach (var dev in _devices)
         {
@@ -181,8 +184,8 @@ public sealed class TrafficMonitor : IDisposable
             lock (_lock)
             {
                 Frames++;
-                Get(src).TxTotal += len; Get(src).TxWindow += len;
-                if (!IsGroup(d)) { Get(dst).RxTotal += len; Get(dst).RxWindow += len; }
+                var sb = Get(src); sb.TxTotal += len; sb.TxWindow += len;
+                if (!IsGroup(d)) { var db = Get(dst); db.RxTotal += len; db.RxWindow += len; }
             }
             if (ethType != 0x0800 || d.Length < off + 20) return;
             var ihl = (d[off] & 0x0F) * 4;
@@ -223,9 +226,28 @@ public sealed class TrafficMonitor : IDisposable
                 b.Strip[b.StripAt] = b.RxWindow + b.TxWindow;
                 b.StripAt = (b.StripAt + 1) % StripLength;
                 b.RxPrev = b.RxWindow; b.TxPrev = b.TxWindow;
+                b.RxHour += b.RxWindow; b.TxHour += b.TxWindow;
                 b.RxWindow = 0; b.TxWindow = 0;
             }
         }
+        if (++_windowsSinceFlush >= 30) { _windowsSinceFlush = 0; FlushHourly(); }
+    }
+
+    /// <summary>Bytes counted since the last flush go into the hourly history, every five minutes.</summary>
+    public void FlushHourly()
+    {
+        var hour = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:00:00Z");
+        var rows = new List<(string, string, long, long)>();
+        lock (_lock)
+        {
+            foreach (var (mac, b) in _byMac)
+            {
+                if (b.RxHour == 0 && b.TxHour == 0) continue;
+                rows.Add((mac, hour, b.RxHour, b.TxHour));
+                b.RxHour = 0; b.TxHour = 0;
+            }
+        }
+        try { _store.AddTraffic(rows); } catch (Exception ex) { _log.LogDebug(ex, "Traffic history write failed"); }
     }
 
     // ------------------------------------------------------------ DHCP and DNS

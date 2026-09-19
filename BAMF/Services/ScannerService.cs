@@ -1103,13 +1103,111 @@ public partial class ScannerService : BackgroundService
                 priority: up ? 3 : 4,
                 tags: up ? "green_circle" : "red_circle",
                 discordPayload: payload, genericPayload: generic);
-            using var resp = await client.SendAsync(req, ct);
-            _log.LogInformation("Watch alert ({State}) for {Name} via {Format}: {Status}",
+            using var resp = await SendOrHold(client, req, up ? $"{name} is back online" : $"{name} went offline", text, ct);
+            if (resp is not null) _log.LogInformation("Watch alert ({State}) for {Name} via {Format}: {Status}",
                 up ? "up" : "down", name, format, (int)resp.StatusCode);
         }
         catch (Exception ex)
         {
             _log.LogWarning(ex, "Watch alert failed for {Name}", name);
+        }
+    }
+
+    // ---------------- quiet hours ----------------
+
+    /// <summary>Quiet hours, local time, from the settings table; empty means none.</summary>
+    public (string From, string To) QuietHours => (_store.GetSetting("quietFrom") ?? "", _store.GetSetting("quietTo") ?? "");
+    public bool QuietDigest => _store.GetSetting("quietDigest") != "false";
+
+    public bool IsQuietNow()
+    {
+        var (from, to) = QuietHours;
+        if (!TimeOnly.TryParse(from, out var f) || !TimeOnly.TryParse(to, out var t) || f == t) return false;
+        var now = TimeOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.Local));
+        return f <= t ? now >= f && now < t : now >= f || now < t;
+    }
+
+    private readonly object _heldLock = new();
+    private List<(string At, string Title, string Text)>? _held;
+    private List<(string At, string Title, string Text)> Held
+    {
+        get
+        {
+            if (_held is null)
+            {
+                try { _held = JsonSerializer.Deserialize<List<HeldAlert>>(_store.GetSetting("heldAlerts") ?? "[]")?.Select(h => (h.At, h.Title, h.Text)).ToList() ?? new(); }
+                catch { _held = new(); }
+            }
+            return _held;
+        }
+    }
+    private sealed record HeldAlert(string At, string Title, string Text);
+    public int HeldCount { get { lock (_heldLock) return Held.Count; } }
+
+    /// <summary>
+    /// Sends an alert, unless it's quiet hours, in which case it's held for the
+    /// digest and null comes back. Reports go through SendAsync directly: their
+    /// hour is the user's own choice.
+    /// </summary>
+    private async Task<HttpResponseMessage?> SendOrHold(HttpClient client, HttpRequestMessage req, string title, string text, CancellationToken ct)
+    {
+        if (IsQuietNow())
+        {
+            lock (_heldLock)
+            {
+                Held.Add((DateTime.UtcNow.ToString("o"), title, text));
+                if (Held.Count > 100) Held.RemoveAt(0);
+                _store.SetSetting("heldAlerts", JsonSerializer.Serialize(Held.Select(h => new HeldAlert(h.At, h.Title, h.Text))));
+            }
+            _log.LogInformation("Quiet hours: held \"{Title}\"", title);
+            return null;
+        }
+        return await client.SendAsync(req, ct);
+    }
+
+    /// <summary>What was held during quiet hours, as one message, once they end.</summary>
+    public async Task<int> FlushHeldAlerts(CancellationToken ct)
+    {
+        List<(string At, string Title, string Text)> items;
+        lock (_heldLock)
+        {
+            items = Held.ToList();
+            Held.Clear();
+            _store.SetSetting("heldAlerts", "[]");
+        }
+        if (items.Count == 0 || !QuietDigest) return items.Count;
+        var fields = items.Take(15).Select(i => (TimeZoneInfo.ConvertTimeFromUtc(DateTime.Parse(i.At, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal), TimeZoneInfo.Local).ToString("HH:mm") + " " + i.Title, i.Text)).ToList();
+        if (items.Count > 15) fields.Add(("And more", $"{items.Count - 15} more alert(s) were held."));
+        var text = string.Join("\n", items.Select(i => "- " + i.Title));
+        await SendReport($"While it was quiet: {items.Count} alert{(items.Count == 1 ? "" : "s")}", text, fields, ct);
+        return items.Count;
+    }
+
+    /// <summary>A rule or port alert: title and detail, through the quiet-hours gate.</summary>
+    public async Task SendGenericAlert(string title, string detail, string kind, CancellationToken ct)
+    {
+        var url = WebhookUrl;
+        if (string.IsNullOrWhiteSpace(url)) return;
+        try
+        {
+            var client = _httpFactory.CreateClient();
+            var format = ResolveFormat(url);
+            var payload = format == "discord" ? JsonSerializer.Serialize(new
+            {
+                username = "BAMF",
+                embeds = new[] { new { title = (kind == "port" ? "\U0001F513 " : "\u23F0 ") + title, description = detail, color = kind == "port" ? 0xE0A040 : 0xB58AF0,
+                    timestamp = DateTime.UtcNow.ToString("o"), footer = new { text = kind == "port" ? "BAMF port watch" : "BAMF alert rule" } } },
+            }) : "";
+            var text = $"BAMF: {title}. {detail}";
+            var generic = JsonSerializer.Serialize(new { content = text, message = text, kind, title, detail });
+            using var req = BuildAlertRequest(url, format, title: title, message: detail, priority: 4, tags: kind == "port" ? "unlock" : "alarm_clock",
+                discordPayload: payload, genericPayload: generic);
+            using var resp = await SendOrHold(client, req, title, text, ct);
+            if (resp is not null) _log.LogInformation("Alert ({Kind}) via {Format}: {Status}", kind, format, (int)resp.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Alert failed");
         }
     }
 
@@ -1164,8 +1262,8 @@ public partial class ScannerService : BackgroundService
             var generic = JsonSerializer.Serialize(new { content = text, message = text, kind = a.Kind, title = a.Title, detail = a.Detail });
             using var req = BuildAlertRequest(url, format, title: a.Title, message: a.Detail, priority: 5, tags: "rotating_light",
                 discordPayload: payload, genericPayload: generic);
-            using var resp = await client.SendAsync(req, ct);
-            _log.LogInformation("Watch alert ({Kind}) via {Format}: {Status}", a.Kind, format, (int)resp.StatusCode);
+            using var resp = await SendOrHold(client, req, a.Title, text, ct);
+            if (resp is not null) _log.LogInformation("Watch alert ({Kind}) via {Format}: {Status}", a.Kind, format, (int)resp.StatusCode);
         }
         catch (Exception ex)
         {
@@ -1263,7 +1361,8 @@ public partial class ScannerService : BackgroundService
                 priority: test ? 3 : 4,
                 tags: test ? "test_tube" : "warning",
                 discordPayload: payload, genericPayload: generic);
-            using var resp = await client.SendAsync(req, ct);
+            using var resp = test ? await client.SendAsync(req, ct) : await SendOrHold(client, req, title, text, ct);
+            if (resp is null) return true;
             _log.LogInformation("Webhook ({Format}) responded {Status}", format, (int)resp.StatusCode);
             return resp.IsSuccessStatusCode;
         }

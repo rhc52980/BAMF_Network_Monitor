@@ -56,6 +56,8 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ScannerService>())
 builder.Services.AddSingleton<ReportService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ReportService>());
 builder.Services.AddSingleton<MqttPublisher>();
+builder.Services.AddSingleton<RuleService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RuleService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MqttPublisher>());
 builder.Services.AddHttpClient();
 
@@ -155,6 +157,7 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
     var tags = store.GetTags();
     var counters = scanner.Traffic.Counters();
     var dnsByDevice = scanner.Traffic.DnsByDevice();
+    var openPorts = store.OpenPorts();
     var hosts = store.GetAll().Select(h => new
     {
         id = h.Id,
@@ -195,6 +198,8 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         traffic = counters.TryGetValue(h.Mac, out var tc) ? new { rx = Math.Round(tc.Rx), tx = Math.Round(tc.Tx), rxTotal = tc.RxTotal, txTotal = tc.TxTotal } : null,
         // The DNS servers this device asks, most used first.
         dns = dnsByDevice.TryGetValue(h.Mac, out var dl) ? dl : new List<string>(),
+        // Ports found open the last time it was scanned, if ever.
+        openPorts = openPorts.TryGetValue(h.Id, out var op) ? op : new List<int>(),
         // Every address the device answers on, the main one (ip) first. More
         // than one current entry means it's on several at once, like a router
         // with an address on each network. Old ones stay listed until they age out.
@@ -382,7 +387,7 @@ app.MapPost("/api/hosts/{id:long}/wake", async (long id, HostStore store) =>
     return ok ? Results.Ok(new { ok = true }) : Results.Json(new { ok = false, error = "Could not send magic packet (bad MAC?)" });
 });
 
-app.MapGet("/api/hosts/{id:long}/portscan", async (long id, string? ports, HostStore store, CancellationToken ct) =>
+app.MapGet("/api/hosts/{id:long}/portscan", async (long id, string? ports, HostStore store, RuleService rules, CancellationToken ct) =>
 {
     var host = store.GetAll().FirstOrDefault(h => h.Id == id);
     if (host is null) return Results.NotFound();
@@ -390,8 +395,59 @@ app.MapGet("/api/hosts/{id:long}/portscan", async (long id, string? ports, HostS
     var open = spec is null
         ? await PortChecker.ScanAsync(host.Ip, 700, ct)
         : await PortChecker.ScanAsync(host.Ip, spec, 700, ct);
-    return Results.Json(open.Select(o => new { port = o.Port, service = o.Service }));
+    // Remembered, so a port that opens later is a change worth an alert.
+    var newly = await rules.RecordScan(host, spec ?? PortChecker.CommonPorts.Select(p => p.Port), open, ct);
+    return Results.Json(new { ports = open.Select(o => new { port = o.Port, service = o.Service }), newlyOpen = newly });
 });
+
+// Every port BAMF has found open on a device, open now or once.
+app.MapGet("/api/hosts/{id:long}/ports", (long id, HostStore store) =>
+    Results.Json(store.GetPorts(id).Select(p => new { p.Port, p.Service, p.FirstSeen, p.LastSeen, p.Open })));
+
+// Bytes per hour for a device over the last days, from the traffic monitor.
+app.MapGet("/api/hosts/{id:long}/traffic", (long id, int? days, HostStore store) =>
+{
+    var host = store.GetAll().FirstOrDefault(h => h.Id == id);
+    if (host is null) return Results.NotFound();
+    var macs = new List<string> { host.Mac };
+    macs.AddRange(store.GetInterfaces().Where(kv => kv.Value == id).Select(kv => store.GetAll().FirstOrDefault(h => h.Id == kv.Key)?.Mac).Where(m => m is not null)!);
+    var rows = macs.SelectMany(m => store.GetTrafficHistory(m, days ?? 7)).GroupBy(r => r.Hour).OrderBy(g => g.Key)
+        .Select(g => new { hour = g.Key, rx = g.Sum(r => r.Rx), tx = g.Sum(r => r.Tx) });
+    return Results.Json(rows);
+});
+
+// Alerts BAMF raised: rules, ports, DHCP and DNS, newest first.
+app.MapGet("/api/alerts", (HostStore store, ScannerService scanner) =>
+{
+    var mine = store.GetAlerts(50).Select(a => new { at = a.At, kind = a.Kind, title = a.Title, detail = a.Detail });
+    var watch = scanner.Traffic.Alerts().Select(a => new { at = a.At, kind = a.Kind, title = a.Title, detail = a.Detail });
+    return Results.Json(mine.Concat(watch).OrderByDescending(a => a.at).Take(50));
+});
+
+// Alert rules, and quiet hours.
+app.MapGet("/api/settings/rules", (RuleService rules, ScannerService scanner) => Results.Json(RulesJson(rules, scanner)));
+app.MapPost("/api/settings/rules", (List<RuleService.Rule> body, RuleService rules, ScannerService scanner) =>
+{
+    var error = rules.SaveRules(body ?? new());
+    return error is null ? Results.Json(RulesJson(rules, scanner)) : Results.BadRequest(new { error });
+});
+app.MapPost("/api/settings/quiet", (QuietRequest body, HostStore store, RuleService rules, ScannerService scanner) =>
+{
+    var from = (body.From ?? "").Trim(); var to = (body.To ?? "").Trim();
+    if ((from != "" || to != "") && (!TimeOnly.TryParse(from, out _) || !TimeOnly.TryParse(to, out _)))
+        return Results.BadRequest(new { error = "Give quiet hours a from and to time, like 23:00 and 07:00." });
+    store.SetSetting("quietFrom", from); store.SetSetting("quietTo", to);
+    store.SetSetting("quietDigest", body.Digest ? "true" : "false");
+    return Results.Json(RulesJson(rules, scanner));
+});
+app.MapPost("/api/settings/port-watch", (ActiveArpRequest body, HostStore store) =>
+{
+    store.SetSetting("portWatch", body.Enabled ? "true" : "false");
+    return Results.Ok();
+});
+// Runs the port watch now.
+app.MapPost("/api/ports/watch", async (RuleService rules, CancellationToken ct) =>
+    Results.Json(new { newlyOpen = await rules.PortWatch(ct) }));
 
 // On-demand scan of any IP the user types — it doesn't have to be a known
 // host. Restricted to private/loopback ranges: the dashboard can be exposed
@@ -514,7 +570,7 @@ app.MapGet("/api/portscan/pattern", async (string? ip, string? ports, HostStore 
 
 // Network-wide, on-demand scan. Optional ?ports=... custom spec, optional
 // ?subnet=... to limit to one network. Online hosts only (offline can't answer).
-app.MapGet("/api/portscan", async (string? ports, string? subnet, HostStore store, CancellationToken ct) =>
+app.MapGet("/api/portscan", async (string? ports, string? subnet, HostStore store, RuleService rules, CancellationToken ct) =>
 {
     var spec = PortChecker.ParseSpec(ports);
     var hosts = store.GetAll()
@@ -537,6 +593,7 @@ app.MapGet("/api/portscan", async (string? ports, string? subnet, HostStore stor
             var open = spec is null
                 ? await PortChecker.ScanAsync(h.Ip, 700, ct, perHost)
                 : await PortChecker.ScanAsync(h.Ip, spec, 700, ct, perHost);
+            await rules.RecordScan(h, spec ?? PortChecker.CommonPorts.Select(p => p.Port), open, ct);
             if (open.Count > 0)
                 lock (results)
                     results.Add(new
@@ -766,7 +823,7 @@ app.MapPost("/api/settings/holiday-spirit", (ActiveArpRequest body, HostStore st
 // appsettings.json on purpose. Subnets in particular is the boundary the wildcard
 // port-scan guard depends on - a pattern can only expand across configured
 // networks, so letting the UI edit that list would dissolve the guarantee.
-app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChecker updates, IConfiguration cfg, ReportService reports, MqttPublisher mqtt) =>
+app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChecker updates, IConfiguration cfg, ReportService reports, MqttPublisher mqtt, RuleService rulesSvc) =>
 {
     var overrides = scanner.ReadIntervalOverrides();
     return Results.Ok(new
@@ -803,6 +860,7 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             trafficMonitor = scanner.TrafficMonitorEnabled,
             trafficStatus = TrafficJson(scanner),
             report = ReportJson(reports),
+            rules = RulesJson(rulesSvc, scanner),
             holidaySpirit = HolidaySpirit(store, app.Configuration),
             updateCheck = updates.Enabled,
             webhookConfigured = !string.IsNullOrWhiteSpace(scanner.WebhookUrl),
@@ -1100,6 +1158,13 @@ static List<object> SwitchesJson(HostStore store)
 
 // Enough of the URL to recognise which webhook is saved, never enough to use it.
 // A Discord URL ends /webhooks/<id>/<token>; the token is the secret.
+static object RulesJson(RuleService rules, ScannerService scanner) => new
+{
+    rules = rules.Rules.Select(r => new { r.Id, r.Name, r.Kind, r.Target, r.Minutes, r.From, r.To, r.Enabled, text = rules.Describe(r) }),
+    quiet = new { from = scanner.QuietHours.From, to = scanner.QuietHours.To, digest = scanner.QuietDigest, now = scanner.IsQuietNow(), held = scanner.HeldCount },
+    portWatch = rules.PortWatchEnabled,
+};
+
 static object ReportJson(ReportService reports) => new
 {
     schedule = reports.Schedule, hour = reports.Hour, day = reports.Day,
@@ -1177,6 +1242,7 @@ record CombineRequest(long ParentId);
 record TagsRequest(List<string>? Tags);
 record TrustRequest(string? Kind, string? Ip, bool Trusted);
 record ReportRequest(string? Schedule, int? Hour, int? Day);
+record QuietRequest(string? From, string? To, bool Digest);
 record PortEntry(long HostId, int Port);
 record BlinkRequest(int? Seconds);
 record DeviceTypeRequest(string? Type);

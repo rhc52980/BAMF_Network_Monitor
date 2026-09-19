@@ -131,12 +131,11 @@ public sealed class ReportService : BackgroundService
             sb.AppendLine($"Watch alerts ({alerts.Count}): {t}");
             fields.Add(($"Watch alerts ({alerts.Count})", t));
         }
-        if (_scanner.Traffic.Running)
         {
             var byMac = all.ToDictionary(h => h.Mac, h => h, StringComparer.OrdinalIgnoreCase);
-            var top = _scanner.Traffic.Counters().Where(kv => byMac.ContainsKey(kv.Key))
-                .OrderByDescending(kv => kv.Value.RxTotal + kv.Value.TxTotal).Take(3)
-                .Select(kv => $"{Name(byMac[kv.Key])} ({Bytes(kv.Value.RxTotal + kv.Value.TxTotal)})").ToList();
+            var top = _store.TrafficTotals(since).Where(kv => byMac.ContainsKey(kv.Key))
+                .OrderByDescending(kv => kv.Value.Rx + kv.Value.Tx).Take(3)
+                .Select(kv => $"{Name(byMac[kv.Key])} ({Bytes(kv.Value.Rx + kv.Value.Tx)})").ToList();
             if (top.Count > 0)
             {
                 sb.AppendLine("Top talkers: " + string.Join("; ", top));
