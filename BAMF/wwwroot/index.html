@@ -961,7 +961,7 @@
   .quiet-row input[type=time] { width: 110px; }
   .alert-item { border-left: 3px solid var(--led-warn); padding: 4px 10px; margin: 4px 0; font-size: 12.5px; }
   .alert-item.rule { border-color: var(--focus); } .alert-item.dhcp, .alert-item.dns, .alert-item.security { border-color: var(--danger); }
-  .alert-item.cert { border-color: var(--led-warn); }
+  .alert-item.cert { border-color: var(--led-warn); } .alert-item.wake { border-color: var(--led-on); }
   /* The hygiene card: one line per finding, worst first. */
   .hy-item { display: grid; grid-template-columns: 58px 1fr; gap: 8px; align-items: start; padding: 6px 4px; border-top: 1px solid var(--line); font-size: 12.5px; }
   .hy-item:first-child { border-top: 0; }
@@ -973,6 +973,20 @@
   .hy-item.low .hy-sev { background: var(--panel-2); color: var(--text-dim); }
   .hy-item .who { color: var(--text-dim); margin-left: 6px; }
   .hy-item .det { color: var(--text-dim); margin-top: 2px; }
+  /* Find a free address. */
+  .free-days { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; font: inherit; }
+  .free-net { padding: 10px 0; border-top: 1px solid var(--line); }
+  .free-net:first-child { border-top: 0; }
+  .free-head { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; flex-wrap: wrap; }
+  .free-head span { color: var(--text-dim); font-size: 12px; }
+  .free-gauge { height: 8px; border-radius: 4px; background: var(--panel-2); margin: 6px 0; overflow: hidden; box-shadow: inset 0 0 0 1px var(--line); }
+  .free-gauge i { display: block; height: 100%; background: var(--led-on); border-radius: 4px; }
+  .free-gauge.busy i { background: var(--led-warn); } .free-gauge.full i { background: var(--danger); }
+  .free-pick { font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .free-pick .toggle { padding: 2px 10px; font-size: 12px; }
+  .free-runs { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--text-dim); }
+  .free-runs .n { margin-left: 5px; font-size: 11px; opacity: .8; }
+  .free-runs .n::before { content: "("; } .free-runs .n::after { content: ")"; }
   .hy-more { margin-top: 6px; background: none; border: 0; padding: 2px 4px; color: var(--focus); font: inherit; font-size: 12px; cursor: pointer; }
   .hy-more:hover { text-decoration: underline; }
   .hy-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
@@ -2631,6 +2645,7 @@
         <button id="netScan">Scan ports…</button>
         <button id="notifySetup">Notifications…</button>
         <button id="exportCsv">Export CSV</button>
+        <button id="freeOpen" title="How full each network is, and addresses nothing has used lately">Find a free address…</button>
         <button id="wallOpen" title="A big, calm status board for a TV or a spare tablet: opens /wall in a new tab">Wall display</button>
         <button id="testWebhook">Test webhook</button>
         <button id="feedback">Feedback / report a bug…</button>
@@ -2898,9 +2913,10 @@
     </p>
     <div class="rule-list" id="ruleList"></div>
     <div class="rule-form">
-      <select id="ruleKind"><option value="offline">Offline for more than</option><option value="online">Back online</option><option value="hours">Online between</option></select>
+      <select id="ruleKind"><option value="offline">Offline for more than</option><option value="online">Back online</option><option value="hours">Online between</option><option value="wake">Wake at</option></select>
       <input id="ruleMinutes" type="number" min="1" max="10080" value="15" title="minutes"> <span id="ruleMinLbl">min</span>
       <input id="ruleFrom" type="time" value="22:00" hidden><span id="ruleAnd" hidden>and</span><input id="ruleTo" type="time" value="06:00" hidden>
+      <select id="ruleDays" hidden><option value="daily">every day</option><option value="weekdays">on weekdays</option><option value="weekends">at weekends</option></select>
       <span>for</span>
       <select id="ruleTarget"></select>
       <input id="ruleName" class="modal-input" placeholder="name (optional)" maxlength="60" style="width:150px">
@@ -2969,6 +2985,18 @@
       <button class="export-btn" id="reportSave">Save schedule</button>
     </div>
     <div class="modal-result" id="reportResult"></div>
+  </div>
+
+  <div class="set-card" id="routerCard">
+    <div class="set-card-title">Names from your router</div>
+    <p class="modal-help">Your router knows most devices by the name they asked for, or one you gave them in its own pages.
+      With <span class="mono">Bamf:RouterImport</span> set in appsettings.json (OpenWrt, OPNsense, pfSense or UniFi), BAMF
+      reads that list every hour and uses it for any device with no other name.</p>
+    <div class="set-hint" id="routerStatus"></div>
+    <div class="modal-actions" style="justify-content:flex-start">
+      <button type="button" class="toggle" id="routerRun">Import now</button>
+      <button type="button" class="export-btn" id="routerApply" title="Copies router names into BAMF's own names, for devices that don't have one">Use as names for unnamed devices</button>
+    </div>
   </div>
 
   <div class="set-card">
@@ -3089,6 +3117,19 @@
       <button class="toggle" id="gwCancel">Cancel</button>
       <button class="export-btn" id="gwSave">Save</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="freeModal" hidden>
+  <div class="modal">
+    <div class="modal-title">Find a free address</div>
+    <p class="modal-help">How full each network is, and the addresses no device has used in the last
+      <select id="freeDays" class="free-days"><option value="30">30 days</option><option value="90" selected>90 days</option><option value="365">year</option></select>.
+      Good for picking a static address that won't collide with anything.</p>
+    <div id="freeBody"></div>
+    <p class="modal-help">BAMF only knows the devices it has seen. Check your router's DHCP range too: a static
+      address should sit outside the range it hands out.</p>
+    <div class="modal-actions"><button class="toggle" id="freeClose">Close</button></div>
   </div>
 </div>
 
@@ -3920,9 +3961,9 @@ function addrMenuHtml(h) {
 }
 
 function dispName(h) {
-  // A name the device announced over mDNS is the last resort for display:
-  // a custom name or a resolved hostname always wins over it.
-  return h.customName || (h.hostname && h.hostname !== "—" ? h.hostname : "") || h.mdnsName || "—";
+  // After a custom name and a resolved hostname come the name the router
+  // knows it by (when router import is set up), then one it announced over mDNS.
+  return h.customName || (h.hostname && h.hostname !== "—" ? h.hostname : "") || h.routerName || h.mdnsName || "—";
 }
 
 // A device guess reads "Apple device (vendor)" or "Windows (TTL 128, SMB)":
@@ -11618,6 +11659,38 @@ $("setTraffic").onclick = async () => {
   } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
 };
 
+// Names from the router: its status, Import now, and copying the names over.
+async function loadRouterImport() {
+  try { renderRouterImport(await (await fetch("/api/router-import")).json()); } catch { }
+}
+function renderRouterImport(st) {
+  const named = hosts.filter(h => h.routerName).length;
+  $("routerStatus").textContent = !st.enabled
+    ? "Not set up. Add Bamf:RouterImport to appsettings.json; the README has an example for each router."
+    : `${st.kind} at ${st.host}` + (st.lastRun ? ` · last read ${fmtAgo(st.lastRun)}` : " · not read yet")
+      + (st.error ? ` · failed: ${st.error}` : st.lastRun ? ` · ${st.count} named device${st.count === 1 ? "" : "s"}, ${named} of them seen by BAMF` : "");
+  $("routerRun").disabled = !st.enabled;
+  $("routerApply").disabled = !named;
+}
+$("routerRun").onclick = async () => {
+  const b = $("routerRun"); b.disabled = true; b.textContent = "Reading…";
+  try {
+    const r = await fetch("/api/router-import/run", { method: "POST" });
+    const st = await r.json();
+    await refresh();
+    renderRouterImport(st);
+    toast(r.ok ? `Read ${st.count} name${st.count === 1 ? "" : "s"} from the router` : "The router didn't answer: " + (st.error || r.status));
+  } catch (e) { toast("Couldn't reach BAMF"); }
+  finally { b.textContent = "Import now"; }
+};
+$("routerApply").onclick = async () => {
+  try {
+    const r = await fetch("/api/router-import/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ overwrite: false }) });
+    const d = await r.json();
+    await refresh();
+    toast(d.named ? `Named ${d.named} device${d.named === 1 ? "" : "s"} from the router` : "Every device the router names already has a name");
+  } catch { toast("Couldn't save the names"); }
+};
 function renderArpWatchToggle() {
   const t = $("setArpWatch");
   if (!t) return;
@@ -11766,6 +11839,41 @@ function openScanModal() {
   $("scanModal").hidden = false;
 }
 $("netScan").onclick = openScanModal;
+
+// Find a free address: a fill gauge for each network, its longest runs of
+// addresses nothing has used lately, and one suggestion to copy.
+async function loadFreeIps() {
+  const body = $("freeBody");
+  body.innerHTML = `<div class="modal-note">Working it out…</div>`;
+  try {
+    const r = await fetch("/api/free-ips?days=" + $("freeDays").value);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const nets = await r.json();
+    if (!nets.length) { body.innerHTML = `<div class="modal-note">No IPv4 networks between /16 and /30 to look at.</div>`; return; }
+    body.innerHTML = nets.map(n => {
+      const pct = Math.round(100 * n.used / Math.max(1, n.size));
+      const runs = n.runs.map(x => `<li><span class="mono">${esc(x.from)}${x.count > 1 ? " – " + esc(x.to) : ""}</span><span class="n">${x.count}</span></li>`).join("");
+      return `<div class="free-net">
+        <div class="free-head"><b class="mono">${esc(n.subnet)}</b><span>${n.used} of ${n.size} used · ${n.free} free</span></div>
+        <div class="free-gauge ${pct >= 90 ? "full" : pct >= 70 ? "busy" : ""}" title="${pct}% used"><i style="width:${pct}%"></i></div>
+        ${n.suggestion ? `<div class="free-pick">Try <b class="mono">${esc(n.suggestion)}</b> <button type="button" class="toggle free-copy" data-ip="${esc(n.suggestion)}">Copy</button></div>` : `<div class="free-pick">No free addresses.</div>`}
+        ${runs ? `<ul class="free-runs" title="The longest runs of free addresses">${runs}</ul>` : ""}
+      </div>`;
+    }).join("");
+    body.querySelectorAll(".free-copy").forEach(b => b.onclick = async () => {
+      try { await navigator.clipboard.writeText(b.dataset.ip); toast(`Copied ${b.dataset.ip}`); }
+      catch { toast(b.dataset.ip); }
+    });
+  } catch (e) { body.innerHTML = `<div class="modal-note">Couldn't work it out: ${esc(e.message)}</div>`; }
+}
+$("freeOpen").onclick = () => {
+  toolsOpen = false; $("toolsMenu").classList.remove("show");
+  $("freeModal").hidden = false;
+  loadFreeIps();
+};
+$("freeDays").onchange = loadFreeIps;
+$("freeClose").onclick = () => { $("freeModal").hidden = true; };
+$("freeModal").onclick = e => { if (e.target.id === "freeModal") $("freeModal").hidden = true; };
 $("scanCancel").onclick = () => { $("scanModal").hidden = true; };
 $("scanModal").onclick = e => { if (e.target.id === "scanModal") $("scanModal").hidden = true; };
 $("scanPortsMode").onchange = e => {
@@ -11884,7 +11992,12 @@ function fillRules() {
 function syncRuleForm() {
   const k = $("ruleKind").value;
   $("ruleMinutes").hidden = k !== "offline"; $("ruleMinLbl").hidden = k !== "offline";
-  $("ruleFrom").hidden = k !== "hours"; $("ruleAnd").hidden = k !== "hours"; $("ruleTo").hidden = k !== "hours";
+  $("ruleFrom").hidden = k !== "hours" && k !== "wake"; $("ruleAnd").hidden = k !== "hours"; $("ruleTo").hidden = k !== "hours";
+  $("ruleDays").hidden = k !== "wake";
+  // Waking "any device" makes no sense; the other targets stay.
+  const any = [...$("ruleTarget").options].find(o => o.value === "any");
+  if (any) { any.disabled = k === "wake"; if (k === "wake" && $("ruleTarget").value === "any") $("ruleTarget").value = [...$("ruleTarget").options].find(o => !o.disabled)?.value || "any"; }
+  if (k === "wake" && $("ruleFrom").value === "22:00") $("ruleFrom").value = "07:00";
 }
 $("ruleKind").onchange = syncRuleForm;
 async function saveRules(rules) {
@@ -11899,7 +12012,7 @@ async function saveRules(rules) {
 $("ruleAdd").onclick = () => {
   const kind = $("ruleKind").value;
   const rule = { id: "", name: $("ruleName").value.trim(), kind, target: $("ruleTarget").value,
-    minutes: Number($("ruleMinutes").value) || 15, from: $("ruleFrom").value, to: $("ruleTo").value, enabled: true };
+    minutes: Number($("ruleMinutes").value) || 15, from: $("ruleFrom").value, to: kind === "wake" ? $("ruleDays").value : $("ruleTo").value, enabled: true };
   saveRules([...(rulesData ? rulesData.rules : []), rule]).then(() => { $("ruleName").value = ""; toast("Rule added"); });
 };
 async function saveQuiet(from, to) {
@@ -12123,6 +12236,7 @@ document.addEventListener("keydown", e => {
     $("search").blur();
     return;
   }
+  if (!$("freeModal").hidden) { $("freeModal").hidden = true; return; }
   if (!$("tagsModal").hidden) { closeTagsDialog(); return; }
   if (!$("cardsModal").hidden) { closeCardsDialog(); return; }
   if (!$("gwModal").hidden) { closeGatewayDialog(); return; }
@@ -12343,6 +12457,7 @@ async function loadSettings() {
   if (typeof e.certWatch === "boolean") certWatch = e.certWatch;
   renderArpWatchToggle();
   renderCertWatchToggle();
+  loadRouterImport();
 
   // The instant-apply toggles and the notifications card draw from the last
   // /api/hosts poll rather than this endpoint, so refresh them here too.

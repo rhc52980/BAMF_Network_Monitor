@@ -57,6 +57,16 @@ public static class WakeOnLan
         catch { return null; }
     }
 
+    /// <summary>Wakes a device, with its network's directed broadcast as well as the local one.</summary>
+    public static Task<bool> WakeHostAsync(HostRecord host)
+    {
+        IPAddress? directed = null;
+        var parts = (host.Subnet ?? "").Split('/');
+        if (parts.Length == 2 && IPAddress.TryParse(parts[0], out var net) && int.TryParse(parts[1], out var prefix))
+            directed = DirectedBroadcast(net, prefix);
+        return WakeAsync(host.Mac, directed);
+    }
+
     /// <summary>Directed broadcast address for a network/prefix (e.g. 192.168.1.255).</summary>
     public static IPAddress DirectedBroadcast(IPAddress network, int prefix)
     {

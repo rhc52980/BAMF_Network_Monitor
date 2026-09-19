@@ -162,6 +162,7 @@ public partial class HostStore
         InitDeviceTypes(conn);
         InitAddresses(conn);
         InitSecurity(conn);
+        InitHelpers(conn);
     }
 
     /// <summary>Every address a host has been seen at, oldest first, with when each began.</summary>
