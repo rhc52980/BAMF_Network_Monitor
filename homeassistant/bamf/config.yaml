@@ -1,0 +1,45 @@
+# BAMF as a Home Assistant add-on. Runs the same image as `docker run`
+# (ghcr.io/rhc52980/bamf, tagged with this version), on the host's network so
+# ARP sees your LAN. Keep `version` equal to <Version> in BAMF/BAMF.csproj:
+# the release workflow fails if they differ.
+name: BAMF
+version: "1.41.0"
+slug: bamf
+description: Watches your network for devices coming and going, and tells you when one appears, drops or misbehaves.
+url: https://github.com/rhc52980/BAMF_Network_Monitor
+arch:
+  - amd64
+  - aarch64
+image: ghcr.io/rhc52980/bamf
+startup: services
+boot: auto
+host_network: true
+privileged:
+  - NET_ADMIN
+  - NET_RAW
+webui: "http://[HOST]:[PORT:8840]/"
+ports:
+  8840/tcp: 8840
+ports_description:
+  8840/tcp: Dashboard
+options:
+  subnets: []
+  scan_interval_seconds: 60
+  password: ""
+  webhook_url: ""
+  active_arp: true
+  traffic_monitor: true
+  mqtt_server: ""
+  mqtt_username: ""
+  mqtt_password: ""
+schema:
+  subnets:
+    - "match(^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}/\\d{1,2}$)"
+  scan_interval_seconds: int(10,86400)
+  password: password?
+  webhook_url: url?
+  active_arp: bool
+  traffic_monitor: bool
+  mqtt_server: str?
+  mqtt_username: str?
+  mqtt_password: password?

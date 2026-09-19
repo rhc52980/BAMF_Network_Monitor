@@ -358,6 +358,7 @@ public partial class ScannerService : BackgroundService
         _traffic = traffic;
         _traffic.OnAlert = a => SendWatchAlert(a, CancellationToken.None);
         _traffic.OnArp = OnArpSeen;
+        _traffic.OnNdp = OnNdpSeen;
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -502,6 +503,12 @@ public partial class ScannerService : BackgroundService
                         if (_store.ApplyMdns(o.Ip, o.Name, o.Services)) learned++;
                     if (learned > 0)
                         _log.LogInformation("mDNS: learned names or services for {Count} device(s)", learned);
+
+                    // IPv6 addresses: what the traffic monitor saw, and every five
+                    // minutes the neighbour table. Same thread, same one writer.
+                    try { await WatchIpv6(ct); }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception ex) { _log.LogWarning(ex, "IPv6 watch failed"); }
 
                     LastScanUtc = DateTime.UtcNow;
                 }
@@ -953,7 +960,10 @@ public partial class ScannerService : BackgroundService
         var result = new List<(IPAddress, int)>();
 
         // Preferred: list of CIDRs in Bamf:Subnets.
-        var configured = _config.GetSection("Bamf:Subnets").Get<string[]>() ?? Array.Empty<string>();
+        // Blank entries are skipped: the Home Assistant add-on blanks the
+        // file's list past its own, and all blank means auto-detect.
+        var configured = (_config.GetSection("Bamf:Subnets").Get<string[]>() ?? Array.Empty<string>())
+            .Where(c => !string.IsNullOrWhiteSpace(c)).ToArray();
 
         // Back-compat: single Bamf:Subnet string.
         var single = _config["Bamf:Subnet"];

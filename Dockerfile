@@ -21,8 +21,9 @@ RUN dotnet publish BAMF/BAMF.csproj -c Release -o /out --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 # libpcap for the active ARP scan and the traffic monitor; ca-certificates for
-# the OUI download and webhooks over HTTPS; curl for the health check.
-RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends libpcap0.8 ca-certificates curl \
+# the OUI download and webhooks over HTTPS; curl for the health check; iproute2
+# for the IPv6 neighbour table.
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends libpcap0.8 ca-certificates curl iproute2 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /out .

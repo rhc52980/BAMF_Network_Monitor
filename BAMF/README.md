@@ -63,6 +63,8 @@ copying it, and removing BAMF means deleting it plus the service.
 - **Linux** — `linux/install.sh` handles install *and* updates end to end
   (dependencies, build to `/opt/bamf`, systemd unit, start). For Proxmox LXC
   specifics see `linux/README-PROXMOX.md`.
+- **Home Assistant** — add this repository to the Add-on Store and install
+  the BAMF add-on. See [Home Assistant add-on](#home-assistant-add-on).
 - **Docker** — `docker run` the image from GHCR on the host's network; nothing
   to build. See [Docker](#docker).
 
@@ -916,6 +918,26 @@ Uninstall:
 systemctl disable --now bamf && rm /etc/systemd/system/bamf.service && systemctl daemon-reload && rm -rf /opt/bamf
 ```
 
+## Home Assistant add-on
+
+This repository is also a Home Assistant add-on repository. In Home Assistant,
+go to **Settings → Add-ons → Add-on Store → ⋮ → Repositories** and add
+`https://github.com/rhc52980/BAMF_Network_Monitor`. Then install **BAMF**,
+set your networks on its **Configuration** tab (or leave them empty to scan
+every network the host is on), start it, and **Open Web UI**.
+
+It runs the same image as [Docker](#docker), on the host's network with raw
+network access, and keeps its database in the add-on's own storage, so it's
+in your Home Assistant backups. Its options cover the networks, the scan
+interval, a dashboard password, the webhook, active ARP, the traffic monitor
+and MQTT. Set **MQTT broker** to your Home Assistant's own address to see
+every device as a presence sensor. Anything changed in BAMF's own Settings
+wins over the options. The add-on's own documentation is in
+`homeassistant/bamf/DOCS.md`.
+
+Outside Home Assistant, the same options can be tested by pointing
+`BAMF_ADDON_OPTIONS` at an options file.
+
 ## Docker
 
 An image is published to GHCR with every release, for amd64 and arm64 (so a
@@ -1054,6 +1076,8 @@ scan, or delete a thing.
 | GET | `/wall` | The wall display page. `?net=<cidr>` shows one network. See [Wall display](#wall-display) |
 | POST | `/api/settings/arp-watch` | Body `{"enabled": false}` — the ARP watch: IP conflicts, the gateway's MAC changing, another device claiming the gateway. On by default |
 | POST | `/api/settings/cert-watch` | Body `{"enabled": false}` — the certificate watch: HTTPS certificates read every morning, with expiry alerts. On by default |
+| GET | `/api/ipv6` | The IPv6 watch: `enabled`, `lastRead`, `error`, and `onlyIpv6`, MACs seen over IPv6 this week that never answered the IPv4 scan. Devices' own IPv6 addresses are `ipv6` in `/api/hosts` |
+| POST | `/api/settings/ipv6-watch` | Body `{"enabled": false}` — turn the IPv6 watch off or on. On by default |
 | GET | `/api/free-ips?days=90` | For each IPv4 network: `size`, `used`, `free`, the longest `runs` of free addresses and a `suggestion`. Used means seen in the last `days` (default 90), plus every device's current address, the gateway and this machine |
 | GET | `/api/router-import` | Router import status: `kind`, `host`, `enabled`, `lastRun`, `count`, `error` |
 | POST | `/api/router-import/run` | Read the router's list now; `502` with the status if it failed |
@@ -2026,6 +2050,28 @@ The **What changed** card on the **Activity** tab sums up the last 24 hours,
 
 Click a device to jump to it. The scheduled report carries the address moves,
 new open ports and security and certificate alerts too.
+
+### IPv6 addresses
+
+BAMF finds devices with ARP, which is IPv4's. Devices have IPv6 addresses
+too, and a few talk mostly or only IPv6. With **Watch IPv6 neighbours** on
+(the default, under **Settings → Behaviour**), every five minutes BAMF sends
+one ping to the all-nodes address on each network it scans, which every IPv6
+device answers, and reads this machine's neighbour table: IPv6's version of
+the ARP table. With the traffic monitor running, it also picks up neighbour
+discovery on the wire as it happens.
+
+- A device with IPv6 addresses gets a small **v6** chip beside its IPv4
+  address. Point at it for the addresses, and they're listed in its History
+  panel too. Search finds a device by any of them.
+- A device seen over IPv6 this week that never answered the IPv4 scan is
+  listed on **Activity → Only on IPv6**: often a sleeping smart speaker, or a
+  phone with a private address.
+- Only the network cards on networks BAMF scans are looked at. Addresses not
+  seen for the history retention window are dropped.
+
+On Windows it reads `netsh interface ipv6 show neighbors`; on Linux,
+`ip -6 neigh` (the Docker image includes it).
 
 ### Traffic, DHCP and DNS
 

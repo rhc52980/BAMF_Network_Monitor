@@ -1,0 +1,26 @@
+configuration:
+  subnets:
+    name: Networks
+    description: Networks to scan, like 192.168.1.0/24. Leave empty to scan every network the Home Assistant host is on.
+  scan_interval_seconds:
+    name: Scan every (seconds)
+    description: How often each network is scanned. Changing it in BAMF's own Settings wins over this.
+  password:
+    name: Dashboard password
+    description: Asks for this password before showing the dashboard. Leave empty for none.
+  webhook_url:
+    name: Webhook
+    description: Discord, ntfy, Gotify or any URL that takes a JSON POST, for alerts.
+  active_arp:
+    name: Active ARP scanning
+    description: Finds devices whose firewalls ignore ping. Needs the raw network access the add-on already has.
+  traffic_monitor:
+    name: Traffic monitor
+    description: Bytes per device, DHCP and DNS servers in use, and the ARP and IPv6 watches between scans.
+  mqtt_server:
+    name: MQTT broker
+    description: Publishes every device's presence to Home Assistant. With the Mosquitto add-on, use your Home Assistant's own address.
+  mqtt_username:
+    name: MQTT username
+  mqtt_password:
+    name: MQTT password

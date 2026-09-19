@@ -1,0 +1,6 @@
+# Makes this repository a Home Assistant add-on repository. In Home Assistant:
+# Settings > Add-ons > Add-on Store > ⋮ > Repositories, and add
+# https://github.com/rhc52980/BAMF_Network_Monitor
+name: BAMF
+url: https://github.com/rhc52980/BAMF_Network_Monitor
+maintainer: rhc52980
