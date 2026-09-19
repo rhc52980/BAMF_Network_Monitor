@@ -986,6 +986,7 @@
   /* View only: the editing controls go, or go quiet. The server refuses the
      changes anyway; this just stops offering them. */
   .chip.viewonly { border-color: var(--focus); color: var(--focus); }
+  .brand .chip[hidden] { display: none; } /* display:inline-flex would otherwise beat the hidden attribute */
   body.viewer tr .actions .more-wrap, body.viewer .map-tools .edit-only, body.viewer #netScan, body.viewer #testWebhook,
   body.viewer #hygieneCheck, body.viewer .hy-actions .hint { display: none !important; }
   body.viewer .watch-star { pointer-events: none; }
