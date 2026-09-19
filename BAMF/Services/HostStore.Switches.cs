@@ -496,6 +496,7 @@ public partial class HostStore
             DELETE FROM host_interfaces WHERE host_id = $id OR parent_id = $id;
             DELETE FROM host_tags WHERE host_id = $id;
             DELETE FROM latency WHERE host_id = $id;
+            DELETE FROM host_ports WHERE host_id = $id;
             """;
         cmd.Parameters.AddWithValue("$id", hostId);
         cmd.ExecuteNonQuery();

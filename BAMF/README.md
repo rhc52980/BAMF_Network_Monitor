@@ -322,6 +322,14 @@ survive IP changes.
   column and a Top talkers card. See [Traffic, DHCP and DNS](#traffic-dhcp-and-dns).
 - **DHCP and DNS watch** - an alert when a second DHCP server appears, or a
   device starts asking a DNS server it never used before.
+- **Alert rules and quiet hours** - "kids' devices online after 10 pm", "the
+  NAS offline for more than 15 minutes"; and quiet hours that hold every alert
+  for one summary in the morning. See [Alert rules](#alert-rules-and-quiet-hours).
+- **Port history and change alerts** - every port ever found open on a device
+  is remembered, and a port that opens later is an alert. Optionally, a daily
+  scan of every known device. See [Port history](#port-history-and-change-alerts).
+- **Bandwidth history** - bytes per device per hour, kept for the retention
+  window, so the History panel shows the week and reports say who used the most.
 - **Scheduled reports** - a daily or weekly summary to your webhook: what's
   new, what went away, the flakiest, the longest offline. See
   [Scheduled reports](#scheduled-reports).
@@ -889,6 +897,14 @@ scan, or delete a thing.
 | GET | `/api/hosts/{id}/events` | One host's online/offline event history |
 | GET | `/api/layout` | The recorded layout as one JSON file: switches and their kinds, uplinks and port labels; each device's placement, name, note, link, flags, type, tags and combined cards; declared gateways; type icons; Map positions. Devices are keyed by MAC and switches by their place in the file |
 | POST | `/api/layout` | Body: a file from `GET /api/layout`. Replaces the recorded layout. Returns `{"devices", "switches", "skipped"}`, `skipped` being the MACs this server hasn't seen, whose settings wait for a later import |
+| GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
+| GET | `/api/settings/rules` | The alert rules, quiet hours and port watch: `{"rules": [...], "quiet": {"from", "to", "digest", "now", "held"}, "portWatch"}` |
+| POST | `/api/settings/rules` | Body: the whole rule list, each `{"id", "name", "kind": "offline"\|"online"\|"hours", "target": "any"\|"watched"\|"tag:kids"\|"host:12", "minutes", "from", "to", "enabled"}`. `id` empty for a new rule |
+| POST | `/api/settings/quiet` | Body `{"from": "23:00", "to": "07:00", "digest": true}` — quiet hours in the server's local time; empty times clear them |
+| POST | `/api/settings/port-watch` | Body `{"enabled": true}` — scan every online known device's common ports daily at 4 am |
+| POST | `/api/ports/watch` | Run that scan now; returns how many newly open ports it found |
+| GET | `/api/hosts/{id}/ports` | Every port found open on a device, open now or once: `{"port", "service", "firstSeen", "lastSeen", "open"}`. A port scan (`/api/hosts/{id}/portscan`, which now returns `{"ports", "newlyOpen"}`) records here |
+| GET | `/api/hosts/{id}/traffic` | Bytes per hour for a device over the last 7 days (`?days=` for more): `[{"hour", "rx", "tx"}]` |
 | POST | `/api/settings/report` | Body `{"schedule": "daily", "hour": 8, "day": 1}` — the scheduled report: `off`, `daily` or `weekly`, the hour (0–23, the server's local time) and, for weekly, the day (0 Sunday to 6 Saturday) |
 | POST | `/api/reports/send` | Send the report now, whatever the schedule; returns what was sent |
 | GET | `/api/reports/preview` | The report as it would be sent |
@@ -1421,6 +1437,41 @@ Priorities: a new device or an offline alert is high (ntfy 4, Gotify 8); a
 recovery or a test is normal. ntfy alerts carry emoji tags so the notification
 shows a 🔴 for offline and a 🟢 for recovered without any setup on your side.
 
+### Alert rules and quiet hours
+
+Watched devices alert the moment they drop or return. **Settings → Alert
+rules and quiet hours** adds patience, groups and hours:
+
+- **Offline for more than N minutes**, for any device, the watched ones, a
+  tag, or one device. "The NAS offline for more than 15 minutes" alerts once
+  per outage, not for a blip.
+- **Back online**, for the same targets.
+- **Online between** two times of day. "Devices tagged kids online between
+  22:00 and 06:00" alerts once per device per day.
+
+Each rule can be paused or deleted, and every alert it raises shows under
+**Activity → Alerts** as well as going to the webhook.
+
+**Quiet hours** hold every alert BAMF would send (new device, watched device,
+rules, ports, DHCP and DNS) between two times of day, then deliver what was
+held as one summary when the quiet ends: "While it was quiet: 3 alerts". Untick
+the summary if you'd rather they were dropped. Scheduled reports keep their
+own hour. Times are the server's local time.
+
+### Port history and change alerts
+
+Every port scan now leaves a record: each port found open on a device, when
+it was first and last seen open, and whether it was open at the last scan.
+The History panel lists them, with ports that have since closed struck
+through. When a scan finds a port open that wasn't open the last time, that's
+an **alert**: "New open port on camera: 23 (Telnet)", under Activity → Alerts
+and to the webhook.
+
+**Watch ports daily** (off by default, since a scan is active rather than
+passive) scans every online known device's common ports at 4 am, so a port
+that opens is noticed without anyone running a scan. **Scan now** runs the
+same scan on demand.
+
 ### Scheduled reports
 
 Under **Settings → Notifications → Scheduled report**, pick **daily** or
@@ -1576,6 +1627,15 @@ subnets. To watch multiple networks the server needs an interface on each one
 to the correct local interface per subnet, so a multi-homed host scans every
 network on every cycle. If a subnet in your config has no matching local
 interface, the log warns you and that subnet's hosts will appear offline.
+
+### Bandwidth history
+
+The traffic monitor's counters used to start from zero each time BAMF
+started. Now it writes bytes per device per hour to the database every five
+minutes, kept for the history retention window. The History panel shows
+**Traffic this week** as a bar per hour with the totals in and out, and the
+scheduled report's top talkers are counted over the report's own period.
+`GET /api/hosts/{id}/traffic` has the numbers.
 
 ### Latency and uptime
 

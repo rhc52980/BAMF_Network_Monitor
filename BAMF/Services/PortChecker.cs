@@ -109,6 +109,9 @@ public static class PortChecker
     /// <summary>True if the address is a default gateway on this machine, or one the user declared.</summary>
     public static bool IsGateway(string ip) => Gateways().Contains(ip) || _declared.Contains(ip);
 
+    /// <summary>The default set, so a daily watch can say which ports it looked at.</summary>
+    public static IReadOnlyList<PortInfo> CommonPorts => Common;
+
     /// <summary>Scan the default common-port set.</summary>
     public static Task<List<PortInfo>> ScanAsync(string ip, int timeoutMs, CancellationToken ct,
         int maxConcurrency = HostBudget) =>
