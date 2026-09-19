@@ -13,7 +13,7 @@ serves a dashboard on port 8840.
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
 
-![The BAMF dashboard: every device on two networks, with vendor, device guess and 24-hour history](docs/dashboard.png)
+![The BAMF dashboard: every device on two networks, with vendor, device guess, 24-hour history and latency, tags under device names, and a New tab counting recent arrivals](docs/dashboard.png)
 
 <sub>Sample data — a demo database, not a real network.</sub>
 
@@ -114,7 +114,7 @@ screen. It works with any switch, including unmanaged ones.
 
 ### Tune it without touching the server
 
-![The Settings tab: scan interval, probe concurrency, history retention, an on/off switch and scan interval per network, the recorded switches, access point and SSIDs, and the instant toggles for active ARP, randomised MACs, Holiday Spirit and update checks](docs/settings.png)
+![The Settings tab: scan interval, probe concurrency, history retention, an on/off switch and scan interval per network, the recorded switches, access point and SSIDs with layout export and import, and the instant toggles for active ARP, randomised MACs, the traffic monitor, latency measuring, Holiday Spirit and update checks](docs/settings.png)
 
 Scan cadence, probe concurrency and history retention are editable from the
 dashboard and applied on the next scan — no restart, no editing a file over SSH.
