@@ -155,6 +155,8 @@ public partial class HostStore
         InitSwitches(conn);
         InitGateways(conn);
         InitInterfaces(conn);
+        InitLatency(conn);
+        InitTags(conn);
         InitMapPositions(conn);
         InitDeviceTypes(conn);
         InitAddresses(conn);
@@ -293,6 +295,7 @@ public partial class HostStore
             prune.Parameters.AddWithValue("$cutoff", cutoff);
             try { prune.ExecuteNonQuery(); } catch (SqliteException) { /* table not created yet on first Init */ }
         }
+        PruneLatency(conn, cutoff);
     }
 
     /// <summary>Recent events across all hosts (excluding ignored ones), newest first.</summary>

@@ -140,6 +140,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:ActiveArpScan` | Use raw ARP scanning via Npcap/libpcap when available; falls back to ping sweep otherwise. |
 | `Bamf:ScanIntervalSeconds` | Seconds between scans. |
 | `Bamf:AutoIgnoreRandomizedMacs` | Auto-ignore new hosts with randomized MACs (default in shipped config: true). |
+| `Bamf:LatencyProbe` | After each scan, ping every online device on the networks it covered and keep the round-trip time (default true). Also in Settings → Behaviour, which wins once changed there. See [Latency and uptime](#latency-and-uptime). |
 | `Bamf:HolidaySpirit` | `true` puts every dashboard in the Halloween theme from October 1st to 31st and the Christmas theme from December 1st to 25th (default false). Also in Settings → Behaviour, which wins once changed there. See [Holiday Spirit](#holiday-spirit). |
 | `Bamf:WebhookUrl` | Optional starting value for the notification webhook — the dashboard's **Tools → Notifications** saves over it. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use the dashboard's Test webhook button to verify. |
 | `Bamf:Password` | Optional. If set, the UI/API require it via HTTP Basic auth (any username). Over plain HTTP the credential is only base64-encoded — see [What BAMF talks to](#what-bamf-talks-to). |
@@ -308,7 +309,15 @@ survive IP changes.
 - **24h sparkline** - each row shows a tiny bar strip of the host's online/offline
   pattern over the last day, built from event history.
 - **Who's home board** - a tab showing your watched devices as presence tiles
-  (green = home/online, grey = away/offline). Great for people-devices.
+  (green = home/online, grey = away/offline). Great for people-devices. Pick a
+  tag instead to show one group of devices at a time.
+- **Latency and uptime** - a Latency column with each device's round-trip time,
+  a 24-hour latency chart in its History panel, and its uptime over the last 7
+  and 30 days. See [Latency and uptime](#latency-and-uptime).
+- **New tab** - every device first seen in the last 7 days, so a weekly check
+  takes ten seconds.
+- **Tags** - group devices as "kids", "IoT", "work" or whatever fits, then
+  filter the list and the Map by tag. See [Tags](#tags).
 - **26 themes** - click the theme button for a picker: Dark, Light, Terminal,
   Amber CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized (dark
   + light), Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
@@ -859,6 +868,8 @@ scan, or delete a thing.
 | GET | `/api/portscan/pattern` | Wildcard scan: `?ip=*.245`, optional `?ports=...`. Expands only across configured subnets, capped at 256 addresses |
 | GET | `/api/events` | Network-wide activity feed (recent online/offline events, all hosts) |
 | GET | `/api/hosts/{id}/events` | One host's online/offline event history |
+| GET | `/api/hosts/{id}/latency` | One host's latency samples over the last 24 hours (`?hours=` for more): `[{"at", "ms"}]`, `ms` null where the echo went unanswered. `GET /api/hosts` carries each host's latest as `latencyMs`, and its uptime over 7 and 30 days as `uptime7` and `uptime30` (percent) |
+| POST | `/api/hosts/{id}/tags` | Body `{"tags": ["kids", "IoT"]}` — replace a device's tags (up to 20, each up to 24 characters, no commas). `GET /api/hosts` lists each host's `tags` |
 | GET | `/api/hosts/{id}/ips` | One host's address history: each main address it has had, with when it began and ended |
 | POST | `/api/hosts/{id}/forget` | Body `{"forgotten": true}` — soft-delete to the Forgotten tab (reversible) |
 | DELETE | `/api/hosts/{id}` | Permanently delete a host and its history (from the Forgotten tab) |
@@ -1511,6 +1522,49 @@ subnets. To watch multiple networks the server needs an interface on each one
 to the correct local interface per subnet, so a multi-homed host scans every
 network on every cycle. If a subnet in your config has no matching local
 interface, the log warns you and that subnet's hosts will appear offline.
+
+### Latency and uptime
+
+After each scan, BAMF pings every online device on the networks the scan
+covered, once, and keeps the round-trip time. It's one small packet per device
+per scan; switch it off under **Settings → Behaviour** (or `Bamf:LatencyProbe`)
+if you'd rather it didn't.
+
+- The **Latency** column shows each device's last round-trip time, green under
+  20 ms, amber over 100 ms, red over 300 ms. A device that's online but didn't
+  answer the ping says **no reply**: plenty of devices drop ICMP while working
+  perfectly. Click the column heading to sort by it.
+- A device's **History** panel has a chart of the last 24 hours, with the
+  average and range, and a red tick wherever a ping went unanswered.
+- **Uptime** sits above the chart: the share of the last 7 and 30 days the
+  device was online, from the same online/offline history the timeline uses.
+  It counts from when the device was first seen, so a week-old device's 30-day
+  figure is over its own week, and it can only see as far back as the history
+  retention window. "The printer was down 6% of the month" is the number to
+  look for.
+
+Samples age out on the same window as events (`HistoryRetentionDays`).
+
+### The New tab
+
+**New**, in the device list's status tabs, shows every device first seen in the
+last 7 days, with a count on the tab while there are any. It's the weekly
+check: anything here that you don't recognise wants a name, a note or a
+closer look.
+
+### Tags
+
+**Tags…** in a device's ⋯ menu gives it any tags you like: "kids", "IoT",
+"work", "guest". Type them separated by commas, or click a tag already in use
+to add or remove it. Tags show as small chips under the device's name.
+
+- A **Tag** chip bar appears above the device list once any device has a tag.
+  Click a tag to see only those devices; the **Map** shows only them too, on
+  every layout, with your switches still drawn.
+- **Who's home** has a **Show** picker: your watched devices, as before, or
+  every device carrying one tag, so the board can show "kids" one moment and
+  "IoT" the next.
+- Search matches tags as well.
 
 ### One device, several addresses
 
