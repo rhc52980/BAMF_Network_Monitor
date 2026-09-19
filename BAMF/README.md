@@ -1617,7 +1617,9 @@ What this machine can see depends on where it sits. On an ordinary switched
 network it sees its own traffic plus broadcast and multicast, so the numbers
 are "traffic with the BAMF server" rather than the whole network's. Plug the
 server into a **mirrored (SPAN) port** on a managed switch, or an old hub,
-and it sees everything. The card says so.
+and it sees everything. The card says so. The same goes for the DHCP and DNS
+watch below: on a switched network it covers this machine and any broadcast
+DHCP offers; on a mirrored port it covers every device.
 
 **DHCP servers.** Every DHCP offer or acknowledgement names the server that
 sent it. The **Network watch** card on the Activity tab lists every DHCP
