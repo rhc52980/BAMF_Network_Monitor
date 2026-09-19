@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>BAMF wall</title>
+<link rel="icon" href="bamf-icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="fonts.css">
+<style>
+  /* The wall display: a status board for a TV, a spare tablet or a monitor on
+     a shelf. Big, calm, and no controls. Black behind everything so an OLED
+     shows nothing where nothing is, and the board drifts a few pixels every
+     minute so a plasma or an old LCD doesn't burn the numbers in. */
+  :root {
+    --bg: #000; --text: #e6e9ef; --dim: #6b7785; --line: #1b212a;
+    --on: #3fdb7f; --warn: #ffb454; --off: #1d232b;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); overflow: hidden; }
+  body {
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  }
+  body.idle { cursor: none; }
+  .board {
+    width: min(100%, 960px); display: flex; flex-direction: column; align-items: center; gap: 4vh;
+    transition: transform 30s linear;
+  }
+  .top { display: flex; align-items: center; gap: 14px; color: var(--dim); font-size: clamp(14px, 2vw, 20px); }
+  .top .brand { color: var(--on); font-weight: 700; letter-spacing: .08em; }
+  .top .net { font-family: "IBM Plex Mono", monospace; }
+  .clock { text-align: center; line-height: 1; }
+  .time { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: clamp(64px, 16vw, 176px); letter-spacing: -.02em; }
+  .date { margin-top: 1.2vh; color: var(--dim); font-size: clamp(14px, 2.4vw, 24px); }
+  .nums { display: flex; gap: clamp(20px, 6vw, 72px); }
+  .num { text-align: center; }
+  .num b { display: block; font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: clamp(36px, 8vw, 88px); line-height: 1; }
+  .num span { display: block; margin-top: 6px; color: var(--dim); font-size: clamp(12px, 1.8vw, 18px); text-transform: uppercase; letter-spacing: .1em; }
+  .num.on b { color: var(--on); text-shadow: 0 0 24px rgba(63, 219, 127, .35); }
+  .num.warn b { color: var(--warn); }
+  .num.warn.zero b { color: var(--dim); text-shadow: none; }
+  .grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 100%; }
+  .grid i {
+    display: block; width: clamp(12px, 2.2vw, 22px); height: clamp(12px, 2.2vw, 22px); border-radius: 4px;
+    background: var(--off); transition: background .6s, box-shadow .6s;
+  }
+  .grid i.on { background: var(--on); box-shadow: 0 0 8px rgba(63, 219, 127, .5); }
+  .grid i.warn { background: var(--warn); box-shadow: 0 0 8px rgba(255, 180, 84, .5); }
+  .events { list-style: none; margin: 0; padding: 0; width: 100%; max-width: 640px; }
+  .events li {
+    display: flex; gap: 14px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line);
+    font-size: clamp(14px, 2vw, 20px); white-space: nowrap; overflow: hidden;
+  }
+  .events li:first-child { border-top: 0; }
+  .events li:nth-child(4) { opacity: .75; } .events li:nth-child(5) { opacity: .55; } .events li:nth-child(6) { opacity: .4; }
+  .events .who { font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+  .events .what { color: var(--dim); }
+  .events .what.on { color: var(--on); }
+  .events .when { margin-left: auto; color: var(--dim); font-family: "IBM Plex Mono", monospace; font-size: .85em; }
+  .foot { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 24px; text-align: center; color: var(--dim); font-family: "IBM Plex Mono", monospace; font-size: clamp(11px, 1.5vw, 14px); }
+  .foot .lost { color: var(--warn); }
+  #hint { transition: opacity 1s; }
+  #hint.gone { opacity: 0; }
+  @media (max-height: 520px) { .board { gap: 2vh; } .events li:nth-child(n+4) { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .board { transition: none; } .grid i { transition: none; } }
+</style>
+</head>
+<body>
+<main class="board" id="board">
+  <header class="top">
+    <svg viewBox="0 0 120 120" width="26" height="26" aria-hidden="true">
+      <polygon fill="#3fdb7f" stroke="#0c3a22" stroke-width="4" stroke-linejoin="round"
+        points="117,60 93.3,73.8 98.2,98.2 73.8,93.3 60,117 46.2,93.3 19.8,101.2 26.7,73.8 3,60 26.7,46.2 21.8,19.8 46.2,26.7 60,3 73.8,26.7 101.2,19.8 93.3,46.2"/>
+      <line x1="42" y1="72" x2="60" y2="48" stroke="#0c3a22" stroke-width="7" stroke-linecap="round"/>
+      <line x1="60" y1="48" x2="78" y2="72" stroke="#0c3a22" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="42" cy="72" r="9" fill="#0c3a22"/><circle cx="60" cy="48" r="9" fill="#0c3a22"/>
+      <circle cx="78" cy="72" r="9" fill="#ffb454" stroke="#0c3a22" stroke-width="3"/>
+    </svg>
+    <span class="brand">BAMF</span>
+    <span class="net" id="net">—</span>
+  </header>
+  <div class="clock">
+    <div class="time" id="time">--:--</div>
+    <div class="date" id="date"></div>
+  </div>
+  <div class="nums">
+    <div class="num on"><b id="nOn">–</b><span>online</span></div>
+    <div class="num"><b id="nAll">–</b><span>devices</span></div>
+    <div class="num warn zero"><b id="nNew">–</b><span>unknown</span></div>
+  </div>
+  <div class="grid" id="grid" aria-label="One square per device: green online, amber online and unknown, dark offline"></div>
+  <ul class="events" id="events"></ul>
+  <footer class="foot">
+    <span id="scan"></span>
+    <span id="hint">tap or press a key for the dashboard</span>
+  </footer>
+</main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const net = params.get("net");          // ?net=192.168.1.0/24 shows one network
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // The clock, once a second; the date only changes at midnight.
+  const tick = () => {
+    const d = new Date();
+    $("time").textContent = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "");
+    $("date").textContent = d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+  };
+  tick(); setInterval(tick, 1000);
+
+  let lost = false;
+  const name = h => h.customName || (h.hostname && h.hostname !== "—" ? h.hostname : h.ip);
+  const load = async () => {
+    try {
+      const r = await fetch("/api/hosts", { cache: "no-store" });
+      if (!r.ok) throw new Error("API " + r.status);
+      const data = await r.json();
+      lost = false;
+      const subnets = (data.subnets || []).map(s => typeof s === "string" ? s : (s.cidr || s.subnet || ""));
+      $("net").textContent = net || (subnets.length === 1 ? subnets[0] : subnets.length + " networks");
+      const live = (data.hosts || []).filter(h => !h.ignored && !h.forgotten && !h.remote && (!net || h.subnet === net));
+      const on = live.filter(h => h.online);
+      const unknown = on.filter(h => !h.known);
+      $("nOn").textContent = on.length;
+      $("nAll").textContent = live.length;
+      $("nNew").textContent = unknown.length;
+      $("nNew").parentElement.classList.toggle("zero", unknown.length === 0);
+      // One square per device, online first so the lit ones read as a block.
+      const order = [...live].sort((a, b) => (b.online - a.online) || name(a).localeCompare(name(b)));
+      const grid = $("grid");
+      const html = order.map(h => `<i class="${h.online ? (h.known ? "on" : "warn") : ""}" title="${esc(name(h))} · ${esc(h.ip)}"></i>`).join("");
+      if (grid.innerHTML !== html) grid.innerHTML = html;
+      const last = data.lastScan ? new Date(data.lastScan) : null;
+      $("scan").textContent = last ? "last scan " + last.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+      $("scan").className = "";
+    } catch (e) {
+      lost = true;
+      $("scan").textContent = "can't reach BAMF — retrying";
+      $("scan").className = "lost";
+    }
+  };
+  const loadEvents = async () => {
+    try {
+      const r = await fetch("/api/events", { cache: "no-store" });
+      if (!r.ok) return;
+      const ev = (await r.json()).filter(e => !net || e.subnet === net).slice(0, 6);
+      $("events").innerHTML = ev.map(e => {
+        const on = e.type === "online", d = new Date(e.at);
+        const when = (Date.now() - d < 864e5 ? "" : d.toLocaleDateString([], { month: "short", day: "numeric" }) + " ") + d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        return `<li><span class="who">${esc(e.name)}</span><span class="what ${on ? "on" : ""}">${on ? "came online" : "went offline"}</span><span class="when">${esc(when)}</span></li>`;
+      }).join("");
+    } catch {}
+  };
+  load(); loadEvents();
+  setInterval(load, 15000);
+  setInterval(loadEvents, 60000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { load(); loadEvents(); } });
+
+  // Burn-in: nudge the whole board a little every minute, slowly.
+  if (!reduced) setInterval(() => {
+    const x = Math.round(Math.random() * 48 - 24), y = Math.round(Math.random() * 32 - 16);
+    $("board").style.transform = `translate(${x}px, ${y}px)`;
+  }, 60000);
+
+  // Any tap or key goes to the dashboard; the hint fades after a while and the
+  // pointer hides when it hasn't moved.
+  const go = () => { location.href = "/" + (net ? "#net=" + encodeURIComponent(net) : ""); };
+  document.addEventListener("click", go);
+  document.addEventListener("keydown", e => { if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key !== "F11" && e.key !== "F5") go(); });
+  setTimeout(() => $("hint").classList.add("gone"), 12000);
+  let idle = null;
+  const moved = () => { document.body.classList.remove("idle"); clearTimeout(idle); idle = setTimeout(() => document.body.classList.add("idle"), 4000); };
+  document.addEventListener("mousemove", moved); moved();
+})();
+</script>
+</body>
+</html>

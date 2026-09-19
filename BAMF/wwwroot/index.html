@@ -816,6 +816,9 @@
      Flush left in the field instead, and the units line up as their own
      column after them. */
   .set-field .modal-input { width: 110px; min-width: 0; margin-left: 0; }
+  .night-fields { width: auto; flex-wrap: wrap; }
+  .night-fields input[type="time"] { width: auto; }
+  .set-field.night-fields select.modal-input { width: auto; max-width: 200px; }
   /* In the Notifications card the URL is the point of the row: let it and the
      format picker take the width the dialog never had. */
   .set-card .modal-row .modal-input, .set-card .modal-row select { flex: 1 1 auto; min-width: 0; max-width: 560px; }
@@ -2310,6 +2313,7 @@
         <button id="netScan">Scan ports…</button>
         <button id="notifySetup">Notifications…</button>
         <button id="exportCsv">Export CSV</button>
+        <button id="wallOpen" title="A big, calm status board for a TV or a spare tablet: opens /wall in a new tab">Wall display</button>
         <button id="testWebhook">Test webhook</button>
         <button id="feedback">Feedback / report a bug…</button>
       </div>
@@ -2509,6 +2513,24 @@
       </span>
       <span class="set-field"><button type="button" class="arp-toggle" id="setHoliday" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
     </label>
+    <label class="set-row">
+      <span class="set-label">Night mode
+        <span class="set-hint">Between these hours, by each screen's own clock, every dashboard wears the night theme, then goes back to its own theme in the morning. Pick another theme during the night and that browser keeps it until the next one. Holiday Spirit's season wins.</span>
+        <span class="set-hint" id="setNightStatus"></span>
+      </span>
+      <span class="set-field"><button type="button" class="arp-toggle" id="setNight" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+    </label>
+    <div class="set-row" id="nightHours" style="display:none">
+      <span class="set-label">Night hours and theme
+        <span class="set-hint">From dusk to dawn, and which theme the night wears. Night Street, Goat Night and Constellation were made for it.</span>
+      </span>
+      <span class="set-field night-fields">
+        <input type="time" class="modal-input" id="nightFrom" aria-label="Night starts at">
+        <span class="set-hint">to</span>
+        <input type="time" class="modal-input" id="nightTo" aria-label="Night ends at">
+        <select class="modal-input" id="nightTheme" aria-label="Night theme"></select>
+      </span>
+    </div>
     <label class="set-row">
       <span class="set-label">Check GitHub daily for a newer release
         <span class="set-hint">Off by default. Read-only: it only reads the latest release tag and never downloads or installs anything. The only outbound call BAMF makes that you didn't ask for.</span>
@@ -3021,6 +3043,10 @@ let autoIgnoreRandom = false;
 // holiday theme is up from the first paint rather than after the first poll.
 let holidaySpirit = false;
 try { holidaySpirit = localStorage.getItem("bamf-holiday-spirit") === "1"; } catch {}
+// Night mode: between two clock times every dashboard wears the night theme.
+// Cached here so the first paint is right before the first poll answers.
+let nightMode = { enabled: false, from: "21:00", to: "06:00", theme: "nightstreet" };
+try { const n = JSON.parse(localStorage.getItem("bamf-night") || "null"); if (n && typeof n === "object") nightMode = { ...nightMode, ...n }; } catch {}
 let webhookConfigured = false;
 let webhookMasked = null;   // masked form only; the server never sends the full URL
 let webhookFormat = "auto"; // auto | ntfy | gotify | json
@@ -7009,6 +7035,10 @@ async function refresh() {
       holidaySpirit = data.holidaySpirit;
       try { localStorage.setItem("bamf-holiday-spirit", holidaySpirit ? "1" : "0"); } catch {}
     }
+    if (data.night && typeof data.night === "object") {
+      nightMode = { ...nightMode, ...data.night };
+      try { localStorage.setItem("bamf-night", JSON.stringify(nightMode)); } catch {}
+    }
     updateInfo = data.update || null;
     appVersion = data.version || appVersion;
     buildDate = data.buildDate || buildDate;
@@ -7023,6 +7053,7 @@ async function refresh() {
     renderTrafficToggle();
     renderHolidayToggle();
     applyHolidaySpirit();
+    applyNightMode();
     renderUpdateToggle();
     $("subnetLabel").textContent = subnets.length === 1
       ? subnets[0]
@@ -7347,7 +7378,21 @@ function pickThemeFromMenu(id) {
     try { localStorage.setItem("bamf-holiday-kept", seasonKey(season)); } catch {}
     holidayShowing = null;
   }
+  if (isNight()) {
+    if (id === nightMode.theme) {
+      // Back to the night theme: Night mode takes over again.
+      try { localStorage.removeItem("bamf-night-kept"); } catch {}
+      nightShowing = true;
+      applyTheme(id, { holiday: true });
+      renderNightRow();
+      return;
+    }
+    // Another theme tonight: this browser keeps it until the next night.
+    try { localStorage.setItem("bamf-night-kept", nightKey()); } catch {}
+    nightShowing = false;
+  }
   applyTheme(id);
+  renderNightRow();
 }
 function renderHolidayToggle() {
   const t = $("setHoliday");
@@ -7360,6 +7405,80 @@ function renderHolidayToggle() {
       : `It's ${name}, but this browser picked its own theme for the season.`)
     : "Next up: " + (new Date().getMonth() === 10 ? "Christmas on December 1st." : "Halloween on October 1st.");
   t.title = holidaySpirit ? "Holiday Spirit is on - click to turn off" : "Click to turn on Holiday Spirit";
+}
+
+// ---- Night mode ----
+// Between two clock times, by this browser's clock, the dashboard wears the
+// night theme, then goes back to its own theme in the morning. Checked on
+// every poll and once a minute. Picking another theme from the menu during
+// the night keeps that pick in this browser until the next night. Holiday
+// Spirit's season wins over it.
+const clockMins = t => { const [h, m] = String(t || "").split(":").map(Number); return ((h || 0) * 60 + (m || 0)) % 1440; };
+function isNight(d = new Date()) {
+  if (!nightMode.enabled) return false;
+  const now = d.getHours() * 60 + d.getMinutes(), from = clockMins(nightMode.from), to = clockMins(nightMode.to);
+  return from > to ? (now >= from || now < to) : (now >= from && now < to);
+}
+// The night's name: the date it began on, so a theme kept for tonight ends at
+// the next dusk rather than at midnight.
+function nightKey(d = new Date()) {
+  const now = d.getHours() * 60 + d.getMinutes(), from = clockMins(nightMode.from), to = clockMins(nightMode.to);
+  const start = new Date(d);
+  if (from > to && now < to) start.setDate(start.getDate() - 1);
+  return `${start.getFullYear()}-${start.getMonth() + 1}-${start.getDate()}`;
+}
+const fmtClock = t => { const d = new Date(); d.setHours(...String(t).split(":").map(Number), 0, 0); return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); };
+let nightShowing = false;
+function applyNightMode() {
+  if (holidayShowing) { renderNightRow(); return; }
+  const night = isNight();
+  let kept = null;
+  try { kept = localStorage.getItem("bamf-night-kept"); } catch {}
+  if (night && kept !== nightKey()) {
+    nightShowing = true;
+    if (currentTheme() !== nightMode.theme) applyTheme(nightMode.theme, { holiday: true });
+  } else if (nightShowing && (!night || kept === nightKey())) {
+    // Morning, or Night mode was switched off: back to this browser's own theme.
+    nightShowing = false;
+    let own = null;
+    try { own = localStorage.getItem("bamf-theme"); } catch {}
+    if (currentTheme() !== (own || "dark")) applyTheme(own || "dark", { holiday: true });
+  }
+  renderNightRow();
+}
+function renderNightRow() {
+  const t = $("setNight");
+  if (!t) return;
+  setToggleState(t, nightMode.enabled);
+  t.title = nightMode.enabled ? "Night mode is on - click to turn off" : "Click to turn on Night mode";
+  const sel = $("nightTheme");
+  if (document.activeElement !== sel) {
+    const opts = THEMES.filter(x => !x.secret || secretUnlocked() || x.id === nightMode.theme)
+      .map(x => `<option value="${esc(x.id)}"${x.id === nightMode.theme ? " selected" : ""}>${esc(x.name)}</option>`);
+    if (!THEMES.some(x => x.id === nightMode.theme)) opts.push(`<option value="${esc(nightMode.theme)}" selected>${esc(nightMode.theme)}</option>`);
+    sel.innerHTML = opts.join("");
+  }
+  if (document.activeElement !== $("nightFrom")) $("nightFrom").value = nightMode.from;
+  if (document.activeElement !== $("nightTo")) $("nightTo").value = nightMode.to;
+  $("nightHours").style.display = nightMode.enabled ? "" : "none";
+  const name = THEMES.find(x => x.id === nightMode.theme)?.name || nightMode.theme;
+  $("setNightStatus").textContent = !nightMode.enabled ? ""
+    : holidayShowing ? "Holiday Spirit has the theme until its season ends."
+    : isNight() ? (nightShowing ? `It's night: ${name} is on until ${fmtClock(nightMode.to)}.` : "It's night, but this browser picked its own theme tonight.")
+    : `${name} comes on at ${fmtClock(nightMode.from)}, by each screen's own clock.`;
+}
+async function saveNight(patch) {
+  const next = { ...nightMode, ...patch };
+  try {
+    const r = await fetch("/api/settings/night", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => null))?.error || ("HTTP " + r.status));
+    nightMode = next;
+    try { localStorage.setItem("bamf-night", JSON.stringify(nightMode)); localStorage.removeItem("bamf-night-kept"); } catch {}
+    applyNightMode();
+    return true;
+  } catch (e) { console.error(e); toast("Couldn't save Night mode: " + e.message); renderNightRow(); return false; }
 }
 
 // Map decorations are drawn with the map, so a theme change redraws it.
@@ -9455,13 +9574,56 @@ const HD_CART = `<svg viewBox="0 0 150 96" width="150" height="96" aria-hidden="
   <g class="wheel"><circle cx="108" cy="84" r="9" fill="#222" stroke="#000"/><path d="M108 76v16M100 84h16" stroke="#ffff00" stroke-width="2"/></g>
 </svg>`;
 
+// Hotdog Stand's sounds, made in the browser: a desk bell for a finished
+// scan, a bicycle bell for the cart, a ketchup squirt, a jingle for a new
+// device, and a chord, the old Windows kind, for a device that has gone.
+let hdAudio = null;
+function hotdogSound() {
+  const ctx = () => {
+    try { hdAudio = hdAudio || new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; }
+    if (hdAudio.state === "suspended") hdAudio.resume?.().catch(() => {});
+    return hdAudio;
+  };
+  const tone = (c, freq, type, at, len, gain) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, at);
+    g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(gain, at + .01); g.gain.exponentialRampToValueAtTime(.0001, at + len);
+    o.connect(g).connect(c.destination); o.start(at); o.stop(at + len + .05);
+  };
+  const bell = (c, at, f, gain) => { tone(c, f, "sine", at, .9, gain); tone(c, f * 2.76, "sine", at, .35, gain * .35); tone(c, f * 5.4, "sine", at, .15, gain * .15); };
+  return {
+    ding() { const c = ctx(); if (!c) return; bell(c, c.currentTime, 2093, .25); },
+    bike() { const c = ctx(); if (!c) return; bell(c, c.currentTime, 2637, .16); bell(c, c.currentTime + .14, 2637, .16); },
+    tada() { const c = ctx(); if (!c) return; [523, 659, 784, 1047].forEach((f, i) => tone(c, f, "square", c.currentTime + i * .09, i === 3 ? .5 : .12, .05)); },
+    chord() { const c = ctx(); if (!c) return; [523, 659, 784].forEach(f => tone(c, f, "square", c.currentTime, .45, .04)); },
+    squirt(second) {
+      const c = ctx(); if (!c) return;
+      const len = .28, buf = c.createBuffer(1, Math.floor(c.sampleRate * len), c.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const src = c.createBufferSource(); src.buffer = buf;
+      const f = c.createBiquadFilter(); f.type = "lowpass"; f.Q.value = 6;
+      const at = c.currentTime;
+      f.frequency.setValueAtTime(second ? 700 : 1200, at); f.frequency.exponentialRampToValueAtTime(second ? 200 : 300, at + len);
+      const g = c.createGain(); g.gain.setValueAtTime(.3, at); g.gain.exponentialRampToValueAtTime(.001, at + len);
+      src.connect(f).connect(g).connect(c.destination); src.start(at); src.stop(at + len);
+    },
+  };
+}
+
 function buildHotdog(root) {
   const calm = calmMotion();
+  // Sound: off until the speaker button beside the theme button is clicked.
+  const hd = hotdogSound();
+  const soundOn = themeSoundButton("bamf-hotdog-sound", "Hotdog Stand sounds on: click to mute",
+    "Hotdog Stand sounds off: click for the bell and the squirt", on => { if (on) hd.ding(); });
+  const play = (fn, ...a) => { if (soundOn() && !document.hidden) fn(...a); };
   const below = () => (document.querySelector("header")?.getBoundingClientRect().bottom || 60) + 20;
 
   // A squeeze of ketchup, then mustard, across the page.
   const squiggle = () => {
     if (document.hidden) return;
+    play(hd.squirt);
+    festiveTimers.push(setTimeout(() => play(hd.squirt, true), 900));
     const W = Math.round(innerWidth * .64);
     const wave = (off, amp) => {
       let d = `M0 ${20 + off}`;
@@ -9481,6 +9643,7 @@ function buildHotdog(root) {
   // The cart rolls along the bottom, steam off the grill.
   const cart = () => {
     if (document.hidden) return;
+    play(hd.bike);
     const c = document.createElement("div");
     c.className = "hd-cart";
     c.innerHTML = HD_CART + `<i class="hd-puff"></i><i class="hd-puff"></i><i class="hd-puff"></i>`;
@@ -9497,6 +9660,7 @@ function buildHotdog(root) {
   // A new device: order up.
   festiveHooks.newDevice = h => {
     if (document.hidden) return;
+    play(hd.tada);
     const o = document.createElement("div");
     o.className = "hd-order";
     o.style.top = below() + "px";
@@ -9507,6 +9671,7 @@ function buildHotdog(root) {
   // A scan finishes: ding.
   festiveHooks.scanDone = () => {
     if (document.hidden) return;
+    play(hd.ding);
     const d = document.createElement("div");
     d.className = "hd-ding";
     d.style.top = (below() - 12) + "px";
@@ -9516,6 +9681,7 @@ function buildHotdog(root) {
   };
   // A device goes offline: its row is 86'd, diner for "we're out of it".
   festiveHooks.rendered = () => {
+    if (wentOffIds.length) play(hd.chord);
     for (const id of wentOffIds) {
       const cell = document.querySelector(`tr[data-id="${id}"] td.hostname`);
       if (!cell) continue;
@@ -9562,8 +9728,72 @@ const SP_AIRSHIP = `<svg viewBox="0 0 220 100" aria-hidden="true"><g fill="#c9a3
   <circle cx="98" cy="86" r="2.5" fill="#ffcc66"/><circle cx="110" cy="86" r="2.5" fill="#ffcc66"/><circle cx="122" cy="86" r="2.5" fill="#ffcc66"/>
   <rect class="prop" x="202" y="26" width="5" height="24" rx="2"/></g></svg>`;
 
+// Steampunk's sounds: a hiss of steam from the valve, a clank of the gears
+// when a scan finishes, a dull clunk for a device that has gone, a steam
+// whistle for a new one, and a small bell when one comes back.
+let spAudio = null;
+function steampunkSound() {
+  const ctx = () => {
+    try { spAudio = spAudio || new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; }
+    if (spAudio.state === "suspended") spAudio.resume?.().catch(() => {});
+    return spAudio;
+  };
+  const noise = (c, len) => {
+    const buf = c.createBuffer(1, Math.floor(c.sampleRate * len), c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return buf;
+  };
+  const hiss = (c, at, len, gain) => {
+    const src = c.createBufferSource(); src.buffer = noise(c, len);
+    const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2600; bp.Q.value = .7;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(gain, at + .06); g.gain.exponentialRampToValueAtTime(.001, at + len);
+    src.connect(bp).connect(g).connect(c.destination); src.start(at); src.stop(at + len);
+  };
+  const metal = (c, at, freqs, len, gain) => freqs.forEach((f, i) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = i ? "triangle" : "square"; o.frequency.value = f;
+    g.gain.setValueAtTime(gain / (i + 1), at); g.gain.exponentialRampToValueAtTime(.0001, at + len);
+    o.connect(g).connect(c.destination); o.start(at); o.stop(at + len + .05);
+  });
+  return {
+    hiss(len = .8) { const c = ctx(); if (!c) return; hiss(c, c.currentTime, len, .16); },
+    clank() { const c = ctx(); if (!c) return; const at = c.currentTime; metal(c, at, [620, 1370, 2210], .3, .1); metal(c, at + .11, [540, 1180], .25, .07); },
+    clunk() { const c = ctx(); if (!c) return; metal(c, c.currentTime, [180, 260, 410], .35, .12); },
+    whistle() {
+      const c = ctx(); if (!c) return;
+      const at = c.currentTime, len = .9;
+      const o = c.createOscillator(), g = c.createGain(), v = c.createOscillator(), vg = c.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(880, at); o.frequency.exponentialRampToValueAtTime(1320, at + .12);
+      o.frequency.setValueAtTime(1320, at + len - .15); o.frequency.exponentialRampToValueAtTime(900, at + len);
+      v.frequency.value = 6; vg.gain.value = 18; v.connect(vg).connect(o.frequency);
+      g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(.1, at + .08); g.gain.setValueAtTime(.1, at + len - .12); g.gain.linearRampToValueAtTime(0, at + len);
+      o.connect(g).connect(c.destination); o.start(at); v.start(at); o.stop(at + len); v.stop(at + len);
+      hiss(c, at, len + .2, .05);
+    },
+    bell() {
+      const c = ctx(); if (!c) return;
+      const at = c.currentTime;
+      [1568, 1976].forEach((f, i) => {
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = "sine"; o.frequency.value = f;
+        g.gain.setValueAtTime(.1, at + i * .18); g.gain.exponentialRampToValueAtTime(.0001, at + i * .18 + .7);
+        o.connect(g).connect(c.destination); o.start(at + i * .18); o.stop(at + i * .18 + .8);
+      });
+    },
+  };
+}
+
 function buildSteampunk(root) {
   const calm = calmMotion();
+  // Sound: off until the speaker button beside the theme button is clicked.
+  const sp = steampunkSound();
+  const soundOn = themeSoundButton("bamf-steampunk-sound", "Steampunk sounds on: click to mute",
+    "Steampunk sounds off: click to hear the works", on => { if (on) sp.hiss(.9); });
+  const play = (fn, ...a) => { if (soundOn() && !document.hidden) fn(...a); };
+  // A device comes back: a small bell.
+  festiveHooks.netChange = (off, back) => { if (back.length) play(sp.bell); };
   const bg = document.createElement("div");
   bg.id = "themeBg";
   bg.className = "theme-bg sp-bg";
@@ -9593,6 +9823,7 @@ function buildSteampunk(root) {
   root.appendChild(valve);
   const steam = n => {
     if (calm || document.hidden) return;
+    play(sp.hiss, n >= 5 ? 1.4 : .8);
     for (let i = 0; i < n; i++) {
       const p = document.createElement("i");
       p.className = "sp-puff";
@@ -9618,6 +9849,7 @@ function buildSteampunk(root) {
 
   // A scan finishes: the gears lurch forward and the valve lets off steam.
   festiveHooks.scanDone = () => {
+    play(sp.clank);
     bg.classList.remove("burst"); void bg.offsetWidth; bg.classList.add("burst");
     festiveTimers.push(setTimeout(() => bg.classList.remove("burst"), 1900));
     steam(5);
@@ -9625,6 +9857,7 @@ function buildSteampunk(root) {
   // A new device: a telegraph ticker tape.
   festiveHooks.newDevice = h => {
     if (document.hidden) return;
+    play(sp.whistle);
     const t = document.createElement("div");
     t.className = "sp-ticker";
     t.style.top = (pipeY() + 22) + "px";
@@ -9634,6 +9867,7 @@ function buildSteampunk(root) {
   };
   // A device goes offline: a hiss of steam on its row.
   festiveHooks.rendered = () => {
+    if (wentOffIds.length) play(sp.clunk);
     for (const id of wentOffIds) {
       const cell = document.querySelector(`tr[data-id="${id}"] td.hostname`);
       if (!cell) continue;
@@ -10260,6 +10494,9 @@ renderDensityToggle();
   }
   applyTheme(saved || "dark");
   applyHolidaySpirit();
+  applyNightMode();
+  // The clock moves on its own, so look once a minute even between polls.
+  setInterval(applyNightMode, 60e3);
 })();
 
 function renderUpdateToggle() {
@@ -10379,6 +10616,23 @@ $("setHoliday").onclick = async () => {
     toast(next ? "Holiday Spirit is on: Halloween through October, Christmas from December 1st to 25th"
       : "Holiday Spirit is off: dashboards keep their own theme all year");
   } catch (e) { console.error(e); toast("Couldn't save Holiday Spirit - see the server log"); }
+};
+
+$("setNight").onclick = async () => {
+  if (await saveNight({ enabled: !nightMode.enabled })) {
+    const name = THEMES.find(x => x.id === nightMode.theme)?.name || nightMode.theme;
+    toast(nightMode.enabled ? `Night mode is on: ${name} from ${fmtClock(nightMode.from)} to ${fmtClock(nightMode.to)}`
+      : "Night mode is off: dashboards keep their own theme all night");
+  }
+};
+$("nightFrom").onchange = e => { if (e.target.value) saveNight({ from: e.target.value }); };
+$("nightTo").onchange = e => { if (e.target.value) saveNight({ to: e.target.value }); };
+$("nightTheme").onchange = e => saveNight({ theme: e.target.value });
+// Drop-in themes can be the night theme too, once their list has loaded.
+loadDropInList().then(() => renderNightRow());
+
+$("wallOpen").onclick = () => {
+  window.open("/wall" + (network !== "all" ? "?net=" + encodeURIComponent(network) : ""), "_blank", "noopener");
 };
 
 $("setRand").onclick = async () => {
