@@ -1049,6 +1049,10 @@ scan, or delete a thing.
 | POST | `/api/settings/port-watch` | Body `{"enabled": true}` — scan every online known device's common ports daily at 4 am |
 | POST | `/api/settings/night` | Body `{"enabled": true, "from": "21:00", "to": "06:00", "theme": "nightstreet"}` — Night mode: every dashboard wears that theme between those clock times. `GET /api/settings` returns it as `editable.night`; `GET /api/hosts` as `night` |
 | GET | `/wall` | The wall display page. `?net=<cidr>` shows one network. See [Wall display](#wall-display) |
+| POST | `/api/settings/arp-watch` | Body `{"enabled": false}` — the ARP watch: IP conflicts, the gateway's MAC changing, another device claiming the gateway. On by default |
+| POST | `/api/settings/cert-watch` | Body `{"enabled": false}` — the certificate watch: HTTPS certificates read every morning, with expiry alerts. On by default |
+| GET | `/api/security` | What the hygiene card needs beyond `/api/hosts`: `certs` (per device and port: `subject`, `issuer`, `notAfter`, `selfSigned`, `error`), `upnp` (routers that answered a UPnP search), `gatewayMacs` (each network's gateway and the MAC last seen for it), `checkedAt` |
+| POST | `/api/security/check` | Check now: scans every online known device's common ports, searches for UPnP routers and reads every HTTPS certificate. Returns the same as `GET /api/security`; `409` if a check is already running |
 | POST | `/api/ports/watch` | Run that scan now; returns how many newly open ports it found |
 | GET | `/api/hosts/{id}/ports` | Every port found open on a device, open now or once: `{"port", "service", "firstSeen", "lastSeen", "open"}`. A port scan (`/api/hosts/{id}/portscan`, which now returns `{"ports", "newlyOpen"}`) records here |
 | GET | `/api/hosts/{id}/traffic` | Bytes per hour for a device over the last 7 days (`?days=` for more): `[{"hour", "rx", "tx"}]` |
@@ -1731,6 +1735,75 @@ Notes:
   field instead of Discord's embed format.
 - An `http://` URL is accepted but flagged, in the dialog and at startup:
   alerts would travel in plaintext.
+
+## Security watch
+
+Three things BAMF watches for on its own, and a card that puts them together
+with what the port scans have found. Security alerts go to Activity → Alerts
+and to the webhook, like every other alert, and wait out quiet hours.
+
+### ARP watch
+
+On by default, under **Settings → Behaviour**. It sends nothing: it reads
+what the scans and the traffic monitor already see.
+
+- **IP conflicts.** Two devices answering for one address in the same scan
+  fight over it, and connections to it break at random. Usually one has a
+  static address inside the range DHCP hands out. When the address is your
+  gateway's, the alert says so: one of the two is your router, and the other
+  is either misconfigured or pretending to be it.
+- **The gateway's MAC changing.** BAMF remembers which MAC answered for each
+  network's gateway. If a different one answers, that's an alert. It's
+  expected if you replaced the router, and worth a look if you didn't.
+- **Another device claiming the gateway, between scans.** With the traffic
+  monitor running, BAMF sees every ARP frame on the wire, and one that claims
+  the gateway's address from a different MAC raises an alert at once. That is
+  the classic sign of ARP spoofing, where a device puts itself between the
+  rest of the network and the router to read or change the traffic.
+
+Conflicts can only be seen with active ARP scanning. The ping sweep reads the
+operating system's ARP table, which keeps one MAC per address. The gateway
+checks work either way. Each problem is one alert: a conflict at most once a
+day, a gateway claim at most every six hours.
+
+### Network hygiene
+
+A card on the **Activity** tab lists what's worth fixing, worst first. Click
+a finding to jump to its device.
+
+| Finding | Severity |
+|---|---|
+| Telnet open (port 23) | high |
+| A certificate expired, or expiring within 7 days | high |
+| The router answers UPnP, so any device can open ports to the internet | high |
+| An IP conflict or gateway alert from the ARP watch in the last week | high |
+| FTP (21) or VNC (5900) open | medium |
+| File sharing (SMB) on something that isn't a computer or file server | medium |
+| A router, switch, access point, camera, printer or NAS with a settings page over plain HTTP only | medium |
+| A certificate expiring within 30 days | medium |
+| Remote Desktop (3389) open | medium, or low on a computer |
+| Any other web page over plain HTTP only; unencrypted MQTT (1883) | low |
+
+The card works from what BAMF already knows: the ports any scan has found
+open, the certificates it has read, and the UPnP search. It scans nothing by
+itself. **Check now** does all three in about a minute: it scans every online
+known device's common ports, sends one UPnP search for an internet gateway on
+each network, and reads every HTTPS certificate it can find.
+
+### Certificate watch
+
+On by default, under **Settings → Behaviour**. Every morning at 4:30 BAMF
+opens each HTTPS port it has found open on a device and reads the
+certificate: who it's for, who issued it, and when it expires. It warns 14
+days and 3 days before a certificate runs out, and again once it has. It
+trusts whatever it's shown, because it's reading the certificate rather than
+relying on it: a self-signed certificate on a NAS is normal. Only ports that a
+scan has already found open are touched: 443, 8443, 5001, 9443, 10443 and
+4443.
+
+With **Watch ports daily** on, the morning run also sends the UPnP search.
+Both are active checks, and the port watch is already the one you switched on
+for that.
 
 ## Backups
 

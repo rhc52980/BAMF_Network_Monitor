@@ -77,6 +77,8 @@ public sealed class TrafficMonitor : IDisposable
 
     /// <summary>Set by the scanner: delivers an alert wherever alerts go.</summary>
     public Func<Alert, Task>? OnAlert { get; set; }
+    /// <summary>Every ARP frame's sender address and MAC, for the ARP watch.</summary>
+    public Action<string, string>? OnArp { get; set; }
 
     public TrafficMonitor(ILogger<TrafficMonitor> log, HostStore store)
     {
@@ -111,7 +113,7 @@ public sealed class TrafficMonitor : IDisposable
                 try
                 {
                     dev.Open(DeviceModes.Promiscuous, 200);
-                    dev.Filter = "ip";
+                    dev.Filter = "ip or arp";
                     dev.OnPacketArrival += OnPacket;
                     dev.StartCapture();
                     _devices.Add(dev);
@@ -186,6 +188,13 @@ public sealed class TrafficMonitor : IDisposable
                 Frames++;
                 var sb = Get(src); sb.TxTotal += len; sb.TxWindow += len;
                 if (!IsGroup(d)) { var db = Get(dst); db.RxTotal += len; db.RxWindow += len; }
+            }
+            // ARP: who claims which address, for the ARP watch.
+            if (ethType == 0x0806)
+            {
+                if (d.Length >= off + 18 && OnArp is { } arp)
+                    arp(new IPAddress(new ReadOnlySpan<byte>(d, off + 14, 4)).ToString(), Mac(d, off + 8));
+                return;
             }
             if (ethType != 0x0800 || d.Length < off + 20) return;
             var ihl = (d[off] & 0x0F) * 4;
