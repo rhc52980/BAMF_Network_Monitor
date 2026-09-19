@@ -24,6 +24,7 @@ public sealed class RuleService : BackgroundService
     private readonly HostStore _store;
     private readonly ScannerService _scanner;
     private readonly SecurityCheck _security;
+    private readonly GreyNoiseCheck _greynoise;
     private DateTime _lastSecurityUtc = DateTime.MinValue;
     private readonly ILogger<RuleService> _log;
     private readonly Dictionary<string, string> _fired = new();   // rule:host -> what it fired for
@@ -31,9 +32,9 @@ public sealed class RuleService : BackgroundService
     private bool _wasQuiet;
     private DateTime _lastPortWatchUtc = DateTime.MinValue;
 
-    public RuleService(HostStore store, ScannerService scanner, SecurityCheck security, ILogger<RuleService> log)
+    public RuleService(HostStore store, ScannerService scanner, SecurityCheck security, GreyNoiseCheck greynoise, ILogger<RuleService> log)
     {
-        _store = store; _scanner = scanner; _security = security; _log = log;
+        _store = store; _scanner = scanner; _security = security; _greynoise = greynoise; _log = log;
         try { _fired = JsonSerializer.Deserialize<Dictionary<string, string>>(_store.GetSetting("ruleFired") ?? "{}") ?? new(); } catch { }
         _wasQuiet = _scanner.IsQuietNow();
     }
@@ -188,6 +189,9 @@ public sealed class RuleService : BackgroundService
                 await _security.Run(null, _security.CertWatchEnabled, PortWatchEnabled, ct);
             }
         }
+
+        // GreyNoise, once a day, only if it was switched on.
+        if (_greynoise.Due) await _greynoise.Check(ct);
     }
 
     private static bool Matches(string target, HostRecord h, Dictionary<long, List<string>> tags)

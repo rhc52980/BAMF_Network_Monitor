@@ -62,6 +62,7 @@ builder.Services.AddSingleton<ReportService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ReportService>());
 builder.Services.AddSingleton<MqttPublisher>();
 builder.Services.AddSingleton<SecurityCheck>();
+builder.Services.AddSingleton<GreyNoiseCheck>();
 builder.Services.AddSingleton<RouterImport>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RouterImport>());
 builder.Services.AddSingleton<RuleService>();
@@ -884,12 +885,26 @@ app.MapGet("/api/free-ips", (int? days, HostStore store, ScannerService scanner)
     return Results.Json(list);
 });
 
+// GreyNoise: has this network's public address been seen scanning the internet?
+// Off unless switched on; turning it on checks straight away.
+app.MapGet("/api/greynoise", (GreyNoiseCheck greynoise) => Results.Json(new { enabled = greynoise.Enabled, result = greynoise.Last }));
+app.MapPost("/api/settings/greynoise", async (ActiveArpRequest body, HostStore store, GreyNoiseCheck greynoise, CancellationToken ct) =>
+{
+    store.SetSetting("greynoise", body.Enabled ? "true" : "false");
+    if (body.Enabled) await greynoise.Check(ct);
+    return Results.Json(new { enabled = greynoise.Enabled, result = greynoise.Last });
+});
+app.MapPost("/api/greynoise/check", async (GreyNoiseCheck greynoise, CancellationToken ct) =>
+    greynoise.Enabled ? Results.Json(new { enabled = true, result = await greynoise.Check(ct) })
+                      : Results.Json(new { error = "The GreyNoise check is off: switch it on in Settings first." }, statusCode: 409));
+
 app.MapGet("/api/security", (HostStore store, ScannerService scanner, SecurityCheck security) => Results.Json(SecurityJson(store, scanner, security)));
 // Check now: the common ports of every online known device, a UPnP search and
 // every HTTPS certificate, one after the other. About a minute on a home network.
-app.MapPost("/api/security/check", async (HostStore store, ScannerService scanner, SecurityCheck security, RuleService rules, CancellationToken ct) =>
+app.MapPost("/api/security/check", async (HostStore store, ScannerService scanner, SecurityCheck security, RuleService rules, GreyNoiseCheck greynoise, CancellationToken ct) =>
 {
     var ran = await security.Run(async c => await rules.PortWatch(c), certs: true, upnp: true, ct);
+    if (ran && greynoise.Enabled) await greynoise.Check(ct);
     return ran ? Results.Json(SecurityJson(store, scanner, security))
                : Results.Conflict(new { error = "A check is already running." });
 });
@@ -1054,6 +1069,7 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             arpWatch = scanner.ArpWatchEnabled,
             certWatch = store.GetSetting("certWatch") != "false",
             ipv6Watch = scanner.Ipv6WatchEnabled,
+            greynoise = store.GetSetting("greynoise") == "true",
             trafficMonitor = scanner.TrafficMonitorEnabled,
             trafficStatus = TrafficJson(scanner),
             report = ReportJson(reports),
