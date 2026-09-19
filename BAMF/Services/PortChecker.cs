@@ -102,8 +102,12 @@ public static class PortChecker
     /// <summary>The default gateways this machine routes through, for the dashboard's map.</summary>
     internal static IReadOnlyCollection<string> DefaultGateways() => Gateways();
 
-    /// <summary>True if the address is a default gateway on this machine.</summary>
-    public static bool IsGateway(string ip) => Gateways().Contains(ip);
+    /// <summary>Gateways the user declared, which get the same small budget.</summary>
+    private static volatile HashSet<string> _declared = new();
+    public static void SetDeclaredGateways(IEnumerable<string> ips) => _declared = new HashSet<string>(ips);
+
+    /// <summary>True if the address is a default gateway on this machine, or one the user declared.</summary>
+    public static bool IsGateway(string ip) => Gateways().Contains(ip) || _declared.Contains(ip);
 
     /// <summary>Scan the default common-port set.</summary>
     public static Task<List<PortInfo>> ScanAsync(string ip, int timeoutMs, CancellationToken ct,

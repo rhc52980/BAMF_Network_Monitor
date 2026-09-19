@@ -12,9 +12,10 @@ namespace LanWatch.Services;
 /// <param name="Uplink">What the switch is plugged into: "" not recorded, "router", or "switch".</param>
 /// <param name="UplinkSwitch">For a "switch" uplink, the parent switch's id.</param>
 /// <param name="UplinkPort">For a "switch" uplink, the parent's port; 0 when not recorded.</param>
-/// <param name="Kind">"switch", "router", "ap" (access point) or "virtual". All have
+/// <param name="Kind">"switch", "router", "ap" (access point), "virtual", "ssid" or "vpn". All have
 /// ports and work the same way; the kind sets the Map's icon, and a router linked
-/// to the network's gateway becomes the top of the topology.</param>
+/// to the network's gateway becomes the top of the topology. A VPN is a device
+/// with clients on any network; it is never a gateway and joins no networks together.</param>
 /// <param name="RunsOn">For a virtual switch (a Proxmox vmbr0, an ESXi vSwitch0,
 /// a Hyper-V external switch): the device it runs inside. It has no uplink of its
 /// own; its traffic leaves through that machine's cable. For a wireless SSID
@@ -31,15 +32,18 @@ public record SwitchInput(
 public partial class HostStore
 {
     public const int MaxSwitchPorts = 128;
-    public static readonly string[] SwitchKinds = { "switch", "router", "ap", "virtual", "ssid" };
+    public static readonly string[] SwitchKinds = { "switch", "router", "ap", "virtual", "ssid", "vpn" };
 
     private static string KindNoun(string kind) => kind switch
     {
-        "router" => "router", "ap" => "access point", "virtual" => "virtual switch", "ssid" => "wireless SSID", _ => "switch",
+        "router" => "router", "ap" => "access point", "virtual" => "virtual switch", "ssid" => "wireless SSID", "vpn" => "VPN", _ => "switch",
     };
 
     /// <summary>Kinds that live inside something else, with no cable of their own to plug into.</summary>
     private static bool IsInner(string kind) => kind is "virtual" or "ssid";
+
+    /// <summary>Kinds whose devices are recorded with no port: they join through a hypervisor, over the air or down a tunnel.</summary>
+    private static bool HasNoPorts(string kind) => IsInner(kind) || kind == "vpn";
 
     private static void InitSwitches(SqliteConnection conn)
     {
@@ -176,10 +180,10 @@ public partial class HostStore
             var name = (input.Name ?? "").Trim();
             if (name.Length == 0) return (null, $"Give the {KindNoun(kind)} a name.");
             if (name.Length > 60) name = name[..60];
-            // A virtual switch and an SSID have no numbered ports to speak of;
-            // their devices are recorded with port 0. An access point isn't asked
-            // for a port count; it keeps whatever it had, or 1.
-            var ports = IsInner(kind) || kind == "ap" ? Math.Clamp(input.Ports, 1, MaxSwitchPorts) : input.Ports;
+            // A virtual switch, an SSID and a VPN have no numbered ports to speak
+            // of; their devices are recorded with port 0. An access point isn't
+            // asked for a port count either. Each keeps whatever it had, or 1.
+            var ports = HasNoPorts(kind) || kind == "ap" ? Math.Clamp(input.Ports, 1, MaxSwitchPorts) : input.Ports;
             if (ports < 1 || ports > MaxSwitchPorts) return (null, $"Ports must be between 1 and {MaxSwitchPorts}.");
 
             var subnet = (input.Subnet ?? "").Trim();
@@ -214,6 +218,14 @@ public partial class HostStore
                 var other = all.FirstOrDefault(s => s.HostId == hostId && s.Id != id);
                 if (other is not null) return (null, $"That device is already the {KindNoun(other.Kind)} \"{other.Name}\".");
                 subnet = host.Subnet;   // a switch BAMF can see lives where BAMF sees it
+                if (kind == "vpn")
+                {
+                    using var gw = conn.CreateCommand();
+                    gw.CommandText = "SELECT group_concat(subnet, ', ') FROM gateways WHERE host_id = $h";
+                    gw.Parameters.AddWithValue("$h", hostId);
+                    if (gw.ExecuteScalar() is string nets && nets.Length > 0)
+                        return (null, $"That device is declared the gateway of {nets}. A VPN is never a network's gateway: untick that first.");
+                }
             }
 
             var uplink = IsInner(kind) ? "" : (input.Uplink ?? "").Trim().ToLowerInvariant();
@@ -224,6 +236,7 @@ public partial class HostStore
                 if (parent is null) return (null, "The switch it's plugged into no longer exists.");
                 if (parent.Kind == "virtual") return (null, "Nothing can be cabled into a virtual switch; it lives inside its machine.");
                 if (parent.Kind == "ssid") return (null, "Nothing can be cabled into a wireless SSID.");
+                if (parent.Kind == "vpn") return (null, "Nothing can be cabled into a VPN; it joins no networks together.");
                 if (id is long self)
                 {
                     // Walk up from the proposed parent; meeting this switch means a loop.
@@ -370,6 +383,7 @@ public partial class HostStore
             var own = all.FirstOrDefault(s => s.HostId == hostId);
             if (own is not null) return $"This device is the switch \"{own.Name}\". Set what it's plugged into in that switch's settings.";
             if (sw.Kind == "virtual" && sw.RunsOn == hostId) return $"This is the machine \"{sw.Name}\" runs on.";
+            if (HasNoPorts(sw.Kind)) port = 0;
             if (port < 0 || port > sw.Ports) return $"\"{sw.Name}\" has ports 1 to {sw.Ports}.";
 
             cmd.CommandText = """
@@ -410,7 +424,7 @@ public partial class HostStore
                 var own = all.FirstOrDefault(s => s.HostId == hostId);
                 if (own is not null) return $"\"{own.Name}\" is a switch. Plug it in from its own settings.";
                 if (sw.Kind == "virtual" && sw.RunsOn == hostId) return $"The machine \"{sw.Name}\" runs on can't be one of its VMs.";
-                if (port < 0 || port > sw.Ports) return $"\"{sw.Name}\" has ports 1 to {sw.Ports}.";
+                if (!HasNoPorts(sw.Kind) && (port < 0 || port > sw.Ports)) return $"\"{sw.Name}\" has ports 1 to {sw.Ports}.";
             }
             var cleanLabels = new Dictionary<int, string>();
             foreach (var (port, label) in labels ?? Array.Empty<(int, string)>())
@@ -439,7 +453,7 @@ public partial class HostStore
                     """;
                 put.Parameters.AddWithValue("$h", hostId);
                 put.Parameters.AddWithValue("$s", switchId);
-                put.Parameters.AddWithValue("$p", port);
+                put.Parameters.AddWithValue("$p", HasNoPorts(sw.Kind) ? 0 : port);
                 put.ExecuteNonQuery();
             }
             if (labels is not null)
@@ -478,6 +492,7 @@ public partial class HostStore
             DELETE FROM placements WHERE host_id = $id;
             UPDATE switches SET host_id = 0 WHERE host_id = $id;
             UPDATE switches SET runs_on = 0 WHERE runs_on = $id AND kind = 'virtual';
+            DELETE FROM gateways WHERE host_id = $id;
             """;
         cmd.Parameters.AddWithValue("$id", hostId);
         cmd.ExecuteNonQuery();

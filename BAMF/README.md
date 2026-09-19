@@ -819,7 +819,7 @@ scan, or delete a thing.
 | GET | `/api/hosts/{id}/ips` | One host's address history: each main address it has had, with when it began and ended |
 | POST | `/api/hosts/{id}/forget` | Body `{"forgotten": true}` — soft-delete to the Forgotten tab (reversible) |
 | DELETE | `/api/hosts/{id}` | Permanently delete a host and its history (from the Forgotten tab) |
-| POST | `/api/switches` | Body `{"kind": "switch", "name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch, router or access point to the recorded layout. `kind` is `switch` (the default), `router`, `ap`, `virtual` or `ssid`; a virtual switch takes `runsOn` (the id of the machine it runs on) instead of a device, uplink or port count, and a wireless SSID takes `runsOn` as the id of its access point (a switch record of kind `ap`), with an optional `subnet` for its own network. Devices on a virtual switch or SSID are recorded with port 0. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
+| POST | `/api/switches` | Body `{"kind": "switch", "name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch, router or access point to the recorded layout. `kind` is `switch` (the default), `router`, `ap`, `virtual`, `ssid` or `vpn`; a virtual switch takes `runsOn` (the id of the machine it runs on) instead of a device, uplink or port count, and a wireless SSID takes `runsOn` as the id of its access point (a switch record of kind `ap`), with an optional `subnet` for its own network. Devices on a virtual switch, SSID or VPN are recorded with port 0. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
 | POST | `/api/switches/{id}` | Same body — update a switch. Refuses loops and ports that would strand recorded devices |
 | DELETE | `/api/switches/{id}` | Delete a switch. Devices recorded on it go back to unrecorded; switches plugged into it lose that uplink |
 | POST | `/api/switches/{id}/ports` | Body `{"ports": [{"hostId": 3, "port": 1}, {"hostId": 4, "port": 2}], "labels": [{"port": 1, "label": "Living Room"}]}` — set everything on one switch at once. Hosts listed are placed on it (moving off any other switch; `port` 0 = not recorded), and hosts on it that aren't listed come off it. `labels`, when given, replaces the ports' locations (up to 40 characters; blank clears one); leave it out to keep them. Each switch in `GET /api/hosts` carries them as `portLabels` |
@@ -829,6 +829,7 @@ scan, or delete a thing.
 | DELETE | `/api/blink` | Stop a running Find port blink. While one runs, `GET /api/hosts` reports it as `blink` (`hostId`, `started`, `until`) with the server's `serverTime`; bursts are on for [2k, 2k+1) seconds after `started` |
 | POST | `/api/hosts/{id}/type` | Body `{"type": "nas"}` — set a device's type, overriding the guess for its icon and type chip. Types: `router`, `switch`, `ap`, `camera`, `printer`, `tv`, `speaker`, `phone`, `tablet`, `laptop`, `desktop`, `server`, `nas`, `vm`, `game`, `iot`, `light`, `plug`, `device`. Empty goes back to the guess. `GET /api/hosts` returns it as `deviceType` |
 | POST | `/api/settings/type-icons` | Body `{"icons": {"Linux": "server"}}` — the icon for every device of a guessed type; an empty icon clears it. Returned in `GET /api/hosts` as `typeIcons` |
+| POST | `/api/hosts/{id}/gateway` | Body `{"ip": "192.168.1.1", "enabled": true}` — declare the device the gateway of the network that address is on (one of its own addresses), or stop declaring it. One gateway per network. `GET /api/hosts` lists them as `gateways`: `[{"subnet", "hostId", "ip"}]`. Returns 400 with `{"error": "…"}` for an address the device doesn't have, or a VPN's device |
 | POST | `/api/hosts/{id}/plug` | Body `{"switchId": 1, "port": 3}` — record which switch port a device is plugged into. `switchId` 0 clears it; `port` 0 means "port not recorded". `GET /api/hosts` returns each host's `switchId` and `switchPort`, and the layout as `switches` |
 
 ## Device links and port check
@@ -1035,6 +1036,14 @@ where that shows.
 It's a topology drawing only: picking it switches Radial back to Topology.
 Your choice is remembered in your browser.
 
+**One router, several networks.** Declare a router the gateway of more than
+one network (see [Gateways](#gateways)) and, with **All networks** and
+**Per network** picked, those networks get one card between them instead of
+one each: **Networks behind** the router, with every one of them hanging off it,
+each in its own colour. It works like the whole-network view, but only for
+that router's networks and the switches on them, and it keeps its own saved
+arrangement. Networks with a gateway of their own keep their own cards.
+
 **Arranging the topology.** Drag anything wherever you like. It's saved on the
 server per network, so the layout is the same in every browser. Anything you
 haven't moved by hand follows the node it hangs from, so dragging a switch
@@ -1057,16 +1066,42 @@ Cancelling any of these leaves things as they were.
 It is deliberately honest about what BAMF knows. ARP says which devices are
 **present** on a network, not how they're cabled, so a thin line on the map
 means "on this network" and nothing more. BAMF never works out on its own that
-one device plugs into another. Two things are known for certain, and marked:
+one device plugs into another. Two things are marked:
 
-- **the gateway**, from this machine's own routing table, and
+- **the gateway**: the one you declared, or else the one in this machine's own
+  routing table (see [Gateways](#gateways)), and
 - **this machine** (BAMF), from its own address on the network. It's drawn even
-  when a ping sweep never sees it, which it usually doesn't.
+  when a ping sweep never sees it, which it usually doesn't. Record which switch
+  it's plugged into and it's drawn there, with that switch's devices, labelled
+  **BAMF**, instead of on its own beside the gateway.
+
+### Gateways
+
+BAMF on its own only knows one kind of gateway: the **default gateway in this
+machine's routing table**. That's the router this machine sends its traffic
+through, and only on the network it does that on. On any other network, BAMF
+has no idea which device is the gateway. (A device whose guess says "router" or
+"gateway" is only offered **Make this a router…** in its ⋯ menu; that's a hint,
+not a gateway.)
+
+So you can say. **Gateway…** in a device's ⋯ menu lists each of its addresses
+with a checkbox: tick one to declare the device the gateway of that address's
+network.
+
+- A router with an address on each of your networks is the gateway of each:
+  tick them all, and the Map draws those networks together, hanging off it.
+- Each network has one gateway. Declaring another device there replaces the
+  first. A declared gateway wins over the routing table.
+- The dialog shows each network's gateway now, and where BAMF got it.
+- Port scans go easy on a declared gateway, as they do on the routing table's.
+- A VPN is never a gateway: a VPN's device can't be ticked, and a declared
+  gateway can't be made a VPN.
 
 A network with more than sixty devices switches to several rings and moves the
 names into the tooltips, so the drawing stays readable. `GET /api/hosts` carries
 the same facts as `networkPlaces`: per network, this machine's `selfIp` and
-`selfMac` there, and the `gateway` on it.
+`selfMac` there, and the routing table's `gateway` on it. Declared gateways are
+in `gateways`.
 
 ### Switches and cabling, as you record them
 
@@ -1075,9 +1110,10 @@ and access points, under **Settings → Switches and routers**, or with
 **+ Switch / router** on a network's card on the map, which picks that network
 for you. Each one has:
 
-- a **type**: switch, router, access point, virtual switch or wireless SSID;
-- a name, and how many ports it has (not asked for an access point, an SSID or
-  a virtual switch);
+- a **type**: switch, router, access point, virtual switch, wireless SSID or
+  VPN;
+- a name, and how many ports it has (not asked for an access point, an SSID,
+  a virtual switch or a VPN);
 - what it's plugged into: the router, a port on another switch or router, or
   not recorded.
 
@@ -1108,6 +1144,21 @@ menu, or pick the **Wireless SSID** type and choose its access point.
   connected by a **lightning bolt**, to show it's wireless.
 - Deleting an access point deletes its SSIDs, and their devices go back to not
   recorded. An access point can't be changed to another type while it has SSIDs.
+
+### VPNs
+
+A VPN server is a device, like a router, and like a router it can answer on
+several addresses at once: its LAN address and its tunnel address, say. Record
+it with the **VPN** type. Pick it as its device and record what it's plugged
+into, as for any switch. Then tick its **clients** in its **Clients** dialog:
+devices on any network, each with however many addresses it has.
+
+- **On the Map** its clients hang off it on dotted **tunnel** lines, not cables.
+- On another network's card, a VPN with clients there stands on its own, marked
+  with the network it's on, and nothing it's plugged into comes with it.
+- **A VPN is never a network's gateway, and it doesn't join networks
+  together.** It's never the top of a map, its device can't be declared a
+  gateway, and nothing can be cabled into it.
 
 ### Virtual switches and VMs
 

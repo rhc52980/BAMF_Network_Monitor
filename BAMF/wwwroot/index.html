@@ -846,6 +846,17 @@
   /* A wireless connection: a lightning bolt from an SSID to its device. */
   .map-svg .spoke.bolt { fill: none; stroke: var(--led-warn); stroke-width: 1.8; stroke-linejoin: miter; stroke-linecap: round; }
   .map-svg .spoke.bolt.off { stroke: var(--led-off); }
+  /* A VPN client: a dotted tunnel, not a cable. */
+  .map-svg .spoke.tunnel { fill: none; stroke: var(--focus); stroke-width: 1.6; stroke-dasharray: 1 4; stroke-linecap: round; }
+  .map-svg .spoke.tunnel.off { stroke: var(--led-off); }
+  .map-head .map-nets { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; color: var(--text-dim); }
+  .map-head .map-nets span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .map-head .map-nets i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .gw-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+  .gw-row { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; cursor: pointer; }
+  .gw-row input { grid-row: span 2; align-self: center; }
+  .gw-row .gw-now { grid-column: 2; font-size: 12px; color: var(--text-dim); }
+  .gw-row.disabled { cursor: default; opacity: .6; }
   .map-svg .hub { fill: var(--panel-2); stroke: var(--line); stroke-width: 1.5; }
   .map-svg .hub-txt { font: 600 11px "IBM Plex Mono", monospace; fill: var(--text); text-anchor: middle; dominant-baseline: central; }
   .map-svg .node { cursor: pointer; }
@@ -2102,8 +2113,10 @@
     BAMF sees which devices are present, not how they're cabled. The heavier
     <strong>cables</strong> are yours: switches you add in Settings, and ports you record with
     <strong>Plugged into…</strong> in a device's ⋯ menu. BAMF can't check them. The
-    <strong>gateway</strong> comes from this machine's routing table, and <strong>BAMF</strong>
-    marks this machine. Hover anything for details. Click a device's name to record where it's
+    <strong>gateway</strong> is the one you declared (<strong>Gateway…</strong> in a device's ⋯ menu),
+    or else comes from this machine's routing table, and <strong>BAMF</strong> marks this machine,
+    under the switch it's plugged into once you've recorded that. A router you declare the
+    gateway of several networks gets one map with all of them hanging off it. Hover anything for details. Click a device's name to record where it's
     plugged in, or its icon to change its type; click a switch to fill in all its ports at once. In the <strong>Topology</strong> layout you
     can drag things where you like (it's saved), drop a device on a switch to plug it in, drop it
     in the <strong>On this network</strong> box to unplug it, and zoom with Ctrl + scroll, a pinch or
@@ -2353,6 +2366,27 @@
   <div class="scan-panel-body" id="scanPanelBody"></div>
 </div>
 
+<div class="modal-backdrop" id="gwModal" hidden>
+  <div class="modal">
+    <div class="modal-title" id="gwTitle">Gateway</div>
+    <div class="modal-note" id="gwSub"></div>
+    <div class="gw-list" id="gwList"></div>
+    <p class="modal-help">
+      Tick an address to declare this device the gateway of that address's network. On its own,
+      BAMF only knows a gateway from this machine's routing table: the default gateway of the
+      network BAMF itself routes through, and none for the others. A router with an address on
+      several networks is the gateway of each; tick each one, and the Map draws those networks
+      together, hanging off the router. Each network has one gateway, so ticking this replaces
+      any other declared there.
+    </p>
+    <div class="set-result" id="gwErr"></div>
+    <div class="modal-actions">
+      <button class="toggle" id="gwCancel">Cancel</button>
+      <button class="export-btn" id="gwSave">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="noteModal" hidden>
   <div class="modal">
     <div class="modal-title" id="noteTitle">Note</div>
@@ -2451,6 +2485,11 @@
       Tick the devices that connect to this SSID and save once. Devices from any network can be
       added. A device already recorded on another switch moves here when you save.
     </p>
+    <p class="modal-help" id="vpnHelp" hidden>
+      Tick the devices that connect through this VPN and save once. Devices from any network can be
+      added, whatever addresses they have. A device already recorded on a switch moves here when
+      you save.
+    </p>
     <p class="modal-help" id="vmsHelp" hidden>
       Tick the devices that run as VMs on this machine and save once. Devices from any network can
       be added. A device already recorded on another switch moves here when you save.
@@ -2480,6 +2519,7 @@
         <option value="ap">Access point</option>
         <option value="virtual">Virtual switch (Proxmox, ESXi, Hyper-V)</option>
         <option value="ssid">Wireless SSID (on an access point)</option>
+        <option value="vpn">VPN (clients on any network)</option>
       </select>
     </label>
     <label class="modal-row" id="swRunsRow">Runs on
@@ -2520,6 +2560,12 @@
       A wireless SSID is a network an access point broadcasts, like "Home" or "Guest". Pick the
       access point, and the network the SSID puts its devices on. Then tick the devices that
       connect to it.
+    </p>
+    <p class="modal-help" id="swHelpVpn">
+      A VPN is a device, like a router, and can answer on several addresses. Pick it as its device,
+      and record what it's plugged into. Then tick its clients: devices on any network, each with
+      however many addresses it has. A VPN is never a network's gateway and doesn't join networks
+      together; on the Map its clients hang off it on dotted tunnel lines.
     </p>
     <p class="modal-help" id="swHelpVirtual">
       A virtual switch lives inside a machine: Proxmox's vmbr0, ESXi's vSwitch0, a Hyper-V
@@ -2588,6 +2634,7 @@ let scanModes = {};       // subnet -> 'active ARP' | 'ping sweep'
 let subnetIntervals = {};  // subnet -> effective interval in seconds
 let subnetNextDue = {};    // subnet -> ISO time the scanner will next run it (paused: absent)
 let networkPlaces = {};    // subnet -> { selfIp, selfMac, gateway }: what the map knows for certain
+let declaredGws = [];      // [{ subnet, hostId, ip }]: gateways the user declared, one per network
 let mapPositions = {};     // topology Map: subnet -> node key -> [x, y] the user dragged to
 let typeIcons = {};        // guessed type -> icon the user chose for all of them: { "Linux": "server" }
 let switches = [];         // the switch layout the user recorded: [{ id, name, ports, subnet, hostId, uplink, uplinkSwitch, uplinkPort }]
@@ -2876,7 +2923,7 @@ function addrMenuHtml(h) {
   const rows = list.map(a => `<div class="addr-row">
       <a class="mono" href="${esc(a.linkUrl || ("http://" + a.ip))}" target="_blank" rel="noopener" title="Open ${esc(a.linkUrl || ("http://" + a.ip))}">${esc(a.ip)}</a>
       <span class="addr-net">${esc(a.subnet || "—")}</span>
-      <span class="addr-seen">${a.ip === h.ip ? "main" : "seen " + fmtAgo(a.lastSeen)}</span>
+      <span class="addr-seen">${a.ip === h.ip ? "main" : "seen " + fmtAgo(a.lastSeen)}${declaredGws.some(g => g.hostId === h.id && g.ip === a.ip) ? " · gateway" : ""}</span>
     </div>`).join("");
   return `<div class="addr-head">Answers on ${list.length} addresses</div>${rows}` +
     (list.length >= PROXY_ARP_HINT
@@ -3187,19 +3234,24 @@ function mapClusters() {
     const members = hosts.filter(h => onNet(h, subnet) && !h.ignored && !h.forgotten).map(h => onNetView(h, subnet));
     const selfMac = (place.selfMac || "").toUpperCase();
     let self = selfMac ? members.find(h => (h.mac || "").toUpperCase() === selfMac) || null : null;
-    let gw = place.gateway
-      ? members.filter(h => h.ip === place.gateway).sort((a, b) => Number(b.online) - Number(a.online))[0] || null
-      : null;
+    // The gateway you declared, or the routing table's.
+    const gwAt = gatewayOf(subnet);
+    let gw = !gwAt ? null
+      : gwAt.hostId ? members.find(h => h.id === gwAt.hostId) || null
+      : members.filter(h => h.ip === gwAt.ip).sort((a, b) => Number(b.online) - Number(a.online))[0] || null;
     if (gw && self && gw.id === self.id) gw = null;   // this machine is the router: show it once
     // Known from the machine itself even when no scan has recorded it: a ping
     // sweep never sees its own host, and a gateway can be slow to answer.
     if (!self && place.selfIp) self = { synthetic: true, ip: place.selfIp, mac: place.selfMac || "" };
-    if (!gw && place.gateway && place.gateway !== place.selfIp) gw = { synthetic: true, ip: place.gateway };
+    if (!gw && gwAt && gwAt.ip !== place.selfIp) gw = { synthetic: true, ip: gwAt.ip };
     // The switch layout the user recorded. A switch is drawn on its own
     // network, and on any other network with a device recorded on it; every
     // switch above a drawn one is drawn too, so no chain floats unattached.
     const swById = new Map(switches.map(s => [s.id, s]));
-    const placed = members.filter(h => h !== self && h !== gw && swById.has(h.switchId));
+    // BAMF recorded on a switch is drawn there, under that switch, rather than
+    // on its own beside the gateway.
+    const selfPlaced = !!self && !self.synthetic && swById.has(self.switchId);
+    const placed = members.filter(h => (h !== self || selfPlaced) && h !== gw && swById.has(h.switchId));
     const shown = new Set(switches.filter(s => s.subnet === subnet).map(s => s.id));
     placed.forEach(h => shown.add(h.switchId));
     // A wireless SSID is drawn with the access point that broadcasts it.
@@ -3209,6 +3261,9 @@ function mapClusters() {
     }
     for (const id of [...shown]) {
       let sw = swById.get(id);
+      // A VPN drawn for its clients on another network stands alone there:
+      // it joins no networks together, so nothing above it comes along.
+      if (sw && sw.kind === "vpn" && sw.subnet !== subnet) continue;
       while (sw && sw.uplink === "switch" && swById.has(sw.uplinkSwitch) && !shown.has(sw.uplinkSwitch)) {
         shown.add(sw.uplinkSwitch);
         sw = swById.get(sw.uplinkSwitch);
@@ -3221,7 +3276,8 @@ function mapClusters() {
       if ((fa === null) !== (fb === null)) return fa === null ? 1 : -1;
       return (fa || "").localeCompare(fb || "") || dispName(a).localeCompare(dispName(b)) || ipNum(a.ip) - ipNum(b.ip);
     });
-    return { subnet, place, members, self, gw, ring, placed, switches: sws, mode: scanModes[subnet] || "" };
+    return { subnet, place, members, self: selfPlaced ? null : self, selfIds: self && !self.synthetic ? [self.id] : [],
+      gw, gwDeclared: !!(gwAt && gwAt.declared), ring, placed, switches: sws, mode: scanModes[subnet] || "" };
   });
 }
 
@@ -3234,13 +3290,19 @@ const NET_COLORS = ["#4fb3d9", "#e0a040", "#b58af0", "#58c98a", "#e56f8f", "#8fa
 let mapWhole = false;
 try { mapWhole = localStorage.getItem("bamf-map-whole") === "1"; } catch { }
 function wholeActive(clusters) { return mapWhole && mapStyle === "topology" && network === "all" && clusters.length > 1; }
-function wholeCluster(clusters) {
+// Also the map of the networks one router is declared the gateway of, with
+// opts.gateway its device id: only those networks, and only their switches.
+function wholeCluster(clusters, opts = {}) {
   const nets = clusters.map(c => c.subnet);
   const netColors = Object.fromEntries(nets.map((n, i) => [n, NET_COLORS[i % NET_COLORS.length]]));
   const real = h => h && !h.synthetic ? hosts.find(x => x.id === h.id) || h : h;
   const members = hosts.filter(h => !h.ignored && !h.forgotten && nets.some(n => onNet(h, n)));
   // BAMF, once, even with an address (and maybe its own NIC) on every network.
-  const selves = clusters.map(c => c.self).filter(Boolean);
+  // Recorded on a switch, it's drawn there instead, and a record it has on
+  // another network (a second network card) isn't drawn again.
+  const allSelfIds = [...new Set(clusters.flatMap(c => c.selfIds))];
+  const selfPlaced = clusters.some(c => c.selfIds.length && !c.self);
+  const selves = selfPlaced ? [] : clusters.map(c => c.self).filter(Boolean);
   const self = real(selves.find(h => !h.synthetic) || selves[0] || null);
   const selfIds = new Set(selves.filter(h => !h.synthetic).map(h => h.id));
   const tops = clusters.map(c => ({ net: c.subnet, gw: real(c.gw) }));
@@ -3250,23 +3312,47 @@ function wholeCluster(clusters) {
   // network hangs from it.
   const placed = members.filter(h => !selfIds.has(h.id) && swById.has(h.switchId));
   const swHosts = new Set(switches.map(s => s.hostId).filter(Boolean));
-  const ring = members.filter(h => !selfIds.has(h.id) && !gwIds.has(h.id) && !placed.includes(h) && !swHosts.has(h.id)).sort((a, b) => {
+  const ring = members.filter(h => !allSelfIds.includes(h.id) && !gwIds.has(h.id) && !placed.includes(h) && !swHosts.has(h.id)).sort((a, b) => {
     const fa = typeFamily(a), fb = typeFamily(b);
     if ((fa === null) !== (fb === null)) return fa === null ? 1 : -1;
     return (fa || "").localeCompare(fb || "") || dispName(a).localeCompare(dispName(b)) || ipNum(a.ip) - ipNum(b.ip);
   });
   const boxes = nets.map(net => ({ net, hosts: ring.filter(h => (nets.includes(h.subnet) ? h.subnet : nets[0]) === net) }));
-  return { subnet: WHOLE, whole: true, place: {}, members, self, gw: tops[0].gw, tops, boxes, ring, placed,
-    switches: switches.slice(), mode: "", nets, netColors };
+  const sws = opts.gateway ? switches.filter(s => clusters.some(c => c.switches.includes(s))) : switches.slice();
+  return { subnet: opts.gateway ? "gw:" + opts.gateway : WHOLE, whole: true, group: !!opts.gateway,
+    place: {}, members, self, selfIds: allSelfIds, gw: tops[0].gw, tops, boxes, ring, placed,
+    switches: sws, mode: "", nets, netColors };
+}
+
+// Networks that one router is declared the gateway of are drawn as one map,
+// all hanging off that router, in place of a card each.
+function gatewayGroups(perNet) {
+  if (network !== "all" || mapStyle !== "topology") return perNet;
+  const byGw = new Map();
+  for (const c of perNet) {
+    const d = declaredGw(c.subnet);
+    if (d && hosts.some(h => h.id === d.hostId)) {
+      if (!byGw.has(d.hostId)) byGw.set(d.hostId, []);
+      byGw.get(d.hostId).push(c);
+    }
+  }
+  const out = [];
+  for (const c of perNet) {
+    const d = declaredGw(c.subnet);
+    const group = d && byGw.get(d.hostId);
+    if (!group || group.length < 2) { out.push(c); continue; }
+    if (group[0] === c) out.push(wholeCluster(group, { gateway: d.hostId }));
+  }
+  return out;
 }
 
 function mapSignature(clusters) {
   const key = n => n ? (n.synthetic ? "~" + n.ip : n.id) : null;
   return JSON.stringify([network, mapStyle, clusters.map(c => [
-    c.subnet, c.mode, key(c.self), key(c.gw),
+    c.subnet, c.mode, key(c.self), c.selfIds, key(c.gw),
     c.whole ? [c.tops.map(t => [t.net, key(t.gw)]), c.boxes.map(b => [b.net, b.hosts.map(h => h.id)])] : null,
     c.ring.map(h => [h.id, typeFamily(h), deviceKind(h), dispName(h), h.ip]),
-    c.switches.map(s => [s.id, s.name, s.ports, s.hostId, s.uplink, s.uplinkSwitch, s.uplinkPort, s.portLabels]),
+    c.switches.map(s => [s.id, s.name, s.kind, s.subnet, s.ports, s.hostId, s.uplink, s.uplinkSwitch, s.uplinkPort, s.portLabels]),
     c.placed.map(h => [h.id, h.switchId, h.switchPort, deviceKind(h), dispName(h), h.ip]),
     mapStyle === "topology" ? mapPositions[c.subnet] || null : null,
   ])]);
@@ -3281,7 +3367,7 @@ function mapTitle(h, role) {
   if (h.synthetic) {
     return role === "self"
       ? `This machine, running BAMF\n${h.ip}`
-      : `Default gateway\n${h.ip}\nNot recorded by a scan yet`;
+      : `Gateway\n${h.ip}\nNot recorded by a scan yet`;
   }
   const lines = [dispName(h) === "—" ? h.ip : dispName(h), `${h.ip} · ${h.mac}`];
   const others = curAddrs(h).filter(a => a.ip !== h.ip).map(a => a.ip);
@@ -3290,7 +3376,10 @@ function mapTitle(h, role) {
   lines.push(h.deviceType ? "Type: " + typeLabel(h.deviceType) + " (yours)" : h.osGuess ? "Guess: " + h.osGuess : "No guess yet");
   const sw = h.switchId ? switches.find(s => s.id === h.switchId) : null;
   if (sw) lines.push(`Plugged into ${sw.name}` + (h.switchPort ? `, ${portText(sw, h.switchPort)}` : "") + " (your record)");
-  if (role === "gw") lines.push("Default gateway for this network");
+  if (role === "gw" || gwNetsOf(h).length) {
+    const nets = gwNetsOf(h);
+    lines.push(nets.length ? `Gateway of ${nets.join(", ")} (you declared it)` : "Default gateway for this network (from BAMF's routing table)");
+  }
   if (role === "self") lines.push("This machine, running BAMF");
   lines.push((h.online ? "Online" : "Offline, last seen " + fmtAgo(h.lastSeen)) + (h.known ? "" : " · unknown device"));
   return lines.join("\n");
@@ -3408,7 +3497,7 @@ function buildClusterSvg(c) {
       // A device opens its "Plugged into" dialog, which is where the map is
       // edited; the gateway and this machine still jump to the device list.
       const open = () => {
-        if (role !== "dev") return jumpToHost(h.id);
+        if (role !== "dev" && !from) return jumpToHost(h.id);
         openPlugDialog(hosts.find(x => x.id === h.id) || h);
       };
       g.addEventListener("click", open);
@@ -3440,7 +3529,7 @@ function buildClusterSvg(c) {
         "text-anchor": right ? "start" : "end", "dominant-baseline": "central",
         transform: `rotate(${(right ? deg : deg + 180).toFixed(1)})`,
       });
-      t.textContent = mapLabel(h);
+      t.textContent = role === "self" ? "BAMF" : mapLabel(h);
       g.appendChild(t);
     } else if (labelMode === "above" || labelMode === "below") {
       const t = svgEl("text", {
@@ -3501,7 +3590,7 @@ function buildClusterSvg(c) {
   slots.forEach((slot, i) => {
     if (!slot || !slot.h) return;   // a gap, or an empty switch's place
     const [r, a] = at[i];
-    addNode(slot.h, r * Math.cos(a), r * Math.sin(a), "dev", single ? "radial" : "none", a,
+    addNode(slot.h, r * Math.cos(a), r * Math.sin(a), c.selfIds.includes(slot.h.id) ? "self" : "dev", single ? "radial" : "none", a,
       slot.sw ? swPos.get(slot.sw.id) : null);
   });
   if (c.gw) addNode(c.gw, 0, -MAP.INNER, "gw", "above");
@@ -3512,10 +3601,13 @@ function buildClusterSvg(c) {
 // Switches, routers and access points are one kind of record with a type.
 // Kinds that live inside something else and have no cable of their own.
 function innerKind(kind) { return kind === "virtual" || kind === "ssid"; }
+// Kinds whose devices have no port: VMs, Wi-Fi clients, and a VPN's clients.
+function memberKind(kind) { return innerKind(kind) || kind === "vpn"; }
 // The access point a wireless SSID is broadcast by.
 function apOf(sw) { return sw && sw.kind === "ssid" && sw.runsOn ? switches.find(s => s.id === sw.runsOn && s.kind === "ap") || null : null; }
 function kindNoun(kind) {
-  return kind === "router" ? "router" : kind === "ap" ? "access point" : kind === "virtual" ? "virtual switch" : kind === "ssid" ? "wireless SSID" : "switch";
+  return kind === "router" ? "router" : kind === "ap" ? "access point" : kind === "virtual" ? "virtual switch"
+    : kind === "ssid" ? "wireless SSID" : kind === "vpn" ? "VPN" : "switch";
 }
 // The machine a virtual switch runs on.
 function runsOnHost(sw) { return sw && sw.kind === "virtual" && sw.runsOn ? hosts.find(h => h.id === sw.runsOn) || null : null; }
@@ -3524,6 +3616,7 @@ function kindPorts(sw) {
   if (sw.kind === "virtual") { const on = runsOnHost(sw); return `(virtual switch${on ? " on " + nameOrIp(on) : ""})`; }
   if (sw.kind === "ssid") { const ap = apOf(sw); return `(wireless SSID${ap ? " on " + ap.name : ""})`; }
   if (sw.kind === "ap") return "(access point)";
+  if (sw.kind === "vpn") return "(VPN)";
   return `(${sw.kind && sw.kind !== "switch" ? kindNoun(sw.kind) + ", " : ""}${sw.ports} ports)`;
 }
 // Hypervisors give virtual NICs well-known MAC prefixes; the same list as the server's.
@@ -3535,10 +3628,26 @@ function vmPlatform(mac) {
   const hit = VM_PREFIXES.find(([p]) => c.startsWith(p));
   return hit ? hit[1] : null;
 }
-// The network's default gateway, by BAMF's routing table or the device's own guess.
+// How BAMF knows a network's gateway: the one you declared, or else this
+// machine's routing table. The routing table only knows the default gateway
+// of networks this machine routes through, so on others only you can say.
+function declaredGw(subnet) { return declaredGws.find(g => g.subnet === subnet) || null; }
+function gatewayOf(subnet) {
+  const d = declaredGw(subnet);
+  if (d) return { ip: d.ip, hostId: d.hostId, declared: true };
+  const ip = (networkPlaces[subnet] || {}).gateway;
+  return ip ? { ip, hostId: null, declared: false } : null;
+}
+// The networks a device is declared the gateway of.
+function gwNetsOf(h) { return h ? declaredGws.filter(g => g.hostId === h.id).map(g => g.subnet) : []; }
+// The device a VPN record is, if it is one: a VPN is never a gateway.
+function vpnOfHost(h) { return h ? switches.find(s => s.kind === "vpn" && s.hostId === h.id) || null : null; }
+// A network's gateway, by what you declared, BAMF's routing table, or the device's own guess.
 function isGatewayHost(h) {
-  const p = networkPlaces[h.subnet];
-  return !!(p && p.gateway && p.gateway === h.ip) || /router|gateway/i.test(h.osGuess || "");
+  if (vpnOfHost(h)) return false;
+  if (gwNetsOf(h).length) return true;
+  const g = gatewayOf(h.subnet);
+  return !!(g && !g.declared && g.ip === h.ip) || /router|gateway/i.test(h.osGuess || "");
 }
 
 // "port 3 · Living Room", or "port 3" when the port has no location.
@@ -3569,6 +3678,13 @@ function switchTitle(sw) {
   if (sw.kind === "ssid") {
     return [sw.name, "Wireless SSID · your record", uplinkText(sw), sw.subnet || "no network",
       `${n} device${n === 1 ? "" : "s"} on it`, "Click to choose its devices"].join("\n");
+  }
+  if (sw.kind === "vpn") {
+    const also = host ? alsoAt(host).map(a => a.ip) : [];
+    return [sw.name, "VPN · your record", host ? `${host.ip} · ${host.mac}` : "No address BAMF sees",
+      also.length ? "Also at " + also.join(", ") : null, uplinkText(sw),
+      `${n} client${n === 1 ? "" : "s"} on it`, "Never a gateway; joins no networks together", "Click to choose its clients"]
+      .filter(Boolean).join("\n");
   }
   if (sw.kind === "ap") {
     const ssids = switches.filter(x => x.kind === "ssid" && x.runsOn === sw.id);
@@ -3619,6 +3735,7 @@ const TOPO = {
 // 24×24 line drawings, one per kind of device. Plain paths, no library.
 const TOPO_ICONS = {
   router: "M3 13h18v7H3z M7 13V6 M17 13V6 M6.5 16.5h2 M10.5 16.5h2",
+  vpn: "M12 2.5l7.5 3v5.5c0 4.6-3.2 8.3-7.5 10.5-4.3-2.2-7.5-5.9-7.5-10.5V5.5z M9.5 11V9.2a2.5 2.5 0 0 1 5 0V11 M8.5 11h7v5h-7z",
   switch: "M2 8h20v8H2z M5 12h1.5 M8.5 12h1.5 M12 12h1.5 M15.5 12h1.5",
   ap: "M12 19.5h.01 M8.5 16a5 5 0 0 1 7 0 M5.5 13a9 9 0 0 1 13 0 M2.5 10a13 13 0 0 1 19 0",
   camera: "M3 7h12v10H3z M15 10l6-3v10l-6-3z",
@@ -3780,9 +3897,11 @@ function topoModel(c) {
     add(key, { type: "switch", sw, host: sw.hostId ? hosts.find(h => h.id === sw.hostId) : null,
       parent: parentKey, auto: [left + TOPO.T, y1], edge });
     const devs = c.placed.filter(h => h.switchId === sw.id).sort(byPort);
+    // A VPN's clients reach it down a tunnel, not a cable.
+    const vpn = sw.kind === "vpn";
     devs.forEach((h, i) => add("h:" + h.id, { type: "dev", host: h, parent: key,
       auto: [left + TOPO.T + TOPO.PORT_INDENT, y1 + 70 + i * TOPO.ROW],
-      edge: { style: "list", cable: true, sw, port: h.switchPort } }));
+      edge: vpn ? { style: "list", tunnel: true, cable: false, sw, port: 0 } : { style: "list", cable: true, sw, port: h.switchPort } }));
     const col = { bottom: -1e9 };
     let vsReach = 0;
     devs.forEach((h, i) => {
@@ -3793,7 +3912,7 @@ function topoModel(c) {
       ? hangSsids(sw, key, left + TOPO.T, y1, { bottom: -1e9 }, devs.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 210 : TOPO.VS_DX)
       : 0;
     // Room for the name, or the line under it ("16 ports · 192.168.30.104"), whichever is longer.
-    const label = Math.max(sw.name.length, innerKind(sw.kind) ? 0 : (`${sw.ports} ports`.length + (sw.hostId ? 18 : 0)));
+    const label = Math.max(sw.name.length, memberKind(sw.kind) ? (sw.kind === "vpn" ? 24 : 0) : (`${sw.ports} ports`.length + (sw.hostId ? 18 : 0)));
     let width = Math.max(devs.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 190 : 0, 2 * TOPO.T + 30 + label * TOPO.CHAR,
       vsReach ? TOPO.PORT_INDENT + TOPO.T + vsReach + 20 : 0, ssidReach ? TOPO.T + ssidReach + 20 : 0);
     c.switches.filter(s => !innerKind(s.kind) && s.uplink === "switch" && s.uplinkSwitch === sw.id && shown.has(s.id))
@@ -3821,10 +3940,14 @@ function topoModel(c) {
     }
     const onRoot = s => t.rec && s.uplink === "switch" && s.uplinkSwitch === t.rec.id;
     const mine = s => onRoot(s) || (!(s.uplink === "switch" && shown.has(s.uplinkSwitch)) && (!c.whole || ownerOf(s.subnet) === t));
+    // A VPN on another network's card is there for its clients on this one:
+    // no cable to it, just the tunnel they reach it by.
+    const away = s => s.kind === "vpn" && !c.whole && s.subnet !== c.subnet;
     c.switches.filter(s => !topRecs.has(s.id) && !innerKind(s.kind) && mine(s))
       .sort((a, b) => (onRoot(b) || b.uplink === "router") - (onRoot(a) || a.uplink === "router") || (a.uplinkPort || 1e9) - (b.uplinkPort || 1e9))
       .forEach(sw => {
-        const edge = onRoot(sw)
+        const edge = away(sw) ? { style: "down", tunnel: true, cable: false }
+          : onRoot(sw)
           ? { style: "down", cable: true, sw: t.rec, port: sw.uplinkPort }
           : { style: "down", cable: sw.uplink === "router" };
         const w = place(sw, x, t.key, edge);
@@ -4033,7 +4156,7 @@ function topoZoomBy(subnet, factor, center) {
 }
 
 async function topoAutoArrange(subnet) {
-  const where = subnet === WHOLE ? "the whole-network map" : subnet;
+  const where = subnet === WHOLE ? "the whole-network map" : subnet.startsWith("gw:") ? "this combined map" : subnet;
   if (!confirm(`Put everything on ${where} back where the automatic layout puts it? Where you dragged things is forgotten.`)) return;
   await fetch("/api/map/positions?subnet=" + encodeURIComponent(subnet), { method: "DELETE" });
   delete mapPositions[subnet];
@@ -4066,7 +4189,7 @@ function buildTopologySvg(c) {
 
   for (const [key, n] of m.nodes) {
     if (n.edge && n.parent) {
-      const path = svgEl("path", { class: "spoke" + (n.edge.cable ? " cable" : "") + (n.edge.vlink ? " vlink" : "") + (n.edge.style === "bolt" ? " bolt" : "") + (n.type === "dev" && !n.host.online ? " off" : "") });
+      const path = svgEl("path", { class: "spoke" + (n.edge.cable ? " cable" : "") + (n.edge.vlink ? " vlink" : "") + (n.edge.style === "bolt" ? " bolt" : "") + (n.edge.tunnel ? " tunnel" : "") + (n.type === "dev" && !n.host.online ? " off" : "") });
       if (n.type === "dev") path.setAttribute("data-id", n.host.id);
       gEdges.appendChild(path);
       // Shown only by some themes: something flowing along a recorded cable.
@@ -4076,7 +4199,7 @@ function buildTopologySvg(c) {
       if (pkt && n.type === "dev") pkt.setAttribute("data-id", n.host.id);
       if (pkt) gEdges.appendChild(pkt);
       let label = null;
-      if (n.edge.sw && (n.edge.style === "list" || n.edge.port)) {
+      if (n.edge.sw && !n.edge.tunnel && (n.edge.style === "list" || n.edge.port)) {
         // (a "down" cable from a recorded router carries its port too)
         const port = n.edge.port;
         // An access point's devices with no port are its Wi-Fi clients.
@@ -4118,7 +4241,8 @@ function topoNodeEl(m, key, n) {
   let cls, kind, name, sub, tip;
   if (n.type === "switch") {
     cls = h ? mapNodeClass(h, "sw") : "node sw";
-    kind = n.sw.kind === "router" ? "router" : n.sw.kind === "ap" || n.sw.kind === "ssid" ? "ap" : n.sw.kind === "virtual" ? "vswitch" : "switch";
+    kind = n.sw.kind === "router" ? "router" : n.sw.kind === "ap" || n.sw.kind === "ssid" ? "ap" : n.sw.kind === "virtual" ? "vswitch"
+      : n.sw.kind === "vpn" ? "vpn" : "switch";
     name = n.sw.name;
     if (n.sw.kind === "virtual") {
       const on = runsOnHost(n.sw);
@@ -4130,6 +4254,10 @@ function topoNodeEl(m, key, n) {
       sub = "wireless SSID" + (ap ? " · on " + ap.name : "");
     } else if (n.sw.kind === "ap") {
       sub = "access point" + (h ? " · " + h.ip : "");
+    } else if (n.sw.kind === "vpn") {
+      const more = h ? alsoAt(h).length : 0;
+      sub = !m.c.whole && n.sw.subnet && n.sw.subnet !== m.subnet ? "VPN · on " + n.sw.subnet
+        : "VPN" + (h ? " · " + h.ip + (more ? ` +${more}` : "") : "");
     } else {
       sub = (n.sw.kind && n.sw.kind !== "switch" ? kindNoun(n.sw.kind) + " · " : "") + `${n.sw.ports} ports` + (h ? " · " + h.ip : "");
     }
@@ -4138,6 +4266,8 @@ function topoNodeEl(m, key, n) {
     if (h) {
       cls = mapNodeClass(h, "gw"); kind = "router";
       name = h.synthetic ? "Gateway" : nameOrIp(h); sub = h.ip; tip = mapTitle(h, "gw");
+      // A router that's the gateway of every network on this map: its address on each.
+      if (m.c.group && !h.synthetic) sub = declaredGws.filter(g => g.hostId === h.id && m.c.nets.includes(g.subnet)).map(g => g.ip).join(" · ") || h.ip;
     } else {
       cls = "node net"; kind = "net";
       name = m.c.whole ? "Your network" : m.subnet; sub = m.c.whole ? "no gateway known" : "this network";
@@ -4145,6 +4275,9 @@ function topoNodeEl(m, key, n) {
     }
   } else if (n.type === "self") {
     cls = mapNodeClass(h, "self"); kind = "server"; name = "BAMF"; sub = h.ip; tip = mapTitle(h, "self");
+  } else if (m.c.selfIds.includes(h.id)) {
+    // BAMF, recorded on a switch: drawn with that switch's devices.
+    cls = mapNodeClass(h, "self"); kind = "server"; name = "BAMF"; sub = h.ip; tip = mapTitle(h, "self") + "\n" + TOPO_DEV_HINT;
   } else {
     cls = mapNodeClass(h, "dev"); kind = deviceKind(h); name = nameOrIp(h); tip = topoDevTip(h);
     // An unnamed device is already labelled by its address: say what it is instead.
@@ -4260,7 +4393,7 @@ function topoDropTarget(m, key) {
   }
   for (const [k, t] of m.nodes) {
     if (k === key || below.has(k)) continue;
-    if (n.type === "switch" && t.type === "switch" && innerKind(t.sw.kind)) continue;
+    if (n.type === "switch" && t.type === "switch" && memberKind(t.sw.kind)) continue;
     if (t.type === "switch" || (t.type === "root" && n.type === "switch")) {
       const q = m.final.get(k);
       if (Math.hypot(q[0] - p[0], q[1] - p[1]) < 30) return { key: k, node: t };
@@ -4464,7 +4597,8 @@ function buildClusterCard(c) {
   head.className = "map-head";
   const name = document.createElement("span");
   name.className = "map-net";
-  name.textContent = c.whole ? "Whole network" : c.subnet;
+  const gwHost = c.group ? hosts.find(h => h.id === Number(c.subnet.slice(3))) : null;
+  name.textContent = c.group ? `Networks behind ${gwHost ? nameOrIp(gwHost) : "the gateway"}` : c.whole ? "Whole network" : c.subnet;
   const cnt = document.createElement("span");
   cnt.className = "map-cnt";
   const tag = document.createElement("span");
@@ -4472,6 +4606,13 @@ function buildClusterCard(c) {
   tag.textContent = c.whole ? `${c.nets.length} networks`
     : c.mode === "skipped" ? "no interface" : c.mode === "paused" ? "paused" : c.mode ? "via " + c.mode : "";
   head.append(name, cnt, tag);
+  // A combined gateway map names its networks and their colours.
+  if (c.group) {
+    const nets = document.createElement("span");
+    nets.className = "map-nets";
+    nets.innerHTML = c.nets.map(n => `<span><i style="background:${c.netColors[n]}"></i>${esc(n)}</span>`).join("");
+    head.appendChild(nets);
+  }
   card.appendChild(head);
   const empty = !c.members.length && !c.self && !c.gw && !c.switches.length;
   const tools = document.createElement("span");
@@ -4525,7 +4666,7 @@ function renderMap() {
   const netLegend = $("mapNetLegend");
   netLegend.hidden = !whole;
   if (mapDragging) return;   // a poll mustn't redraw the map out from under a drag
-  const clusters = whole ? [wholeCluster(perNet)] : perNet;
+  const clusters = whole ? [wholeCluster(perNet)] : gatewayGroups(perNet);
   if (whole) {
     const colors = clusters[0].netColors;
     const html = Object.entries(colors).map(([n, col]) =>
@@ -4553,7 +4694,9 @@ function renderMap() {
     const cls = mapNodeClass(h, role);
     g.setAttribute("class", g.classList.contains("tnode") ? "tnode " + cls : cls);
     g.querySelector("title").textContent = sw ? switchTitle(sw)
-      : role === "dev" && g.classList.contains("tnode") ? topoDevTip(h) : mapTitle(h, role);
+      : role === "dev" && g.classList.contains("tnode") ? topoDevTip(h)
+      : role === "self" && g.getAttribute("data-key") !== "self" && g.classList.contains("tnode") ? mapTitle(h, role) + "\n" + TOPO_DEV_HINT
+      : mapTitle(h, role);
   });
   wrap.querySelectorAll(".spoke[data-id], .pkt[data-id]").forEach(l => {
     const h = byId.get(l.getAttribute("data-id"));
@@ -4781,7 +4924,7 @@ function render() {
       const ownSwitch = switches.find(s => s.hostId === h.id);
       if (ownSwitch) {
         if (ownSwitch.kind === "ap") addItem("Add a wireless SSID…", () => openSwitchDialog(null, null, null, { kind: "ssid", runsOn: ownSwitch.id }));
-        else addItem(ownSwitch.kind === "virtual" ? "VMs…" : "Ports…", () => openPortsDialog(ownSwitch));
+        else addItem(ownSwitch.kind === "virtual" ? "VMs…" : ownSwitch.kind === "vpn" ? "Clients…" : "Ports…", () => openPortsDialog(ownSwitch));
         addItem(`Edit ${kindNoun(ownSwitch.kind)}…`, () => openSwitchDialog(ownSwitch));
       } else {
         addItem(h.switchId ? "Change plugged into…" : "Plugged into…", () => openPlugDialog(h));
@@ -4789,6 +4932,7 @@ function render() {
         addItem(isGatewayHost(h) ? "Make this a router…" : "Make this a switch or router…", () => openSwitchDialog(null, h));
         if (!vmPlatform(h.mac)) addItem("Add a virtual switch on this…", () => openSwitchDialog(null, null, null, { kind: "virtual", runsOn: h.id }));
       }
+      if (!vpnOfHost(h)) addItem(gwNetsOf(h).length ? "Gateway ✓…" : "Gateway…", () => openGatewayDialog(h));
       addItem("Identify device", () => identifyHost(h));
       addItem("Scan ports", () => scanPorts(h, more, null));
       addItem("Scan custom ports…", () => {
@@ -5072,7 +5216,7 @@ function openPlugDialog(host, preselect = null) {
 }
 function syncPlugPort(current) {
   const sw = switches.find(s => String(s.id) === $("plugSwitch").value);
-  $("plugPortRow").style.display = sw && !innerKind(sw.kind) ? "" : "none";
+  $("plugPortRow").style.display = sw && !memberKind(sw.kind) ? "" : "none";
   if (sw) fillPortSelect($("plugPort"), sw, current, { hostId: plugHost?.id });
 }
 function closePlugDialog() { $("plugModal").hidden = true; plugHost = null; plugAfterSave = null; blinkTick(); }
@@ -5081,7 +5225,7 @@ async function savePlugDialog() {
   if (!h) return;
   const switchId = Number($("plugSwitch").value) || 0;
   const target = switches.find(s => s.id === switchId);
-  const port = switchId && target && !innerKind(target.kind) ? Number($("plugPort").value) || 0 : 0;
+  const port = switchId && target && !memberKind(target.kind) ? Number($("plugPort").value) || 0 : 0;
   const btn = $("plugSave");
   btn.disabled = true;
   try {
@@ -5110,13 +5254,14 @@ async function savePlugDialog() {
 
 let swEditing = null;    // the switch being edited; null when adding one
 let swReturnTo = null;   // a device whose "Plugged into" dialog sent us here
-const KIND_PORTS = { switch: 8, router: 4, ap: 1, virtual: 1, ssid: 1 };   // a starting port count for a new one
+const KIND_PORTS = { switch: 8, router: 4, ap: 1, virtual: 1, ssid: 1, vpn: 1 };   // a starting port count for a new one
 function openSwitchDialog(sw, fromHost = null, returnTo = null, opts = {}) {
   swEditing = sw;
   swReturnTo = returnTo;
   const kind = sw ? (sw.kind || "switch") : opts.kind || (fromHost && isGatewayHost(fromHost) ? "router" : "switch");
   $("swKind").value = kind;
-  $("swTitle").textContent = sw ? `Edit ${kindNoun(kind)} — ${sw.name}` : kind === "ssid" ? "Add a wireless SSID" : "Add a switch, router or access point";
+  $("swTitle").textContent = sw ? `Edit ${kindNoun(kind)} — ${sw.name}` : kind === "ssid" ? "Add a wireless SSID"
+    : kind === "vpn" ? "Add a VPN" : "Add a switch, router or access point";
   $("swName").value = sw ? sw.name : fromHost ? nameOrIp(fromHost) : "";
   $("swPorts").value = sw ? sw.ports : KIND_PORTS[kind] || 1;
   // The machine a virtual switch runs on: any device BAMF sees.
@@ -5187,7 +5332,7 @@ function openSwitchDialog(sw, fromHost = null, returnTo = null, opts = {}) {
   upSel.innerHTML = "";
   addOpt(upSel, "", "Not recorded");
   addOpt(upSel, "router", "The router");
-  switches.filter(s => s !== sw && !below.has(s.id) && !innerKind(s.kind))
+  switches.filter(s => s !== sw && !below.has(s.id) && !memberKind(s.kind))
     .forEach(s => addOpt(upSel, "sw:" + s.id, `${s.name} ${kindPorts(s)}`));
   upSel.value = !sw ? "" : sw.uplink === "switch" ? "sw:" + sw.uplinkSwitch : sw.uplink;
 
@@ -5216,16 +5361,19 @@ function syncSwitchDialog(upPort) {
   // A wireless SSID has an access point and a network. An access point isn't
   // asked for ports: its devices connect over the air, through its SSIDs.
   const kind = $("swKind").value;
-  const virtual = kind === "virtual", ssid = kind === "ssid", ap = kind === "ap";
-  for (const id of ["swHostRow", "swUpRow", "swHelp"]) $(id).style.display = virtual || ssid ? "none" : "";
-  $("swPortsRow").style.display = virtual || ssid || ap ? "none" : "";
+  const virtual = kind === "virtual", ssid = kind === "ssid", ap = kind === "ap", vpn = kind === "vpn";
+  for (const id of ["swHostRow", "swUpRow"]) $(id).style.display = virtual || ssid ? "none" : "";
+  $("swHelp").style.display = virtual || ssid || vpn ? "none" : "";
+  $("swHelpVpn").style.display = vpn ? "" : "none";
+  $("swPortsRow").style.display = virtual || ssid || ap || vpn ? "none" : "";
   $("swRunsRow").style.display = virtual ? "" : "none";
   $("swApRow").style.display = ssid ? "" : "none";
   $("swHelpVirtual").style.display = virtual ? "" : "none";
   $("swHelpSsid").style.display = ssid ? "" : "none";
   $("swHelpAp").style.display = ap ? "" : "none";
   $("swAddSsid").style.display = ap ? "" : "none";
-  $("swName").placeholder = virtual ? "e.g. vmbr0 or vSwitch0" : ssid ? "e.g. Home or Guest" : ap ? "e.g. Hallway AP" : "e.g. Office SG1016DE";
+  $("swName").placeholder = virtual ? "e.g. vmbr0 or vSwitch0" : ssid ? "e.g. Home or Guest" : ap ? "e.g. Hallway AP"
+    : vpn ? "e.g. WireGuard" : "e.g. Office SG1016DE";
   if (virtual) { $("swNetRow").style.display = "none"; $("swUpPortRow").style.display = "none"; return; }
   if (ssid) { $("swNetRow").style.display = ""; $("swUpPortRow").style.display = "none"; return; }
   $("swNetRow").style.display = Number($("swHost").value) ? "none" : "";
@@ -5294,6 +5442,82 @@ async function deleteSwitchDialog() {
   toast(`Switch ${esc(sw.name)} deleted`);
   closeSwitchDialog();
   await refresh();
+}
+
+// ---- Gateway ----
+// One checkbox per address: "this device is the gateway of that address's
+// network". A router with an address on several networks is the gateway of each.
+let gwHost = null;
+function openGatewayDialog(h) {
+  gwHost = h;
+  const vpn = vpnOfHost(h);
+  $("gwTitle").textContent = "Gateway — " + nameOrIp(h);
+  $("gwSub").textContent = vpn ? `This device is the VPN "${vpn.name}". A VPN is never a network's gateway.`
+    : `${h.mac}${h.vendor ? " · " + h.vendor : ""}`;
+  const list = $("gwList");
+  list.innerHTML = "";
+  // Its addresses now, and any it's declared the gateway at but no longer answers on.
+  const addrs = [...curAddrs(h), ...declaredGws.filter(g => g.hostId === h.id && !curAddrs(h).some(a => a.ip === g.ip))
+    .map(g => ({ ip: g.ip, subnet: g.subnet, gone: true }))];
+  for (const a of addrs) {
+    const net = a.subnet || "";
+    const d = net ? declaredGw(net) : null;
+    const mine = !!d && d.hostId === h.id && d.ip === a.ip;
+    const now = gatewayOf(net);
+    const nowHost = now && now.hostId ? hosts.find(x => x.id === now.hostId) : now ? hosts.find(x => curAddrs(x).some(y => y.ip === now.ip)) : null;
+    const nowText = !net ? "BAMF doesn't know which network this address is on."
+      : mine ? (a.gone ? "Declared the gateway of this network, but it no longer answers here." : "Declared the gateway of this network.")
+      : now ? `Gateway now: ${nowHost ? nameOrIp(nowHost) + " · " : ""}${now.ip}, ${now.declared ? "declared" : "from BAMF's routing table"}`
+      : "No gateway known for this network.";
+    const row = document.createElement("label");
+    row.className = "gw-row" + (vpn || !net ? " disabled" : "");
+    row.innerHTML = `<input type="checkbox"><span><span class="mono">${esc(a.ip)}</span> · gateway of ${esc(net || "an unknown network")}</span><span class="gw-now"></span>`;
+    const box = row.querySelector("input");
+    box.checked = mine;
+    box.disabled = !!vpn || !net;
+    box.dataset.ip = a.ip;
+    box.dataset.net = net;
+    box.dataset.was = mine ? "1" : "";
+    // One gateway per network: ticking one address unticks this device's others there.
+    box.onchange = () => {
+      if (box.checked) list.querySelectorAll("input").forEach(o => { if (o !== box && o.dataset.net === net) o.checked = false; });
+    };
+    row.querySelector(".gw-now").textContent = nowText;
+    list.appendChild(row);
+  }
+  showErr("gwErr", "");
+  $("gwModal").hidden = false;
+}
+function closeGatewayDialog() { $("gwModal").hidden = true; gwHost = null; }
+async function saveGatewayDialog() {
+  const h = gwHost;
+  if (!h) return;
+  // Unticks first, so moving a network's gateway to another address ends on the new one.
+  const changed = [...$("gwList").querySelectorAll("input")].filter(b => b.checked !== !!b.dataset.was)
+    .sort((a, b) => Number(a.checked) - Number(b.checked));
+  const btn = $("gwSave");
+  btn.disabled = true;
+  try {
+    for (const b of changed) {
+      const r = await fetch(`/api/hosts/${h.id}/gateway`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ip: b.dataset.ip, enabled: b.checked }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        showErr("gwErr", d.error || "Couldn't save (HTTP " + r.status + ").");
+        await refresh();
+        return;
+      }
+    }
+    closeGatewayDialog();
+    await refresh();
+    const nets = gwNetsOf(hosts.find(x => x.id === h.id) || h);
+    if (changed.length) toast(nets.length ? `${esc(nameOrIp(h))} is the gateway of ${esc(nets.join(", "))}` : `${esc(nameOrIp(h))} is no longer declared a gateway`);
+  } catch {
+    showErr("gwErr", "Couldn't reach BAMF.");
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // ---- Type / icon ----
@@ -5530,11 +5754,11 @@ async function startBlink(host, boxId) {
 let portsSwitch = null;
 let portsUnrecorded = [];   // on this switch with no port; kept unless picked on a port
 function openPortsDialog(sw) {
-  if (innerKind(sw.kind)) return openVmDialog(sw);
+  if (memberKind(sw.kind)) return openVmDialog(sw);
   // An access point has no ports to fill in: its dialog is where SSIDs are added.
   if (sw.kind === "ap") return openSwitchDialog(sw);
   document.querySelector("#portsModal .ports-find").style.display = "";
-  $("portsHelp").hidden = false; $("vmsHelp").hidden = true; $("ssidHelp").hidden = true;
+  $("portsHelp").hidden = false; $("vmsHelp").hidden = true; $("ssidHelp").hidden = true; $("vpnHelp").hidden = true;
   portsSwitch = sw;
   $("portsTitle").textContent = "Ports — " + sw.name;
   $("portsSub").textContent = `${sw.ports} ports · ${uplinkText(sw)}`;
@@ -5648,7 +5872,7 @@ function closePortsDialog() { $("portsModal").hidden = true; portsSwitch = null;
 async function savePortsDialog() {
   const sw = portsSwitch;
   if (!sw) return;
-  if (innerKind(sw.kind)) return saveVmDialog(sw);
+  if (memberKind(sw.kind)) return saveVmDialog(sw);
   const sels = markPortDuplicates();
   const chosen = new Map();   // host id -> port
   for (const s of sels) {
@@ -5692,13 +5916,15 @@ async function savePortsDialog() {
 // hypervisor gave out are marked and listed first, with one click to tick them.
 function openVmDialog(sw) {
   portsSwitch = sw;
-  const ssid = sw.kind === "ssid";
+  const ssid = sw.kind === "ssid", vpn = sw.kind === "vpn";
   const on = runsOnHost(sw), ap = apOf(sw);
-  $("portsTitle").textContent = (ssid ? "Devices — " : "VMs — ") + sw.name;
+  const vpnHost = vpn && sw.hostId ? hosts.find(h => h.id === sw.hostId) : null;
+  $("portsTitle").textContent = (ssid ? "Devices — " : vpn ? "Clients — " : "VMs — ") + sw.name;
   $("portsSub").textContent = ssid ? (ap ? `wireless SSID on ${ap.name}` : "wireless SSID")
+    : vpn ? "VPN" + (vpnHost ? ` · ${curAddrs(vpnHost).map(a => a.ip).join(", ")}` : "")
     : on ? `virtual switch on ${nameOrIp(on)} · ${on.ip}` : "virtual switch";
   document.querySelector("#portsModal .ports-find").style.display = "none";
-  $("portsHelp").hidden = true; $("vmsHelp").hidden = ssid; $("ssidHelp").hidden = !ssid;
+  $("portsHelp").hidden = true; $("vmsHelp").hidden = ssid || vpn; $("ssidHelp").hidden = !ssid; $("vpnHelp").hidden = !vpn;
   resetBlinkBox("portsBlink");
   const swHostIds = new Set(switches.map(s => s.hostId).filter(Boolean));
   // Any network, not just the machine's own: a hypervisor often bridges VMs
@@ -5737,7 +5963,8 @@ function openVmDialog(sw) {
       label.htmlFor = box.id;
       label.textContent = nameOrIp(h);
       const ip = document.createElement("span");
-      ip.className = "vm-ip"; ip.textContent = h.ip;
+      ip.className = "vm-ip"; ip.textContent = h.ip + (alsoAt(h).length ? ` +${alsoAt(h).length}` : "");
+      if (alsoAt(h).length) ip.title = "Also at " + alsoAt(h).map(a => a.ip).join(", ");
       label.appendChild(ip);
       const plat = sw.kind === "virtual" ? vmPlatform(h.mac) : null;
       if (plat) {
@@ -5794,6 +6021,7 @@ async function saveVmDialog(sw) {
       return;
     }
     toast(sw.kind === "ssid" ? `${esc(sw.name)}: ${ids.length} device${ids.length === 1 ? "" : "s"} on this SSID`
+      : sw.kind === "vpn" ? `${esc(sw.name)}: ${ids.length} client${ids.length === 1 ? "" : "s"} on this VPN`
       : `${esc(sw.name)}: ${ids.length} VM${ids.length === 1 ? "" : "s"} recorded`);
     closePortsDialog();
     await refresh();
@@ -5817,16 +6045,17 @@ function renderSwitchList() {
     tr.children[0].textContent = sw.name;
     const ssids = sw.kind === "ap" ? switches.filter(x => x.kind === "ssid" && x.runsOn === sw.id) : [];
     tr.children[1].textContent = [
-      sw.kind === "virtual" ? "Virtual switch" : sw.kind === "ssid" ? "Wireless SSID" : sw.kind === "ap" ? "Access point"
+      sw.kind === "virtual" ? "Virtual switch" : sw.kind === "ssid" ? "Wireless SSID" : sw.kind === "ap" ? "Access point" : sw.kind === "vpn" ? "VPN"
         : `${kindNoun(sw.kind)[0].toUpperCase() + kindNoun(sw.kind).slice(1)}, ${sw.ports} ports`,
       sw.subnet || "no network", innerKind(sw.kind) ? null : host ? host.ip : "no address BAMF sees",
       uplinkText(sw),
       sw.kind === "ap" ? (ssids.length ? `SSIDs: ${ssids.map(x => x.name).join(", ")}` : "no SSIDs yet")
-        : `${n} ${sw.kind === "virtual" ? "VM" : "device"}${n === 1 ? "" : "s"} recorded`,
+        : `${n} ${sw.kind === "virtual" ? "VM" : sw.kind === "vpn" ? "client" : "device"}${n === 1 ? "" : "s"} recorded`,
     ].filter(Boolean).join(" · ");
     const pb = tr.querySelector(".sw-ports-btn");
     if (sw.kind === "virtual") pb.textContent = "VMs";
     if (sw.kind === "ssid") pb.textContent = "Devices";
+    if (sw.kind === "vpn") pb.textContent = "Clients";
     if (sw.kind === "ap") pb.textContent = "Add SSID";
     pb.onclick = () => sw.kind === "ap" ? openSwitchDialog(null, null, null, { kind: "ssid", runsOn: sw.id }) : openPortsDialog(sw);
     tr.querySelector(".sw-edit-btn").onclick = () => openSwitchDialog(sw);
@@ -5899,6 +6128,7 @@ async function refresh() {
     subnetIntervals = data.subnetIntervalSeconds || {};
     subnetNextDue = data.subnetNextDue || {};
     networkPlaces = data.networkPlaces || {};
+    declaredGws = data.gateways || [];
     switches = data.switches || [];
     mapPositions = data.mapPositions || {};
     typeIcons = data.typeIcons || {};
@@ -8442,6 +8672,9 @@ $("notifyUrl").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $
 // Cancel both close without saving, Clear saves an empty note.
 $("noteSave").onclick = () => saveNoteDialog($("noteText").value);
 $("noteClear").onclick = () => saveNoteDialog("");
+$("gwCancel").onclick = closeGatewayDialog;
+$("gwSave").onclick = saveGatewayDialog;
+$("gwModal").onclick = e => { if (e.target.id === "gwModal") closeGatewayDialog(); };
 $("noteCancel").onclick = closeNoteDialog;
 $("noteModal").onclick = e => { if (e.target.id === "noteModal") closeNoteDialog(); };
 $("noteText").onkeydown = e => {
@@ -8515,6 +8748,7 @@ document.addEventListener("keydown", e => {
     $("search").blur();
     return;
   }
+  if (!$("gwModal").hidden) { closeGatewayDialog(); return; }
   if (!$("noteModal").hidden) { closeNoteDialog(); return; }
   if (!$("swModal").hidden) { closeSwitchDialog(); return; }
   if (!$("plugModal").hidden) { closePlugDialog(); return; }
