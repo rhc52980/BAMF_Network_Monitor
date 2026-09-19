@@ -145,6 +145,9 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
     var deviceTypes = store.GetDeviceTypes();
     var addresses = store.GetAddresses();
     var interfaces = store.GetInterfaces();
+    var latency = store.LatestLatency();
+    var uptimes = store.Uptimes();
+    var tags = store.GetTags();
     var hosts = store.GetAll().Select(h => new
     {
         id = h.Id,
@@ -174,6 +177,12 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         deviceType = deviceTypes.TryGetValue(h.Id, out var dt) ? dt : "",
         // Another network card of this device, combined into it; 0 = its own device.
         interfaceOf = interfaces.TryGetValue(h.Id, out var io) ? io : 0,
+        // Round-trip time of the last echo, ms; null when it didn't answer or hasn't been probed.
+        latencyMs = latency.TryGetValue(h.Id, out var lat) ? lat : null,
+        // Share of the last 7 and 30 days online, percent, from the event history.
+        uptime7 = uptimes.TryGetValue(h.Id, out var up) ? up.Week : null,
+        uptime30 = uptimes.TryGetValue(h.Id, out var up2) ? up2.Month : null,
+        tags = tags.TryGetValue(h.Id, out var tg) ? tg : new List<string>(),
         // Every address the device answers on, the main one (ip) first. More
         // than one current entry means it's on several at once, like a router
         // with an address on each network. Old ones stay listed until they age out.
@@ -195,6 +204,7 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         scanModes = scanner.SubnetModes,
         activeArp = new { enabled = scanner.ActiveArpEnabled, npcapAvailable = scanner.NpcapAvailable },
         autoIgnoreRandom = scanner.AutoIgnoreRandomEnabled,
+        latencyProbe = scanner.LatencyProbeEnabled,
         // Holiday Spirit: the dashboard wears Halloween through October and
         // Christmas from December 1st to 25th. Saved setting wins over appsettings.
         holidaySpirit = HolidaySpirit(store, app.Configuration),
@@ -538,6 +548,23 @@ app.MapGet("/api/events", (HostStore store) =>
         subnet = e.Subnet,
     })));
 
+// Latency samples for one device: [{ at, ms }], ms null for no reply. ?hours=24 by default.
+app.MapGet("/api/hosts/{id:long}/latency", (long id, int? hours, HostStore store) =>
+    Results.Json(store.GetLatency(id, hours ?? 24).Select(s => new { at = s.At, ms = s.Ms })));
+
+// Replaces a device's tags: { "tags": ["kids", "IoT"] }.
+app.MapPost("/api/hosts/{id:long}/tags", (long id, TagsRequest body, HostStore store) =>
+{
+    var error = store.SetTags(id, body.Tags ?? new());
+    return error is null ? Results.Ok() : Results.BadRequest(new { error });
+});
+
+app.MapPost("/api/settings/latency-probe", (ActiveArpRequest body, HostStore store) =>
+{
+    store.SetSetting("latencyProbe", body.Enabled ? "true" : "false");
+    return Results.Ok();
+});
+
 app.MapGet("/api/hosts/{id:long}/events", (long id, HostStore store) =>
     Results.Json(store.GetEvents(id).Select(e => new { type = e.Type, at = e.At })));
 
@@ -675,6 +702,7 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             activeArpScan = scanner.ActiveArpEnabled,
             activeArpAvailable = scanner.NpcapAvailable,
             autoIgnoreRandomizedMacs = scanner.AutoIgnoreRandomEnabled,
+            latencyProbe = scanner.LatencyProbeEnabled,
             holidaySpirit = HolidaySpirit(store, app.Configuration),
             updateCheck = updates.Enabled,
             webhookConfigured = !string.IsNullOrWhiteSpace(scanner.WebhookUrl),
@@ -1022,6 +1050,7 @@ record LinkRequest(string? Link);
 record PlugRequest(long SwitchId, int Port);
 record GatewayRequest(string? Ip, bool Enabled);
 record CombineRequest(long ParentId);
+record TagsRequest(List<string>? Tags);
 record PortEntry(long HostId, int Port);
 record BlinkRequest(int? Seconds);
 record DeviceTypeRequest(string? Type);

@@ -218,6 +218,20 @@ public partial class ScannerService : BackgroundService
     }
 
     /// <summary>Effective toggle: DB override wins, else appsettings default.</summary>
+    /// <summary>
+    /// One ICMP echo to each online device after its network is scanned, for
+    /// the latency column and sparkline. Dashboard setting wins over the file.
+    /// </summary>
+    public bool LatencyProbeEnabled
+    {
+        get
+        {
+            var db = _store.GetSetting("latencyProbe");
+            if (db is not null) return db == "true";
+            return _config.GetValue("Bamf:LatencyProbe", true);
+        }
+    }
+
     public bool ActiveArpEnabled
     {
         get
@@ -431,6 +445,10 @@ public partial class ScannerService : BackgroundService
                     var recovered = _store.DrainRecovered();
                     foreach (var h in recovered)
                         await SendStatusAlert(h, up: true, CancellationToken.None);
+
+                    // Round-trip time to every device still online on the networks
+                    // this pass covered: one echo each, a few dozen at a time.
+                    if (LatencyProbeEnabled) await ProbeLatency(covered, ct);
 
                     // Vendor/hostname-derived device guesses. No packets are sent -
                     // deeper fingerprinting stays behind the Identify action.
@@ -968,6 +986,34 @@ public partial class ScannerService : BackgroundService
             uint addr = netU + i;
             yield return new IPAddress(new[] { (byte)(addr >> 24), (byte)(addr >> 16), (byte)(addr >> 8), (byte)addr });
         }
+    }
+
+    /// <summary>
+    /// ICMP echo to each online, unignored device on the given networks, and
+    /// the round-trip time recorded. A device that drops echoes is recorded
+    /// as no reply, which the dashboard shows as such rather than as slow.
+    /// </summary>
+    private async Task ProbeLatency(IReadOnlyCollection<string> subnets, CancellationToken ct)
+    {
+        var targets = _store.GetAll()
+            .Where(h => h.Online && !h.Ignored && !h.Forgotten && subnets.Contains(h.Subnet, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        if (targets.Count == 0) return;
+        var samples = new System.Collections.Concurrent.ConcurrentBag<(long, int?)>();
+        using var gate = new SemaphoreSlim(32);
+        await Task.WhenAll(targets.Select(async h =>
+        {
+            await gate.WaitAsync(ct);
+            try
+            {
+                using var ping = new Ping();
+                var reply = await ping.SendPingAsync(h.Ip, 1000);
+                samples.Add((h.Id, reply.Status == IPStatus.Success ? (int)reply.RoundtripTime : null));
+            }
+            catch { samples.Add((h.Id, null)); }
+            finally { gate.Release(); }
+        }));
+        _store.RecordLatency(samples.ToList());
     }
 
     /// <summary>Alerts for a watched host going down or recovering.</summary>

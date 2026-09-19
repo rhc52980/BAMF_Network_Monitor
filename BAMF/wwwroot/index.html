@@ -602,6 +602,24 @@
   .ip a:hover { color: var(--focus); border-bottom-color: var(--focus); }
   .ports-cell { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
   .spark { display: inline-flex; height: 16px; gap: 1px; align-items: flex-end; }
+  /* Latency: the last echo's round-trip, coloured by how it feels. */
+  td.lat { font-family: "IBM Plex Mono", monospace; font-size: 12px; white-space: nowrap; }
+  td.lat.fast { color: var(--led-on); } td.lat.slow { color: var(--led-warn); } td.lat.bad { color: var(--danger); } td.lat.none { color: var(--text-dim); }
+  .lat-spark { display: block; width: 100%; max-width: 640px; height: 56px; margin: 6px 0 2px; }
+  .lat-spark .fill { fill: var(--led-on); opacity: .18; } .lat-spark .line { fill: none; stroke: var(--led-on); stroke-width: 1.5; }
+  .lat-spark .miss { stroke: var(--danger); stroke-width: 1.5; }
+  .lat-sum { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+  .lat-sum b { color: var(--text); font-weight: 600; }
+  /* Tags: small chips under a device's name, and a chip bar to filter by them. */
+  .tag-chip { display: inline-block; padding: 0 7px; margin: 2px 4px 0 0; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2);
+    color: var(--text-dim); font-size: 10.5px; line-height: 16px; letter-spacing: .02em; white-space: nowrap; }
+  .tag-row { display: block; margin-top: 2px; }
+  .tag-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+  .tag-pick .chip-btn { font-size: 12px; }
+  .home-tools { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 13px; color: var(--text-dim); }
+  .home-tools select { max-width: 260px; }
+  .tab .tab-cnt { display: inline-block; min-width: 16px; padding: 0 5px; margin-left: 4px; border-radius: 999px; background: var(--led-warn); color: #000; font-size: 10px; line-height: 16px; font-weight: 700; }
+  .tab .tab-cnt[hidden] { display: none; }
   .spark i { width: 3px; background: var(--led-off); border-radius: 1px; display: block; }
   .spark i.on { background: var(--led-on); }
   .port-chip {
@@ -2244,12 +2262,14 @@
     <button class="tab active" data-filter="all">All</button>
     <button class="tab" data-filter="online">Online</button>
     <button class="tab" data-filter="unknown">Unknown</button>
+    <button class="tab" data-filter="new" title="Devices first seen in the last 7 days">New <span class="tab-cnt" id="newCount" hidden></span></button>
     <button class="tab" data-filter="offline">Offline</button>
     <button class="tab" data-filter="ignored">Ignored</button>
   </div>
 </div>
 
 <div class="chipbar" id="guessChips" hidden></div>
+<div class="chipbar" id="tagChips" hidden></div>
 
 <div class="map-wrap" id="mapWrap" hidden>
   <p class="map-note">
@@ -2291,6 +2311,7 @@
 </div>
 
 <div class="home-wrap" id="homeWrap" hidden>
+  <div class="home-tools"><label>Show <select id="homeGroup"><option value="">Watched devices</option></select></label></div>
   <div class="home-grid" id="homeGrid"></div>
   <div class="empty" id="homeEmpty" hidden>No watched devices yet. Click the camera on a host to watch it, and it'll show up here.</div>
 </div>
@@ -2400,6 +2421,12 @@
       <span class="set-field"><button type="button" class="arp-toggle" id="setRand" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
     </label>
     <label class="set-row">
+      <span class="set-label">Measure latency
+        <span class="set-hint">After each scan, one ping to every online device on the networks it covered, for the Latency column and each device's latency history. One small packet per device per scan.</span>
+      </span>
+      <span class="set-field"><button type="button" class="arp-toggle" id="setLatency" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+    </label>
+    <label class="set-row">
       <span class="set-label">Holiday Spirit
         <span class="set-hint">Every dashboard wears the Halloween theme from October 1st to 31st and the Christmas theme from December 1st to 25th, then goes back to its own theme. Pick another theme during the season and that browser keeps it until the next one.</span>
         <span class="set-hint" id="setHolidayStatus"></span>
@@ -2490,6 +2517,7 @@
         <th data-sort="firstSeen">First seen</th>
         <th data-sort="lastSeen">Last seen</th>
         <th>24h</th>
+        <th data-sort="latency" title="Round-trip time of the last echo">Latency</th>
         <th data-sort="known">Status</th>
         <th></th>
       </tr>
@@ -2616,6 +2644,26 @@
     </div>
     <div class="modal-actions" style="justify-content:center">
       <button class="toggle" id="secretClose">Maybe later</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="tagsModal" hidden>
+  <div class="modal">
+    <div class="modal-title" id="tagsTitle">Tags</div>
+    <div class="modal-note" id="tagsSub"></div>
+    <label class="modal-row">Tags, separated by commas
+      <input id="tagsText" class="modal-input" placeholder="e.g. kids, IoT, work" autocomplete="off" maxlength="500">
+    </label>
+    <div class="tag-pick" id="tagsPick"></div>
+    <p class="modal-help">
+      Tags group devices however you like. Filter the device list and the Map by a tag, and show a
+      tag's devices on the Who's home board. Click a tag above to add or remove it.
+    </p>
+    <div class="set-result" id="tagsErr"></div>
+    <div class="modal-actions">
+      <button class="toggle" id="tagsCancel">Cancel</button>
+      <button class="export-btn" id="tagsSave">Save</button>
     </div>
   </div>
 </div>
@@ -2793,6 +2841,12 @@ const POLL_MS = 10000;
 let hosts = [];
 let filter = "all";       // status filter within Devices view
 let guessFilter = null;   // device-type chip, e.g. "Apple device"; null = every type
+let tagFilter = null;     // a tag chip; null = every device
+let latencyProbe = true;
+const NEW_DAYS = 7;       // the New tab: devices first seen this recently
+const isNew = h => h.firstSeen && (Date.now() - new Date(h.firstSeen).getTime()) < NEW_DAYS * 864e5;
+const hasTag = (h, t) => (h.tags || []).some(x => x.toLowerCase() === t.toLowerCase());
+const tagOk = h => tagFilter === null || hasTag(h, tagFilter);
 let view = "devices";     // devices | home | activity | forgotten
 let query = "";
 let network = "all";      // selected network, or "all"
@@ -2827,6 +2881,7 @@ let knownMacs = null; // for client-side "new host" toast
 let expandedId = null;       // host whose history is open
 let eventsCache = {};        // hostId -> events array
 let ipsCache = {};           // hostId -> [{ip, from, to}] oldest first
+let latencyCache = {};       // hostId -> [{at, ms}] oldest first, last 24 h
 let feedCache = [];          // network-wide activity feed
 
 function fmtExact(iso) {
@@ -2852,15 +2907,22 @@ async function loadFeed() {
 }
 
 function renderHome() {
-  const watched = hosts.filter(x => x.watched && !x.forgotten && inNetwork(x));
+  // The board shows watched devices, or every device carrying one tag.
+  const sel = $("homeGroup");
+  const tags = allTags();
+  const want = "" + (sel.value || "");
+  sel.innerHTML = `<option value="">Watched devices</option>` + tags.map(t => `<option value="${esc(t)}">Tagged ${esc(t)}</option>`).join("");
+  sel.value = tags.some(t => t === want) ? want : "";
+  const group = sel.value;
+  const watched = hosts.filter(x => (group ? hasTag(x, group) : x.watched) && !x.forgotten && !x.ignored && inNetwork(x));
   const grid = $("homeGrid");
   grid.innerHTML = "";
   const he = $("homeEmpty");
   he.hidden = watched.length > 0;
   if (watched.length === 0)
-    he.innerHTML = loadedOnce
-      ? "No watched devices yet. Tap the camera on a device to watch it — it'll show up here as home/away."
-      : `<span class="empty-scan">Scanning your network…</span>`;
+    he.innerHTML = !loadedOnce ? `<span class="empty-scan">Scanning your network…</span>`
+      : group ? `No device is tagged ${esc(group)} on this network.`
+      : "No watched devices yet. Tap the camera on a device to watch it — it'll show up here as home/away.";
   // online first, then by name
   watched.sort((a, b) => (b.online - a.online) || dispName(a).localeCompare(dispName(b)));
   for (const x of watched) {
@@ -2952,6 +3014,33 @@ async function loadEvents(id) {
   const r = await fetch(`/api/hosts/${id}/events`);
   if (!r.ok) throw new Error("API " + r.status);
   return r.json();
+}
+async function loadLatency(id) {
+  const r = await fetch(`/api/hosts/${id}/latency?hours=24`);
+  if (!r.ok) throw new Error("API " + r.status);
+  return r.json();
+}
+// The last 24 hours of round-trip times as a small chart, with a red tick
+// where an echo went unanswered.
+function buildLatencyChart(samples) {
+  if (!samples.length) return latencyProbe ? "" : `<div class="lat-sum">Latency isn't measured: turn on <b>Measure latency</b> in Settings → Behaviour.</div>`;
+  const W = 640, H = 56, pad = 4;
+  const vals = samples.map(x => x.ms).filter(v => v != null);
+  const max = Math.max(10, ...vals), min = vals.length ? Math.min(...vals) : 0;
+  const avg = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+  const x = i => pad + (samples.length === 1 ? 0 : i / (samples.length - 1) * (W - 2 * pad));
+  const y = v => H - pad - (v / max) * (H - 2 * pad);
+  let d = "", misses = "";
+  samples.forEach((sm, i) => {
+    if (sm.ms == null) { misses += `<line class="miss" x1="${x(i).toFixed(1)}" y1="${pad}" x2="${x(i).toFixed(1)}" y2="${H - pad}"/>`; return; }
+    d += (d ? "L" : "M") + `${x(i).toFixed(1)} ${y(sm.ms).toFixed(1)}`;
+  });
+  const first = samples.findIndex(sm => sm.ms != null), last = samples.length - 1 - [...samples].reverse().findIndex(sm => sm.ms != null);
+  const fill = d ? d + `L${x(last).toFixed(1)} ${H - pad}L${x(first).toFixed(1)} ${H - pad}Z` : "";
+  return `<div class="lat-sum">Latency, last 24 h: ` + (avg != null ? `<b>${avg} ms</b> average · ${min}–${Math.round(max)} ms` : "no replies") +
+    (samples.length - vals.length ? ` · <b>${samples.length - vals.length}</b> unanswered` : "") + `</div>` +
+    `<svg class="lat-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="Latency over the last 24 hours">` +
+    (fill ? `<path class="fill" d="${fill}"/>` : "") + (d ? `<path class="line" d="${d}"/>` : "") + misses + `</svg>`;
 }
 async function loadIps(id) {
   const r = await fetch(`/api/hosts/${id}/ips`);
@@ -3157,6 +3246,7 @@ function visible(opts) {
   return hosts.filter(h => {
     if (!inNetwork(h)) return false;
     if (!ignoreGuess && guessFilter !== null && typeFamily(h) !== (guessFilter === NO_GUESS ? null : guessFilter)) return false;
+    if (!(opts && opts.ignoreTag) && !tagOk(h)) return false;
     if (view === "forgotten") { if (!h.forgotten) return false; }
     else {
       if (h.forgotten) return false;
@@ -3166,6 +3256,7 @@ function visible(opts) {
         if (filter === "online" && !h.online) return false;
         if (filter === "offline" && h.online) return false;
         if (filter === "unknown" && h.known) return false;
+        if (filter === "new" && !isNew(h)) return false;
       }
     }
     return matchesQuery(h, query);
@@ -3177,7 +3268,7 @@ function visible(opts) {
 // in .245, and "192.168.2.*" finds a whole subnet.
 function matchesQuery(h, query) {
   if (!query) return true;
-  const fields = [h.customName, h.hostname, h.mdnsName, h.mdnsServices, h.ip, h.mac, h.vendor, h.note, h.osGuess,
+  const fields = [h.customName, h.hostname, h.mdnsName, h.mdnsServices, h.ip, h.mac, h.vendor, h.note, h.osGuess, ...(h.tags || []),
     h.deviceType ? typeLabel(h.deviceType) : "", ...(h.addresses || []).map(a => a.ip)].filter(Boolean);
   if (/[*?]/.test(query)) {
     let rx;
@@ -3263,6 +3354,41 @@ function renderGuessChips() {
     if (key === NO_GUESS) mk(NO_GUESS, "no guess", n, "Devices BAMF has no guess for - Identify one from its \u22ef menu");
     else mk(key, key, n, "Only " + key + " devices");
   }
+}
+
+// Tags in use, as a chip bar like the device-type one. Hidden until a tag exists.
+function allTags() {
+  const seen = new Map();
+  for (const h of hosts) if (!h.forgotten) for (const t of h.tags || []) { const k = t.toLowerCase(); if (!seen.has(k)) seen.set(k, t); }
+  return [...seen.values()].sort((a, b) => a.localeCompare(b));
+}
+function renderTagChips() {
+  const bar = $("tagChips");
+  const showTable = view === "devices" || view === "forgotten" || view === "map";
+  const pool = showTable ? visible({ ignoreGuess: true, ignoreTag: true }) : [];
+  const tags = allTags();
+  if (!showTable || (tags.length === 0 && tagFilter === null)) { bar.hidden = true; bar.innerHTML = ""; return; }
+  bar.hidden = false;
+  bar.innerHTML = "";
+  const label = document.createElement("span");
+  label.className = "chipbar-label";
+  label.textContent = "Tag";
+  bar.appendChild(label);
+  const mk = (key, text, count, title) => {
+    const b = document.createElement("button");
+    const active = tagFilter === key;
+    b.type = "button";
+    b.className = "chip-btn" + (active ? " active" : "");
+    b.setAttribute("aria-pressed", active ? "true" : "false");
+    if (title) b.title = title;
+    b.textContent = text;
+    if (count !== null) { const c = document.createElement("span"); c.className = "chip-cnt"; c.textContent = count; b.appendChild(c); }
+    b.onclick = () => { tagFilter = (key !== null && tagFilter === key) ? null : key; render(); };
+    bar.appendChild(b);
+  };
+  mk(null, "All", pool.length, "Every device");
+  for (const t of tags) mk(t, t, pool.filter(h => hasTag(h, t)).length, "Only devices tagged " + t);
+  if (tagFilter !== null && !tags.some(t => t.toLowerCase() === tagFilter.toLowerCase())) mk(tagFilter, tagFilter, 0, "No device has this tag any more");
 }
 
 // What a network's chip looks like, as opposed to what it says. Only a change
@@ -3376,6 +3502,7 @@ function applySort(rows) {
       case "lastSeen":  return h.lastSeen || "";
       case "known":  return h.known ? 1 : 0;
       case "online": return h.online ? 1 : 0;
+      case "latency": return h.latencyMs == null ? 1e9 : h.latencyMs;
       default: return "";
     }
   };
@@ -3425,7 +3552,7 @@ function mapClusters() {
   return nets.map(subnet => {
     const place = networkPlaces[subnet] || {};
     // A device on several networks is drawn on each, at its address there.
-    const members = hosts.filter(h => onNet(h, subnet) && !h.ignored && !h.forgotten).map(h => onNetView(h, subnet));
+    const members = hosts.filter(h => onNet(h, subnet) && !h.ignored && !h.forgotten && tagOk(h)).map(h => onNetView(h, subnet));
     const selfMac = (place.selfMac || "").toUpperCase();
     let self = selfMac ? members.find(h => macsOf(h).some(m => (m || "").toUpperCase() === selfMac)) || null : null;
     // The gateway you declared, or the routing table's.
@@ -3490,7 +3617,7 @@ function wholeCluster(clusters, opts = {}) {
   const nets = clusters.map(c => c.subnet);
   const netColors = Object.fromEntries(nets.map((n, i) => [n, NET_COLORS[i % NET_COLORS.length]]));
   const real = h => h && !h.synthetic ? hosts.find(x => x.id === h.id) || h : h;
-  const members = hosts.filter(h => !h.ignored && !h.forgotten && nets.some(n => onNet(h, n)));
+  const members = hosts.filter(h => !h.ignored && !h.forgotten && tagOk(h) && nets.some(n => onNet(h, n)));
   // BAMF, once, even with an address (and maybe its own NIC) on every network.
   // Recorded on a switch, it's drawn there instead, and a record it has on
   // another network (a second network card) isn't drawn again.
@@ -3542,7 +3669,7 @@ function gatewayGroups(perNet) {
 
 function mapSignature(clusters) {
   const key = n => n ? (n.synthetic ? "~" + n.ip : n.id) : null;
-  return JSON.stringify([network, mapStyle, clusters.map(c => [
+  return JSON.stringify([network, mapStyle, tagFilter, clusters.map(c => [
     c.subnet, c.mode, key(c.self), c.selfIds, key(c.gw),
     c.whole ? [c.tops.map(t => [t.net, key(t.gw)]), c.boxes.map(b => [b.net, b.hosts.map(h => h.id)])] : null,
     c.ring.map(h => [h.id, typeFamily(h), deviceKind(h), dispName(h), h.ip]),
@@ -4977,6 +5104,10 @@ function render() {
   $("mapWrap").hidden = view !== "map";
   $("statusFilters").style.display = view === "devices" ? "" : "none";
   renderGuessChips();
+  renderTagChips();
+  const newCount = hosts.filter(h => inNetwork(h) && !h.ignored && !h.forgotten && isNew(h)).length;
+  $("newCount").textContent = newCount;
+  $("newCount").hidden = newCount === 0;
   if (view === "activity") renderFeed();
   if (view === "home") renderHome();
   if (view === "map") renderMap();
@@ -5025,6 +5156,7 @@ function render() {
     else if (view === "forgotten") emptyEl.textContent = "Nothing forgotten. Devices you Forget land here, ready to restore.";
     else if (query) emptyEl.textContent = `No devices match “${query}”.`;
     else if (filter === "unknown") emptyEl.textContent = "No unknown devices — you're all clear. ✓";
+    else if (filter === "new") emptyEl.textContent = `Nothing new: no device was first seen in the last ${NEW_DAYS} days.`;
     else if (filter === "ignored") emptyEl.textContent = "Nothing ignored. Randomized phone MACs and devices you hide show up here.";
     else if (filter === "offline") emptyEl.textContent = "Every known device is online right now.";
     else if (filter === "online") emptyEl.textContent = "No devices online at the moment.";
@@ -5045,6 +5177,7 @@ function render() {
         <span class="name-text">${esc(dispName(h))}</span>
         ${h.note ? `<span class="note-flag" title="${esc(h.note)}">\uD83D\uDCDD</span>` : ""}
         ${showDns ? `<span class="dns">${esc(subName)}</span>` : ""}
+        ${(h.tags || []).length ? `<span class="tag-row">${h.tags.map(t => `<span class="tag-chip">${esc(t)}</span>`).join("")}</span>` : ""}
       </td>
       <td class="ip" data-label="IP"><a href="${esc(h.linkUrl || ("http://" + h.ip))}" target="_blank" rel="noopener" title="Open ${esc(h.linkUrl || ("http://" + h.ip))}${h.link ? " (custom link)" : ""}">${esc(h.ip)}${h.link ? '<span class="link-flag" title="Custom link">⇗</span>' : ""}</a>${alsoAt(h).length
         ? `<span class="more-wrap"><button class="ip-more" title="Also answers on ${esc(alsoAt(h).map(a => a.ip).join(", "))}">+${alsoAt(h).length}</button><div class="row-menu addr-menu">${addrMenuHtml(h)}</div></span>` : ""}</td>
@@ -5056,6 +5189,7 @@ function render() {
       <td class="seen" data-label="First seen" title="${esc(fmtExact(h.firstSeen))}">${fmtAgo(h.firstSeen)}</td>
       <td class="seen" data-label="Last seen" title="${esc(fmtExact(h.lastSeen))}">${fmtAgo(h.lastSeen)}</td>
       <td class="spark-cell" data-label="24h"></td>
+      <td class="lat ${h.latencyMs == null ? "none" : h.latencyMs < 20 ? "fast" : h.latencyMs < 100 ? "" : h.latencyMs < 300 ? "slow" : "bad"}" data-label="Latency" title="${h.latencyMs == null ? (h.online ? "No reply to the last echo" : "Offline") : "Round-trip time of the last echo"}">${h.latencyMs == null ? (h.online ? "no reply" : "—") : h.latencyMs + " ms"}</td>
       <td class="status-cell"><span class="badge ${h.known ? "known" : "unknown"}">${h.known ? "known" : "unknown"}</span></td>
       <td class="actions-cell"></td>`;
 
@@ -5152,6 +5286,7 @@ function render() {
       addItem(h.note ? "Edit note…" : "Add note…", () => openNoteDialog(h));
       addItem(h.link ? "Change link…" : "Set link…", () => setHostLink(h));
       addItem("Type / icon…", () => openTypeDialog(h));
+      addItem((h.tags || []).length ? `Tags (${h.tags.length})…` : "Tags…", () => openTagsDialog(h));
       const ownSwitch = switches.find(s => s.hostId === h.id);
       if (ownSwitch) {
         if (ownSwitch.kind === "ap") addItem("Add a wireless SSID…", () => openSwitchDialog(null, null, null, { kind: "ssid", runsOn: ownSwitch.id }));
@@ -5224,12 +5359,21 @@ function render() {
       const detail = document.createElement("tr");
       detail.className = "history-row";
       const td = document.createElement("td");
-      td.colSpan = 11;
+      td.colSpan = 12;
 
       const sessions = buildSessions(eventsCache[h.id] || []);
       let inner = `<div class="history-title"><span>Recent sessions — ${esc(dispName(h))}</span>` +
         `<button type="button" class="history-close" title="Close (Esc)">Close ✕</button></div>`;
       inner += buildTimeline(sessions, h.online);
+      // Uptime over the last week and month, from the same events.
+      if (h.uptime7 != null || h.uptime30 != null) {
+        inner += `<div class="lat-sum">Uptime: ` +
+          (h.uptime7 != null ? `<b>${h.uptime7}%</b> over 7 days` : "") +
+          (h.uptime7 != null && h.uptime30 != null ? " · " : "") +
+          (h.uptime30 != null ? `<b>${h.uptime30}%</b> over 30 days` : "") +
+          (h.uptime30 != null && h.uptime30 < 100 ? ` <span title="Time offline over the last 30 days">(down ${(100 - h.uptime30).toFixed(1)}% of the month)</span>` : "") + `</div>`;
+      }
+      inner += buildLatencyChart(latencyCache[h.id] || []);
       if (sessions.length === 0) {
         inner += `<div class="history-empty">No history recorded yet. Sessions appear as this host comes and goes.</div>`;
       } else {
@@ -5353,6 +5497,7 @@ async function openHistory(host) {
     expandedId = host.id;
     try { eventsCache[host.id] = await loadEvents(host.id); } catch { eventsCache[host.id] = []; }
     try { ipsCache[host.id] = await loadIps(host.id); } catch { ipsCache[host.id] = []; }
+    try { latencyCache[host.id] = await loadLatency(host.id); } catch { latencyCache[host.id] = []; }
     render();
   }
 }
@@ -5674,6 +5819,64 @@ async function deleteSwitchDialog() {
   toast(`Switch ${esc(sw.name)} deleted`);
   closeSwitchDialog();
   await refresh();
+}
+
+// ---- Tags ----
+let tagsHost = null;
+function openTagsDialog(h) {
+  tagsHost = h;
+  $("tagsTitle").textContent = "Tags — " + nameOrIp(h);
+  $("tagsSub").textContent = h.ip + " · " + h.mac;
+  $("tagsText").value = (h.tags || []).join(", ");
+  renderTagPick();
+  showErr("tagsErr", "");
+  $("tagsModal").hidden = false;
+  $("tagsText").focus();
+}
+// Every tag in use, as chips that toggle in the text box.
+function renderTagPick() {
+  const pick = $("tagsPick");
+  pick.innerHTML = "";
+  const current = $("tagsText").value.split(",").map(t => t.trim()).filter(Boolean);
+  for (const t of allTags()) {
+    const on = current.some(c => c.toLowerCase() === t.toLowerCase());
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip-btn" + (on ? " active" : "");
+    b.textContent = t;
+    b.onclick = () => {
+      const now = $("tagsText").value.split(",").map(x => x.trim()).filter(Boolean);
+      const next = on ? now.filter(c => c.toLowerCase() !== t.toLowerCase()) : [...now, t];
+      $("tagsText").value = next.join(", ");
+      renderTagPick();
+    };
+    pick.appendChild(b);
+  }
+}
+function closeTagsDialog() { $("tagsModal").hidden = true; tagsHost = null; }
+async function saveTagsDialog() {
+  const h = tagsHost;
+  if (!h) return;
+  const tags = $("tagsText").value.split(",").map(t => t.trim()).filter(Boolean);
+  const btn = $("tagsSave");
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/api/hosts/${h.id}/tags`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tags }),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      showErr("tagsErr", d.error || "Couldn't save (HTTP " + r.status + ").");
+      return;
+    }
+    closeTagsDialog();
+    await refresh();
+    toast(tags.length ? `${esc(nameOrIp(h))} tagged ${esc(tags.join(", "))}` : `Tags cleared for ${esc(nameOrIp(h))}`);
+  } catch {
+    showErr("tagsErr", "Couldn't reach BAMF.");
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // ---- Network cards ----
@@ -6439,6 +6642,7 @@ async function refresh() {
     syncBlink(data.blink, data.serverTime);
     activeArp = data.activeArp || activeArp;
     autoIgnoreRandom = !!data.autoIgnoreRandom;
+    if (typeof data.latencyProbe === "boolean") latencyProbe = data.latencyProbe;
     if (typeof data.holidaySpirit === "boolean" && data.holidaySpirit !== holidaySpirit) {
       holidaySpirit = data.holidaySpirit;
       try { localStorage.setItem("bamf-holiday-spirit", holidaySpirit ? "1" : "0"); } catch {}
@@ -6453,6 +6657,7 @@ async function refresh() {
     $("testWebhook").style.display = webhookConfigured ? "" : "none";
     renderArpToggle();
     renderRandToggle();
+    renderLatencyToggle();
     renderHolidayToggle();
     applyHolidaySpirit();
     renderUpdateToggle();
@@ -9653,6 +9858,25 @@ $("setUpd").onclick = async () => {
   } catch (e) { console.error(e); }
 };
 
+function renderLatencyToggle() {
+  const t = $("setLatency");
+  if (!t) return;
+  setToggleState(t, latencyProbe);
+  t.title = latencyProbe ? "Latency is measured after each scan - click to stop" : "Click to measure latency after each scan";
+}
+$("setLatency").onclick = async () => {
+  const next = !latencyProbe;
+  try {
+    const r = await fetch("/api/settings/latency-probe", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }),
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    latencyProbe = next;
+    renderLatencyToggle();
+    toast(next ? "Latency will be measured after each scan" : "Latency measuring is off; the column keeps its last readings");
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
+};
+
 function renderRandToggle() {
   const t = $("setRand");
   setToggleState(t, autoIgnoreRandom);
@@ -9831,6 +10055,12 @@ $("notifyUrl").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $
 // Cancel both close without saving, Clear saves an empty note.
 $("noteSave").onclick = () => saveNoteDialog($("noteText").value);
 $("noteClear").onclick = () => saveNoteDialog("");
+$("tagsCancel").onclick = closeTagsDialog;
+$("tagsSave").onclick = saveTagsDialog;
+$("tagsText").addEventListener("input", renderTagPick);
+$("tagsText").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); saveTagsDialog(); } });
+$("tagsModal").onclick = e => { if (e.target.id === "tagsModal") closeTagsDialog(); };
+$("homeGroup").onchange = () => render();
 $("cardsClose").onclick = closeCardsDialog;
 $("cardsAdd").onclick = () => {
   const id = Number($("cardsPick").value);
@@ -9914,6 +10144,7 @@ document.addEventListener("keydown", e => {
     $("search").blur();
     return;
   }
+  if (!$("tagsModal").hidden) { closeTagsDialog(); return; }
   if (!$("cardsModal").hidden) { closeCardsDialog(); return; }
   if (!$("gwModal").hidden) { closeGatewayDialog(); return; }
   if (!$("noteModal").hidden) { closeNoteDialog(); return; }
@@ -10130,6 +10361,7 @@ async function loadSettings() {
   // /api/hosts poll rather than this endpoint, so refresh them here too.
   renderArpToggle();
   renderRandToggle();
+  renderLatencyToggle();
   renderHolidayToggle();
   renderUpdateToggle();
   fillNotify();
