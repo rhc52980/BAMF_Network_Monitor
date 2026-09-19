@@ -342,7 +342,7 @@ your subnets and, if configured, the vendor-registry download and your webhook.
 The ◑ button in the header opens the theme menu: Dark, Light, Terminal, Amber
 CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
-Thunderstorm, Hotdog Stand, Steampunk, Waterworks and Aquarium. Your
+Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium and Goat. Your
 choice is remembered in your browser.
 
 Some themes have a little life in them:
@@ -379,6 +379,19 @@ Some themes have a little life in them:
   offline sinks for a moment. Watched devices have a pet fish that swims
   beside their name and floats still when they're down. On the Map, bubbles
   drift up the pipes and a shell marks unknown devices.
+- **Goat**: an alpine pasture behind the page, with snowy mountains, pines,
+  drifting clouds and a goat keeping watch from a crag, under a barn-red
+  header. A herd lives along the meadow at the bottom of the page, and every
+  goat has a mind of its own: it wanders, grazes, pronks and bleats. Now and
+  then two of them square up, rear and butt heads (**BONK!**), and one leaps
+  across the tops of the stats cards and takes a bite out of one. The bite
+  grows back. The next-scan bar is grass being eaten, a goat munches beside
+  the search box as you type, and one peeks over a stats card when you point
+  at it. A new device arrives as a kid goat pronking with its name, a finished
+  scan gets a bleat, an offline device's row gets headbutted, watched devices
+  wear a goat bell that rings while they're up, and when everything's online
+  the herd celebrates. On the Map, cables are rope and a goat stands on the
+  router, king of the hill.
 - **Thunderstorm**: rain falls behind the page, in gusts that swing its angle,
   with clouds drifting along the top and splashes along the bottom. Every 20 to
   60 seconds a forked bolt of lightning cracks across the sky, which brightens
