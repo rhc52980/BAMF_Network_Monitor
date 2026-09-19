@@ -221,15 +221,29 @@ the check quietly finds nothing until the repository is public.
 
 Everything BAMF initiates on its own, and how it's protected:
 
+**On the internet**, only these, and each is optional:
+
 | Connection | Protection | When |
 |---|---|---|
 | IEEE vendor registry (`standards-oui.ieee.org`) | **HTTPS** | First run, unless `AutoDownloadOui` is false |
 | GitHub update check (`api.github.com`) | **HTTPS** | Daily, only if you enable the update check |
-| Your webhook | **whatever scheme your URL uses** | When a new host appears, or a watched host changes state |
-| Scanning: ARP, ICMP, UDP probes, NetBIOS (137), Wake-on-LAN (9), port checks | none — these protocols have none | Every scan / on demand |
+| Your public address (`api.ipify.org`, or `checkip.amazonaws.com`) and GreyNoise (`api.greynoise.io`) | **HTTPS** | Daily, only if you switch on the GreyNoise check. What they learn is your public address |
+| Your webhook | **whatever scheme your URL uses** | When a new host appears, a watched host changes state, or an alert fires |
 
-Certificate validation is left at the .NET default: a bad or expired
-certificate fails the request. Nothing in BAMF disables it.
+**On your own network:**
+
+| Connection | Protection | When |
+|---|---|---|
+| Scanning: ARP, ICMP, UDP probes, NetBIOS (137), Wake-on-LAN (9), port checks | none — these protocols have none | Every scan / on demand |
+| One IPv6 ping to the all-nodes address on each scanned network | none | Every five minutes, with the IPv6 watch on |
+| A UPnP search (SSDP multicast) for an internet gateway | none | Check now, and daily with the port watch |
+| Reading devices' HTTPS certificates | TLS, trusting whatever is shown, because it's reading the certificate rather than relying on it | Daily with the certificate watch, and Check now |
+| Your router, for device names | **HTTPS** if your `Url` uses it; the router's certificate isn't checked unless `VerifyCertificate` is true, since routers are usually self-signed | Hourly, only if `RouterImport` is set up |
+| Your MQTT broker, and other BAMF servers | whatever you configured | Only if set up |
+
+Everywhere else, certificate validation is left at the .NET default: a bad
+or expired certificate fails the request. The two exceptions are the ones in
+the table, and both are on your own network.
 
 The dashboard itself has **no external dependencies** — fonts are served
 locally, and there are no CDN scripts, analytics, or tracking of any kind.
@@ -1101,6 +1115,9 @@ scan, or delete a thing.
 | GET | `/api/router-import` | Router import status: `kind`, `host`, `enabled`, `lastRun`, `count`, `error` |
 | POST | `/api/router-import/run` | Read the router's list now; `502` with the status if it failed |
 | POST | `/api/router-import/apply` | Body `{"overwrite": false}` — copy router names into BAMF's own names, only for devices without one unless `overwrite`. Returns `{ "named": 3 }` |
+| GET | `/api/greynoise` | The GreyNoise check: `enabled`, and the last `result` (`ip`, `noise`, `riot`, `classification`, `lastSeen`, `message`, `error`, `checkedAt`) |
+| POST | `/api/settings/greynoise` | Body `{"enabled": true}` — turn the daily GreyNoise check on (it checks straight away) or off. Off by default |
+| POST | `/api/greynoise/check` | Check now; `409` while the check is off |
 | GET | `/api/security` | What the hygiene card needs beyond `/api/hosts`: `certs` (per device and port: `subject`, `issuer`, `notAfter`, `selfSigned`, `error`), `upnp` (routers that answered a UPnP search), `gatewayMacs` (each network's gateway and the MAC last seen for it), `checkedAt` |
 | POST | `/api/security/check` | Check now: scans every online known device's common ports, searches for UPnP routers and reads every HTTPS certificate. Returns the same as `GET /api/security`; `409` if a check is already running |
 | POST | `/api/ports/watch` | Run that scan now; returns how many newly open ports it found |
@@ -1847,6 +1864,31 @@ open, the certificates it has read, and the UPnP search. It scans nothing by
 itself. **Check now** does all three in about a minute: it scans every online
 known device's common ports, sends one UPnP search for an internet gateway on
 each network, and reads every HTTPS certificate it can find.
+
+### GreyNoise: has your address been seen scanning the internet?
+
+The ARP watch and the hygiene card look inside your network. This is the one
+check that looks at it from outside. GreyNoise runs sensors all over the
+internet and records every address that scans them. If your home's public
+address shows up, something behind it has been probing the internet: often a
+hacked camera, NAS or router in a botnet. It can't say which device, only your
+address as a whole.
+
+- The hygiene card has a link to GreyNoise's check page. Point at it for this
+  explanation, or tap **What's this?** on a phone. It checks whatever network
+  your browser is on, so it's only right from home. BAMF sends nothing for it.
+- **Check your public address with GreyNoise**, under **Settings →
+  Behaviour**, has BAMF check once a day by itself. It's **off by default**,
+  because it's a call out to the internet: BAMF asks `api.ipify.org` for your
+  public address, then asks GreyNoise's free lookup, which needs no account.
+  What they learn is your public address. Switching it on checks straight
+  away, and so does **Check now** while it's on. If your address has been seen
+  scanning, that's a security alert and a **high** finding on the hygiene card.
+
+Two caveats. If your internet provider shares one address between many homes
+(carrier-grade NAT), a neighbour's device can flag you. And clean isn't
+proof: GreyNoise only knows about scanning, not a device quietly sending your
+data somewhere else.
 
 ### Certificate watch
 

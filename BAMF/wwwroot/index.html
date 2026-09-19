@@ -1020,6 +1020,14 @@
   .free-runs { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--text-dim); }
   .free-runs .n { margin-left: 5px; font-size: 11px; opacity: .8; }
   .free-runs .n::before { content: "("; } .free-runs .n::after { content: ")"; }
+  .gn-row { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12.5px; }
+  .gn-row a { color: var(--focus); text-decoration: none; }
+  .gn-row a:hover { text-decoration: underline; }
+  .gn-row .gn-what { margin: 0 0 0 6px; }
+  .gn-explain { margin-top: 6px; color: var(--text-dim); font-size: 12px; }
+  .gn-explain p { margin: 0 0 6px; }
+  .gn-status { margin-top: 4px; color: var(--text-dim); font-size: 12px; }
+  .gn-status.bad { color: var(--danger); }
   .hy-more { margin-top: 6px; background: none; border: 0; padding: 2px 4px; color: var(--focus); font: inherit; font-size: 12px; cursor: pointer; }
   .hy-more:hover { text-decoration: underline; }
   .hy-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
@@ -2894,6 +2902,13 @@
       <span class="set-field"><button type="button" class="arp-toggle" id="setCertWatch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
     </label>
     <label class="set-row">
+      <span class="set-label">Check your public address with GreyNoise
+        <span class="set-hint">Off by default. Once a day, BAMF asks api.ipify.org for this network's public address, then asks GreyNoise's free lookup (api.greynoise.io) whether that address has been seen scanning the internet. If it has, that's a security alert: something behind it may be infected. These are the only calls BAMF makes to the internet besides the optional update check, and what they send is your public address. The link checks whatever network this browser is on, so it's only right from home, not from work or over a VPN. If your internet provider shares one address between many homes (carrier-grade NAT), a neighbour's device can flag you. And clean isn't proof: GreyNoise only knows about scanning, not a device quietly sending your data elsewhere.</span>
+        <span class="set-hint" id="setGreyNoiseStatus"></span>
+      </span>
+      <span class="set-field"><button type="button" class="arp-toggle" id="setGreyNoise" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+    </label>
+    <label class="set-row">
       <span class="set-label">Holiday Spirit
         <span class="set-hint">Every dashboard wears the Halloween theme from October 1st to 31st and the Christmas theme from December 1st to 25th, then goes back to its own theme. Pick another theme during the season and that browser keeps it until the next one.</span>
         <span class="set-hint" id="setHolidayStatus"></span>
@@ -3076,6 +3091,18 @@
       <div class="hy-actions">
         <button type="button" class="export-btn" id="hygieneCheck">Check now</button>
         <span class="hint">Scans every online known device's common ports, asks your router about UPnP, and reads HTTPS certificates. About a minute.</span>
+      </div>
+      <div class="gn-row">
+        <a id="gnLink" href="https://check.labs.greynoise.io/" target="_blank" rel="noopener noreferrer"
+           title="GreyNoise runs sensors all over the internet and records every address that scans them. This checks your home's public address: if it shows up, something behind it has been probing the internet, often a hacked camera, NAS or router in a botnet. It can't say which device, only your address as a whole.&#10;&#10;The link checks whatever network this browser is on, so it's only right from home, not from work or over a VPN. If your internet provider shares one address between many homes (carrier-grade NAT), a neighbour's device can flag you. And clean isn't proof: GreyNoise only knows about scanning, not a device quietly sending your data elsewhere.&#10;&#10;Opens GreyNoise's page in a new tab; BAMF itself sends nothing.">Has your home's address been seen scanning the internet? Check on GreyNoise ↗</a>
+        <button type="button" class="hy-more gn-what" id="gnWhat" aria-expanded="false">What's this?</button>
+        <div class="gn-explain" id="gnExplain" hidden>
+          <p>GreyNoise runs sensors all over the internet and records every address that scans them. This checks your home's public address: if it shows up, something behind it has been probing the internet, often a hacked camera, NAS or router in a botnet. It can't say which device, only your address as a whole.</p>
+          <p>The link checks whatever network this browser is on, so it's only right from home, not from work or over a VPN. If your internet provider shares one address between many homes (carrier-grade NAT), a neighbour's device can flag you. And clean isn't proof: GreyNoise only knows about scanning, not a device quietly sending your data elsewhere.</p>
+          <p>The link opens GreyNoise's page in a new tab and BAMF sends nothing. BAMF can also check once a day by itself: switch on
+            <b>Check your public address with GreyNoise</b> under Settings → Behaviour.</p>
+        </div>
+        <div class="gn-status" id="gnStatus"></div>
       </div>
     </div>
     <div class="act-card" id="v6Card" hidden>
@@ -3464,6 +3491,7 @@ let alertsCache = null;     // the last /api/alerts answer
 let securityCache = null;   // the last /api/security answer: certificates, UPnP, gateway MACs
 const presenceCache = {};   // device id -> its week of hours, for the History panel
 let arpWatch = true, certWatch = true, ipv6Watch = true;
+let greynoiseCache = null;  // the last /api/greynoise answer: { enabled, result }
 let role = "open";          // "admin", "viewer" (the view-only password) or "open" (no password set)
 let rulesData = null;       // { rules, quiet, portWatch } from /api/settings
 let remoteStatus = [];      // other BAMF servers: [{ name, url, ok, error, hosts, ... }]
@@ -3760,14 +3788,35 @@ function hygieneFindings() {
     add("high", h, "UPnP port forwarding is on",
       "Any device on your network can open ports on this router to the internet without asking. Turn UPnP off in the router unless a game console or app needs it.");
   }
+  const gr = greynoiseCache && greynoiseCache.enabled && greynoiseCache.result;
+  if (gr && gr.noise)
+    add("high", null, `Your public address ${gr.ip} has been seen scanning the internet`,
+      "Something behind it may be infected: often a camera, NAS or router in a botnet. Check the traffic monitor's top talkers, and update or reset anything you don't recognise. With a shared provider address it may be a neighbour's.");
   const week = Date.now() - 7 * 864e5;
   for (const a of (alertsCache || []).filter(a => a.kind === "security" && new Date(a.at) > week))
     add("high", null, a.title, a.detail);
   return out.sort((a, b) => HY_ORDER[a.sev] - HY_ORDER[b.sev]);
 }
+function loadGreyNoise() {
+  return fetch("/api/greynoise").then(r => r.ok ? r.json() : null).then(g => { if (g) greynoiseCache = g; return g; }).catch(() => null);
+}
+// One line about the daily GreyNoise check, for the hygiene card and Settings.
+function greyNoiseLine() {
+  const g = greynoiseCache;
+  if (!g || !g.enabled) return { text: "The daily check is off: switch it on in Settings → Behaviour to have BAMF look once a day.", bad: false };
+  const r = g.result;
+  if (!r) return { text: "Daily GreyNoise check: on, not run yet.", bad: false };
+  if (r.error) return { text: `Daily GreyNoise check: ${r.error} (${fmtAgo(r.checkedAt)})`, bad: false };
+  return r.noise
+    ? { text: `Daily GreyNoise check: ${r.ip} HAS been seen scanning the internet${r.lastSeen ? ", last on " + r.lastSeen : ""}. Checked ${fmtAgo(r.checkedAt)}.`, bad: true }
+    : { text: `Daily GreyNoise check: ${r.ip} not seen scanning the internet. Checked ${fmtAgo(r.checkedAt)}.`, bad: false };
+}
 function renderHygiene() {
   const body = $("hygieneBody");
   if (!body) return;
+  const gl = greyNoiseLine();
+  $("gnStatus").textContent = gl.text;
+  $("gnStatus").classList.toggle("bad", gl.bad);
   const list = hygieneFindings();
   const sec = securityCache || {};
   const known = hosts.filter(h => !h.remote && (h.openPorts || []).length).length;
@@ -6086,6 +6135,7 @@ function render() {
     loadTraffic().then(t => { trafficCache = t; renderTrafficCards(); }).catch(() => {});
     fetch("/api/alerts").then(r => r.json()).then(a => { alertsCache = a; renderAlertsCard(); renderHygiene(); }).catch(() => {});
     loadSecurity().then(renderHygiene);
+    loadGreyNoise().then(renderHygiene);
     loadChanges();
     loadIpv6();
     renderFeed();
@@ -11851,6 +11901,38 @@ $("routerApply").onclick = async () => {
     toast(d.named ? `Named ${d.named} device${d.named === 1 ? "" : "s"} from the router` : "Every device the router names already has a name");
   } catch { toast("Couldn't save the names"); }
 };
+// GreyNoise: the What's this? toggle, and the Settings switch. Turning it on
+// checks straight away, so the answer is there by the time the toast is.
+document.getElementById("gnWhat").onclick = () => {
+  const box = document.getElementById("gnExplain"), btn = document.getElementById("gnWhat");
+  box.hidden = !box.hidden;
+  btn.setAttribute("aria-expanded", String(!box.hidden));
+  btn.textContent = box.hidden ? "What's this?" : "Hide";
+};
+function renderGreyNoiseToggle() {
+  const t = $("setGreyNoise");
+  if (!t) return;
+  const on = !!(greynoiseCache && greynoiseCache.enabled);
+  setToggleState(t, on);
+  t.title = on ? "BAMF checks your public address with GreyNoise daily - click to stop" : "Click to have BAMF check your public address with GreyNoise daily";
+  $("setGreyNoiseStatus").textContent = on ? greyNoiseLine().text : "";
+}
+$("setGreyNoise").onclick = async () => {
+  const next = !(greynoiseCache && greynoiseCache.enabled);
+  const t = $("setGreyNoise");
+  if (next) $("setGreyNoiseStatus").textContent = "Checking…";
+  try {
+    const r = await fetch("/api/settings/greynoise", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    greynoiseCache = await r.json();
+    renderGreyNoiseToggle();
+    renderHygiene();
+    toast(!next ? "The GreyNoise check is off: BAMF won't contact GreyNoise or ipify"
+      : greynoiseCache.result && greynoiseCache.result.noise ? "GreyNoise has seen your address scanning the internet: see the hygiene card"
+      : greynoiseCache.result && greynoiseCache.result.error ? "GreyNoise check on, but this one failed: " + greynoiseCache.result.error
+      : "GreyNoise check on: your address hasn't been seen scanning");
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); renderGreyNoiseToggle(); }
+};
 function renderArpWatchToggle() {
   const t = $("setArpWatch");
   if (!t) return;
@@ -12627,6 +12709,7 @@ async function loadSettings() {
   renderArpWatchToggle();
   renderCertWatchToggle();
   renderIpv6WatchToggle();
+  loadGreyNoise().then(renderGreyNoiseToggle);
   loadRouterImport();
 
   // The instant-apply toggles and the notifications card draw from the last
