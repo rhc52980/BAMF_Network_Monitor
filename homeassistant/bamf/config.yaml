@@ -26,6 +26,7 @@ options:
   subnets: []
   scan_interval_seconds: 60
   password: ""
+  viewer_password: ""
   webhook_url: ""
   active_arp: true
   traffic_monitor: true
@@ -37,6 +38,7 @@ schema:
     - "match(^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}/\\d{1,2}$)"
   scan_interval_seconds: int(10,86400)
   password: password?
+  viewer_password: password?
   webhook_url: url?
   active_arp: bool
   traffic_monitor: bool

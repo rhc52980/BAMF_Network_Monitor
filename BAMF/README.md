@@ -153,6 +153,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:HolidaySpirit` | `true` puts every dashboard in the Halloween theme from October 1st to 31st and the Christmas theme from December 1st to 25th (default false). Also in Settings → Behaviour, which wins once changed there. See [Holiday Spirit](#holiday-spirit). |
 | `Bamf:WebhookUrl` | Optional starting value for the notification webhook — the dashboard's **Tools → Notifications** saves over it. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use the dashboard's Test webhook button to verify. |
 | `Bamf:Password` | Optional. If set, the UI/API require it via HTTP Basic auth (any username). Over plain HTTP the credential is only base64-encoded — see [What BAMF talks to](#what-bamf-talks-to). |
+| `Bamf:ViewerPassword` | Optional, with `Password` set: a second password that opens the same dashboard to look at but not change. See [A view-only password](#a-view-only-password). |
 | `Bamf:DatabasePath` | SQLite file, relative to the exe. |
 
 ## Active ARP scanning (optional, recommended)
@@ -989,6 +990,24 @@ HTTP Basic auth with *any* username and that password:
 curl -u x:yourpassword http://192.168.1.10:8840/api/hosts
 ```
 
+With the view-only password instead, every GET works except the port scans,
+and every POST and DELETE answers `403` with an `X-BAMF-ViewOnly: 1` header.
+`/api/hosts` says which you are in `role`: `admin`, `viewer`, or `open` when
+no password is set.
+
+### A view-only password
+
+Set `Bamf:ViewerPassword` as well as `Bamf:Password`, and there are two ways
+in. The main password opens everything, as before. The view-only one opens
+the same dashboard, with every device, the Map, Activity and Settings, but
+nothing can be changed: no renaming, no editing the Map, no settings, and no
+port scans or Wake-on-LAN, since those send packets. A **View only** chip sits
+in the header, the ⋯ menus and edit buttons are gone, and Settings is shown
+but greyed out. It's for family, for a wall display, or for another BAMF
+reading this one as a remote. Set on its own, without `Bamf:Password`, it does
+nothing, because the dashboard would be open to everyone anyway; BAMF logs a
+warning.
+
 **Reading.** `GET /api/hosts` is the full JSON picture - devices plus scan
 metadata (`version`, `buildDate`, `subnets`, `lastScan`, per-network scan
 modes). Each device carries an `id`, which is what the per-host routes take:
@@ -1707,7 +1726,8 @@ A BAMF at another site can show in this dashboard, read-only. List it in
 ]
 ```
 
-BAMF fetches each remote's `/api/hosts` once a minute. Its devices appear
+BAMF fetches each remote's `/api/hosts` once a minute. If the remote has a
+view-only password, use that: reading is all this server ever does there. Its devices appear
 under network tabs named after it ("Cabin · 10.0.0.0/24"), with a **remote**
 tag on the tab and a site chip in place of the ⋯ menu, since nothing can be
 changed from here. **All networks** stays this server's own. A remote that

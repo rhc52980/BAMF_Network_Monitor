@@ -21,6 +21,7 @@ same BAMF as everywhere else, next to Home Assistant.
 | Networks | Networks to scan, like `192.168.1.0/24`. Empty scans every network the host is on. |
 | Scan every | Seconds between scans of each network. |
 | Dashboard password | Asks for this before showing the dashboard. |
+| View-only password | With a dashboard password set, a second password that can look at everything but change nothing. |
 | Webhook | Where alerts go: Discord, ntfy, Gotify, or any URL that takes a JSON POST. |
 | Active ARP scanning | Finds devices whose firewalls ignore ping. |
 | Traffic monitor | Bytes per device, the DHCP and DNS servers in use, and the ARP and IPv6 watches between scans. |

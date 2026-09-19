@@ -983,6 +983,19 @@
   .pz-note { color: var(--text-dim); font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 6px; }
   .v6-chip { margin-left: 6px; padding: 0 5px; font: 600 10px "IBM Plex Mono", monospace; line-height: 1.6; border-radius: 4px;
     border: 1px solid var(--line); color: var(--text-dim); vertical-align: 1px; cursor: help; }
+  /* View only: the editing controls go, or go quiet. The server refuses the
+     changes anyway; this just stops offering them. */
+  .chip.viewonly { border-color: var(--focus); color: var(--focus); }
+  .brand .chip[hidden] { display: none; } /* display:inline-flex would otherwise beat the hidden attribute */
+  body.viewer tr .actions .more-wrap, body.viewer .map-tools .edit-only, body.viewer #netScan, body.viewer #testWebhook,
+  body.viewer #hygieneCheck, body.viewer .hy-actions .hint { display: none !important; }
+  body.viewer .watch-star { pointer-events: none; }
+  body.viewer #settingsWrap :is(button, input, select, textarea) { pointer-events: none; opacity: .5; }
+  body.viewer #settingsWrap::before {
+    content: "View only: these are BAMF's settings, but the view-only password can't change them.";
+    display: block; margin: 0 0 12px; padding: 8px 12px; border-radius: var(--radius); font-size: 13px;
+    border: 1px solid var(--focus); color: var(--text);
+  }
   /* What changed. */
   .chg-sec { margin-top: 8px; }
   .chg-sec:first-child { margin-top: 0; }
@@ -2610,6 +2623,7 @@
     <div class="meta">
       <span class="chip ver" id="version" title="BAMF version"></span>
       <span class="chip" id="subnetLabel">—</span>
+      <span class="chip viewonly" id="viewOnly" hidden title="You opened BAMF with the view-only password: you can look at everything, but nothing can be changed, and nothing can be scanned or woken.">View only</span>
       <a class="update-badge" id="updateBadge" target="_blank" rel="noopener" hidden></a>
       <a class="fb-link" id="feedbackLink" href="https://github.com/rhc52980/BAMF_Network_Monitor/issues/new"
          target="_blank" rel="noopener noreferrer"
@@ -3434,10 +3448,23 @@ let tagFilter = null;     // a tag chip; null = every device
 let latencyProbe = true;
 let trafficStatus = {};     // { enabled, available, running, interfaces, error, since, frames }
 let trafficCache = null;    // the last /api/traffic answer, for the Activity cards
+// With the view-only password, the server refuses any change with a 403 and
+// an X-BAMF-ViewOnly header. Say so once per refusal, whichever control it was.
+{
+  const plainFetch = window.fetch.bind(window);
+  window.fetch = async (...args) => {
+    const r = await plainFetch(...args);
+    if (r.status === 403 && r.headers.get("X-BAMF-ViewOnly")) {
+      try { toast("View only: this password can look at everything but not change anything"); } catch { }
+    }
+    return r;
+  };
+}
 let alertsCache = null;     // the last /api/alerts answer
 let securityCache = null;   // the last /api/security answer: certificates, UPnP, gateway MACs
 const presenceCache = {};   // device id -> its week of hours, for the History panel
 let arpWatch = true, certWatch = true, ipv6Watch = true;
+let role = "open";          // "admin", "viewer" (the view-only password) or "open" (no password set)
 let rulesData = null;       // { rules, quiet, portWatch } from /api/settings
 let remoteStatus = [];      // other BAMF servers: [{ name, url, ok, error, hosts, ... }]
 const fmtBytes = n => n == null ? "—" : n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + " kB" : n < 1073741824 ? (n / 1048576).toFixed(1) + " MB" : (n / 1073741824).toFixed(2) + " GB";
@@ -5681,7 +5708,8 @@ function topoWire(m) {
       pinch = { dist: Math.hypot(a[0] - b[0], a[1] - b[1]), view: m.view.slice() };
       return;
     }
-    const g = e.target.closest(".tnode, .tbox");
+    // View only: nothing moves, so a drag anywhere pans.
+    const g = role === "viewer" ? null : e.target.closest(".tnode, .tbox");
     if (g) {
       const key = g.getAttribute("data-key");
       mode = "node";
@@ -5824,11 +5852,13 @@ function buildClusterCard(c) {
   // this network already picked.
   btn("+ Switch / router", c.whole ? "Add a switch, router or access point" : "Add a switch, router or access point on this network",
     () => openSwitchDialog(null, null, null, c.whole ? {} : { subnet: c.subnet }));
+  tools.lastChild.classList.add("edit-only");
   if (mapStyle === "topology" && !empty) {
     btn("−", "Zoom out", () => topoZoomBy(c.subnet, 1.25));
     btn("+", "Zoom in", () => topoZoomBy(c.subnet, 0.8));
     btn("Fit", "Show everything", () => topoFit(c.subnet));
     btn("Auto-arrange", c.whole ? "Forget where you dragged things on this map" : "Forget where you dragged things on this network", () => topoAutoArrange(c.subnet));
+    tools.lastChild.classList.add("edit-only");
     btn("Print", "A clean white drawing of this map on one page, for the closet door", () => printTopoMap(c.subnet));
     btn(mapExpanded === c.subnet ? "Exit full screen" : "⛶ Full screen",
       mapExpanded === c.subnet ? "Back to the page (Esc)" : "Fill the screen with this map", () => toggleMapExpanded(c.subnet));
@@ -6150,6 +6180,7 @@ function render() {
     if (h.remote) tr.classList.add("is-remote");
     nameCell.onclick = () => {
       if (h.remote) { toast(`${esc(dispName(h))} is on ${esc(h.remote)}: open that BAMF to change it`); return; }
+      if (role === "viewer") return;
       if (nameCell.querySelector("input")) return;
       const input = document.createElement("input");
       input.className = "name-input";
@@ -7663,6 +7694,11 @@ async function refresh() {
     }
     updateInfo = data.update || null;
     appVersion = data.version || appVersion;
+    if (data.role && data.role !== role) {
+      role = data.role;
+      document.body.classList.toggle("viewer", role === "viewer");
+      $("viewOnly").hidden = role !== "viewer";
+    }
     buildDate = data.buildDate || buildDate;
     webhookConfigured = !!data.webhookConfigured;
     webhookMasked = data.webhookMasked || null;

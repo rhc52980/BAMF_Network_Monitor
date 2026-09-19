@@ -8,6 +8,9 @@ configuration:
   password:
     name: Dashboard password
     description: Asks for this password before showing the dashboard. Leave empty for none.
+  viewer_password:
+    name: View-only password
+    description: With a dashboard password set, a second password that can look at everything but change nothing. For family, or a wall display.
   webhook_url:
     name: Webhook
     description: Discord, ntfy, Gotify or any URL that takes a JSON POST, for alerts.

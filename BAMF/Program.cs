@@ -104,8 +104,18 @@ if (!string.IsNullOrEmpty(app.Configuration["Bamf:Password"]))
 }
 
 // ---------- optional HTTP Basic auth ----------
+// Password opens everything. ViewerPassword, if set as well, opens the same
+// dashboard to look at but not change: every POST and DELETE is refused, and
+// so are the port scans, the only GETs that send packets.
 var password = app.Configuration["Bamf:Password"];
+var viewerPassword = app.Configuration["Bamf:ViewerPassword"];
 var hookToken = app.Configuration["Bamf:HookToken"];
+if (!string.IsNullOrEmpty(viewerPassword) && string.IsNullOrEmpty(password))
+{
+    app.Logger.LogWarning("Bamf:ViewerPassword is set without Bamf:Password, so it does nothing: " +
+        "with no main password the dashboard is open to everyone. Set Bamf:Password too.");
+    viewerPassword = null;
+}
 // An inbound webhook may carry the hook token instead of the password.
 static bool HookTokenOk(HttpContext ctx, string? token) =>
     !string.IsNullOrEmpty(token) && ctx.Request.Path.StartsWithSegments("/api/hooks") &&
@@ -115,24 +125,34 @@ if (!string.IsNullOrEmpty(password))
     app.Use(async (ctx, next) =>
     {
         var header = ctx.Request.Headers.Authorization.ToString();
-        var ok = HookTokenOk(ctx, hookToken);
-        if (header.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
+        string? role = HookTokenOk(ctx, hookToken) ? "admin" : null;
+        if (role is null && header.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
         {
             try
             {
                 var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(header[6..]));
                 var idx = decoded.IndexOf(':');
                 var provided = idx >= 0 ? decoded[(idx + 1)..] : "";
-                ok = CryptographicEquals(provided, password);
+                if (CryptographicEquals(provided, password)) role = "admin";
+                else if (!string.IsNullOrEmpty(viewerPassword) && CryptographicEquals(provided, viewerPassword)) role = "viewer";
             }
             catch { }
         }
 
-        if (!ok)
+        if (role is null)
         {
             ctx.Response.StatusCode = 401;
             ctx.Response.Headers.WWWAuthenticate = "Basic realm=\"BAMF\"";
             await ctx.Response.WriteAsync("Authentication required");
+            return;
+        }
+        ctx.Items["bamfRole"] = role;
+        if (role == "viewer" && (!(HttpMethods.IsGet(ctx.Request.Method) || HttpMethods.IsHead(ctx.Request.Method))
+                                 || ctx.Request.Path.Value?.Contains("/portscan", StringComparison.OrdinalIgnoreCase) == true))
+        {
+            ctx.Response.StatusCode = 403;
+            ctx.Response.Headers["X-BAMF-ViewOnly"] = "1";
+            await ctx.Response.WriteAsJsonAsync(new { error = "View-only: this password can look at everything but not change anything." });
             return;
         }
         await next();
@@ -166,7 +186,7 @@ app.MapGet("/themes/{id}/{file}", (string id, string file, HttpContext ctx) =>
 
 // ---------- API ----------
 
-app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker updates, PortBlinker blinker, RemoteService remotesSvc) =>
+app.MapGet("/api/hosts", (HttpContext ctx, HostStore store, ScannerService scanner, UpdateChecker updates, PortBlinker blinker, RemoteService remotesSvc) =>
 {
     var linkTemplate = app.Configuration["Bamf:DeviceLinkTemplate"];
     var placements = store.GetPlacements();
@@ -251,6 +271,8 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         // The traffic monitor: bytes per device and DHCP/DNS watching, through Npcap.
         traffic = TrafficJson(scanner),
         // Other BAMF servers' devices, read-only, and how each remote is doing.
+        // Who's looking: "admin", "viewer" (the view-only password), or "open" (no password set).
+        role = ctx.Items["bamfRole"] as string ?? "open",
         remotes = remotesSvc.Hosts(),
         remoteStatus = remotesSvc.Statuses,
         // Holiday Spirit: the dashboard wears Halloween through October and
@@ -1051,6 +1073,7 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             autoDownloadOui = cfg.GetValue("Bamf:AutoDownloadOui", true),
             updateRepo = cfg["Bamf:UpdateRepo"] ?? "",
             hookToken = !string.IsNullOrEmpty(cfg["Bamf:HookToken"]),
+            viewerPassword = !string.IsNullOrEmpty(cfg["Bamf:ViewerPassword"]) && !string.IsNullOrEmpty(cfg["Bamf:Password"]),
             remotes = remotesSvc2.Statuses,
             mqtt = new
             {
