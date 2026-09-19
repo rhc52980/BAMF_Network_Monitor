@@ -114,7 +114,7 @@ screen. It works with any switch, including unmanaged ones.
 
 ### Tune it without touching the server
 
-![The Settings tab: scan interval, probe concurrency, history retention, an on/off switch and scan interval per network, the recorded switches, access point and SSIDs with layout export and import, and the instant toggles for active ARP, randomised MACs, the traffic monitor, latency measuring, Holiday Spirit and update checks](docs/settings.png)
+![The Settings tab: scan interval, probe concurrency, history retention, an on/off switch and scan interval per network, the recorded switches, access point and SSIDs with layout export and import, the instant toggles for active ARP, randomised MACs, the traffic monitor, latency measuring, Holiday Spirit, Night mode with its hours and theme, and update checks, then alert rules, quiet hours and the daily port watch](docs/settings.png)
 
 Scan cadence, probe concurrency and history retention are editable from the
 dashboard and applied on the next scan — no restart, no editing a file over SSH.
