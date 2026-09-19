@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BAMF — Basic ARP Monitoring Framework</title>
 <link rel="icon" type="image/svg+xml" href="/bamf-icon.svg">
 <!-- Apply the saved theme before anything paints. The full restore at the end
@@ -2205,6 +2205,54 @@
     .tools-menu { right: auto; left: 0; }
     /* home board: 2 per row on phones */
     .home-grid { grid-template-columns: 1fr 1fr; }
+
+    /* The row's ⋯ menu (and the +N address list) becomes a bottom sheet. A
+       menu hung under the button ran off the bottom of a phone screen, and
+       a sheet is where a thumb already is. placeRowMenu() still sets inline
+       top/left, hence the !important. The dim backdrop is body::before, so
+       a tap anywhere outside the sheet closes it via the document handler. */
+    .row-menu.show {
+      left: 0 !important; right: 0; top: auto !important; bottom: 0; max-height: 70vh;
+      min-width: 0; border-radius: 14px 14px 0 0; border-bottom: 0;
+      padding: 8px 10px calc(10px + env(safe-area-inset-bottom));
+      box-shadow: 0 -8px 24px rgba(0,0,0,.45);
+    }
+    .row-menu.show::before {
+      content: ""; display: block; width: 36px; height: 4px; border-radius: 2px;
+      background: var(--line); margin: 0 auto 8px;
+    }
+    .row-menu button { padding: 12px 14px; font-size: 15px; white-space: normal; }
+    .addr-menu { min-width: 0; }
+    .addr-note { max-width: none; }
+    body:has(.row-menu.show)::before {
+      content: ""; position: fixed; inset: 0; z-index: 299; background: rgba(0,0,0,.45);
+    }
+
+    /* Dialogs sit at the bottom too, full width, with their fields stacking
+       under their labels when the row is too narrow for both. */
+    .modal-backdrop { padding: 0; align-items: flex-end; }
+    .modal {
+      width: 100%; max-height: 92vh; border-radius: 14px 14px 0 0; border-bottom: 0;
+      padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    }
+    .modal-row { flex-wrap: wrap; }
+    .modal-row select, .modal-input { flex: 1 1 180px; min-width: 0; margin-left: 0; }
+    .modal-actions { flex-wrap: wrap; }
+    .modal-actions button { flex: 1 1 auto; padding: 10px 12px; }
+
+    /* Finger-sized targets in the card actions and the map tools. */
+    .actions button, .more-btn { padding: 8px 12px; min-height: 36px; }
+    .map-tools { flex-wrap: wrap; margin-left: 0; }
+    .toast { left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); max-width: none; }
+
+    /* Activity rows: name and what on one line, address / network / time on
+       the next, instead of one long line running off the right edge. */
+    .feed-item { flex-wrap: wrap; row-gap: 2px; padding: 10px 4px; }
+    .feed-item .who { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+    .feed-item .meta { flex-basis: 100%; margin-left: 21px; gap: 10px; flex-wrap: wrap; }
+    .feed-day { padding-left: 4px; }
+    .session { flex-wrap: wrap; row-gap: 0; }
+    .session .dur { flex-basis: 100%; padding-left: 18px; }
   }
   @media (max-width: 420px) {
     /* The five view tabs and the five status tabs are each wider than a phone
@@ -2216,8 +2264,9 @@
     .view-btn { padding: 8px 10px; white-space: nowrap; }
     .tab { padding: 8px 10px; white-space: nowrap; }
     .tabs { min-width: 0; max-width: 100%; overflow-x: auto; }
-    .home-grid { grid-template-columns: 1fr; }
-    .stat { min-width: 100%; }
+    .home-card { padding: 12px 8px; }
+    .stat { padding: 10px 12px; }
+    .stat .num { font-size: 20px; }
   }
 
   .toast {
