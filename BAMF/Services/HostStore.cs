@@ -153,6 +153,7 @@ public partial class HostStore
 
         ScrubSyntheticHostnames(conn);
         InitSwitches(conn);
+        InitGateways(conn);
         InitMapPositions(conn);
         InitDeviceTypes(conn);
         InitAddresses(conn);

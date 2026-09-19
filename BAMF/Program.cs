@@ -59,6 +59,9 @@ var app = builder.Build();
 // First line in the Event Log / journal, so "what's actually running?" is answerable.
 app.Logger.LogInformation("BAMF {Version} (built {BuildDate} UTC) starting", version, buildDate);
 
+// Port scans go easy on declared gateways as they do on the routing table's.
+PortChecker.SetDeclaredGateways(app.Services.GetRequiredService<HostStore>().GetGateways().Select(g => g.Ip));
+
 // ---------- warn about plaintext where it costs you something ----------
 // BAMF's own calls (IEEE registry, GitHub update check) are HTTPS. These two
 // are the paths where a configuration choice can put data in the clear.
@@ -220,6 +223,9 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         // Per network: this machine's own address and MAC there, and the default
         // gateway on it. What the map marks as known rather than inferred.
         networkPlaces = scanner.NetworkPlaces(),
+        // Gateways the user declared, one per network: [{ subnet, hostId, ip }].
+        // Where one is declared it's the network's gateway, over the routing table.
+        gateways = store.GetGateways().Select(g => new { subnet = g.Subnet, hostId = g.HostId, ip = g.Ip }),
         // The switch layout as the user described it. Not discovered: see HostStore.Switches.cs.
         switches = SwitchesJson(store),
         // A running "Find port", so every open dashboard pulses the device in
@@ -912,6 +918,16 @@ app.MapPost("/api/settings/type-icons", (TypeIconsRequest body, HostStore store)
     return error is null ? Results.Json(store.GetTypeIcons()) : Results.BadRequest(new { error });
 });
 
+// Declares a device the gateway of the network one of its addresses is on,
+// or (enabled false) stops declaring it. One gateway per network.
+app.MapPost("/api/hosts/{id:long}/gateway", (long id, GatewayRequest body, HostStore store) =>
+{
+    var error = store.SetGateway(id, body.Ip, body.Enabled);
+    if (error is not null) return Results.BadRequest(new { error });
+    PortChecker.SetDeclaredGateways(store.GetGateways().Select(g => g.Ip));
+    return Results.Ok();
+});
+
 // Switch 0 clears the placement; port 0 means "on this switch, port not recorded".
 app.MapPost("/api/hosts/{id:long}/plug", (long id, PlugRequest body, HostStore store) =>
 {
@@ -993,6 +1009,7 @@ record NameRequest(string? Name);
 record NoteRequest(string? Note);
 record LinkRequest(string? Link);
 record PlugRequest(long SwitchId, int Port);
+record GatewayRequest(string? Ip, bool Enabled);
 record PortEntry(long HostId, int Port);
 record BlinkRequest(int? Seconds);
 record DeviceTypeRequest(string? Type);
