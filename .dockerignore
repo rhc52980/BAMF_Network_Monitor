@@ -8,7 +8,6 @@
 **/*.log
 .git/
 .github/
-.claude/
 docs/
 BAMF/windows/
 BAMF/linux/
