@@ -102,6 +102,183 @@
     [data-theme="constellation"] .map-svg .pkt, .cs-name { animation: none !important; }
   }
 
+  /* ---- Claw Machine: a prize cabinet, marquee bulbs, and a claw that sometimes wins ---- */
+  :is([data-theme="claw"], [data-theme="clawdusk"]) body { background: #140b24; }
+  :is([data-theme="claw"], [data-theme="clawdusk"]) header { background: linear-gradient(#3a1766, #25104a); border-bottom: 0; position: relative; }
+  /* The marquee: a row of bulbs under the header, yellow and pink, chasing. */
+  :is([data-theme="claw"], [data-theme="clawdusk"]) header::after {
+    content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 12px; z-index: 5; pointer-events: none;
+    background:
+      radial-gradient(circle at 11px 6px, #fff6c2 0 2.5px, #ffd23f 3.5px, rgba(255, 210, 63, .45) 5px, transparent 6.5px) 0 0 / 44px 12px repeat-x,
+      radial-gradient(circle at 33px 6px, #ffd0ea 0 2.5px, #ff4fa3 3.5px, rgba(255, 79, 163, .4) 5px, transparent 6.5px) 0 0 / 44px 12px repeat-x,
+      linear-gradient(#5a2c94, #2a1150);
+    box-shadow: 0 3px 12px rgba(255, 79, 163, .35); animation: claw-chase 1.2s linear infinite;
+  }
+  :is([data-theme="claw"], [data-theme="clawdusk"]).claw-fast header::after { animation-duration: .24s; }
+  @keyframes claw-chase { 0%, 49.9% { background-position: 0 0, 0 0, 0 0; } 50%, 100% { background-position: 22px 0, 22px 0, 0 0; } }
+  :is([data-theme="claw"], [data-theme="clawdusk"]) .brand h1 { color: #fff; letter-spacing: .06em; text-shadow: 0 0 6px #ff4fa3, 0 0 16px #ff4fa3, 2px 2px 0 #ffd23f; }
+  :is([data-theme="claw"], [data-theme="clawdusk"]) header .chip, :is([data-theme="claw"], [data-theme="clawdusk"]) header .arp-toggle { border-color: #7b4fc0; }
+  :is([data-theme="claw"], [data-theme="clawdusk"]) .stat { border: 2px solid #6b44a8; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06), 0 0 0 1px #1a0c33, 0 6px 14px rgba(0, 0, 0, .4); }
+  /* The counts in LED windows, like the credit display. */
+  :is([data-theme="claw"], [data-theme="clawdusk"]) .stat .num {
+    display: inline-block; font-family: "IBM Plex Mono", monospace; color: #ff3b5c; background: #0c0616; padding: 1px 10px; border-radius: 4px;
+    letter-spacing: .12em; text-shadow: 0 0 8px rgba(255, 59, 92, .8); box-shadow: inset 0 2px 6px rgba(0, 0, 0, .9);
+  }
+  :is([data-theme="claw"], [data-theme="clawdusk"]) .stat.alert .num { color: #ffd23f; text-shadow: 0 0 8px rgba(255, 210, 63, .8); }
+  :is([data-theme="claw"], [data-theme="clawdusk"]) .stat .lbl { text-transform: uppercase; letter-spacing: .1em; font-size: 11px; }
+  :is([data-theme="claw"], [data-theme="clawdusk"]) .tab.active { background: #ff4fa3; color: #1a0930; font-weight: 600; }
+  :is([data-theme="claw"], [data-theme="clawdusk"]) thead th { color: #3de0ff; }
+  :is([data-theme="claw"], [data-theme="clawdusk"]) table, :is([data-theme="claw"], [data-theme="clawdusk"]) .feed { background: rgba(24, 13, 44, .95); }
+  :is([data-theme="claw"], [data-theme="clawdusk"]) tbody tr:hover td { background: rgba(61, 224, 255, .07); }
+  /* Unknown devices are mystery capsules. */
+  :is([data-theme="claw"], [data-theme="clawdusk"]) .badge.unknown { background: linear-gradient(#ff4fa3 0 50%, #f7efff 50%); color: #1a0930; border: 1px solid #1a0930; border-radius: 999px; font-weight: 700; }
+  /* The next-scan bar: a candy-striped timer. */
+  :is([data-theme="claw"], [data-theme="clawdusk"]) .scan-track { background: #0c0616; box-shadow: inset 0 0 0 1px #6b44a8; }
+  :is([data-theme="claw"], [data-theme="clawdusk"]) .scan-fill { background: repeating-linear-gradient(135deg, #ff4fa3 0 8px, #ff85c2 8px 16px); background-size: 22.6px 22.6px; animation: claw-stripe 1s linear infinite; }
+  @keyframes claw-stripe { to { background-position: 22.6px 0; } }
+  /* The search box is the coin slot. */
+  :is([data-theme="claw"], [data-theme="clawdusk"]) #search {
+    padding-left: 34px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='4' y='2' width='16' height='20' rx='3' fill='%23c8b6e6'/%3E%3Crect x='10.5' y='5' width='3' height='14' rx='1.5' fill='%23140b24'/%3E%3C/svg%3E") 9px 50% / 18px no-repeat, var(--panel);
+  }
+  .claw-play span { font-size: 14px; line-height: 1; }
+  /* The Map: neon cables with bulbs chasing along them, and capsules on unknown devices. */
+  :is([data-theme="claw"], [data-theme="clawdusk"]) .map-svg .spoke.cable { stroke: #ff4fa3; filter: drop-shadow(0 0 3px rgba(255, 79, 163, .6)); }
+  :is([data-theme="claw"], [data-theme="clawdusk"]) .map-svg .pkt { display: inline; fill: none; stroke: #ffd23f; stroke-width: 4; stroke-linecap: round; stroke-dasharray: 0 16; animation: claw-bulbs 1s steps(2) infinite; }
+  :is([data-theme="claw"], [data-theme="clawdusk"]) .map-svg .pkt.off { display: none; }
+  @keyframes claw-bulbs { to { stroke-dashoffset: -16; } }
+  .map-svg .claw-cap { display: none; }
+  :is([data-theme="claw"], [data-theme="clawdusk"]) .map-svg .tnode.dev.unknown .claw-cap { display: inline; }
+  /* Behind the glass: the back wall, neon tubes up the sides, the rail, the
+     heap of prizes, the prize chute and reflections on the glass. */
+  .claw-bg { overflow: hidden; background:
+      repeating-linear-gradient(45deg, rgba(255, 255, 255, .025) 0 2px, transparent 2px 28px),
+      repeating-linear-gradient(-45deg, rgba(255, 255, 255, .025) 0 2px, transparent 2px 28px),
+      radial-gradient(ellipse at 50% 30%, #2a1552, #140b24 70%); }
+  .claw-bg .tube { position: absolute; top: 0; bottom: 0; width: 7px; border-radius: 4px; }
+  .claw-bg .tube.l { left: 8px; background: #ff4fa3; box-shadow: 0 0 10px #ff4fa3, 0 0 26px rgba(255, 79, 163, .6); animation: claw-flicker 7s linear infinite; }
+  .claw-bg .tube.r { right: 8px; background: #3de0ff; box-shadow: 0 0 10px #3de0ff, 0 0 26px rgba(61, 224, 255, .6); animation: claw-flicker 9s linear infinite reverse; }
+  @keyframes claw-flicker { 0%, 91%, 93%, 96%, 100% { opacity: 1; } 92%, 95% { opacity: .35; } }
+  .claw-bg .rail { position: absolute; left: 0; right: 0; height: 8px; background: linear-gradient(#e8e0f5, #8a7aa8 50%, #4a3a68); box-shadow: 0 2px 4px rgba(0, 0, 0, .5); }
+  .claw-bg .pile { position: absolute; left: 0; top: 0; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .45)); }
+  .claw-bg .chute {
+    position: absolute; bottom: 0; border: 3px solid rgba(200, 230, 255, .5); border-bottom: 0; border-radius: 8px 8px 0 0;
+    background: rgba(160, 200, 255, .07); box-shadow: inset 0 0 22px rgba(160, 220, 255, .16);
+  }
+  .claw-bg .chute b { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; font: 700 14px "IBM Plex Mono", monospace; color: #ffd23f; letter-spacing: .24em; text-shadow: 0 0 8px #ffd23f; }
+  .claw-bg .chute.win { animation: claw-win .2s steps(2) 10; }
+  @keyframes claw-win { 50% { background: rgba(255, 210, 63, .35); } }
+  .claw-bg .glass { position: absolute; inset: 0; pointer-events: none; background:
+      linear-gradient(115deg, transparent 0 18%, rgba(255, 255, 255, .05) 18% 22%, transparent 22% 25%, rgba(255, 255, 255, .035) 25% 26%, transparent 26%),
+      linear-gradient(115deg, transparent 0 68%, rgba(255, 255, 255, .04) 68% 71%, transparent 71%); }
+  /* The claw: a carriage on the rail, a cable, and three prongs that open and close. */
+  .claw-rig { position: absolute; top: 0; width: 60px; margin-left: -30px; pointer-events: none; }
+  .claw-rig .car { position: absolute; left: 6px; top: -6px; width: 48px; height: 16px; border-radius: 5px; background: linear-gradient(#f1ebfa, #8a7aa8); border: 1px solid #4b3a68; box-shadow: 0 2px 5px rgba(0, 0, 0, .5); }
+  .claw-rig .car::after { content: ""; position: absolute; right: 6px; top: 5px; width: 5px; height: 5px; border-radius: 50%; background: #ff3b5c; box-shadow: 0 0 6px #ff3b5c; }
+  .claw-rig .cable { position: absolute; left: 29px; top: 8px; width: 2px; height: 24px; background: repeating-linear-gradient(#e0d8ee 0 3px, #7d6d9b 3px 5px); }
+  .claw-rig .claw { position: absolute; left: 0; top: 32px; width: 60px; height: 64px; }
+  .claw-rig .claw > svg { position: absolute; left: 0; top: 0; overflow: visible; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .45)); }
+  .claw-rig .prong { transform-box: view-box; transition: transform .35s ease-in-out; }
+  .claw-rig .prong.l { transform-origin: 28px 14px; transform: rotate(-4deg); }
+  .claw-rig .prong.r { transform-origin: 32px 14px; transform: rotate(4deg); }
+  .claw-rig.open .prong.l { transform: rotate(30deg); }
+  .claw-rig.open .prong.r { transform: rotate(-30deg); }
+  .claw-rig .held { position: absolute; left: 30px; top: 28px; transform: translateX(-50%); display: none; }
+  /* A device's tag hangs with its plush in the prongs and its name clear of them. */
+  .claw-rig .held:has(.claw-tag) { top: 40px; transform: translateX(-17px); }
+  .claw-rig .held.on { display: block; }
+  .claw-rig .held svg, .claw-falling svg { display: block; }
+  .claw-falling { position: absolute; pointer-events: none; }
+  .claw-tag {
+    display: flex; align-items: center; gap: 6px; padding: 3px 10px 3px 4px; border-radius: 999px; background: #f7efff; color: #1a0930;
+    font: 700 12px "IBM Plex Mono", monospace; white-space: nowrap; box-shadow: 0 3px 8px rgba(0, 0, 0, .5), 0 0 0 2px #ff4fa3;
+  }
+  .claw-banner {
+    position: absolute; left: 50%; top: 32%; padding: 18px 34px 16px; text-align: center; border-radius: 16px; white-space: nowrap;
+    background: #25104a; border: 3px dotted #ffd23f; box-shadow: 0 0 0 6px #25104a, 0 0 0 9px #ff4fa3, 0 0 44px rgba(255, 79, 163, .6);
+    animation: claw-banner 2.6s ease-out 1 both;
+  }
+  .claw-banner b { display: block; font: 800 40px "Space Grotesk", sans-serif; letter-spacing: .08em; color: #fff; text-shadow: 0 0 10px #ff4fa3, 0 0 24px #ff4fa3, 3px 3px 0 #ffd23f; }
+  .claw-banner small { display: block; margin-top: 6px; font: 600 14px "IBM Plex Mono", monospace; color: #3de0ff; max-width: 70vw; overflow: hidden; text-overflow: ellipsis; }
+  @keyframes claw-banner {
+    0% { transform: translate(-50%, -50%) scale(.3); opacity: 0; } 12% { transform: translate(-50%, -50%) scale(1.12); opacity: 1; }
+    20%, 85% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+  }
+  .claw-close, .claw-bonus { position: absolute; pointer-events: none; white-space: nowrap; font-weight: 800; letter-spacing: .1em; animation: claw-float 1.8s ease-out 1 both; }
+  .claw-close { font: 800 18px "Space Grotesk", sans-serif; color: #ffd23f; text-shadow: 0 0 8px #ff4fa3; }
+  @keyframes claw-float { 0% { transform: translate(-50%, 0) scale(.6); opacity: 0; } 15% { transform: translate(-50%, -8px) scale(1.1); opacity: 1; } 100% { transform: translate(-50%, -34px) scale(1); opacity: 0; } }
+  /* On the rows: TRY AGAIN when a device drops, BONUS when one comes back,
+     a flash when the claw grabs one, and a little bear on watched devices. */
+  :is([data-theme="claw"], [data-theme="clawdusk"]) td.hostname { position: relative; }
+  .claw-stamp {
+    position: absolute; left: 90px; top: 50%; padding: 1px 8px; border: 2px solid #ff4f6d; border-radius: 4px; color: #ff4f6d; pointer-events: none; white-space: nowrap;
+    font: 800 12px "IBM Plex Mono", monospace; letter-spacing: .1em; background: rgba(20, 11, 36, .85); animation: claw-stamp 2.6s ease-out 1 both;
+  }
+  @keyframes claw-stamp { 0% { transform: translateY(-50%) rotate(-8deg) scale(2.2); opacity: 0; } 10%, 80% { transform: translateY(-50%) rotate(-8deg) scale(1); opacity: 1; } 100% { transform: translateY(-50%) rotate(-8deg); opacity: 0; } }
+  .claw-drop { position: absolute; left: 30px; top: 0; pointer-events: none; animation: claw-dropfall 1.4s cubic-bezier(.5, 0, 1, .6) 1 both; }
+  @keyframes claw-dropfall { from { transform: translateY(-10px) rotate(0); opacity: 1; } to { transform: translateY(46px) rotate(120deg); opacity: 0; } }
+  .claw-bonus { left: 110px; top: 30%; font-family: "IBM Plex Mono", monospace; font-size: 13px; color: #3de0ff; text-shadow: 0 0 8px #3de0ff; }
+  tr.claw-grab td { animation: claw-grab .7s ease-out 1; }
+  @keyframes claw-grab { 30% { background-color: rgba(255, 79, 163, .3); } }
+  .claw-charm { display: inline-block; margin-left: 6px; vertical-align: -3px; }
+  .claw-charm svg { display: block; animation: claw-bob 1.6s ease-in-out infinite; }
+  .claw-charm.off svg { filter: grayscale(1) brightness(.7); animation: none; }
+  @keyframes claw-bob { 50% { transform: translateY(-2px) rotate(-6deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    :is([data-theme="claw"], [data-theme="clawdusk"]) header::after, :is([data-theme="claw"], [data-theme="clawdusk"]) .scan-fill, :is([data-theme="claw"], [data-theme="clawdusk"]) .map-svg .pkt, .claw-bg .tube, .claw-bg .chute.win,
+    .claw-charm svg, tr.claw-grab td, .claw-stamp, .claw-drop, .claw-bonus { animation: none !important; }
+    .claw-rig .prong { transition: none; }
+  }
+
+  /* ---- Claw Machine Dusk: the same cabinet after hours, in softer colours ---- */
+  [data-theme="clawdusk"] body { background: #15171c; }
+  [data-theme="clawdusk"] header { background: linear-gradient(#262a33, #1c1f26); }
+  [data-theme="clawdusk"] header::after {
+    background:
+      radial-gradient(circle at 11px 6px, #f3e3c0 0 2px, #c9a55a 3px, rgba(201, 165, 90, .25) 4.5px, transparent 6px) 0 0 / 44px 12px repeat-x,
+      radial-gradient(circle at 33px 6px, #ecc9d2 0 2px, #b8788a 3px, rgba(184, 120, 138, .22) 4.5px, transparent 6px) 0 0 / 44px 12px repeat-x,
+      linear-gradient(#343944, #22262e);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, .35); animation-duration: 2.4s;
+  }
+  [data-theme="clawdusk"].claw-fast header::after { animation-duration: .5s; }
+  [data-theme="clawdusk"] .brand h1 { color: #ece6da; text-shadow: 0 0 6px rgba(196, 122, 143, .45), 1px 1px 0 #8a6f3c; }
+  [data-theme="clawdusk"] header .chip, [data-theme="clawdusk"] header .arp-toggle { border-color: #454a56; }
+  [data-theme="clawdusk"] .stat { border-color: #3f4450; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .03), 0 4px 10px rgba(0, 0, 0, .35); }
+  [data-theme="clawdusk"] .stat .num { color: #d9a25a; text-shadow: 0 0 5px rgba(217, 162, 90, .4); }
+  [data-theme="clawdusk"] .stat.alert .num { color: #d68a7a; text-shadow: 0 0 5px rgba(214, 138, 122, .4); }
+  [data-theme="clawdusk"] .tab.active { background: #b8788a; color: #15171c; }
+  [data-theme="clawdusk"] thead th { color: #7fb0ae; }
+  [data-theme="clawdusk"] table, [data-theme="clawdusk"] .feed { background: rgba(26, 28, 34, .96); }
+  [data-theme="clawdusk"] tbody tr:hover td { background: rgba(127, 176, 174, .06); }
+  [data-theme="clawdusk"] .badge.unknown { background: linear-gradient(#b8788a 0 50%, #e6e1d8 50%); color: #15171c; border-color: #15171c; }
+  [data-theme="clawdusk"] .scan-track { box-shadow: inset 0 0 0 1px #454a56; }
+  [data-theme="clawdusk"] .scan-fill { background: repeating-linear-gradient(135deg, #b8788a 0 8px, #9c6576 8px 16px); background-size: 22.6px 22.6px; }
+  [data-theme="clawdusk"] .map-svg .spoke.cable { stroke: #b8788a; filter: none; }
+  [data-theme="clawdusk"] .map-svg .pkt { stroke: #c9a55a; stroke-width: 3; }
+  [data-theme="clawdusk"] .claw-bg { background:
+      repeating-linear-gradient(45deg, rgba(255, 255, 255, .015) 0 2px, transparent 2px 28px),
+      repeating-linear-gradient(-45deg, rgba(255, 255, 255, .015) 0 2px, transparent 2px 28px),
+      radial-gradient(ellipse at 50% 30%, #22262e, #15171c 70%); }
+  [data-theme="clawdusk"] .claw-bg .tube.l { background: #8a5a68; box-shadow: 0 0 6px rgba(184, 120, 138, .5); }
+  [data-theme="clawdusk"] .claw-bg .tube.r { background: #4f7f7e; box-shadow: 0 0 6px rgba(127, 176, 174, .45); }
+  [data-theme="clawdusk"] .claw-bg .pile { opacity: .7; }
+  [data-theme="clawdusk"] .claw-rig .stripe { fill: #b8788a; }
+  [data-theme="clawdusk"] .claw-bg .chute { border-color: rgba(200, 210, 220, .3); }
+  [data-theme="clawdusk"] .claw-bg .chute b { color: #c9a55a; text-shadow: none; }
+  [data-theme="clawdusk"] .claw-bg .chute.win { animation-name: claw-win-dusk; }
+  @keyframes claw-win-dusk { 50% { background: rgba(201, 165, 90, .2); } }
+  [data-theme="clawdusk"] .claw-bg .glass { opacity: .6; }
+  [data-theme="clawdusk"] .claw-rig .car::after { background: #c9a55a; box-shadow: 0 0 4px #c9a55a; }
+  [data-theme="clawdusk"] .claw-tag { background: #e6e1d8; box-shadow: 0 3px 8px rgba(0, 0, 0, .5), 0 0 0 2px #b8788a; }
+  [data-theme="clawdusk"] .claw-banner { background: #1c1f26; border-color: #c9a55a; box-shadow: 0 0 0 6px #1c1f26, 0 0 0 8px #b8788a, 0 0 24px rgba(0, 0, 0, .5); }
+  [data-theme="clawdusk"] .claw-banner b { color: #ece6da; text-shadow: 0 0 6px rgba(184, 120, 138, .6), 2px 2px 0 #8a6f3c; }
+  [data-theme="clawdusk"] .claw-banner small { color: #7fb0ae; }
+  [data-theme="clawdusk"] .claw-close { color: #c9a55a; text-shadow: none; }
+  [data-theme="clawdusk"] .claw-bonus { color: #7fb0ae; text-shadow: none; }
+  [data-theme="clawdusk"] .claw-stamp { border-color: #c96a6a; color: #c96a6a; }
+  [data-theme="clawdusk"] tr.claw-grab td { animation-name: claw-grab-dusk; }
+  @keyframes claw-grab-dusk { 30% { background-color: rgba(184, 120, 138, .18); } }
+
   /* ---- Night Street: a city after dark, under the street lamps ---- */
   [data-theme="nightstreet"] body { background: #0b0e16; }
   [data-theme="nightstreet"] header { background: linear-gradient(#141926, #0f131d); border-bottom: 1px solid #2c3348; box-shadow: 0 8px 30px rgba(255, 196, 107, .06); }
@@ -277,6 +454,18 @@
     --bg:#070b1f; --panel:rgba(14, 18, 42, .9); --panel-2:rgba(22, 27, 58, .93); --line:#262c5a;
     --text:#e6e9ff; --text-dim:#8f96c4; --led-on:#7cf0b0; --led-warn:#ffcf6b;
     --led-off:#3a4070; --danger:#ff6b8b; --focus:#b9a4ff; --radius:10px;
+  }
+
+  [data-theme="claw"] {
+    --bg:#140b24; --panel:rgba(31, 18, 54, .96); --panel-2:rgba(44, 27, 74, .97); --line:#4b3079;
+    --text:#f7efff; --text-dim:#ab98cc; --led-on:#3de0ff; --led-warn:#ffd23f;
+    --led-off:#3a2a58; --danger:#ff4f6d; --focus:#ff4fa3; --radius:12px;
+  }
+
+  [data-theme="clawdusk"] {
+    --bg:#15171c; --panel:rgba(30, 33, 40, .96); --panel-2:rgba(40, 44, 53, .97); --line:#3a3f4a;
+    --text:#e4e0d8; --text-dim:#9a9aa0; --led-on:#7fb8a8; --led-warn:#d4a95a;
+    --led-off:#3a3d45; --danger:#c96a6a; --focus:#b8788a; --radius:12px;
   }
 
   [data-theme="nightstreet"] {
@@ -1349,6 +1538,68 @@
   }
   .ww-tagdrop::before { content: ""; position: absolute; left: 6px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: #25303b; }
   @keyframes ww-tag { 0% { transform: translateY(-14px) rotate(-14deg); opacity: 0; } 15% { transform: rotate(8deg); opacity: 1; } 28% { transform: rotate(-4deg); } 40% { transform: rotate(0); } 85% { opacity: 1; } 100% { opacity: 0; } }
+  /* More plumbing: tees at every junction, open ends pouring into the
+     reservoir, joints that drip, a misting seal, a pump, relief valves that
+     let off on a surge, and high-pressure bursts. */
+  .ww-bg .tee { fill: #8795a3; stroke: #3d4854; stroke-width: 1.5; }
+  .ww-bg .tee-in { fill: #5d6b79; }
+  .ww-bg .lip { fill: #9aa8b6; stroke: #3d4854; stroke-width: 1; }
+  .ww-bg .stream { fill: none; stroke: rgba(108, 200, 255, .62); stroke-width: 11; }
+  .ww-bg .stream2 { fill: none; stroke: #bfe9ff; stroke-width: 3; stroke-dasharray: 10 14; opacity: .85; animation: ww-fall .45s linear infinite; }
+  @keyframes ww-fall { to { stroke-dashoffset: -24; } }
+  .ww-bg .splash path { fill: none; stroke: #bfe9ff; stroke-width: 2; stroke-linecap: round; transform-box: fill-box; transform-origin: 50% 100%; animation: ww-splash .5s ease-in-out infinite alternate; }
+  .ww-bg .splash path:nth-child(2n) { animation-delay: .25s; }
+  @keyframes ww-splash { from { transform: scaleY(.45); opacity: .45; } to { transform: scaleY(1.15); opacity: 1; } }
+  .ww-bg .drop { fill: #8fd6ff; transform-box: fill-box; transform-origin: center; animation: ww-bgdrip 3.4s ease-in infinite both; }
+  @keyframes ww-bgdrip {
+    0% { transform: translateY(0) scale(.2); opacity: 0; } 10% { opacity: 1; } 45% { transform: translateY(0) scale(1); }
+    72% { transform: translateY(62px) scale(1, 1.25); opacity: 1; } 73%, 100% { transform: translateY(62px); opacity: 0; }
+  }
+  .ww-bg .splat { fill: rgba(143, 214, 255, .65); opacity: 0; transform-box: fill-box; transform-origin: center; animation: ww-splat 3.4s ease-out infinite both; }
+  @keyframes ww-splat { 0%, 72% { opacity: 0; transform: scaleX(.2); } 77% { opacity: 1; transform: scaleX(1); } 100% { opacity: 0; transform: scaleX(1.7); } }
+  .ww-bg .mist path { fill: none; stroke: rgba(191, 233, 255, .75); stroke-width: 1.4; stroke-dasharray: 2 3; stroke-linecap: round; animation: ww-mist .9s linear infinite; }
+  @keyframes ww-mist { 0% { stroke-dashoffset: 0; opacity: .3; } 50% { opacity: .95; } 100% { stroke-dashoffset: -10; opacity: .3; } }
+  .ww-bg .fan { transform-box: fill-box; transform-origin: center; animation: ww-fan .35s linear infinite; }
+  html.ww-surge .ww-bg .fan { animation-duration: .1s; }
+  @keyframes ww-fan { to { transform: rotate(360deg); } }
+  .ww-bg .lamp { fill: #39ff88; animation: ww-lamp 1.6s steps(2) infinite; }
+  @keyframes ww-lamp { 50% { fill: #1c7a45; } }
+  .ww-bg .lever { transform-box: fill-box; transform-origin: 4px 3.5px; transition: transform .6s ease; }
+  .ww-bg .ballv.shut .lever { transform: rotate(-90deg); }
+  .ww-bg .wheel.shutting, .ww-hvalve.shutting .hw { animation: ww-shutwheel 1.2s ease-in-out 1; }
+  @keyframes ww-shutwheel { to { transform: rotate(-540deg); } }
+  .ww-bg .gauge.red .jitter { animation-duration: .1s; }
+  .ww-bg .vent path, .ww-hvalve .vent path { fill: none; stroke: #cfeeff; stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 3 5; opacity: 0; }
+  .ww-bg .relief.venting .vent path, .ww-hvalve.venting .vent path { animation: ww-vent 1.6s ease-out 1; }
+  @keyframes ww-vent { 0% { opacity: 0; stroke-dashoffset: 0; } 15% { opacity: 1; } 100% { opacity: 0; stroke-dashoffset: -40; } }
+  .ww-bg .relief .cap, .ww-hvalve .cap { transform-box: fill-box; transform-origin: center; }
+  .ww-bg .relief.venting .cap, .ww-hvalve.venting .cap { animation: ww-cap .16s ease-in-out 6 alternate; }
+  @keyframes ww-cap { to { transform: translateY(-3px); } }
+  .ww-bg.quake svg { animation: ww-quake .08s linear 7; }
+  @keyframes ww-quake { 25% { transform: translate(1.5px, -1px); } 50% { transform: translate(-1.5px, 1px); } 75% { transform: translate(1px, 1.5px); } }
+  /* A burst: jets of water fanning out of the split, beads flying, and mist. */
+  .ww-jet { fill: none; stroke: #9fdcff; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 7 5; animation: ww-jetflow .22s linear infinite, ww-jetlife 2.2s ease-out 1 both; }
+  @keyframes ww-jetflow { to { stroke-dashoffset: -12; } }
+  @keyframes ww-jetlife { 0% { opacity: 0; } 8% { opacity: 1; } 70% { opacity: .9; } 100% { opacity: 0; } }
+  .ww-bead { fill: #bfe9ff; animation: ww-bead 1.5s cubic-bezier(.2, .6, .4, 1) 1 both; }
+  @keyframes ww-bead { 0% { transform: translate(0, 0); opacity: 1; } 55% { transform: translate(var(--dx), var(--dy)); opacity: 1; } 100% { transform: translate(calc(var(--dx) * 1.15), calc(var(--dy) + 80px)); opacity: 0; } }
+  .ww-bmist { fill: rgba(191, 233, 255, .35); transform-box: fill-box; transform-origin: center; animation: ww-bmist 2.2s ease-out 1 both; }
+  @keyframes ww-bmist { 0% { transform: scale(.2); opacity: 0; } 20% { opacity: .9; } 100% { transform: scale(2.4); opacity: 0; } }
+  /* Valves on the main under the header, and a burst of that main over the page. */
+  .ww-hvalve { position: absolute; top: calc(100% - 24px); width: 28px; height: 30px; z-index: 6; pointer-events: none; }
+  .ww-hvalve svg { display: block; overflow: visible; }
+  .ww-hvalve .hw { transform-box: fill-box; transform-origin: center; transition: transform 1.2s ease-in-out; }
+  html.ww-surge .ww-hvalve .hw { transform: rotate(300deg); }
+  .ww-hburst { position: absolute; width: 0; height: 0; }
+  .ww-hburst svg { position: absolute; left: 0; top: 0; overflow: visible; }
+  .ww-hburst .crack { position: absolute; left: -12px; top: -16px; width: 24px; height: 12px; border-radius: 50%; background: radial-gradient(#fff, rgba(191, 233, 255, 0) 70%); animation: ww-crack .6s ease-out 1 both; }
+  @keyframes ww-crack { from { transform: scale(.3); opacity: 1; } to { transform: scale(2.2); opacity: 0; } }
+  [data-theme="waterworks"].ww-shake header::after { animation: ww-flow .5s linear infinite, ww-hshake .07s linear 10; }
+  @keyframes ww-hshake { 25% { transform: translate(1px, -1px); } 50% { transform: translate(-1px, 1px); } 75% { transform: translate(1px, 1px); } }
+  /* A row whose device drops: a spurt out of the name, not just a drip. */
+  .ww-leak i:nth-child(4) { left: 18px; animation-delay: .45s; } .ww-leak i:nth-child(5) { left: 3px; animation-delay: .6s; }
+  .ww-rowjet { position: absolute; left: -2px; top: -16px; overflow: visible; }
+  .ww-rowjet path { fill: none; stroke: #8fd6ff; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 4 4; animation: ww-jetflow .2s linear infinite, ww-jetlife 1.8s ease-out 1 both; }
 
   /* ---- Aquarium: fish, bubbles, weed and gravel behind glass ---- */
   [data-theme="aquarium"] body { background: #032a3a; }
@@ -1403,6 +1654,8 @@
     [data-theme="waterworks"] tbody tr:hover, [data-theme="waterworks"] tbody.ww-wash tr td, [data-theme="waterworks"] .stat .num.ww-roll,
     .ww-tank .wave, .ww-valve .handle, .ww-leak i, .ww-leak b, [data-theme="waterworks"] #mapClusters.ww-fill .map-card,
     .ww-bg .flow, .ww-bg .gauge .jitter, .ww-bg .spray, .ww-pool,
+    .ww-bg .stream2, .ww-bg .splash path, .ww-bg .drop, .ww-bg .splat, .ww-bg .mist path, .ww-bg .fan, .ww-bg .lamp,
+    .ww-bg .wheel.shutting, .ww-hvalve .hw, .ww-hvalve .cap, .ww-bg .relief .cap, .ww-rowjet path, .ww-bg.quake svg,
     .aq-rays, .aq-weed, .aq-fish .tail, [data-theme="aquarium"] tr.aq-sink td, .aq-pet svg, [data-theme="aquarium"] .map-svg .pkt { animation: none !important; }
     [data-theme="waterworks"] tbody tr:hover { background-size: 1400px 1400px; }
   }
@@ -7289,6 +7542,8 @@ const THEMES = [
   { id: "goatnight",   name: "Goat Night",   sw: ["#0f1622", "#f5d77a", "#5a1a17"] },
   { id: "nightstreet", name: "Night Street", sw: ["#0b0e16", "#ffc46b", "#6fe39a"] },
   { id: "constellation", name: "Constellation", sw: ["#070b1f", "#b9a4ff", "#7ee0ff"] },
+  { id: "claw",        name: "Claw Machine", sw: ["#140b24", "#ff4fa3", "#3de0ff"] },
+  { id: "clawdusk",    name: "Claw Machine Dusk", sw: ["#15171c", "#b8788a", "#7fb0ae"] },
   // Hidden until unlocked: type BAMF anywhere, or tap the logo five times.
   { id: "christmas",   name: "Christmas",    sw: ["#0b1712", "#ff3b3b", "#3ddc6f"], secret: true },
   { id: "halloween",   name: "Halloween",    sw: ["#0f0913", "#ff8c1a", "#8cff4f"], secret: true },
@@ -7554,7 +7809,7 @@ let festivePrev = null;
 const THEME_FX = { christmas: (r, sw) => buildChristmas(r, sw), halloween: (r, sw) => buildHalloween(r, sw),
   matrix: buildMatrix, synthwave: buildSynthwave, hackerred: buildHackerRed, cottoncandy: buildCottonCandy, storm: buildStorm, hotdog: buildHotdog, terminal: buildTerminal, steampunk: buildSteampunk, waterworks: buildWaterworks, aquarium: buildAquarium, goat: buildGoat,
   goatnight: (r, sw) => buildGoat(r, sw, true), nightstreet: buildNightStreet,
-  constellation: buildConstellation };
+  constellation: buildConstellation, claw: buildClaw, clawdusk: (r, sw) => buildClaw(r, sw, true) };
 const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
@@ -7613,33 +7868,112 @@ function waterCommon(root) {
 }
 
 // The pipework behind the page, laid out for the window: a riser up each
-// side joined by a main along the floor, runs branching off the risers at a
-// few heights to a valve wheel, flanges along every run, and two gauges.
+// side joined by a main along the floor, an upper main from riser to riser,
+// a manifold on the right feeding two more mains, branches off the left
+// riser to valve wheels, and open ends pouring into the reservoir. Valves of
+// every kind sit along the runs (gate wheels, ball valves, a butterfly valve,
+// a check valve, relief valves), gauges stand on stems, a pump runs on the
+// floor main, and a few joints leak. Horizontal runs carry the class "h":
+// high-pressure bursts come off those.
 function wwPipework() {
-  const W = innerWidth, H = innerHeight, L = 24, R = W - 24, F = H - 42;
-  const runs = [`M${L} 40V${F - 24}Q${L} ${F} ${L + 24} ${F}H${R - 24}Q${R} ${F} ${R} ${F - 24}V40`];
-  const ends = [];
-  [.26, .46, .66].forEach((f, i) => {
-    const y = Math.round(H * f), len = Math.round(W * (.04 + .02 * i)), left = i % 2 === 0;
-    const x0 = left ? L : R, x1 = left ? L + len : R - len, dir = left ? 1 : -1;
-    runs.push(`M${x0} ${y}H${x1}Q${x1 + 20 * dir} ${y} ${x1 + 20 * dir} ${y + 20}V${y + 70}`);
-    ends.push([x1 + 20 * dir, y + 78]);
-    // and a shorter one off the other riser
-    const y2 = y + Math.round(H * .08), x2 = left ? R - len * .6 : L + len * .6;
-    runs.push(`M${left ? R : L} ${y2}H${x2}`);
-    ends.push([x2 - 12 * dir, y2]);
+  const W = innerWidth, H = innerHeight, L = 24, R = W - 24, F = H - 42, P = H - 24;
+  const X = f => Math.round(W * f), Y = f => Math.round(H * f);
+  const Ya = Y(.2), Yb = Y(.46), Yc = Y(.7), xm = X(.62), xn = X(.84);
+  const hz = [], vt = [], ends = [], outs = [];
+  vt.push(`M${L} 40V${F - 24}Q${L} ${F} ${L + 24} ${F}H${R - 24}Q${R} ${F} ${R} ${F - 24}V40`);
+  hz.push(`M${L} ${Ya}H${R}`, `M${xm} ${Yb}H${R}`, `M${xm} ${Yc}H${R}`);
+  vt.push(`M${xm} ${Ya}V${F}`, `M${xn} ${Ya}V${Yb}`);
+  // Branches off the left riser, each turning down to a valve wheel.
+  const branchYs = [Y(.33), Y(.56)];
+  branchYs.forEach((y, i) => {
+    const x1 = L + X(.05 + .03 * i);
+    hz.push(`M${L} ${y}H${x1}`);
+    vt.push(`M${x1} ${y}Q${x1 + 20} ${y} ${x1 + 20} ${y + 20}V${y + 70}`);
+    ends.push([x1 + 20, y + 78]);
   });
-  const pipe = d => `<path class="rim" d="${d}"/><path class="bore" d="${d}"/><path class="flow" d="${d}"/><path class="flow fast" d="${d}"/><path class="shine" d="${d}"/>`;
-  const wheel = ([x, y]) => `<g transform="translate(${x} ${y})"><circle r="9" fill="#5d6b79"/><g class="wheel"><circle r="14" fill="none" stroke="#e8483b" stroke-width="4"/>
-    <path d="M0 -14V14M-14 0H14M-10 -10L10 10M-10 10L10 -10" stroke="#e8483b" stroke-width="2.2"/><circle r="4" fill="#b8352b"/></g></g>`;
+  // Open ends pouring into the reservoir: one off the lower main, one off
+  // each riser.
+  const o1 = X(.76), o2y = Math.round(Yc + (F - Yc) * .4), o2 = R - 86, o3y = Y(.8), o3 = L + 64;
+  vt.push(`M${o1} ${Yc}V${Yc + 34}`); outs.push([o1, Yc + 40]);
+  hz.push(`M${R} ${o2y}H${o2 + 18}`); vt.push(`M${o2 + 18} ${o2y}Q${o2} ${o2y} ${o2} ${o2y + 18}V${o2y + 30}`); outs.push([o2, o2y + 36]);
+  hz.push(`M${L} ${o3y}H${o3 - 18}`); vt.push(`M${o3 - 18} ${o3y}Q${o3} ${o3y} ${o3} ${o3y + 18}V${o3y + 30}`); outs.push([o3, o3y + 36]);
+
+  const pipe = (d, h) => `<path class="rim${h ? " h" : ""}" d="${d}"/><path class="bore" d="${d}"/><path class="flow" d="${d}"/><path class="flow fast" d="${d}"/><path class="shine" d="${d}"/>`;
+  const stream = ([x, y]) => `<path class="stream" d="M${x} ${y}V${P}"/><path class="stream2" d="M${x} ${y}V${P}"/>
+    <g class="splash" transform="translate(${x} ${P})"><path d="M-6 0q-6 -10 -14 -8"/><path d="M6 0q6 -10 14 -8"/><path d="M-3 0q-2 -14 -6 -14"/><path d="M3 0q2 -14 6 -14"/></g>`;
+  const tee = ([x, y]) => `<circle class="tee" cx="${x}" cy="${y}" r="12"/><circle class="tee-in" cx="${x}" cy="${y}" r="4.5"/>`;
+  const at = (x, y, inner, cls = "") => `<g${cls ? ` class="${cls}"` : ""} transform="translate(${x} ${y})">${inner}</g>`;
+  const WHEEL = `<g class="wheel"><circle r="14" fill="none" stroke="#e8483b" stroke-width="4"/>
+    <path d="M0 -14V14M-14 0H14M-10 -10L10 10M-10 10L10 -10" stroke="#e8483b" stroke-width="2.2"/><circle r="4" fill="#b8352b"/></g>`;
+  const gate = (x, y) => at(x, y, `<rect x="-11" y="-13" width="22" height="26" rx="3" fill="#5d6b79" stroke="#3d4854"/>
+    <rect x="-2.5" y="-30" width="5" height="18" fill="#9aa8b6"/><g transform="translate(0 -36)">${WHEEL}</g>`);
+  const ball = (x, y) => at(x, y, `<rect x="-13" y="-12" width="26" height="24" rx="6" fill="#b8894a" stroke="#6b4f22"/>
+    <path d="M-13 -6h-4v12h4M13 -6h4v12h-4" fill="#9aa8b6"/><rect x="-3" y="-19" width="6" height="8" fill="#7d8b99"/>
+    <g class="lever"><rect x="-4" y="-24" width="36" height="7" rx="3" fill="#e8483b"/></g>`, "ballv");
+  const butterfly = (x, y) => at(x, y, `<rect x="-8" y="-17" width="16" height="34" rx="2" fill="#6f7d8b" stroke="#3d4854"/>
+    <path d="M-12 -17v34M12 -17v34" stroke="#9aa8b6" stroke-width="3"/><rect x="-3" y="-30" width="6" height="14" fill="#7d8b99"/>
+    <rect x="-16" y="-48" width="32" height="20" rx="3" fill="#f2c230" stroke="#8a6a10"/>
+    <g transform="translate(0 -57)"><g class="wheel"><circle r="9" fill="none" stroke="#f2c230" stroke-width="3"/><path d="M0 -9V9M-9 0H9" stroke="#f2c230" stroke-width="2"/></g></g>`);
+  const check = (x, y) => at(x, y, `<rect x="-17" y="-12" width="34" height="24" rx="8" fill="#b8894a" stroke="#6b4f22"/>
+    <rect x="-6" y="-20" width="12" height="9" rx="2" fill="#9a7440"/>
+    <path d="M-8 0H6M2 -5l6 5-6 5" fill="none" stroke="#3a2a14" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`);
+  const relief = (x, y) => at(x, y, `<rect x="-8" y="-14" width="16" height="8" fill="#7d8b99"/>
+    <rect x="-6" y="-40" width="12" height="27" rx="2" fill="#5d6b79" stroke="#3d4854"/>
+    <path d="M-5 -16l10-3-10-3 10-3-10-3 10-3-10-3" fill="none" stroke="#c9d3dd" stroke-width="1.4"/>
+    <rect class="cap" x="-8" y="-48" width="16" height="9" rx="3" fill="#e8483b"/><path d="M6 -30h10v-6" fill="none" stroke="#9aa8b6" stroke-width="4"/>
+    <g class="vent" transform="translate(16 -38)"><path d="M0 0q-4 -16 -14 -26"/><path d="M0 0q2 -18 -2 -32"/><path d="M0 0q8 -14 14 -24"/></g>`, "relief");
   const gauge = (x, y) => `<g class="gauge" transform="translate(${x} ${y})"><circle r="30" fill="#5d6b79"/><circle r="26" fill="#16202a" stroke="#2b343d" stroke-width="2"/>
     ${Array.from({ length: 9 }, (_, i) => { const a = (-120 + i * 30) * Math.PI / 180; return `<path d="M${(19 * Math.sin(a)).toFixed(1)} ${(-19 * Math.cos(a)).toFixed(1)}L${(23 * Math.sin(a)).toFixed(1)} ${(-23 * Math.cos(a)).toFixed(1)}" stroke="#9aa8b6" stroke-width="${i % 2 ? 1 : 2}"/>`; }).join("")}
     <path d="M${(22 * Math.sin(-2.1)).toFixed(1)} ${(-22 * Math.cos(-2.1)).toFixed(1)}A22 22 0 0 1 ${(22 * Math.sin(-1.2)).toFixed(1)} ${(-22 * Math.cos(-1.2)).toFixed(1)}" fill="none" stroke="#e8483b" stroke-width="3"/>
     <text y="13" text-anchor="middle" font-size="6" font-family="IBM Plex Mono, monospace" fill="#9aa8b6">PSI</text>
     <g class="needle"><g class="jitter"><path d="M-1.6 0L0 -22L1.6 0z" fill="#e8483b"/></g></g><circle r="3" fill="#9aa8b6"/></g>`;
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${runs.map(pipe).join("")}<g class="flanges"></g>
-    ${ends.map(wheel).join("")}${gauge(L + 46, Math.round(H * .38))}${gauge(R - 46, Math.round(H * .58))}<g class="sprays"></g></svg><div class="ww-pool"></div>`;
+  // A gauge on a stem standing up off a horizontal run.
+  const gaugeOn = (x, y) => `<rect x="${x - 3}" y="${y - 34}" width="6" height="26" fill="#7d8b99"/>${gauge(x, y - 62)}`;
+  const pump = (x, y) => at(x, y, `<rect x="-40" y="-8" width="118" height="10" rx="2" fill="#3d4854"/>
+    <circle cx="0" cy="-28" r="22" fill="#2f6fa8" stroke="#1d4a73" stroke-width="3"/><circle cx="0" cy="-28" r="7" fill="#9aa8b6"/>
+    <rect x="20" y="-46" width="42" height="34" rx="5" fill="#2a5d8e" stroke="#1d4a73" stroke-width="2"/>
+    <path d="M27 -42v26M34 -42v26M41 -42v26M48 -42v26M55 -42v26" stroke="#1d4a73" stroke-width="2"/>
+    <g transform="translate(68 -29)"><circle r="9" fill="#25303b" stroke="#9aa8b6" stroke-width="2"/><g class="fan"><path d="M0 -7V7M-7 0H7" stroke="#9aa8b6" stroke-width="2"/></g></g>
+    <circle class="lamp" cx="41" cy="-52" r="3"/>`);
+  const leak = (x, y, d) => at(x, y, `<circle class="drop" r="2.8" style="animation-delay:${d}s"/><ellipse class="splat" cy="64" rx="7" ry="2" style="animation-delay:${d}s"/>`);
+  const mist = (x, y) => at(x, y, `<g class="mist"><path d="M0 0q-6 -12 -16 -16"/><path d="M0 0q0 -14 -2 -22"/><path d="M0 0q6 -12 14 -18"/></g>`);
+
+  const tees = [[L, Ya], [R, Ya], [xm, Ya], [xm, Yb], [xm, Yc], [xm, F], [R, Yb], [R, Yc], [xn, Ya], [xn, Yb], [o1, Yc], [R, o2y], [L, o3y], ...branchYs.map(y => [L, y])];
+  const narrow = W < 760;
+  const valves = [ball(X(.28), Ya), gate(X(.52), Ya), relief(X(.57), Ya), butterfly(X(.76), Ya), relief(X(.92), Ya),
+    check(X(.7), Yb), relief(X(.79), Yb), gate(X(.68), Yc), ball(X(.87), Yc)].join("");
+  const gauges = gauge(L + 46, Y(.38)) + gauge(R - 46, Y(.58)) + gaugeOn(X(.44), Ya) + (narrow ? "" : gaugeOn(X(.94), Yb));
+  const leaks = [leak(X(.36), Ya + 9, 0), leak(X(.74), Yb + 9, 1.3), leak(X(.95), Yc + 9, 2.2), leak(X(.2), Ya + 9, .7), leak(X(.66), F - 10, 1.8)].join("")
+    + mist(X(.49), Ya - 9) + mist(X(.9), Yc - 9);
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${outs.map(stream).join("")}
+    ${hz.map(d => pipe(d, true)).join("")}${vt.map(d => pipe(d, false)).join("")}
+    ${outs.map(([x, y]) => `<rect class="lip" x="${x - 12}" y="${y - 9}" width="24" height="7" rx="2"/>`).join("")}
+    <g class="flanges"></g>${tees.map(tee).join("")}${valves}
+    ${ends.map(([x, y]) => `<g transform="translate(${x} ${y})"><circle r="9" fill="#5d6b79"/>${WHEEL}</g>`).join("")}
+    ${gauges}${narrow ? "" : pump(X(.86), F)}${leaks}<g class="sprays"></g><g class="bursts"></g></svg><div class="ww-pool"></div>`;
 }
+
+// A burst's water: jets fanning out of the split (up when dir is -1, down
+// when 1), beads flying and falling, and a cloud of mist.
+function wwJet(dir, big) {
+  let s = `<ellipse class="ww-bmist" rx="${big ? 34 : 24}" ry="${big ? 16 : 11}" cy="${dir * 20}"/>`;
+  for (let i = 0; i < (big ? 9 : 6); i++) {
+    const a = rnd(-.95, .95), l = rnd(50, 110) * (big ? 1.5 : 1), ex = Math.sin(a) * l, ey = dir * Math.cos(a) * l;
+    s += `<path class="ww-jet" d="M0 0Q${(ex * .45).toFixed(1)} ${(ey * .8).toFixed(1)} ${ex.toFixed(1)} ${(ey + l * .45).toFixed(1)}" style="animation-delay:0s,${(i * .03).toFixed(2)}s"/>`;
+  }
+  for (let i = 0; i < (big ? 22 : 14); i++)
+    s += `<circle class="ww-bead" r="${rnd(1.2, 2.8).toFixed(1)}" style="--dx:${rnd(-110, 110).toFixed(0)}px;--dy:${(dir * rnd(40, 140)).toFixed(0)}px;animation-delay:${rnd(0, .8).toFixed(2)}s"/>`;
+  return s;
+}
+// The valves that sit on the main under the header: a wheel, and a relief
+// valve that lets off with the surge.
+const WW_HWHEEL = `<svg width="28" height="30" viewBox="0 0 28 30"><rect x="8" y="17" width="12" height="12" rx="2" fill="#5d6b79" stroke="#3d4854"/>
+  <rect x="12.5" y="9" width="3" height="9" fill="#9aa8b6"/><g class="hw"><circle cx="14" cy="8" r="7" fill="none" stroke="#e8483b" stroke-width="2.6"/>
+  <path d="M14 1v14M7 8h14" stroke="#e8483b" stroke-width="1.8"/><circle cx="14" cy="8" r="2" fill="#b8352b"/></g></svg>`;
+const WW_HRELIEF = `<svg width="28" height="30" viewBox="0 0 28 30"><rect x="9" y="22" width="10" height="7" fill="#7d8b99"/>
+  <rect x="10" y="6" width="8" height="17" rx="1.5" fill="#5d6b79" stroke="#3d4854"/><path d="M11 20l6-2-6-2 6-2-6-2 6-2" fill="none" stroke="#c9d3dd" stroke-width="1"/>
+  <rect class="cap" x="9" y="1" width="10" height="6" rx="2" fill="#e8483b"/>
+  <g class="vent" transform="translate(14 1)"><path d="M0 0q-6 -10 -14 -14"/><path d="M0 0q0 -12 -2 -20"/><path d="M0 0q6 -10 14 -14"/></g></svg>`;
 
 // Sounds for the water themes, made in the browser like the goats' and the
 // storm's: a drip, a valve's squeak, the surge of a main, bubbles, and the
@@ -7681,6 +8015,28 @@ function surgeSound() {
   f.type = "lowpass"; f.frequency.setValueAtTime(220, t); f.frequency.exponentialRampToValueAtTime(1900, t + .5); f.frequency.exponentialRampToValueAtTime(260, t + 1.5);
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.28, t + .35); g.gain.linearRampToValueAtTime(0, t + 1.5);
   src.connect(f).connect(g).connect(ctx.destination); src.start(t); src.stop(t + 1.6);
+}
+// A burst: the crack of a joint letting go, then the hiss of water under pressure.
+function burstSound(big) {
+  const ctx = waterCtx(); if (!ctx) return;
+  const t = ctx.currentTime + .01, o = ctx.createOscillator(), og = ctx.createGain();
+  o.type = "square"; o.frequency.setValueAtTime(210, t); o.frequency.exponentialRampToValueAtTime(70, t + .12);
+  og.gain.setValueAtTime(.12, t); og.gain.exponentialRampToValueAtTime(.001, t + .16);
+  o.connect(og).connect(ctx.destination); o.start(t); o.stop(t + .2);
+  const len = big ? 2 : 1.4, src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  src.buffer = noiseBuffer(ctx, len, false);
+  f.type = "bandpass"; f.Q.value = .8; f.frequency.setValueAtTime(3200, t); f.frequency.exponentialRampToValueAtTime(1400, t + len);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(big ? .22 : .15, t + .04); g.gain.setValueAtTime(big ? .2 : .13, t + len * .55); g.gain.linearRampToValueAtTime(0, t + len);
+  src.connect(f).connect(g).connect(ctx.destination); src.start(t); src.stop(t + len);
+}
+// A relief valve letting off: a short, sharp pssht.
+function reliefSound() {
+  const ctx = waterCtx(); if (!ctx) return;
+  const t = ctx.currentTime + .01, src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  src.buffer = noiseBuffer(ctx, .7, false);
+  f.type = "highpass"; f.frequency.value = 2500;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.1, t + .03); g.gain.exponentialRampToValueAtTime(.001, t + .65);
+  src.connect(f).connect(g).connect(ctx.destination); src.start(t); src.stop(t + .7);
 }
 function bubbleSound(n = 4, vol = .16) {
   const ctx = waterCtx(); if (!ctx) return;
@@ -7749,6 +8105,105 @@ function buildWaterworks(root) {
     festiveTimers.push(setTimeout(() => g.remove(), 2400));
   };
 
+  // High-pressure bursts: now and then a run splits and sprays, the pipes
+  // shudder, the nearest gauge slams into the red and the nearest wheel
+  // spins shut on it.
+  const bursts = bg.querySelector(".bursts");
+  const gaugeEls = [...bg.querySelectorAll(".gauge")], wheels = [...bg.querySelectorAll(".wheel")];
+  const balls = [...bg.querySelectorAll(".ballv")], reliefs = [...bg.querySelectorAll(".relief")];
+  const nearest = (els, x, y) => {
+    let best = null, bd = Infinity;
+    for (const el of els) {
+      const r = el.getBoundingClientRect(), d = (r.x + r.width / 2 - x) ** 2 + (r.y + r.height / 2 - y) ** 2;
+      if (d < bd) { bd = d; best = el; }
+    }
+    return best;
+  };
+  const restart = (el, cls) => { el.classList.remove(cls); void el.getBoundingClientRect(); el.classList.add(cls); };
+  const burst = big => {
+    if (calm || document.hidden) return;
+    const runs = [...bg.querySelectorAll("path.rim.h")].filter(p => p.getTotalLength() > 80);
+    if (!runs.length) return;
+    const path = pick(runs), len = path.getTotalLength();
+    const pt = path.getPointAtLength(rnd(.15, .85) * len), dir = Math.random() < .65 ? -1 : 1;
+    const g = svgEl("g", { transform: `translate(${pt.x.toFixed(1)} ${(pt.y + dir * 7).toFixed(1)})` });
+    g.innerHTML = wwJet(dir, big);
+    bursts.appendChild(g);
+    restart(bg, "quake");
+    const gauge = nearest(gaugeEls, pt.x, pt.y);
+    if (gauge) { gauge.classList.add("red"); gauge.querySelector(".needle")?.setAttribute("transform", "rotate(118)"); }
+    const wheel = nearest(wheels, pt.x, pt.y);
+    festiveTimers.push(setTimeout(() => wheel && restart(wheel, "shutting"), 900));
+    if (soundOn()) burstSound(big);
+    festiveTimers.push(setTimeout(() => {
+      g.remove(); bg.classList.remove("quake"); gauge?.classList.remove("red"); wheel?.classList.remove("shutting"); readGauges(false);
+    }, 2600));
+  };
+  // A device dropping shuts a ball valve for a few seconds.
+  const shutBall = () => {
+    if (!balls.length) return;
+    const b = pick(balls);
+    b.classList.add("shut");
+    festiveTimers.push(setTimeout(() => b.classList.remove("shut"), 3200));
+  };
+
+  // Valves on the main under the header, wherever the header is clear above
+  // it: two wheels and a relief valve. The header's chips and labels fill in
+  // after the first poll and change width as the scan text changes, so the
+  // spots are chosen again whenever the header's content changes.
+  const head = document.querySelector("header");
+  const headValves = [];
+  let headSig = "";
+  const placeHeadValves = () => {
+    if (!head) return;
+    const hb = head.getBoundingClientRect(), sig = `${innerWidth}|${Math.round(hb.bottom)}|${head.innerText.length}`;
+    if (sig === headSig || hb.bottom < 30) return;
+    headSig = sig;
+    headValves.splice(0).forEach(d => d.remove());
+    const clear = x => [-36, -24, -12, 0, 12, 24, 36].every(dx => [4, 14, 26, 36].every(dy => document.elementFromPoint(x + dx, hb.bottom - dy) === head));
+    const xs = [];
+    for (let x = 120; x < innerWidth - 30; x += 240) if (clear(x)) xs.push(x);
+    const chosen = xs.length > 3 ? [xs[1], xs[Math.floor(xs.length / 2)], xs[xs.length - 2]] : xs.slice(0, 3);
+    [...new Set(chosen)].forEach((x, i) => {
+      const d = document.createElement("div");
+      d.className = "ww-hvalve" + (i === 1 ? " relief" : "");
+      d.style.left = (x - 14) + "px";
+      d.innerHTML = i === 1 ? WW_HRELIEF : WW_HWHEEL;
+      head.appendChild(d);
+      headValves.push(d);
+    });
+  };
+  festiveStops.push(() => headValves.forEach(d => d.remove()));
+  // The surge lifts every relief valve in turn.
+  const vent = () => {
+    if (calm || document.hidden) return;
+    [...reliefs, ...headValves.filter(d => d.classList.contains("relief"))].forEach((r, i) => festiveTimers.push(setTimeout(() => {
+      restart(r, "venting");
+      festiveTimers.push(setTimeout(() => r.classList.remove("venting"), 1700));
+    }, i * 220)));
+    if (soundOn()) reliefSound();
+  };
+  // The main under the header bursts over the page, and its nearest wheel shuts it off.
+  const headBurst = () => {
+    if (calm || document.hidden || !head) return;
+    const hb = head.getBoundingClientRect();
+    if (hb.bottom < 0) return;
+    const x = Math.round(rnd(.12, .88) * innerWidth);
+    const d = document.createElement("div");
+    d.className = "ww-hburst";
+    d.style.cssText = `left:${x}px;top:${hb.bottom + 12}px`;
+    d.innerHTML = `<svg width="1" height="1">${wwJet(1, true)}</svg><i class="crack"></i>`;
+    root.appendChild(d);
+    document.documentElement.classList.add("ww-shake");
+    const wheel = headValves.filter(v => !v.classList.contains("relief"))
+      .sort((a, b) => Math.abs(a.offsetLeft - x) - Math.abs(b.offsetLeft - x))[0];
+    festiveTimers.push(setTimeout(() => wheel && restart(wheel, "shutting"), 800));
+    if (soundOn()) burstSound(true);
+    festiveTimers.push(setTimeout(() => document.documentElement.classList.remove("ww-shake"), 800));
+    festiveTimers.push(setTimeout(() => { d.remove(); wheel?.classList.remove("shutting"); }, 2600));
+  };
+  festiveStops.push(() => document.documentElement.classList.remove("ww-shake"));
+
   // The tank: devices online now against the most seen online this session.
   const tank = document.createElement("div");
   tank.className = "ww-tank";
@@ -7794,10 +8249,19 @@ function buildWaterworks(root) {
     html.classList.add("ww-surge");
     readGauges(true);
     if (soundOn() && !document.hidden) surgeSound();
+    vent();
     festiveTimers.push(setTimeout(() => { html.classList.remove("ww-surge"); readGauges(false); }, 1300));
   };
   festiveStops.push(() => document.documentElement.classList.remove("ww-surge"));
   festiveHooks.scanDone = surge;
+  // A burst somewhere in the pipework every half a minute or so, and the
+  // main under the header lets go now and then.
+  if (!calm) {
+    const nextBurst = first => festiveTimers.push(setTimeout(() => { burst(Math.random() < .3); nextBurst(false); }, first ? rnd(6e3, 14e3) : rnd(20e3, 40e3)));
+    nextBurst(true);
+    const nextHead = first => festiveTimers.push(setTimeout(() => { headBurst(); nextHead(false); }, first ? rnd(25e3, 45e3) : rnd(60e3, 110e3)));
+    nextHead(true);
+  }
 
   // A new device: a valve spins open on the main and a tag drops with its name.
   festiveHooks.newDevice = h => {
@@ -7822,7 +8286,7 @@ function buildWaterworks(root) {
   let lastView = view;
   festiveHooks.rendered = () => {
     const down = new Set(wentOffIds);
-    if (wentOffIds.length) spray();
+    if (wentOffIds.length) { spray(); burst(true); shutBall(); }
     if (wentOffIds.length && soundOn() && !document.hidden) { dripSound(.3); festiveTimers.push(setTimeout(() => dripSound(.2), 220)); festiveTimers.push(setTimeout(() => dripSound(.12), 520)); }
     readGauges(false);
     for (const id of wentOffIds) {
@@ -7830,12 +8294,13 @@ function buildWaterworks(root) {
       if (!cell) continue;
       const l = document.createElement("span");
       l.className = "ww-leak";
-      l.innerHTML = "<i></i><i></i><i></i><b></b>";
+      l.innerHTML = `<i></i><i></i><i></i><i></i><i></i><b></b><svg class="ww-rowjet" width="1" height="1"><path d="M0 14q10 -12 30 -10"/><path d="M0 14q14 -4 34 4"/><path d="M0 14q8 -16 20 -20"/></svg>`;
       cell.appendChild(l);
       festiveTimers.push(setTimeout(() => l.remove(), 2700));
     }
     wentOffIds = [];
     for (const el of c.changedStats()) { el.classList.remove("ww-roll"); void el.offsetWidth; el.classList.add("ww-roll"); }
+    placeHeadValves();
     fillTank();
     // A red shut-off valve on watched devices: open while they run, closed when they drop.
     for (const h of hosts) {
@@ -8971,6 +9436,380 @@ function buildStorm(root) {
     }
     wentOffIds = [];
   };
+}
+
+// ---- Claw Machine ----
+// A prize cabinet. Behind the glass: a heap of plush prizes, a prize chute,
+// neon tubes up the sides, and a claw on a rail that plays by itself now and
+// then. It usually drops what it grabs, and sometimes wins. Marquee bulbs
+// chase under the header and race when a scan finishes. The 🕹 button sends
+// a claw down onto one of your devices' rows: win and it carries the device
+// off, lose and it slips. A new device is always a win. A device going
+// offline gets a TRY AGAIN stamp and one coming back a BONUS. Watched devices
+// carry a little bear, and unknown ones are mystery capsules.
+const CLAW_COLS = ["#ff7ab6", "#7ae0ff", "#ffd23f", "#b18cff", "#7cf0b0", "#ff9f43", "#f7efff", "#c8a27a", "#ff5d73"];
+// Dusk's prizes: the same plush in faded, after-hours colours.
+const CLAW_DUSK_COLS = ["#c9a0ae", "#9fbfc4", "#d8c38f", "#a99cc4", "#9fc7ae", "#d3a987", "#e6e1d8", "#b59a80", "#c98a8f"];
+const CLAW_TYPES = ["bear", "bunny", "duck", "cat", "frog", "star", "capsule", "ball", "bear", "bunny"];
+// One plush, drawn in a 60 by 60 box.
+function plushShape(type, c) {
+  const eyes = `<circle cx="23" cy="30" r="2.6" fill="#1a0930"/><circle cx="37" cy="30" r="2.6" fill="#1a0930"/>`;
+  const cheeks = `<circle cx="18" cy="37" r="3" fill="rgba(255,90,140,.45)"/><circle cx="42" cy="37" r="3" fill="rgba(255,90,140,.45)"/>`;
+  switch (type) {
+    case "bear": return `<circle cx="14" cy="14" r="9" fill="${c}"/><circle cx="46" cy="14" r="9" fill="${c}"/>
+      <circle cx="14" cy="14" r="4.5" fill="rgba(255,255,255,.35)"/><circle cx="46" cy="14" r="4.5" fill="rgba(255,255,255,.35)"/>
+      <circle cx="30" cy="32" r="22" fill="${c}"/><ellipse cx="30" cy="39" rx="9" ry="7" fill="rgba(255,255,255,.45)"/><ellipse cx="30" cy="36" rx="3.2" ry="2.4" fill="#1a0930"/>${eyes}`;
+    case "bunny": return `<ellipse cx="21" cy="11" rx="6" ry="15" fill="${c}"/><ellipse cx="39" cy="11" rx="6" ry="15" fill="${c}"/>
+      <ellipse cx="21" cy="12" rx="2.6" ry="10" fill="#ffc6e0"/><ellipse cx="39" cy="12" rx="2.6" ry="10" fill="#ffc6e0"/>
+      <circle cx="30" cy="35" r="20" fill="${c}"/>${eyes}${cheeks}<path d="M28 37h4l-2 2z" fill="#ff5d8f"/>`;
+    case "duck": return `<circle cx="30" cy="32" r="22" fill="#ffd23f"/><path d="M26 11q4 -8 8 0" fill="#ffd23f"/>
+      <ellipse cx="30" cy="40" rx="10" ry="5" fill="#ff9f43"/><path d="M20 40h20" stroke="#d9771f" stroke-width="1.4"/>${eyes}`;
+    case "cat": return `<path d="M10 22L14 4l14 12zM50 22L46 4 32 16z" fill="${c}"/><circle cx="30" cy="33" r="21" fill="${c}"/>${eyes}${cheeks}
+      <path d="M27 36l3 2 3-2M30 38v2" fill="none" stroke="#1a0930" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M8 34h10M8 38h10M42 34h10M42 38h10" stroke="rgba(26,9,48,.5)" stroke-width="1"/>`;
+    case "frog": return `<circle cx="18" cy="16" r="9" fill="#7cf0b0"/><circle cx="42" cy="16" r="9" fill="#7cf0b0"/>
+      <circle cx="18" cy="16" r="4" fill="#fff"/><circle cx="42" cy="16" r="4" fill="#fff"/><circle cx="18" cy="17" r="2" fill="#1a0930"/><circle cx="42" cy="17" r="2" fill="#1a0930"/>
+      <ellipse cx="30" cy="36" rx="25" ry="18" fill="#7cf0b0"/><path d="M18 40q12 8 24 0" fill="none" stroke="#1a0930" stroke-width="2" stroke-linecap="round"/>${cheeks}`;
+    case "star": return `<path d="M30 4l7.6 15.4 17 2.5-12.3 12 2.9 16.9L30 43l-15.2 8 2.9-16.9L5.4 22l17-2.5z" fill="${c}" stroke="rgba(0,0,0,.15)"/>
+      <circle cx="25" cy="27" r="2.2" fill="#1a0930"/><circle cx="35" cy="27" r="2.2" fill="#1a0930"/>
+      <path d="M26 33q4 3 8 0" fill="none" stroke="#1a0930" stroke-width="1.6" stroke-linecap="round"/>`;
+    case "capsule": return `<circle cx="30" cy="30" r="22" fill="#f7efff"/><path d="M8 30a22 22 0 0 1 44 0z" fill="${c}"/>
+      <path d="M8 30h44" stroke="rgba(26,9,48,.45)" stroke-width="2"/><ellipse cx="22" cy="18" rx="6" ry="3.5" fill="rgba(255,255,255,.55)" transform="rotate(-30 22 18)"/>`;
+    default: return `<circle cx="30" cy="30" r="21" fill="${c}"/><path d="M9 30q21 -14 42 0M11 38q19 -12 38 0" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="3"/>
+      <ellipse cx="22" cy="20" rx="5" ry="3" fill="rgba(255,255,255,.5)"/>`;
+  }
+}
+const plushSvg = (size, type = pick(CLAW_TYPES), c = pick(CLAW_COLS)) =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 60 60" aria-hidden="true">${plushShape(type, c)}</svg>`;
+const CLAW_SVG = `<svg width="60" height="64" viewBox="0 0 60 64" aria-hidden="true">
+  <path class="prong m" d="M30 14V46Q30 53 26 56" fill="none" stroke="#b8acd0" stroke-width="4" stroke-linecap="round"/>
+  <path class="prong l" d="M28 14L14 34Q9 44 17 55" fill="none" stroke="#e0d8ee" stroke-width="4.5" stroke-linecap="round"/>
+  <path class="prong r" d="M32 14L46 34Q51 44 43 55" fill="none" stroke="#e0d8ee" stroke-width="4.5" stroke-linecap="round"/>
+  <rect x="17" y="0" width="26" height="17" rx="5" fill="#e8e0f5" stroke="#6b5a8a" stroke-width="1.5"/>
+  <rect class="stripe" x="20" y="4" width="20" height="4" rx="2" fill="#ff4fa3"/><circle cx="30" cy="16" r="3.5" fill="#6b5a8a"/></svg>`;
+const clawWait = ms => new Promise(r => setTimeout(r, ms));
+
+// The cabinet's sounds, made in the browser: a coin going in, the gantry
+// motor, the clunk of the claw closing, the win jingle, the sad trombone,
+// and a bonus blip.
+let clawAudio = null;
+function clawSound() {
+  const ctx = () => {
+    try { clawAudio = clawAudio || new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; }
+    if (clawAudio.state === "suspended") clawAudio.resume?.().catch(() => {});
+    return clawAudio;
+  };
+  const tone = (c, f, type, at, len, gain) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, at);
+    g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(gain, at + .01); g.gain.exponentialRampToValueAtTime(.0001, at + len);
+    o.connect(g).connect(c.destination); o.start(at); o.stop(at + len + .05);
+  };
+  return {
+    coin() { const c = ctx(); if (!c) return; const t = c.currentTime; tone(c, 1568, "square", t, .07, .05); tone(c, 2349, "square", t + .08, .3, .05); },
+    whir(sec) {
+      const c = ctx(); if (!c) return;
+      const t = c.currentTime, o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
+      o.type = "sawtooth"; o.frequency.setValueAtTime(68, t); o.frequency.linearRampToValueAtTime(92, t + sec);
+      f.type = "lowpass"; f.frequency.value = 480;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.06, t + .06); g.gain.setValueAtTime(.06, t + Math.max(.07, sec - .08)); g.gain.linearRampToValueAtTime(0, t + sec);
+      o.connect(f).connect(g).connect(c.destination); o.start(t); o.stop(t + sec + .05);
+    },
+    clunk() { const c = ctx(); if (!c) return; const t = c.currentTime; tone(c, 140, "triangle", t, .2, .2); tone(c, 620, "square", t, .05, .04); },
+    win() { const c = ctx(); if (!c) return; const t = c.currentTime; [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(c, f, "square", t + i * .1, i === 6 ? .5 : .12, .045)); },
+    lose() {
+      const c = ctx(); if (!c) return;
+      const t = c.currentTime;
+      [392, 370, 349, 294].forEach((f, i) => {
+        const last = i === 3, at = t + i * .32, o = c.createOscillator(), g = c.createGain(), v = c.createOscillator(), vg = c.createGain(), lp = c.createBiquadFilter();
+        o.type = "sawtooth"; o.frequency.setValueAtTime(f, at); if (last) o.frequency.linearRampToValueAtTime(f * .94, at + .7);
+        v.frequency.value = 6; vg.gain.value = last ? 6 : 0; v.connect(vg).connect(o.frequency);
+        lp.type = "lowpass"; lp.frequency.value = 1200;
+        g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(.05, at + .03); g.gain.setValueAtTime(.05, at + (last ? .6 : .24)); g.gain.linearRampToValueAtTime(0, at + (last ? .8 : .3));
+        o.connect(lp).connect(g).connect(c.destination); o.start(at); v.start(at); o.stop(at + .85); v.stop(at + .85);
+      });
+    },
+    bonus() { const c = ctx(); if (!c) return; const t = c.currentTime; [988, 1319, 1976].forEach((f, i) => tone(c, f, "square", t + i * .07, .1, .04)); },
+  };
+}
+
+// A claw on a rail: it moves along the rail, lowers and raises on its cable,
+// opens and closes, holds a prize and lets it go. parent is a fixed layer the
+// size of the window, so window coordinates are its coordinates.
+function makeClaw(parent, x, top) {
+  const rig = document.createElement("div");
+  rig.className = "claw-rig";
+  rig.style.cssText = `left:${x}px;top:${top}px`;
+  rig.innerHTML = `<div class="cable"></div><div class="car"></div><div class="claw"><div class="held"></div>${CLAW_SVG}</div>`;
+  parent.appendChild(rig);
+  const cable = rig.querySelector(".cable"), claw = rig.querySelector(".claw"), held = rig.querySelector(".held");
+  let X = x, drop = 24;
+  const done = a => a.finished.catch(() => {});
+  return {
+    el: rig,
+    get x() { return X; },
+    // The cable length that puts the tips of the prongs at y.
+    reachTo: y => Math.max(24, y - top - 8 - 50),
+    async move(to, speed = 320) {
+      const a = rig.animate([{ left: X + "px" }, { left: to + "px" }], { duration: Math.max(250, Math.abs(to - X) / speed * 1000), easing: "ease-in-out" });
+      rig.style.left = to + "px"; X = to;
+      await done(a);
+    },
+    async lower(to, ms = 900) {
+      const o = { duration: ms, easing: "ease-in-out" };
+      const a = cable.animate([{ height: drop + "px" }, { height: to + "px" }], o);
+      const b = claw.animate([{ top: (8 + drop) + "px" }, { top: (8 + to) + "px" }], o);
+      cable.style.height = to + "px"; claw.style.top = (8 + to) + "px"; drop = to;
+      await Promise.all([done(a), done(b)]);
+    },
+    open() { rig.classList.add("open"); return clawWait(380); },
+    close() { rig.classList.remove("open"); return clawWait(380); },
+    hold(html) { held.innerHTML = html; held.classList.add("on"); },
+    // Let go of the prize: it falls to y and fades there, or falls away.
+    drop(y, fade = true) {
+      if (!held.classList.contains("on")) return Promise.resolve();
+      const r = held.getBoundingClientRect(), f = document.createElement("div");
+      f.className = "claw-falling";
+      f.innerHTML = held.innerHTML;
+      f.style.cssText = `left:${r.left}px;top:${r.top}px`;
+      parent.appendChild(f);
+      held.classList.remove("on"); held.innerHTML = "";
+      const dist = Math.max(0, y - r.bottom);
+      const a = f.animate([{ transform: "translate(0, 0) rotate(0)" }, { transform: `translate(0, ${dist}px) rotate(${rnd(-40, 40).toFixed(0)}deg)` }],
+        { duration: 300 + Math.sqrt(dist) * 28, easing: "cubic-bezier(.45, 0, 1, .6)", fill: "forwards" });
+      return done(a).then(() => fade ? done(f.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 500, fill: "forwards" })) : null).then(() => f.remove());
+    },
+    remove() { rig.getAnimations({ subtree: true }).forEach(a => a.cancel()); rig.remove(); },
+  };
+}
+
+function buildClaw(root, _switched, dusk = false) {
+  const calm = calmMotion();
+  // Claw Machine Dusk is the same cabinet in softer colours.
+  const cols = dusk ? CLAW_DUSK_COLS : CLAW_COLS;
+  const plush = (size, type = pick(CLAW_TYPES), c = pick(cols)) => plushSvg(size, type, c);
+  let alive = true;
+  festiveStops.push(() => { alive = false; });
+  const snd = clawSound();
+  const soundOn = themeSoundButton("bamf-claw-sound", "Claw machine sounds on: click to mute",
+    "Claw machine sounds off: click for the coin, the motor and the jingle", on => { if (on) snd.coin(); });
+  const play = (fn, ...a) => { if (soundOn() && !document.hidden) fn(...a); };
+  const W = innerWidth, H = innerHeight;
+  const head = document.querySelector("header");
+  const headBottom = () => Math.max(0, head?.getBoundingClientRect().bottom || 0);
+  const railY = Math.max(56, headBottom()) + 22;
+
+  // Behind the glass: the heap of prizes, with the chute to its right.
+  const bg = document.createElement("div");
+  bg.id = "themeBg";
+  bg.className = "theme-bg claw-bg";
+  bg.setAttribute("aria-hidden", "true");
+  const pileH = Math.round(Math.min(170, Math.max(90, H * .17)));
+  const chuteW = W < 700 ? 96 : 150, chuteX = W - 30 - chuteW;
+  const heap = x => pileH * (.55 + .45 * Math.sin(Math.PI * Math.min(1, Math.max(0, x / chuteX))));
+  const pileTop = x => H - heap(x);
+  const items = [];
+  for (let i = 0, n = Math.round(chuteX / 20); i < n; i++) {
+    const size = rnd(40, 66), x = rnd(-20, chuteX - size + 6), hgt = heap(x + size / 2);
+    items.push({ x, y: H - hgt + rnd(-size * .25, hgt - size * .45), size, type: pick(CLAW_TYPES), c: pick(cols), rot: rnd(-28, 28) });
+  }
+  items.sort((a, b) => a.y - b.y);
+  const base = `M0 ${H}` + Array.from({ length: 41 }, (_, i) => { const x = chuteX * i / 40; return `L${x.toFixed(0)} ${(H - heap(x) * .7).toFixed(0)}`; }).join("") + `L${chuteX} ${H}Z`;
+  bg.innerHTML = `<div class="rail" style="top:${railY - 10}px"></div>
+    <svg class="pile" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><path d="${base}" fill="${dusk ? "#262a33" : "#2a1552"}"/>
+      ${items.map(p => `<g transform="translate(${p.x.toFixed(0)} ${p.y.toFixed(0)}) rotate(${p.rot.toFixed(0)} ${(p.size / 2).toFixed(0)} ${(p.size / 2).toFixed(0)}) scale(${(p.size / 60).toFixed(3)})">${plushShape(p.type, p.c)}</g>`).join("")}</svg>
+    <div class="chute" style="left:${chuteX}px;width:${chuteW}px;height:${Math.round(pileH * 1.1)}px"><b>PRIZE</b></div>
+    <i class="tube l"></i><i class="tube r"></i><div class="glass"></div>`;
+  document.body.prepend(bg);
+  const chute = bg.querySelector(".chute");
+
+  // The cabinet's own claw, playing by itself every so often.
+  const bgClaw = makeClaw(bg, Math.round(W * .18), railY);
+  bg.appendChild(bg.querySelector(".glass"));
+  let bgBusy = false;
+  const bgRound = async () => {
+    if (!alive || calm || document.hidden || bgBusy) return;
+    bgBusy = true;
+    try {
+      const tx = rnd(70, chuteX - 70);
+      await bgClaw.move(tx); if (!alive) return;
+      await bgClaw.open();
+      await bgClaw.lower(bgClaw.reachTo(pileTop(tx) + 18)); if (!alive) return;
+      await bgClaw.close(); if (!alive) return;
+      const got = Math.random() < .75;
+      if (got) bgClaw.hold(plush(44));
+      await clawWait(250);
+      await bgClaw.lower(24, 1100); if (!alive) return;
+      if (got) {
+        const cx = chuteX + chuteW / 2;
+        if (Math.random() < .3) {
+          await bgClaw.move(cx, 240); if (!alive) return;
+          await bgClaw.open();
+          chute.classList.remove("win"); void chute.offsetWidth; chute.classList.add("win");
+          await bgClaw.drop(H + 60, false);
+          await bgClaw.close();
+        } else {
+          // It slips somewhere on the way, as it usually does.
+          const slip = bgClaw.x + (cx - bgClaw.x) * rnd(.15, .7);
+          await bgClaw.move(slip, 240); if (!alive) return;
+          await bgClaw.drop(pileTop(slip) + 12);
+        }
+      }
+      if (!alive) return;
+      await bgClaw.move(rnd(W * .08, chuteX * .5), 320);
+    } catch { } finally { bgBusy = false; }
+  };
+  if (!calm) {
+    const next = first => festiveTimers.push(setTimeout(() => { bgRound(); next(false); }, first ? rnd(2500, 6000) : rnd(13e3, 22e3)));
+    next(true);
+  }
+
+  // A claw in front of the page: it comes in along the marquee, goes down
+  // onto a device's row (or the middle of the screen), and comes back up
+  // with the prize. Win and it carries it off; lose and it slips.
+  let fgBusy = false;
+  const banner = (big, small) => {
+    const b = document.createElement("div");
+    b.className = "claw-banner";
+    b.innerHTML = `<b>${esc(big)}</b>${small ? `<small>${esc(small)}</small>` : ""}`;
+    root.appendChild(b);
+    festiveTimers.push(setTimeout(() => b.remove(), 2600));
+  };
+  const visibleRows = () => [...document.querySelectorAll("tbody tr[data-id]")].filter(tr => {
+    const r = tr.getBoundingClientRect();
+    return r.height > 0 && r.top > headBottom() + 70 && r.bottom < innerHeight - 20;
+  });
+  const fgPlay = async ({ tr, name, win, title }) => {
+    if (fgBusy || !alive) return;
+    if (calm) { play(win ? snd.win : snd.lose); banner(win ? (title || "WINNER!") : "SO CLOSE!", name); return; }
+    fgBusy = true;
+    let c = null;
+    try {
+      const top = headBottom();
+      const target = tr?.querySelector(".name-text") || tr?.querySelector("td.hostname");
+      let tx, ty;
+      if (target) { const r = target.getBoundingClientRect(); tx = r.left + Math.min(r.width, 120) / 2; ty = r.top + r.height / 2 + 6; }
+      else { tx = innerWidth * rnd(.3, .7); ty = innerHeight * .55; }
+      tx = Math.max(40, Math.min(innerWidth - 40, tx));
+      c = makeClaw(root, innerWidth + 40, top);
+      play(snd.whir, .9);
+      await c.move(tx, 900); if (!alive) return;
+      await c.open();
+      play(snd.whir, .7);
+      await c.lower(c.reachTo(ty), 750); if (!alive) return;
+      await c.close();
+      play(snd.clunk);
+      if (tr) { tr.classList.remove("claw-grab"); void tr.offsetWidth; tr.classList.add("claw-grab"); festiveTimers.push(setTimeout(() => tr.classList.remove("claw-grab"), 750)); }
+      c.hold(`<div class="claw-tag">${plush(26)}<span>${esc(name)}</span></div>`);
+      await clawWait(200);
+      play(snd.whir, .8);
+      await c.lower(24, 800); if (!alive) return;
+      if (win) {
+        play(snd.whir, .8);
+        await c.move(innerWidth - 60, 700); if (!alive) return;
+        await c.open();
+        c.drop(innerHeight + 80, false);
+        play(snd.win);
+        banner(title || "WINNER!", name);
+        await clawWait(600);
+      } else {
+        const slip = c.x + (innerWidth - 60 - c.x) * rnd(.15, .45);
+        play(snd.whir, .5);
+        await c.move(slip, 700); if (!alive) return;
+        play(snd.lose);
+        const t = document.createElement("div");
+        t.className = "claw-close";
+        t.textContent = "SO CLOSE!";
+        t.style.cssText = `left:${slip}px;top:${ty - 30}px`;
+        root.appendChild(t);
+        festiveTimers.push(setTimeout(() => t.remove(), 1800));
+        await c.drop(ty);
+      }
+      if (!alive) return;
+      await c.move(innerWidth + 50, 900);
+    } catch { } finally { c?.remove(); fgBusy = false; }
+  };
+
+  // The 🕹 button beside the speaker: one play, on one of the rows in view.
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "arp-toggle claw-play";
+  btn.innerHTML = `<span aria-hidden="true">🕹</span>`;
+  btn.title = "Play: the claw goes for one of your devices";
+  btn.setAttribute("aria-label", "Play the claw machine");
+  btn.onclick = () => {
+    if (fgBusy) return;
+    play(snd.coin);
+    const rows = visibleRows(), tr = rows.length ? pick(rows) : null;
+    const h = tr ? hosts.find(x => String(x.id) === tr.dataset.id) : null;
+    fgPlay({ tr, name: h ? nameOrIp(h) : "a mystery prize", win: Math.random() < .35 });
+  };
+  $("themeToggle")?.before(btn);
+  festiveStops.push(() => btn.remove());
+
+  // A finished scan: a coin goes in, the marquee races and the cabinet plays.
+  festiveHooks.scanDone = () => {
+    const html = document.documentElement;
+    html.classList.add("claw-fast");
+    festiveTimers.push(setTimeout(() => html.classList.remove("claw-fast"), 1800));
+    play(snd.coin);
+    bgRound();
+  };
+  festiveStops.push(() => document.documentElement.classList.remove("claw-fast"));
+  festiveStops.push(() => document.querySelectorAll(".claw-charm, .claw-stamp, .claw-drop, .claw-bonus").forEach(el => el.remove()));
+  // A new device: always a win.
+  festiveHooks.newDevice = h => {
+    if (document.hidden) return;
+    const tr = h ? document.querySelector(`tbody tr[data-id="${h.id}"]`) : null;
+    fgPlay({ tr: tr && visibleRows().includes(tr) ? tr : null, name: h ? nameOrIp(h) : "a new device", win: true, title: "NEW PRIZE!" });
+  };
+  let backIds = [];
+  festiveHooks.netChange = (off, back) => { backIds = back.slice(); if (back.length) play(snd.bonus); };
+  festiveHooks.rendered = () => {
+    for (const id of wentOffIds) {
+      const cell = document.querySelector(`tr[data-id="${id}"] td.hostname`);
+      if (!cell) continue;
+      const s = document.createElement("span");
+      s.className = "claw-stamp";
+      s.textContent = "TRY AGAIN";
+      const f = document.createElement("span");
+      f.className = "claw-drop";
+      f.innerHTML = plush(22);
+      cell.append(s, f);
+      festiveTimers.push(setTimeout(() => { s.remove(); f.remove(); }, 2600));
+    }
+    if (wentOffIds.length) play(snd.lose);
+    wentOffIds = [];
+    for (const id of backIds) {
+      const cell = document.querySelector(`tr[data-id="${id}"] td.hostname`);
+      if (!cell) continue;
+      const s = document.createElement("span");
+      s.className = "claw-bonus";
+      s.textContent = "BONUS!";
+      cell.appendChild(s);
+      festiveTimers.push(setTimeout(() => s.remove(), 1800));
+    }
+    backIds = [];
+    // Watched devices carry a little bear: bobbing while they run, grey when they're off.
+    for (const h of hosts) {
+      if (!h.watched) continue;
+      const cell = document.querySelector(`tr[data-id="${h.id}"] td.hostname`);
+      if (!cell || cell.querySelector(".claw-charm")) continue;
+      const v = document.createElement("span");
+      v.className = "claw-charm" + (h.online ? "" : " off");
+      v.title = h.online ? "Watched: running" : "Watched: offline";
+      v.innerHTML = plush(16, "bear", dusk ? "#b59a80" : "#c8a27a");
+      cell.querySelector(".name-text")?.after(v);
+    }
+  };
+  // Unknown devices on the Map are mystery capsules.
+  festiveHooks.decorateNode = (g, n) => {
+    if (n.type !== "dev") return;
+    const t = svgEl("g", { class: "claw-cap t-deco-icon", transform: "translate(-27,-27) scale(.25)" });
+    t.innerHTML = plushShape("capsule", dusk ? "#b8788a" : "#ff4fa3");
+    g.appendChild(t);
+  };
+  festiveHooks.rendered();
 }
 
 // Constellation: the night sky, with your network written in it. Every

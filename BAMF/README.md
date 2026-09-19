@@ -405,7 +405,8 @@ The ◑ button in the header opens the theme menu: Dark, Light, Terminal, Amber
 CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
 Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
-Night Street and Constellation. Your choice is remembered in your browser.
+Night Street, Constellation, Claw Machine and Claw Machine Dusk. Your choice
+is remembered in your browser.
 
 Some themes have a little life in them:
 
@@ -445,13 +446,24 @@ Some themes have a little life in them:
   rows get a wash as you type. With sound on (the 🔊 button beside the theme
   button, off until you click it) the drips plop, a new device's valve
   squeaks open, a device going offline leaks with a patter of drops, and a
-  finished scan surges through the mains. Behind the page, a whole plant: glass-lined
-  mains with water running through them, up both sides and along the floor,
-  branching off at a few heights to red valve wheels, with flanges along every
-  run. Two pressure gauges read how much of your network is up, and a
-  reservoir ripples along the bottom. A scan turns the valve wheels and spikes
-  the gauges, and a device going offline makes a joint spray. On the Map, the
-  thin "on this network" lines are copper pipe.
+  finished scan surges through the mains. A pipe bursting cracks and then
+  hisses, and a relief valve lets off with a pssht. Behind the page, a whole
+  plant: glass-lined mains with water running through them, up both sides,
+  along the floor, across the top and through a manifold on the right, with
+  tees at every junction and flanges along every run. Valves of every kind
+  sit along the pipes: red gate wheels, ball valves with a lever, a yellow
+  butterfly valve, a check valve and spring-loaded relief valves. Four
+  pressure gauges read how much of your network is up, a pump hums on the
+  floor main, and open pipe ends pour into the reservoir along the bottom.
+  A few joints drip all the time and a seal mists. A scan turns the valve
+  wheels, spikes the gauges and lifts every relief valve. Every half a minute
+  or so a pipe bursts under high pressure: water jets out of the split, the
+  pipes shudder, the nearest gauge slams into the red, and the nearest wheel
+  spins shut on it. The main under the header carries valves of its own, and
+  now and then it bursts too, spraying down over the page. A device going
+  offline bursts a pipe, shuts a ball valve for a moment and spurts water
+  out of its row. On the Map, the thin "on this network" lines are copper
+  pipe.
 - **Aquarium**: fish, bubbles, swaying weed and gravel behind the glass, with
   light rays drifting through, and now and then a shark cruising past. A new device swims in as a fish carrying its
   name, a finished scan sends up a column of bubbles, and a device going
@@ -515,6 +527,31 @@ Some themes have a little life in them:
   arrives as a bright shooting star and becomes a star of its own, with its
   name beside it for a moment. A device going offline collapses in a flash. On
   the Map, star dust twinkles along your cables.
+- **Claw Machine**: the prize cabinet at the arcade. Marquee bulbs chase
+  under the header, the counts glow in red LED windows like the credit
+  display, the next-scan bar is a candy-striped timer, and the search box is
+  the coin slot. Behind the glass there's a heap of plush prizes (bears,
+  bunnies, ducks, cats, frogs, stars and capsules), a prize chute and neon
+  tubes up the sides. The cabinet's own claw plays by itself every so often:
+  it rides the rail, drops into the heap, grabs, and usually lets the prize
+  slip on the way to the chute. When it does win, the chute flashes. The 🕹
+  button in the header sends a claw down onto one of your devices' rows. It
+  comes back up with the device's name on a tag and either carries it off to
+  **WINNER!** or drops it with a **SO CLOSE!**. A new device is always a win:
+  **NEW PRIZE!** A finished scan puts a coin in, races the marquee and sets
+  the cabinet playing. A device going offline gets a **TRY AGAIN** stamp and
+  drops its plush, and one coming back gets a **BONUS!** Watched devices
+  carry a little bear that bobs while they run, and unknown devices are
+  mystery capsules, in the list and on the Map, where bulbs chase along the
+  cables. With sound on (the 🔊 button, off until you click it) you get the
+  coin, the gantry motor, the clunk of the claw, a jingle for a win and a
+  sad trombone for a miss.
+- **Claw Machine Dusk**: the same cabinet after hours, for anyone who finds
+  the arcade a bit much. Slate instead of purple, with dusty rose, teal and
+  amber in place of the neon. The bulbs are dimmer and chase at half the
+  speed, the counts glow soft amber, the neon tubes are turned down, and the
+  prizes are faded pastels. Everything else plays the same, claw and 🕹
+  button included.
 - **Hotdog Stand**: a tribute to Windows 3.1's loudest colour scheme. It's
   mustard yellow with ketchup-red title bars, in the bold system font, with a
   striped awning under the header. The next-scan bar is a sausage sliding into
