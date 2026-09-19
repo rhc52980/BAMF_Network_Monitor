@@ -79,10 +79,14 @@ optional daily update check you have to switch on, and your own webhook.
   you've recorded your switches and which port each device is on
 - A **whole network** view that draws every network as one diagram, by the
   cabling you recorded, with each device tagged by its network's colour
+- A **floor plan** per floor, with each device pinned where it actually sits,
+  coloured by whether it's online
 
 **Watching for trouble**
 - An ARP watch for IP conflicts and anything claiming to be your gateway
 - A hygiene card for risky open ports, plain-HTTP settings pages, UPnP and expiring HTTPS certificates
+- An optional daily check, off by default, of whether your home's public address
+  has been seen scanning the internet
 - What changed this week, when each device is usually home, and IPv6 addresses beside the IPv4 ones
 
 **Operating it**
@@ -91,7 +95,8 @@ optional daily update check you have to switch on, and your own webhook.
 - Runs as a Windows service, a systemd service, a Docker container or a Home Assistant add-on
 - One script installs *and* updates, preserving your config and database
 - Scheduled nightly backups keeping 30 snapshots, safe to sync to cloud storage
-- Optional password (HTTP Basic), optional HTTPS
+- Optional password (HTTP Basic), with a second view-only password for a wall
+  display or the rest of the house, and optional HTTPS
 - 28 themes (and a couple more, if you know how to ask, or drop your own in), a mobile card layout, and a
   comic-book splat when you switch them
 
@@ -118,9 +123,19 @@ above, waits in an "On this network" box. Drag anything to arrange it
 the way your house is laid out; it's saved, so it looks the same on every
 screen. It works with any switch, including unmanaged ones.
 
+### See where things are
+
+![The Floor plan tab: a drawing of a home with Living room, Kitchen, Office, Hall, Garage and Server closet, and a pin on each device where it sits. Green pins for devices that are online, grey for the garage camera and the workshop Pi that are off, each labelled with its name. Above the plan, a tab for the floor with a count of what's off, a button to add another floor, a filter for which devices to show, and a button to place devices](docs/floor-plan.png)
+
+The **Floor plan** tab puts each device on a picture of your home, so an
+offline camera is a grey pin by the back door rather than an address you have
+to place. Upload a plan per floor — a photo of a sketch does — then pick a
+device and click where it goes. Pins follow whether each device is online, and
+clicking one opens it.
+
 ### Tune it without touching the server
 
-![The Settings tab: scan interval, probe concurrency, history retention, an on/off switch and scan interval per network, the recorded switches, access point and SSIDs with layout export and import, the instant toggles for active ARP, randomised MACs, the traffic monitor, latency measuring, the ARP watch, IPv6 neighbours, the certificate watch, Holiday Spirit, Night mode with its hours and theme, and update checks, then alert rules including a scheduled wake, quiet hours and the daily port watch](docs/settings.png)
+![The Settings tab: scan interval, probe concurrency, history retention, an on/off switch and scan interval per network, the recorded switches, access point and SSIDs with layout export and import, the instant toggles for active ARP, randomised MACs, the traffic monitor, latency measuring, the ARP watch, IPv6 neighbours, the certificate watch, the GreyNoise check of your public address with its explanation, Holiday Spirit, Night mode with its hours and theme, and update checks, then alert rules including a scheduled wake, quiet hours and the daily port watch](docs/settings.png)
 
 Scan cadence, probe concurrency and history retention are editable from the
 dashboard and applied on the next scan — no restart, no editing a file over SSH.
