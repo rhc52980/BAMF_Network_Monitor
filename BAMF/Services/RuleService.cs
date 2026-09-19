@@ -23,15 +23,17 @@ public sealed class RuleService : BackgroundService
 
     private readonly HostStore _store;
     private readonly ScannerService _scanner;
+    private readonly SecurityCheck _security;
+    private DateTime _lastSecurityUtc = DateTime.MinValue;
     private readonly ILogger<RuleService> _log;
     private readonly Dictionary<string, string> _fired = new();   // rule:host -> what it fired for
     private readonly Dictionary<string, bool> _online = new();    // rule:host -> online at the last check
     private bool _wasQuiet;
     private DateTime _lastPortWatchUtc = DateTime.MinValue;
 
-    public RuleService(HostStore store, ScannerService scanner, ILogger<RuleService> log)
+    public RuleService(HostStore store, ScannerService scanner, SecurityCheck security, ILogger<RuleService> log)
     {
-        _store = store; _scanner = scanner; _log = log;
+        _store = store; _scanner = scanner; _security = security; _log = log;
         try { _fired = JsonSerializer.Deserialize<Dictionary<string, string>>(_store.GetSetting("ruleFired") ?? "{}") ?? new(); } catch { }
         _wasQuiet = _scanner.IsQuietNow();
     }
@@ -147,6 +149,19 @@ public sealed class RuleService : BackgroundService
             {
                 _lastPortWatchUtc = DateTime.UtcNow;
                 await PortWatch(ct);
+            }
+        }
+
+        // The certificate watch at half past four, after the port watch has
+        // found this morning's HTTPS ports. With the port watch on, the UPnP
+        // search goes along: both are active checks the user switched on.
+        {
+            var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.Local);
+            if (local.Hour == 4 && local.Minute >= 30 && (DateTime.UtcNow - _lastSecurityUtc).TotalHours > 20
+                && (_security.CertWatchEnabled || PortWatchEnabled))
+            {
+                _lastSecurityUtc = DateTime.UtcNow;
+                await _security.Run(null, _security.CertWatchEnabled, PortWatchEnabled, ct);
             }
         }
     }

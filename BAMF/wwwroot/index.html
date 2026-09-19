@@ -960,7 +960,23 @@
   .quiet-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 8px 0; font-size: 13px; }
   .quiet-row input[type=time] { width: 110px; }
   .alert-item { border-left: 3px solid var(--led-warn); padding: 4px 10px; margin: 4px 0; font-size: 12.5px; }
-  .alert-item.rule { border-color: var(--focus); } .alert-item.dhcp, .alert-item.dns { border-color: var(--danger); }
+  .alert-item.rule { border-color: var(--focus); } .alert-item.dhcp, .alert-item.dns, .alert-item.security { border-color: var(--danger); }
+  .alert-item.cert { border-color: var(--led-warn); }
+  /* The hygiene card: one line per finding, worst first. */
+  .hy-item { display: grid; grid-template-columns: 58px 1fr; gap: 8px; align-items: start; padding: 6px 4px; border-top: 1px solid var(--line); font-size: 12.5px; }
+  .hy-item:first-child { border-top: 0; }
+  .hy-item.link { cursor: pointer; }
+  .hy-item.link:hover { background: var(--panel-2); }
+  .hy-sev { font: 600 10.5px "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .06em; text-align: center; padding: 2px 0; border-radius: 4px; }
+  .hy-item.high .hy-sev { background: rgba(232, 72, 59, .16); color: var(--danger); }
+  .hy-item.medium .hy-sev { background: rgba(255, 180, 84, .14); color: var(--led-warn); }
+  .hy-item.low .hy-sev { background: var(--panel-2); color: var(--text-dim); }
+  .hy-item .who { color: var(--text-dim); margin-left: 6px; }
+  .hy-item .det { color: var(--text-dim); margin-top: 2px; }
+  .hy-more { margin-top: 6px; background: none; border: 0; padding: 2px 4px; color: var(--focus); font: inherit; font-size: 12px; cursor: pointer; }
+  .hy-more:hover { text-decoration: underline; }
+  .hy-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .hy-actions .hint { font-size: 11.5px; color: var(--text-dim); }
   .alert-item .when { color: var(--text-dim); font-size: 11px; margin-left: 6px; }
   .alert-item .det { color: var(--text-dim); }
   .port-hist { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
@@ -2809,6 +2825,18 @@
       <span class="set-field"><button type="button" class="arp-toggle" id="setLatency" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
     </label>
     <label class="set-row">
+      <span class="set-label">ARP watch
+        <span class="set-hint">An alert when two devices answer at one address in the same scan (an IP conflict, or one pretending to be the other), when your gateway's MAC changes, and, with the traffic monitor on, the moment another device claims to be your gateway. Conflicts need active ARP to be seen. Sends nothing: it reads what the scans and the traffic monitor already see.</span>
+      </span>
+      <span class="set-field"><button type="button" class="arp-toggle" id="setArpWatch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+    </label>
+    <label class="set-row">
+      <span class="set-label">Certificate watch
+        <span class="set-hint">Every morning at 4:30, reads the certificate on each HTTPS port BAMF has found open, and alerts 14 days and 3 days before one expires, and when it has. Only ports a scan already found open are touched.</span>
+      </span>
+      <span class="set-field"><button type="button" class="arp-toggle" id="setCertWatch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+    </label>
+    <label class="set-row">
       <span class="set-label">Holiday Spirit
         <span class="set-hint">Every dashboard wears the Halloween theme from October 1st to 31st and the Christmas theme from December 1st to 25th, then goes back to its own theme. Pick another theme during the season and that browser keeps it until the next one.</span>
         <span class="set-hint" id="setHolidayStatus"></span>
@@ -2963,8 +2991,17 @@
     </div>
     <div class="act-card">
       <h3>Alerts</h3>
-      <div class="sub">What BAMF raised: rules, ports, DHCP and DNS.</div>
+      <div class="sub">What BAMF raised: rules, ports, DHCP and DNS, the ARP watch and certificates.</div>
       <div id="alertsBody"></div>
+    </div>
+    <div class="act-card">
+      <h3>Network hygiene</h3>
+      <div class="sub" id="hygieneSub"></div>
+      <div id="hygieneBody"></div>
+      <div class="hy-actions">
+        <button type="button" class="export-btn" id="hygieneCheck">Check now</button>
+        <span class="hint">Scans every online known device's common ports, asks your router about UPnP, and reads HTTPS certificates. About a minute.</span>
+      </div>
     </div>
     <div class="act-card">
       <h3>Network watch</h3>
@@ -3319,6 +3356,8 @@ let latencyProbe = true;
 let trafficStatus = {};     // { enabled, available, running, interfaces, error, since, frames }
 let trafficCache = null;    // the last /api/traffic answer, for the Activity cards
 let alertsCache = null;     // the last /api/alerts answer
+let securityCache = null;   // the last /api/security answer: certificates, UPnP, gateway MACs
+let arpWatch = true, certWatch = true;
 let rulesData = null;       // { rules, quiet, portWatch } from /api/settings
 let remoteStatus = [];      // other BAMF servers: [{ name, url, ok, error, hosts, ... }]
 const fmtBytes = n => n == null ? "—" : n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + " kB" : n < 1073741824 ? (n / 1048576).toFixed(1) + " MB" : (n / 1073741824).toFixed(2) + " GB";
@@ -3478,6 +3517,121 @@ function renderAlertsCard() {
     `<div class="alert-item ${esc(a.kind)}"><div><b>${esc(a.title)}</b><span class="when">${esc(fmtAgo(a.at))}</span></div><div class="det">${esc(a.detail)}</div></div>`).join("")
     : `<div class="watch-note">Nothing yet. Rules, the port watch and the DHCP/DNS watch put their alerts here.</div>`;
 }
+// ---- Network hygiene ----
+// Findings from what BAMF already knows: the ports found open on each device
+// (by any port scan, the port watch or Check now), the certificates on their
+// HTTPS ports, routers that answered a UPnP search, and the ARP watch's
+// alerts from the last week. Nothing here scans by itself; Check now does,
+// when asked.
+function loadSecurity() {
+  return fetch("/api/security").then(r => r.ok ? r.json() : null).then(sec => { if (sec) securityCache = sec; return sec; }).catch(() => null);
+}
+const HY_ORDER = { high: 0, medium: 1, low: 2 };
+let hygieneAll = false;
+const HY_NOUN = { router: "a router", switch: "a switch", ap: "an access point", camera: "a camera", printer: "a printer", tv: "a TV",
+  speaker: "a speaker", phone: "a phone", tablet: "a tablet", game: "a game console", iot: "a smart home device", light: "a light", plug: "a smart plug" };
+function hygieneFindings() {
+  const out = [];
+  const add = (sev, h, title, fix) => out.push({ sev, h, title, fix });
+  const live = hosts.filter(h => !h.remote && !h.ignored && !h.forgotten);
+  for (const h of live) {
+    const p = new Set(h.openPorts || []);
+    if (!p.size) continue;
+    const kind = deviceKind(h);
+    if (p.has(23)) add("high", h, "Telnet is open (port 23)",
+      "Telnet sends its password in plain text. Turn it off and use SSH or the device's web page instead.");
+    if (p.has(21)) add("medium", h, "FTP is open (port 21)",
+      "FTP sends its password in plain text. Use SFTP or file sharing instead, or turn it off if nothing uses it.");
+    if (p.has(5900)) add("medium", h, "VNC is open (port 5900)",
+      "VNC is often unencrypted and weakly protected. Give it a strong password, or reach it over SSH or a VPN.");
+    if (p.has(3389)) add(["desktop", "laptop", "server", "vm"].includes(kind) ? "low" : "medium", h, "Remote Desktop is open (port 3389)",
+      "Fine if you use it. If not, turn it off; if you do, keep Network Level Authentication on.");
+    if ((p.has(445) || p.has(139)) && !["nas", "server", "desktop", "laptop", "vm"].includes(kind))
+      add("medium", h, `File sharing (SMB) is open on ${HY_NOUN[kind] || "a device that isn't a computer"}`,
+        "Usually only computers and file servers share files. Check what this one shares, and turn it off if nothing needs it.");
+    const web = p.has(80) || p.has(8080), tls = p.has(443) || p.has(8443) || p.has(5001);
+    if (web && !tls) {
+      const admin = ["router", "switch", "ap", "camera", "printer", "nas"].includes(kind);
+      add(admin ? "medium" : "low", h, admin ? "Settings page over plain HTTP only" : "Web page over plain HTTP only",
+        admin ? "Its settings page has no HTTPS, so the password you log in with crosses the network readable. Turn on HTTPS if it has it."
+              : "Anything typed into it crosses the network readable. Fine for a status page; not for a login.");
+    }
+    if (p.has(1883)) add("low", h, "Unencrypted MQTT (port 1883)",
+      "Messages, and any MQTT password, cross the network readable. Use port 8883 with TLS if the broker supports it.");
+  }
+  const sec = securityCache || {};
+  for (const c of sec.certs || []) {
+    const h = hosts.find(x => x.id === c.hostId);
+    if (!h || h.remote || !(h.openPorts || []).includes(c.port) || !c.notAfter) continue;
+    const days = Math.floor((new Date(c.notAfter) - Date.now()) / 864e5);
+    const date = new Date(c.notAfter).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
+    if (days < 0) add("high", h, `Certificate expired on port ${c.port}`,
+      `${c.subject || "It"} expired on ${date}. Browsers warn, and anything that checks certificates refuses to connect.`);
+    else if (days <= 30) add(days <= 7 ? "high" : "medium", h, `Certificate expires in ${days} day${days === 1 ? "" : "s"} on port ${c.port}`,
+      `${c.subject || "It"} runs out on ${date}. Renew it before then.`);
+  }
+  for (const u of (sec.upnp && sec.upnp.devices) || []) {
+    const h = hosts.find(x => x.id === u.hostId) || { ip: u.ip };
+    add("high", h, "UPnP port forwarding is on",
+      "Any device on your network can open ports on this router to the internet without asking. Turn UPnP off in the router unless a game console or app needs it.");
+  }
+  const week = Date.now() - 7 * 864e5;
+  for (const a of (alertsCache || []).filter(a => a.kind === "security" && new Date(a.at) > week))
+    add("high", null, a.title, a.detail);
+  return out.sort((a, b) => HY_ORDER[a.sev] - HY_ORDER[b.sev]);
+}
+function renderHygiene() {
+  const body = $("hygieneBody");
+  if (!body) return;
+  const list = hygieneFindings();
+  const sec = securityCache || {};
+  const known = hosts.filter(h => !h.remote && (h.openPorts || []).length).length;
+  const counts = ["high", "medium", "low"].map(sv => [sv, list.filter(f => f.sev === sv).length]).filter(([, n]) => n);
+  $("hygieneSub").textContent = (counts.length ? counts.map(([sv, n]) => `${n} ${sv}`).join(" · ") + ". " : "")
+    + (known ? `From the open ports BAMF knows on ${known} device${known === 1 ? "" : "s"}` : "No open ports known yet")
+    + (sec.checkedAt ? `; last checked ${fmtAgo(sec.checkedAt)}.` : ". Never checked.");
+  body.innerHTML = "";
+  if (!list.length) {
+    body.innerHTML = `<div class="watch-note">${known ? "Nothing to fix among the ports, certificates and gateways BAMF knows about." : "Check now scans the common ports of every online known device, then looks the results over."}</div>`;
+    return;
+  }
+  const shown = hygieneAll ? list : list.slice(0, 8);
+  for (const f of shown) {
+    const row = document.createElement("div");
+    row.className = `hy-item ${f.sev}` + (f.h && f.h.id ? " link" : "");
+    const who = f.h ? `<span class="who">${esc(nameOrIp(f.h))}${f.h.ip && nameOrIp(f.h) !== f.h.ip ? " · " + esc(f.h.ip) : ""}</span>` : "";
+    row.innerHTML = `<span class="hy-sev">${f.sev}</span><div><b>${esc(f.title)}</b>${who}<div class="det">${esc(f.fix)}</div></div>`;
+    if (f.h && f.h.id) { row.title = "Show this device"; row.onclick = () => jumpToHost(f.h.id); }
+    body.appendChild(row);
+  }
+  if (list.length > 8) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "linkish hy-more";
+    more.textContent = hygieneAll ? "Show the worst eight" : `Show all ${list.length}`;
+    more.onclick = () => { hygieneAll = !hygieneAll; renderHygiene(); };
+    body.appendChild(more);
+  }
+}
+// Wired with getElementById: this runs before $ is defined further down.
+document.getElementById("hygieneCheck").onclick = async () => {
+  const b = document.getElementById("hygieneCheck");
+  if (b.disabled) return;
+  b.disabled = true;
+  b.textContent = "Checking…";
+  try {
+    const r = await fetch("/api/security/check", { method: "POST" });
+    if (r.status === 409) toast("A check is already running");
+    else if (!r.ok) throw new Error("HTTP " + r.status);
+    else {
+      securityCache = await r.json();
+      await refresh();
+      toast("Hygiene check done");
+    }
+  } catch (e) { console.error(e); toast("The check failed - see the server log"); }
+  finally { b.disabled = false; b.textContent = "Check now"; renderHygiene(); }
+};
+
 function renderTrafficCards() {
   const wrap = $("actCards");
   renderAlertsCard();
@@ -5742,7 +5896,8 @@ function render() {
   if (view === "activity") {
     // The cards want the traffic answer; fetch it with each refresh while the tab is open.
     loadTraffic().then(t => { trafficCache = t; renderTrafficCards(); }).catch(() => {});
-    fetch("/api/alerts").then(r => r.json()).then(a => { alertsCache = a; renderAlertsCard(); }).catch(() => {});
+    fetch("/api/alerts").then(r => r.json()).then(a => { alertsCache = a; renderAlertsCard(); renderHygiene(); }).catch(() => {});
+    loadSecurity().then(renderHygiene);
     renderFeed();
   }
   if (view === "home") renderHome();
@@ -11463,6 +11618,34 @@ $("setTraffic").onclick = async () => {
   } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
 };
 
+function renderArpWatchToggle() {
+  const t = $("setArpWatch");
+  if (!t) return;
+  setToggleState(t, arpWatch);
+  t.title = arpWatch ? "The ARP watch is on - click to stop it" : "Click to watch for IP conflicts and a changed gateway";
+}
+function renderCertWatchToggle() {
+  const t = $("setCertWatch");
+  if (!t) return;
+  setToggleState(t, certWatch);
+  t.title = certWatch ? "Certificates are checked every morning - click to stop" : "Click to check HTTPS certificates every morning";
+}
+for (const [id, url, get, set, on, off] of [
+  ["setArpWatch", "/api/settings/arp-watch", () => arpWatch, v => { arpWatch = v; renderArpWatchToggle(); },
+    "The ARP watch is on", "The ARP watch is off"],
+  ["setCertWatch", "/api/settings/cert-watch", () => certWatch, v => { certWatch = v; renderCertWatchToggle(); },
+    "Certificates will be checked every morning at 4:30", "The certificate watch is off"],
+]) {
+  $(id).onclick = async () => {
+    const next = !get();
+    try {
+      const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }) });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      set(next);
+      toast(next ? on : off);
+    } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
+  };
+}
 function renderLatencyToggle() {
   const t = $("setLatency");
   if (!t) return;
@@ -12156,6 +12339,10 @@ async function loadSettings() {
   fillReport(e.report || {});
   rulesData = e.rules || null;
   fillRules();
+  if (typeof e.arpWatch === "boolean") arpWatch = e.arpWatch;
+  if (typeof e.certWatch === "boolean") certWatch = e.certWatch;
+  renderArpWatchToggle();
+  renderCertWatchToggle();
 
   // The instant-apply toggles and the notifications card draw from the last
   // /api/hosts poll rather than this endpoint, so refresh them here too.

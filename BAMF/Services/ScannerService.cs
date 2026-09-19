@@ -357,6 +357,7 @@ public partial class ScannerService : BackgroundService
         _mdns = mdns;
         _traffic = traffic;
         _traffic.OnAlert = a => SendWatchAlert(a, CancellationToken.None);
+        _traffic.OnArp = OnArpSeen;
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -697,6 +698,11 @@ public partial class ScannerService : BackgroundService
 
         _log.LogInformation("{Mode} on {Subnet} found {Count} hosts", mode, subnetLabel,
             arpEntries.Select(e => e.Mac).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+
+        // Two devices on one address, or the gateway's MAC changing.
+        try { await CheckArp(subnetLabel, arpEntries, ct); }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { _log.LogWarning(ex, "ARP watch failed on {Subnet}", subnetLabel); }
 
         // Resolve + upsert.
         var autoIgnoreRandom = AutoIgnoreRandomEnabled;
@@ -1205,7 +1211,16 @@ public partial class ScannerService : BackgroundService
         return items.Count;
     }
 
-    /// <summary>A rule or port alert: title and detail, through the quiet-hours gate.</summary>
+    /// <summary>How each kind of alert looks: its icon, colour, footer, ntfy tag and priority.</summary>
+    private static (string Icon, int Color, string Footer, string Tag, int Priority) AlertStyle(string kind) => kind switch
+    {
+        "port" => ("\U0001F513 ", 0xE0A040, "BAMF port watch", "unlock", 4),
+        "security" => ("\U0001F6E1 ", 0xE8483B, "BAMF security watch", "shield", 5),
+        "cert" => ("\U0001F510 ", 0xE0A040, "BAMF certificate watch", "lock", 4),
+        _ => ("\u23F0 ", 0xB58AF0, "BAMF alert rule", "alarm_clock", 4),
+    };
+
+    /// <summary>A rule, port, security or certificate alert: title and detail, through the quiet-hours gate.</summary>
     public async Task SendGenericAlert(string title, string detail, string kind, CancellationToken ct)
     {
         var url = WebhookUrl;
@@ -1214,15 +1229,16 @@ public partial class ScannerService : BackgroundService
         {
             var client = _httpFactory.CreateClient();
             var format = ResolveFormat(url);
+            var style = AlertStyle(kind);
             var payload = format == "discord" ? JsonSerializer.Serialize(new
             {
                 username = "BAMF",
-                embeds = new[] { new { title = (kind == "port" ? "\U0001F513 " : "\u23F0 ") + title, description = detail, color = kind == "port" ? 0xE0A040 : 0xB58AF0,
-                    timestamp = DateTime.UtcNow.ToString("o"), footer = new { text = kind == "port" ? "BAMF port watch" : "BAMF alert rule" } } },
+                embeds = new[] { new { title = style.Icon + title, description = detail, color = style.Color,
+                    timestamp = DateTime.UtcNow.ToString("o"), footer = new { text = style.Footer } } },
             }) : "";
             var text = $"BAMF: {title}. {detail}";
             var generic = JsonSerializer.Serialize(new { content = text, message = text, kind, title, detail });
-            using var req = BuildAlertRequest(url, format, title: title, message: detail, priority: 4, tags: kind == "port" ? "unlock" : "alarm_clock",
+            using var req = BuildAlertRequest(url, format, title: title, message: detail, priority: style.Priority, tags: style.Tag,
                 discordPayload: payload, genericPayload: generic);
             using var resp = await SendOrHold(client, req, title, text, ct);
             if (resp is not null) _log.LogInformation("Alert ({Kind}) via {Format}: {Status}", kind, format, (int)resp.StatusCode);

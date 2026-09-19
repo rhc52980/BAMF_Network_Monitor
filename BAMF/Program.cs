@@ -56,6 +56,7 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ScannerService>())
 builder.Services.AddSingleton<ReportService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ReportService>());
 builder.Services.AddSingleton<MqttPublisher>();
+builder.Services.AddSingleton<SecurityCheck>();
 builder.Services.AddSingleton<RuleService>();
 builder.Services.AddSingleton<RemoteService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RemoteService>());
@@ -736,6 +737,29 @@ app.MapPost("/api/settings/latency-probe", (ActiveArpRequest body, HostStore sto
     return Results.Ok();
 });
 
+// The security watch: the ARP watch (conflicts, the gateway's MAC), the
+// certificates on devices' HTTPS ports, and routers that answer UPnP.
+app.MapPost("/api/settings/arp-watch", (ActiveArpRequest body, HostStore store, ScannerService scanner) =>
+{
+    store.SetSetting("arpWatch", body.Enabled ? "true" : "false");
+    scanner.ForgetArpWatchCache();
+    return Results.Ok();
+});
+app.MapPost("/api/settings/cert-watch", (ActiveArpRequest body, HostStore store) =>
+{
+    store.SetSetting("certWatch", body.Enabled ? "true" : "false");
+    return Results.Ok();
+});
+app.MapGet("/api/security", (HostStore store, ScannerService scanner, SecurityCheck security) => Results.Json(SecurityJson(store, scanner, security)));
+// Check now: the common ports of every online known device, a UPnP search and
+// every HTTPS certificate, one after the other. About a minute on a home network.
+app.MapPost("/api/security/check", async (HostStore store, ScannerService scanner, SecurityCheck security, RuleService rules, CancellationToken ct) =>
+{
+    var ran = await security.Run(async c => await rules.PortWatch(c), certs: true, upnp: true, ct);
+    return ran ? Results.Json(SecurityJson(store, scanner, security))
+               : Results.Conflict(new { error = "A check is already running." });
+});
+
 app.MapGet("/api/hosts/{id:long}/events", (long id, HostStore store) =>
     Results.Json(store.GetEvents(id).Select(e => new { type = e.Type, at = e.At })));
 
@@ -893,6 +917,8 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             activeArpAvailable = scanner.NpcapAvailable,
             autoIgnoreRandomizedMacs = scanner.AutoIgnoreRandomEnabled,
             latencyProbe = scanner.LatencyProbeEnabled,
+            arpWatch = scanner.ArpWatchEnabled,
+            certWatch = store.GetSetting("certWatch") != "false",
             trafficMonitor = scanner.TrafficMonitorEnabled,
             trafficStatus = TrafficJson(scanner),
             report = ReportJson(reports),
@@ -1301,6 +1327,23 @@ static object TrafficJson(ScannerService scanner) => new
     error = scanner.Traffic.LastError,
     since = scanner.Traffic.StartedUtc?.ToString("o"),
     frames = scanner.Traffic.Frames,
+};
+
+// What the hygiene card needs beyond /api/hosts: certificates, UPnP, the gateways' MACs.
+static object SecurityJson(HostStore store, ScannerService scanner, SecurityCheck security) => new
+{
+    arpWatch = scanner.ArpWatchEnabled,
+    certWatch = security.CertWatchEnabled,
+    checkedAt = security.LastCheck,
+    busy = security.Busy,
+    certs = store.GetCerts().Select(c => new
+    {
+        hostId = c.HostId, port = c.Port, subject = c.Subject, issuer = c.Issuer,
+        notAfter = c.NotAfter == "" ? null : c.NotAfter, selfSigned = c.SelfSigned,
+        error = c.Error == "" ? null : c.Error, checkedAt = c.CheckedAt,
+    }),
+    upnp = security.Upnp,
+    gatewayMacs = scanner.GatewayMacSnapshot(),
 };
 
 // Holiday Spirit, effective: a value saved from Settings wins over appsettings.json.
