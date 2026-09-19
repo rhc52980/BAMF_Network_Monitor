@@ -1,0 +1,27 @@
+# BAMF with Docker Compose. Copy this next to your own appsettings.json, or
+# set everything with environment variables as below, then:
+#
+#   docker compose up -d
+#
+# Host networking is required: ARP only sees the network the process is on,
+# and a bridged container is on Docker's, not yours.
+services:
+  bamf:
+    image: ghcr.io/rhc52980/bamf:latest
+    container_name: bamf
+    network_mode: host
+    cap_add:
+      - NET_RAW      # active ARP scan and the traffic monitor
+      - NET_ADMIN
+    restart: unless-stopped
+    volumes:
+      - bamf-data:/data
+      # - ./appsettings.json:/app/appsettings.json:ro
+    environment:
+      - Bamf__Subnets__0=192.168.1.0/24
+      # - Bamf__Subnets__1=192.168.2.0/24
+      # - Bamf__ScanIntervalSeconds=60
+      # - Bamf__Password=change-me
+      # - Bamf__WebhookUrl=https://discord.com/api/webhooks/...
+volumes:
+  bamf-data:
