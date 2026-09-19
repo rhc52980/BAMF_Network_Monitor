@@ -73,7 +73,12 @@ public partial class HostStore
             string? subnet = host.Ip == ip ? host.Subnet : null;
             using (var find = conn.CreateCommand())
             {
-                find.CommandText = "SELECT subnet FROM host_addresses WHERE host_id = $h AND ip = $ip";
+                // Its own, or one of a network card combined into it.
+                find.CommandText = """
+                    SELECT subnet FROM host_addresses WHERE ip = $ip
+                      AND (host_id = $h OR host_id IN (SELECT host_id FROM host_interfaces WHERE parent_id = $h))
+                    ORDER BY host_id = $h DESC LIMIT 1
+                    """;
                 find.Parameters.AddWithValue("$h", hostId);
                 find.Parameters.AddWithValue("$ip", ip);
                 if (find.ExecuteScalar() is string s && s.Length > 0) subnet ??= s;

@@ -493,6 +493,7 @@ public partial class HostStore
             UPDATE switches SET host_id = 0 WHERE host_id = $id;
             UPDATE switches SET runs_on = 0 WHERE runs_on = $id AND kind = 'virtual';
             DELETE FROM gateways WHERE host_id = $id;
+            DELETE FROM host_interfaces WHERE host_id = $id OR parent_id = $id;
             """;
         cmd.Parameters.AddWithValue("$id", hostId);
         cmd.ExecuteNonQuery();

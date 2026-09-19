@@ -144,6 +144,7 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
     var placements = store.GetPlacements();
     var deviceTypes = store.GetDeviceTypes();
     var addresses = store.GetAddresses();
+    var interfaces = store.GetInterfaces();
     var hosts = store.GetAll().Select(h => new
     {
         id = h.Id,
@@ -171,6 +172,8 @@ app.MapGet("/api/hosts", (HostStore store, ScannerService scanner, UpdateChecker
         switchPort = placements.TryGetValue(h.Id, out var pp) ? pp.Port : 0,
         // The type the user set, overriding the guess for its icon and type chip; "" = BAMF's guess.
         deviceType = deviceTypes.TryGetValue(h.Id, out var dt) ? dt : "",
+        // Another network card of this device, combined into it; 0 = its own device.
+        interfaceOf = interfaces.TryGetValue(h.Id, out var io) ? io : 0,
         // Every address the device answers on, the main one (ip) first. More
         // than one current entry means it's on several at once, like a router
         // with an address on each network. Old ones stay listed until they age out.
@@ -928,6 +931,14 @@ app.MapPost("/api/hosts/{id:long}/gateway", (long id, GatewayRequest body, HostS
     return Results.Ok();
 });
 
+// Combines a device into another as one of its network cards; parentId 0
+// separates it again.
+app.MapPost("/api/hosts/{id:long}/combine", (long id, CombineRequest body, HostStore store) =>
+{
+    var error = store.SetInterfaceOf(id, body.ParentId);
+    return error is null ? Results.Ok() : Results.BadRequest(new { error });
+});
+
 // Switch 0 clears the placement; port 0 means "on this switch, port not recorded".
 app.MapPost("/api/hosts/{id:long}/plug", (long id, PlugRequest body, HostStore store) =>
 {
@@ -1010,6 +1021,7 @@ record NoteRequest(string? Note);
 record LinkRequest(string? Link);
 record PlugRequest(long SwitchId, int Port);
 record GatewayRequest(string? Ip, bool Enabled);
+record CombineRequest(long ParentId);
 record PortEntry(long HostId, int Port);
 record BlinkRequest(int? Seconds);
 record DeviceTypeRequest(string? Type);
