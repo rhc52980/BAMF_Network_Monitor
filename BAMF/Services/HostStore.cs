@@ -164,6 +164,7 @@ public partial class HostStore
         InitSecurity(conn);
         InitHelpers(conn);
         InitIpv6(conn);
+        InitFloors(conn);
     }
 
     /// <summary>Every address a host has been seen at, oldest first, with when each began.</summary>

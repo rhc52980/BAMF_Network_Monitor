@@ -730,7 +730,7 @@ network.
 ## Linking to a tab
 
 Each dashboard tab has its own address: `/#settings`, `/#activity`,
-`/#home`, `/#forgotten`. The Devices view is the bare URL. Bookmark or pin
+`/#home`, `/#forgotten`, `/#floor`. The Devices view is the bare URL. Bookmark or pin
 one and it opens straight to that tab; Back and Forward move between tabs
 you've visited. Handy for a phone home-screen shortcut that goes straight to
 **Who's home**, or a pinned Settings page.
@@ -1140,6 +1140,13 @@ scan, or delete a thing.
 | POST | `/api/hosts/{id}/blink` | Body `{"seconds": 30}` (optional, 5–60) — "Find port": send the device bursts of UDP traffic, one second on and one second off, so its switch-port light pulses. Private addresses only; replaces any blink already running. Returns `until` |
 | POST | `/api/map/positions` | Body `{"subnet": "192.168.1.0/24", "positions": {"s:1": [120, 140], "h:7": null}}` — save where nodes sit on the topology Map for one network. Keys are `h:<host id>`, `s:<switch id>`, `gw`, `self`, `net` and `box`. A null position forgets that node, so it goes back to the automatic layout. `GET /api/hosts` returns them all as `mapPositions` |
 | DELETE | `/api/map/positions?subnet=…` | "Auto-arrange": forget every saved position on one network |
+| GET | `/api/floors` | `{"floors": [{"id", "name", "width", "height", "updated"}], "places": [{"hostId", "floorId", "x", "y"}]}`. `x` and `y` are shares of the image, 0 to 1 |
+| GET | `/api/floors/{id}/image` | That floor's image |
+| POST | `/api/floors?name=…&width=…&height=…` | Body: the image itself (PNG, JPEG or WebP, up to 12 MB), with its size in pixels in the query. Adds a floor and returns `{"id"}`, or 400 with `{"error": "…"}` |
+| POST | `/api/floors/{id}?name=…` | Renames a floor. With an image as the body (and `width` and `height`), replaces its image; the pins stay where they were |
+| DELETE | `/api/floors/{id}` | Deletes a floor and takes its devices off it |
+| POST | `/api/floors/{id}/places` | Body `{"hostId": 7, "x": 0.4, "y": 0.62}`: puts a device on that floor, or moves it there |
+| DELETE | `/api/floors/places/{hostId}` | Takes a device off its floor |
 | DELETE | `/api/blink` | Stop a running Find port blink. While one runs, `GET /api/hosts` reports it as `blink` (`hostId`, `started`, `until`) with the server's `serverTime`; bursts are on for [2k, 2k+1) seconds after `started` |
 | POST | `/api/hosts/{id}/type` | Body `{"type": "nas"}` — set a device's type, overriding the guess for its icon and type chip. Types: `router`, `switch`, `ap`, `camera`, `printer`, `tv`, `speaker`, `phone`, `tablet`, `laptop`, `desktop`, `server`, `nas`, `vm`, `game`, `iot`, `light`, `plug`, `device`. Empty goes back to the guess. `GET /api/hosts` returns it as `deviceType` |
 | POST | `/api/settings/type-icons` | Body `{"icons": {"Linux": "server"}}` — the icon for every device of a guessed type; an empty icon clears it. Returned in `GET /api/hosts` as `typeIcons` |
@@ -1586,6 +1593,34 @@ with any switch, including unmanaged ones and budget "smart" switches such as
 TP-Link's Easy Smart line, which can't report which device is on which port.
 Only switches with SNMP or a visible MAC address table can, and BAMF doesn't
 ask them.
+
+## Floor plan
+
+The **Floor plan** tab puts your devices on a picture of your home, so
+"the camera is offline" becomes a pin by the back door. Add a floor with
+**+ Add a floor** and pick a PNG, JPEG or WebP image: a photo of a sketch, an
+estate agent's plan, or a screenshot from a floor planning app. Each floor is
+a tab of its own.
+
+**Place devices** opens the editor:
+
+- Pick a device from the list on the right, then click where it goes on the
+  plan. **Esc** cancels.
+- Drag a pin to move it.
+- Click a pin, then its **✕**, to take it off the plan.
+- **Rename floor**, **Replace image** and **Delete floor** are there too. A new
+  image keeps the pins where they were, so redraw it to the same framing.
+
+A device is on one floor at a time. Its spot is stored as a share of the
+image's width and height, so pins stay put at any screen size. Outside the
+editor each pin is green, amber or grey for online, unknown and offline.
+**Show** narrows the plan to offline devices, and clicking a pin opens that
+device in Devices.
+
+The images are stored in BAMF's database. Backups include them, but the
+layout export (Settings → Switches and routers) doesn't. SVG isn't accepted,
+since an SVG can carry script, and images are capped at 12 MB. With the
+view-only password, the floor plan is visible but can't be changed.
 
 ## Setting a device's type and icon
 
