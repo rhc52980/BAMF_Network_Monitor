@@ -779,6 +779,17 @@
   .traf-week { display: flex; align-items: flex-end; gap: 1px; height: 44px; width: 100%; max-width: 640px; margin: 4px 0 8px; }
   .traf-week i { flex: 1; background: var(--led-on); opacity: .65; min-height: 1px; }
   .traf-week i.day { border-left: 1px solid var(--line); }
+  .tl { display: flex; flex-direction: column; gap: 3px; margin: 4px 0 10px; max-height: 260px; overflow-y: auto; }
+  .tl-item { display: grid; grid-template-columns: 118px 14px 1fr; gap: 8px; align-items: baseline; font-size: 12.5px; }
+  .tl-item .when { color: var(--text-dim); font-family: "IBM Plex Mono", monospace; font-size: 11px; white-space: nowrap; }
+  .tl-item .ico { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); display: inline-block; }
+  .tl-item.online .ico { background: var(--led-on); } .tl-item.offline .ico { background: var(--led-off); }
+  .tl-item.address .ico { background: var(--focus); } .tl-item.port .ico { background: var(--led-warn); border-radius: 2px; }
+  .tl-item.portclosed .ico { background: var(--led-off); border-radius: 2px; } .tl-item.alert .ico { background: var(--danger); }
+  .tl-item.first .ico { background: var(--text); }
+  tr.is-remote td { opacity: .9; }
+  .remote-chip { display: inline-block; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+  .nettab .remote-tag { margin-left: 6px; font-size: 10px; color: var(--text-dim); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; }
   .settings-wrap { padding: 8px 24px 32px; max-width: 820px; }
   .set-card {
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
@@ -2985,6 +2996,7 @@ let trafficStatus = {};     // { enabled, available, running, interfaces, error,
 let trafficCache = null;    // the last /api/traffic answer, for the Activity cards
 let alertsCache = null;     // the last /api/alerts answer
 let rulesData = null;       // { rules, quiet, portWatch } from /api/settings
+let remoteStatus = [];      // other BAMF servers: [{ name, url, ok, error, hosts, ... }]
 const fmtBytes = n => n == null ? "—" : n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + " kB" : n < 1073741824 ? (n / 1048576).toFixed(1) + " MB" : (n / 1073741824).toFixed(2) + " GB";
 const fmtRate = n => n == null ? "—" : n < 1024 ? Math.round(n) + " B/s" : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + " kB/s" : (n / 1048576).toFixed(1) + " MB/s";
 const NEW_DAYS = 7;       // the New tab: devices first seen this recently
@@ -3027,6 +3039,7 @@ let eventsCache = {};        // hostId -> events array
 let ipsCache = {};           // hostId -> [{ip, from, to}] oldest first
 let latencyCache = {};       // hostId -> [{at, ms}] oldest first, last 24 h
 let portsCache = {};         // hostId -> [{port, service, firstSeen, lastSeen, open}]
+let timelineCache = {};      // hostId -> [{at, kind, text}] newest first
 let weekCache = {};          // hostId -> [{hour, rx, tx}] over 7 days
 let feedCache = [];          // network-wide activity feed
 
@@ -3363,7 +3376,7 @@ async function deleteHostPermanent(host) {
 }
 
 function inNetwork(h) {
-  return network === "all" || onNet(h, network);
+  return network === "all" ? !h.remote : onNet(h, network);
 }
 
 // The addresses a device answers on now, main first. Usually one; a router
@@ -3636,6 +3649,8 @@ let netTabSig = null;
 function renderNetTabs() {
   // Networks = what the scanner reports, plus any subnet still present on stored hosts.
   const cidrKey = c => {
+    // A remote site's network ("Cabin · 10.0.0.0/24") sorts after the local ones.
+    if (c.includes(" \u00b7 ")) { const [site, cidr] = c.split(" \u00b7 "); return 1e15 + ([...site].reduce((a, ch) => a * 31 + ch.charCodeAt(0), 0) % 1e6) * 1e9 + (cidrKey(cidr) % 1e9); }
     const [ip, pfx] = c.split("/");
     const octets = ip.split(".").map(Number);
     // pack octets into a sortable number, then prefix as tiebreaker
@@ -3646,7 +3661,7 @@ function renderNetTabs() {
   if (network !== "all" && !all.includes(network)) network = "all";
 
   const counted = hosts.filter(h => !h.ignored && !h.forgotten);
-  const rows = [{ net: "all", label: "All networks", count: counted.length }];
+  const rows = [{ net: "all", label: "All networks", count: counted.filter(h => !h.remote).length }];
   for (const n of all)
     rows.push({ net: n, label: n, count: counted.filter(h => onNet(h, n)).length });
   for (const r of rows) r.kind = netTabKind(r.net);
@@ -3666,7 +3681,13 @@ function renderNetTabs() {
       const cnt = document.createElement("span");
       cnt.className = "cnt";
       b.append(nm, cnt);
-      if (r.kind === "paused" || r.kind === "noif") {
+      if (r.net.includes(" \u00b7 ")) {
+        const tag = document.createElement("span");
+        tag.className = "remote-tag";
+        const st = remoteStatus.find(x => r.net.startsWith(x.name + " \u00b7 "));
+        tag.textContent = st && !st.ok ? "remote · stale" : "remote";
+        b.appendChild(tag);
+      } else if (r.kind === "paused" || r.kind === "noif") {
         const tag = document.createElement("span");
         tag.className = r.kind === "paused" ? "paused-tag" : "noif-tag";
         tag.textContent = r.kind === "paused" ? "paused" : "no interface";
@@ -3757,14 +3778,16 @@ const MAP = {
 let mapSig = null;
 
 function mapClusters() {
-  const nets = network === "all"
-    ? [...new Set([...subnets, ...hosts.map(h => h.subnet).filter(Boolean)])]
+  // A remote site's network has no map here: its own BAMF draws it.
+  const nets = network.includes(" \u00b7 ") ? []
+    : network === "all"
+    ? [...new Set([...subnets, ...hosts.filter(h => !h.remote).map(h => h.subnet).filter(Boolean)])]
         .sort((a, b) => ipNum(a.split("/")[0]) - ipNum(b.split("/")[0]))
     : [network];
   return nets.map(subnet => {
     const place = networkPlaces[subnet] || {};
     // A device on several networks is drawn on each, at its address there.
-    const members = hosts.filter(h => onNet(h, subnet) && !h.ignored && !h.forgotten && tagOk(h)).map(h => onNetView(h, subnet));
+    const members = hosts.filter(h => !h.remote && onNet(h, subnet) && !h.ignored && !h.forgotten && tagOk(h)).map(h => onNetView(h, subnet));
     const selfMac = (place.selfMac || "").toUpperCase();
     let self = selfMac ? members.find(h => macsOf(h).some(m => (m || "").toUpperCase() === selfMac)) || null : null;
     // The gateway you declared, or the routing table's.
@@ -5480,7 +5503,9 @@ function render() {
       <td class="actions-cell"></td>`;
 
     const nameCell = tr.querySelector(".hostname");
+    if (h.remote) tr.classList.add("is-remote");
     nameCell.onclick = () => {
+      if (h.remote) { toast(`${esc(dispName(h))} is on ${esc(h.remote)}: open that BAMF to change it`); return; }
       if (nameCell.querySelector("input")) return;
       const input = document.createElement("input");
       input.className = "name-input";
@@ -5509,6 +5534,17 @@ function render() {
       input.onclick = e => e.stopPropagation();
     };
     const cell = tr.lastElementChild;
+    if (h.remote) {
+      const chip = document.createElement("span");
+      chip.className = "remote-chip";
+      chip.textContent = h.remote;
+      chip.title = "Seen by the BAMF at " + h.remote + " (read-only here)";
+      cell.appendChild(chip);
+      const sparkCellR = tr.querySelector(".spark-cell");
+      if (sparkCellR) sparkCellR.textContent = "";
+      tb.appendChild(tr);
+      return;
+    }
     cell.className = "actions";
 
     const star = document.createElement("button");
@@ -5658,6 +5694,12 @@ function render() {
           (h.uptime7 != null && h.uptime30 != null ? " · " : "") +
           (h.uptime30 != null ? `<b>${h.uptime30}%</b> over 30 days` : "") +
           (h.uptime30 != null && h.uptime30 < 100 ? ` <span title="Time offline over the last 30 days">(down ${(100 - h.uptime30).toFixed(1)}% of the month)</span>` : "") + `</div>`;
+      }
+      // The device's story, newest first: sessions, moves, ports and alerts in one list.
+      const tl = timelineCache[h.id] || [];
+      if (tl.length > 1) {
+        inner += `<div class="history-sub">Timeline</div><div class="tl">` + tl.slice(0, 60).map(t =>
+          `<div class="tl-item ${esc(t.kind.startsWith("alert") ? "alert" : t.kind)}"><span class="when">${esc(fmtExact(t.at))}</span><span class="ico"></span><span>${esc(t.text)}</span></div>`).join("") + `</div>`;
       }
       inner += buildLatencyChart(latencyCache[h.id] || []);
       if (h.traffic) {
@@ -5812,6 +5854,7 @@ async function openHistory(host) {
     try { ipsCache[host.id] = await loadIps(host.id); } catch { ipsCache[host.id] = []; }
     try { latencyCache[host.id] = await loadLatency(host.id); } catch { latencyCache[host.id] = []; }
     try { portsCache[host.id] = await (await fetch(`/api/hosts/${host.id}/ports`)).json(); } catch { portsCache[host.id] = []; }
+    try { timelineCache[host.id] = await (await fetch(`/api/hosts/${host.id}/timeline`)).json(); } catch { timelineCache[host.id] = []; }
     try { weekCache[host.id] = await (await fetch(`/api/hosts/${host.id}/traffic?days=7`)).json(); } catch { weekCache[host.id] = []; }
     render();
   }
@@ -7004,6 +7047,9 @@ async function refresh() {
     }
     knownMacs = new Set(raw.map(h => h.mac));
     const incoming = foldInterfaces(raw);
+    // Other sites' devices ride along, read-only, under networks named after the site.
+    for (const rh of (data.remotes || [])) { rh.remote = rh.remote || "remote"; rh.tags = rh.tags || []; rh.addresses = rh.addresses || []; incoming.push(rh); }
+    remoteStatus = data.remoteStatus || [];
 
     // For the Matrix glitch: devices that just went offline or moved address.
     const before = new Map(hosts.map(h => [h.id, h]));
@@ -11068,6 +11114,8 @@ async function loadSettings() {
     ["Database", ro.databasePath || "—"],
     ["OUI auto-download", ro.autoDownloadOui ? "on" : "off"],
     ["Update repo", ro.updateRepo || "—"],
+    ["Inbound webhooks", `POST /api/hooks/scan and /api/hooks/wake/{mac}` + (ro.hookToken ? " · token set (X-BAMF-Token)" : " · no token: as open as the dashboard")],
+    ["Remote servers", !(ro.remotes || []).length ? "none (Bamf:Remotes)" : ro.remotes.map(r => `${r.name}: ${r.ok ? `${r.hosts} devices, ${r.version || "?"}, fetched ${fmtAgo(r.fetchedUtc)}` : "unreachable" + (r.error ? " (" + r.error + ")" : "")}`).join(" · ")],
     ["MQTT", !ro.mqtt || !ro.mqtt.configured ? "off (set Bamf:Mqtt:Server to publish presence for Home Assistant)"
       : `${ro.mqtt.server} · ${ro.mqtt.connected ? "connected" : "not connected" + (ro.mqtt.error ? ": " + ro.mqtt.error : "")}` +
         ` · ${Number(ro.mqtt.published || 0).toLocaleString()} published` + (ro.mqtt.lastPublish ? `, last ${fmtAgo(ro.mqtt.lastPublish)}` : "") +
