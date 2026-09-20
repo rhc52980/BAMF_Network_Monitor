@@ -3,7 +3,7 @@ using System.Text;
 namespace LanWatch.Services;
 
 /// <summary>
-/// A summary of the network to the webhook, daily or weekly at an hour you
+/// A summary of the network to the webhook, daily, weekly or monthly at an hour you
 /// pick: how many devices and how many are up, what's new, what went away,
 /// the flakiest device, the longest offline, the least reliable, any watch
 /// alerts, and the top talkers. The schedule lives in the settings table so
@@ -20,7 +20,7 @@ public sealed class ReportService : BackgroundService
         _store = store; _scanner = scanner; _log = log;
     }
 
-    public string Schedule => _store.GetSetting("reportSchedule") is "daily" or "weekly" ? _store.GetSetting("reportSchedule")! : "off";
+    public string Schedule => _store.GetSetting("reportSchedule") is "daily" or "weekly" or "monthly" ? _store.GetSetting("reportSchedule")! : "off";
     public int Hour => int.TryParse(_store.GetSetting("reportHour"), out var h) ? Math.Clamp(h, 0, 23) : 8;
     public int Day => int.TryParse(_store.GetSetting("reportDay"), out var d) ? Math.Clamp(d, 0, 6) : 1;   // Monday
     public DateTime? LastSent => DateTime.TryParse(_store.GetSetting("reportLastSent"), null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var t) ? t : null;
@@ -32,11 +32,12 @@ public sealed class ReportService : BackgroundService
         if (schedule == "off") return null;
         var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.Local);
         var at = new DateTime(local.Year, local.Month, local.Day, Hour, 0, 0, DateTimeKind.Unspecified);
-        for (var i = 0; i < 8; i++)
+        for (var i = 0; i < 40; i++)
         {
             var candidate = at.AddDays(i);
             if (candidate <= local) continue;
             if (schedule == "weekly" && (int)candidate.DayOfWeek != Day) continue;
+            if (schedule == "monthly" && candidate.Day != 1) continue;
             return TimeZoneInfo.ConvertTimeToUtc(candidate, TimeZoneInfo.Local);
         }
         return null;
@@ -52,8 +53,11 @@ public sealed class ReportService : BackgroundService
                 if (schedule != "off")
                 {
                     var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.Local);
-                    var due = local.Hour == Hour && (schedule == "daily" || (int)local.DayOfWeek == Day);
-                    var recent = LastSent is { } last && (DateTime.UtcNow - last) < (schedule == "daily" ? TimeSpan.FromHours(20) : TimeSpan.FromDays(6));
+                    var due = local.Hour == Hour && (schedule == "daily"
+                        || (schedule == "weekly" && (int)local.DayOfWeek == Day)
+                        || (schedule == "monthly" && local.Day == 1));
+                    var recent = LastSent is { } last && (DateTime.UtcNow - last) <
+                        (schedule == "daily" ? TimeSpan.FromHours(20) : schedule == "weekly" ? TimeSpan.FromDays(6) : TimeSpan.FromDays(27));
                     if (due && !recent)
                     {
                         var ok = await SendAsync(schedule, ct);
@@ -67,10 +71,18 @@ public sealed class ReportService : BackgroundService
         }
     }
 
+    /// <summary>How far back each schedule looks.</summary>
+    public static TimeSpan PeriodFor(string schedule) => schedule switch
+    {
+        "monthly" => TimeSpan.FromDays(30),
+        "weekly" => TimeSpan.FromDays(7),
+        _ => TimeSpan.FromDays(1),
+    };
+
     /// <summary>Composes and sends the report for a period; records when, if it went.</summary>
     public async Task<bool> SendAsync(string schedule, CancellationToken ct)
     {
-        var (title, text, fields) = Compose(schedule == "weekly" ? TimeSpan.FromDays(7) : TimeSpan.FromDays(1));
+        var (title, text, fields) = Compose(PeriodFor(schedule));
         var ok = await _scanner.SendReport(title, text, fields, ct);
         if (ok) _store.SetSetting("reportLastSent", DateTime.UtcNow.ToString("o"));
         return ok;
@@ -81,7 +93,7 @@ public sealed class ReportService : BackgroundService
     {
         var now = DateTime.UtcNow;
         var since = now - period;
-        var periodName = period.TotalDays >= 6 ? "the last 7 days" : "the last 24 hours";
+        var periodName = period.TotalDays >= 28 ? "the last 30 days" : period.TotalDays >= 6 ? "the last 7 days" : "the last 24 hours";
         var all = _store.GetAll().Where(h => !h.Forgotten && !h.Ignored).ToList();
         string Name(HostRecord h) => h.CustomName != "" ? h.CustomName : h.Hostname != "" ? h.Hostname : h.Ip;
         DateTime When(string iso) => DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var t) ? t : DateTime.MinValue;
@@ -127,6 +139,25 @@ public sealed class ReportService : BackgroundService
             var t = string.Join("; ", security.Take(5).Select(a => a.Title));
             sb.AppendLine($"Security: {t}");
             fields.Add(($"Security and certificates ({security.Count})", t));
+        }
+
+        // Over a month, how the line out of the house did - if it was watched.
+        if (period.TotalDays >= 28)
+        {
+            var outages = _store.GetWanOutageLog(200)
+                .Where(o => DateTime.TryParse(o.Start, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var st) && st >= since)
+                .ToList();
+            if (outages.Count > 0)
+            {
+                var mins = outages.Sum(o => o.Minutes);
+                var worst = outages.OrderByDescending(o => o.Minutes).First();
+                var local = outages.Count(o => o.Local);
+                var t = $"{outages.Count} outage{(outages.Count == 1 ? "" : "s")}, {mins} minute{(mins == 1 ? "" : "s")} in total; " +
+                    $"the longest {worst.Minutes} minute{(worst.Minutes == 1 ? "" : "s")}" +
+                    (local > 0 ? $"; {local} with your router down too" : "");
+                sb.AppendLine($"Internet: {t}");
+                fields.Add(("Internet", t));
+            }
         }
 
         var flaps = _store.OfflineCounts(since);

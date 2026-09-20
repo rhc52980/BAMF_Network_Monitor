@@ -736,11 +736,11 @@ app.MapPost("/api/layout", (System.Text.Json.JsonElement body, HostStore store) 
     return r.Error is null ? Results.Json(new { r.Devices, r.Switches, r.Skipped }) : Results.BadRequest(new { error = r.Error });
 });
 
-// Scheduled reports: off, daily or weekly at an hour of the server's local day.
+// Scheduled reports: off, daily, weekly or monthly at an hour of the server's local day.
 app.MapPost("/api/settings/report", (ReportRequest body, HostStore store, ReportService reports) =>
 {
     var schedule = (body.Schedule ?? "off").ToLowerInvariant();
-    if (schedule is not ("off" or "daily" or "weekly")) return Results.BadRequest(new { error = "Schedule is off, daily or weekly." });
+    if (schedule is not ("off" or "daily" or "weekly" or "monthly")) return Results.BadRequest(new { error = "Schedule is off, daily, weekly or monthly." });
     store.SetSetting("reportSchedule", schedule);
     store.SetSetting("reportHour", Math.Clamp(body.Hour ?? 8, 0, 23).ToString());
     store.SetSetting("reportDay", Math.Clamp(body.Day ?? 1, 0, 6).ToString());
@@ -750,15 +750,15 @@ app.MapPost("/api/settings/report", (ReportRequest body, HostStore store, Report
 app.MapPost("/api/reports/send", async (ReportService reports, ScannerService scanner, CancellationToken ct) =>
 {
     if (string.IsNullOrWhiteSpace(scanner.WebhookUrl)) return Results.BadRequest(new { error = "No webhook saved. Add one above first." });
-    var schedule = reports.Schedule == "weekly" ? "weekly" : "daily";
-    var (title, text, _) = reports.Compose(schedule == "weekly" ? TimeSpan.FromDays(7) : TimeSpan.FromDays(1));
+    var schedule = reports.Schedule is "weekly" or "monthly" ? reports.Schedule : "daily";
+    var (title, text, _) = reports.Compose(ReportService.PeriodFor(schedule));
     var ok = await reports.SendAsync(schedule, ct);
     return ok ? Results.Json(new { ok = true, title, text }) : Results.Json(new { ok = false, error = "The webhook endpoint didn't accept it.", title, text });
 });
 // The report as it would be sent, for a look before turning it on.
 app.MapGet("/api/reports/preview", (ReportService reports) =>
 {
-    var (title, text, _) = reports.Compose(reports.Schedule == "weekly" ? TimeSpan.FromDays(7) : TimeSpan.FromDays(1));
+    var (title, text, _) = reports.Compose(ReportService.PeriodFor(reports.Schedule));
     return Results.Json(new { title, text });
 });
 
