@@ -152,7 +152,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:LatencyProbe` | After each scan, ping every online device on the networks it covered and keep the round-trip time (default true). Also in Settings → Behaviour, which wins once changed there. See [Latency and uptime](#latency-and-uptime). |
 | `Bamf:WanWatch` | `true` watches the internet connection: a ping a minute to your router and to `Bamf:WanTarget` (default false). Also in Settings → Behaviour, which wins once changed there. See [Internet watch](#internet-watch). |
 | `Bamf:WanTarget` | Which address the internet watch pings (default `8.8.8.8`). |
-| `Bamf:WanIntervalSeconds` | How often it pings, 20 to 3600 (default 60). |
+| `Bamf:WanIntervalSeconds` | How often it pings, 20 to 3600 (default 60). Also in Settings → Behaviour, which wins once changed there. |
 | `Bamf:HolidaySpirit` | `true` puts every dashboard in a season's theme by date: Halloween through October, Thanksgiving for the week of the holiday, Christmas from December 1st to 25th, and New Year to January 2nd (default false). Also in Settings → Behaviour, which wins once changed there. See [Holiday Spirit](#holiday-spirit). |
 | `Bamf:WebhookUrl` | Optional starting value for the notification webhook — the dashboard's **Tools → Notifications** saves over it. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use the dashboard's Test webhook button to verify. |
 | `Bamf:Password` | Optional. If set, the UI/API require it via HTTP Basic auth (any username). Over plain HTTP the credential is only base64-encoded — see [What BAMF talks to](#what-bamf-talks-to). |
@@ -1213,6 +1213,7 @@ scan, or delete a thing.
 | GET | `/api/wan` | The internet watch: `{"state", "samples", "outages"}` — the last reading, a day of one-a-minute readings, and the outages of the last month |
 | POST | `/api/settings/wanwatch` | Body `{"enabled": true}` — switch the internet watch on or off |
 | POST | `/api/settings/wantarget` | Body `{"target": "8.8.8.8"}` — which address it pings |
+| POST | `/api/settings/waninterval` | Body `{"seconds": 60}` — how often it pings, 20 to 3600 |
 | GET | `/api/floors` | `{"floors": [{"id", "name", "width", "height", "updated"}], "places": [{"hostId", "floorId", "x", "y"}]}`. `x` and `y` are shares of the image, 0 to 1 |
 | GET | `/api/floors/{id}/image` | That floor's image |
 | POST | `/api/floors?name=…&width=…&height=…` | Body: the image itself (PNG, JPEG or WebP, up to 12 MB), with its size in pixels in the query. Adds a floor and returns `{"id"}`, or 400 with `{"error": "…"}` |
@@ -2069,15 +2070,26 @@ update check and the GreyNoise check, that's everything BAMF sends outside.
 What you get for it:
 
 - **An alert when the line goes down**, after three missed pings in a row, and
-  another when it comes back saying how long it was out.
+  another when it comes back saying how long it was out and between which
+  times. Both sit in the Alerts card on Activity with their timestamps.
 - **Which side of the wall the problem is on.** If your router answered while
   the outside address didn't, it's your provider, the modem or the cable to it.
   If your router went quiet too, it's something in here.
 - **An Internet card on Activity**: what it is now, a bar per few minutes over
-  the last day, and the outages of the last month with how long each lasted.
-  Amber means your router was down too. Grey means BAMF wasn't watching.
+  the last day, and the outage log underneath — when each one started, when it
+  ended and how long it lasted. Amber means your router was down too; grey on
+  the bar means BAMF wasn't watching. An outage in progress is listed first,
+  as "still down". **All N outages** opens the full list.
 
-The readings are kept with everything else, pruned to your history retention.
+**How often** it checks is **Settings → Behaviour → Check the internet every**,
+from 20 seconds to an hour, a minute by default (`Bamf:WanIntervalSeconds`
+sets the same thing). An outage is called after three misses in a row, so the
+setting decides how quickly you hear: about three minutes at a minute apart,
+about one at twenty seconds.
+
+The minute-by-minute readings are pruned with your history retention, but
+**each outage is written down when it ends and kept**, so the history of what
+your connection has done doesn't disappear with them.
 
 ### Certificate watch
 

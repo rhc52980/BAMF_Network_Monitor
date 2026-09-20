@@ -23,6 +23,7 @@ public sealed class WanWatch : BackgroundService
     private readonly IConfiguration _cfg;
     private readonly ILogger<WanWatch> _log;
     private bool _wasDown;
+    private bool _downLocal;
     private DateTime _downSince;
     private int _misses;
     private DateTime _lastPrune = DateTime.MinValue;
@@ -35,6 +36,17 @@ public sealed class WanWatch : BackgroundService
     /// <summary>Saved in Settings wins; otherwise appsettings.json, which is off by default.</summary>
     public bool Enabled => _store.GetSetting("wanWatch") is { } s ? s == "true" : _cfg.GetValue("Bamf:WanWatch", false);
 
+    /// <summary>How often it pings, from Settings, else appsettings.json.</summary>
+    public int IntervalSeconds
+    {
+        get
+        {
+            var saved = _store.GetSetting("wanInterval");
+            var v = int.TryParse(saved, out var s) ? s : _cfg.GetValue("Bamf:WanIntervalSeconds", 60);
+            return Math.Clamp(v, 20, 3600);
+        }
+    }
+
     public string Target
     {
         get
@@ -45,6 +57,9 @@ public sealed class WanWatch : BackgroundService
     }
 
     /// <summary>The last reading, for the card on Activity.</summary>
+    /// <summary>The outage in progress, if there is one.</summary>
+    public (DateTime Since, bool Local)? Current => _wasDown ? (_downSince, _downLocal) : null;
+
     public State Now()
     {
         var last = _store.GetWanSamples(6).LastOrDefault();
@@ -60,7 +75,7 @@ public sealed class WanWatch : BackgroundService
         await Task.Delay(TimeSpan.FromSeconds(45), ct).ContinueWith(_ => { }, ct);
         while (!ct.IsCancellationRequested)
         {
-            var every = Math.Clamp(_cfg.GetValue("Bamf:WanIntervalSeconds", 60), 20, 3600);
+            var every = IntervalSeconds;
             try { if (Enabled) await Tick(ct); }
             catch (OperationCanceledException) { break; }
             catch (Exception ex) { _log.LogDebug(ex, "Internet watch tick failed"); }
@@ -85,7 +100,9 @@ public sealed class WanWatch : BackgroundService
             if (_misses == 3 && !_wasDown)
             {
                 _wasDown = true;
-                _downSince = DateTime.UtcNow.AddMinutes(-2);
+                // It's been down since the first miss, two intervals ago.
+                _downSince = DateTime.UtcNow.AddSeconds(-2 * IntervalSeconds);
+                _downLocal = gwMs < 0;
                 var where = gwMs >= 0
                     ? "Your router answered, so the line out of the house is the part that's down: your provider, the modem, or the cable to it."
                     : "Your router didn't answer either, so whatever's wrong is in here rather than out there.";
@@ -97,9 +114,15 @@ public sealed class WanWatch : BackgroundService
         {
             if (_wasDown)
             {
-                var mins = Math.Max(1, (int)Math.Round((DateTime.UtcNow - _downSince).TotalMinutes));
+                // Written down before it's announced, so the history is there
+                // even if the alert goes nowhere.
+                var ended = DateTime.UtcNow;
+                _store.AddWanOutage(_downSince, ended, _downLocal);
+                var mins = Math.Max(1, (int)Math.Round((ended - _downSince).TotalMinutes));
+                var local = _downLocal ? " Your router was down too, so it was something in here." : "";
                 await _scanner.RaiseSecurity("The internet is back",
-                    $"{Target} is answering again, after about {mins} minute{(mins == 1 ? "" : "s")}.", ct);
+                    $"{Target} is answering again. It was down about {mins} minute{(mins == 1 ? "" : "s")}, " +
+                    $"from {_downSince.ToLocalTime():HH:mm} to {ended.ToLocalTime():HH:mm}.{local}", ct);
             }
             _wasDown = false;
             _misses = 0;
