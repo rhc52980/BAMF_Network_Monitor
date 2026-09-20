@@ -109,9 +109,24 @@ fi
 cp "$SRC_DIR/linux/install.sh" "$APP_DIR/install.sh"
 chmod +x "$APP_DIR/install.sh"
 
+# --- install the dashboard ---
+# dotnet publish copies a file only when the source is newer, and an archive
+# carries the times its files had when it was made - which can land behind the
+# copies already installed. That left the dashboard on the old version while
+# the program updated, with nothing to show it: the version in the header comes
+# from the program. So copy it over every time, and check afterwards. Anything
+# you dropped into wwwroot yourself, like a theme, is left alone.
+if [ -d "$SRC_DIR/wwwroot" ]; then
+    cp -r "$SRC_DIR/wwwroot/." "$APP_DIR/wwwroot/"
+fi
+
 # --- prove the build produced what we expect ---
 [ -x "$APP_DIR/BAMF" ] || { echo "Build finished but $APP_DIR/BAMF is missing - nothing was installed."; exit 1; }
 [ -f "$APP_DIR/wwwroot/index.html" ] || { echo "Build finished but $APP_DIR/wwwroot is missing - the dashboard would not load."; exit 1; }
+if [ -f "$SRC_DIR/wwwroot/index.html" ] &&    [ "$(wc -c < "$SRC_DIR/wwwroot/index.html")" != "$(wc -c < "$APP_DIR/wwwroot/index.html")" ]; then
+    echo "The dashboard in $APP_DIR/wwwroot does not match this package - the update would look like it worked while serving the old dashboard."
+    exit 1
+fi
 
 # --- service ---
 step "Installing systemd unit"

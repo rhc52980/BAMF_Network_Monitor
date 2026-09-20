@@ -326,6 +326,24 @@ try {
     if (-not (Test-Path (Join-Path $AppDir "wwwroot\index.html"))) {
         throw "Build finished but $AppDir\wwwroot is missing - the dashboard would not load."
     }
+    # dotnet publish copies a file only when the source is newer, and a zip
+    # carries the times its files had when it was made - which can land behind
+    # the copies already installed, an hour behind with the summer-time shift.
+    # That left the dashboard on the old version while the program updated, and
+    # nothing showed it: the version in the header comes from the program. So
+    # the dashboard is copied over every time, and checked afterwards. Anything
+    # you dropped into wwwroot yourself, like a theme, is left alone.
+    $srcWeb = Join-Path $srcDir "wwwroot"
+    $appWeb = Join-Path $AppDir "wwwroot"
+    if (Test-Path $srcWeb) {
+        Step "Installing the dashboard"
+        Copy-Item (Join-Path $srcWeb "*") $appWeb -Recurse -Force
+        $srcPage = Join-Path $srcWeb "index.html"
+        $newPage = Join-Path $appWeb "index.html"
+        if ((Get-Item $srcPage).Length -ne (Get-Item $newPage).Length) {
+            throw "The dashboard in $appWeb does not match this package - the update would look like it worked while serving the old dashboard."
+        }
+    }
 
     # --- service ---
     $svc = Get-Service -Name $Service -ErrorAction SilentlyContinue
