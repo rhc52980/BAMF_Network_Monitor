@@ -810,6 +810,19 @@ menus: a tap or a key press goes to the dashboard.
 - Same password as the dashboard, if one is set. Kiosk browsers on a Pi or a
   Fire tablet work; so does "Add to home screen" on a phone.
 
+**Show a floor plan instead of the squares** with `?floor=`:
+
+```
+http://<bamf>:8840/wall.html?floor=1            one floor, by its number
+http://<bamf>:8840/wall.html?floor=Ground%20floor   or by its name
+http://<bamf>:8840/wall.html?floor=all          every floor in turn, 20 seconds each
+```
+
+Each device is a dot where you put it, green for online, amber for online but
+unknown, dark for offline, with its name under it. Uploaded plans and ones
+drawn in BAMF both work. The clock, the counts and the events stay where they
+are, and `?net=` still narrows it to one network.
+
 ## Desktop shortcut (Windows)
 
 Run `windows\Install-DesktopIcon.bat` once. It puts a **BAMF** shortcut on your
@@ -1688,6 +1701,15 @@ or metres. Everything you draw is measured against it.
 
 **Save plan** keeps it. Afterwards **Edit drawing** opens it again, and the
 devices keep their spots. It works on a phone by touch.
+
+### Placing a roomful at once
+
+In the editor, devices that aren't on a floor yet are grouped by where you
+recorded them: the switch they're plugged into, or the SSID they're on.
+Things on one access point are usually in one part of the house, so each group
+has a **place all** button: press it, click where they go, and they land in a
+block you can then drag apart. Devices you haven't recorded anywhere are listed
+on their own, to be placed one at a time.
 
 **Place devices** opens the editor:
 

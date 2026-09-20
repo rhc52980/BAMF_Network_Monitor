@@ -1155,6 +1155,12 @@
   .floor-side .modal-input { width: 100%; min-width: 0; margin: 0; }
   .floor-list { max-height: 70vh; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
   .fl-sec { padding: 6px 10px 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-dim); }
+  /* A group of devices that share a switch or an SSID, with the button that
+     puts the lot of them on the plan at once. */
+  .fl-sec.grp { display: flex; align-items: baseline; gap: 8px; }
+  .fl-sec.grp button { margin-left: auto; background: none; border: 0; padding: 2px 4px; color: var(--focus); font: inherit; font-size: 11px; text-transform: none; letter-spacing: 0; cursor: pointer; }
+  .fl-sec.grp button:hover { text-decoration: underline; }
+  .fl-sec.grp.armed button { color: var(--led-warn); }
   .fl-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; border: 0; background: none; color: var(--text); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
   .fl-item:hover { background: var(--panel-2); }
   .fl-item.armed { background: var(--panel-2); box-shadow: inset 3px 0 0 var(--focus); }
@@ -4015,7 +4021,7 @@ function renderAlertsCard() {
 // with a swelling ring when offline, so the camera that dropped is easy to
 // find. Placing is click-to-place (pick a device, click the plan), which
 // works the same with a mouse and a finger; pins drag to move.
-let floorData = null, floorLoadedAt = 0, floorEditing = false, floorArmed = null, floorSel = null;
+let floorData = null, floorLoadedAt = 0, floorEditing = false, floorArmed = null, floorSel = null, floorArmedGroup = null;
 let floorId = null;
 try { floorId = Number(localStorage.getItem("bamf-floor")) || null; } catch { }
 function loadFloors(force) {
@@ -4122,7 +4128,7 @@ async function renderFloor() {
   }
   const stage = $("floorStage");
   stage.classList.toggle("editing", floorEditing);
-  stage.classList.toggle("arming", floorEditing && floorArmed !== null);
+  stage.classList.toggle("arming", floorEditing && (floorArmed !== null || floorArmedGroup !== null));
   // Pins.
   const offlineOnly = $("floorShow").value === "offline";
   const pins = $("floorPins");
@@ -4154,9 +4160,58 @@ function renderFloorList(d, floor) {
     return `<button type="button" class="fl-item${floorArmed === h.id ? " armed" : ""}" data-id="${h.id}"><span class="d${h.online ? " on" : ""}"></span>${esc(nameOrIp(h))}<small>${esc(where || h.ip)}</small></button>`;
   };
   const off = pool.filter(h => !placed.has(h.id)), elsewhere = pool.filter(h => placed.has(h.id));
-  $("floorList").innerHTML = (off.length ? `<div class="fl-sec">Not on a floor yet (${off.length})</div>` + off.map(item).join("") : "")
-    + (elsewhere.length ? `<div class="fl-sec">Already placed</div>` + elsewhere.map(item).join("") : "")
-    || `<div class="fl-sec">No devices match</div>`;
+  // Devices you've recorded on a switch or an SSID are grouped by it: things
+  // on one access point are usually in the same part of the house, so they can
+  // go down together instead of one at a time.
+  const groups = new Map();
+  for (const h of off) {
+    const sw = h.switchId ? switches.find(x => x.id === h.switchId) : null;
+    const key = sw ? "s" + sw.id : "";
+    if (!groups.has(key)) groups.set(key, { name: sw ? sw.name : "Not recorded anywhere", list: [] });
+    groups.get(key).list.push(h);
+  }
+  const ordered = [...groups.entries()].sort((a, b) => (a[0] === "" ? 1 : 0) - (b[0] === "" ? 1 : 0) || b[1].list.length - a[1].list.length);
+  let html = "";
+  if (off.length) {
+    html += `<div class="fl-sec">Not on a floor yet (${off.length})</div>`;
+    for (const [key, g] of ordered) {
+      const armed = floorArmedGroup === key;
+      html += key
+        ? `<div class="fl-sec grp${armed ? " armed" : ""}">${esc(g.name)} <button type="button" data-group="${esc(key)}" title="Put all ${g.list.length} on this floor at once">${armed ? "pick a spot\u2026" : "place all " + g.list.length}</button></div>`
+        : `<div class="fl-sec">${esc(g.name)}</div>`;
+      html += g.list.map(item).join("");
+    }
+  }
+  html += elsewhere.length ? `<div class="fl-sec">Already placed</div>` + elsewhere.map(item).join("") : "";
+  $("floorList").innerHTML = html || `<div class="fl-sec">No devices match</div>`;
+}
+// A tidy block of spots around where you clicked, for a whole group at once.
+function floorCluster(n, x, y) {
+  const cols = Math.ceil(Math.sqrt(n)), gap = .055;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const c = i % cols, r = Math.floor(i / cols);
+    out.push([
+      Math.min(.98, Math.max(.02, x + (c - (cols - 1) / 2) * gap)),
+      Math.min(.98, Math.max(.02, y + (r - (Math.ceil(n / cols) - 1) / 2) * gap)),
+    ]);
+  }
+  return out;
+}
+async function placeGroup(key, x, y) {
+  const placed = new Set(floorData.places.map(pl => pl.hostId));
+  const list = hosts.filter(h => !h.remote && !h.forgotten && !h.ignored && !placed.has(h.id)
+    && (key === "" ? !h.switchId : "s" + h.switchId === key));
+  if (!list.length) { toast("Nothing left to place there"); return; }
+  const spots = floorCluster(list.length, x, y);
+  for (let i = 0; i < list.length; i++) {
+    const r = await fetch(`/api/floors/${floorId}/places`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hostId: list[i].id, x: spots[i][0], y: spots[i][1] }) });
+    if (!r.ok) { toast("Couldn't place them all"); break; }
+    floorData.places.push({ hostId: list[i].id, floorId, x: spots[i][0], y: spots[i][1] });
+  }
+  renderFloor();
+  toast(`Placed ${list.length} device${list.length === 1 ? "" : "s"}: drag any of them where it belongs`);
 }
 async function placeOnFloor(hostId, x, y) {
   const r = await fetch(`/api/floors/${floorId}/places`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ hostId, x, y }) });
@@ -4219,6 +4274,13 @@ function floorPoint(e) {
       return;
     }
     // Click-to-place: a device picked in the list goes where the plan was clicked.
+    if (floorEditing && floorArmedGroup !== null) {
+      const [x, y] = floorPoint(e);
+      const key = floorArmedGroup;
+      floorArmedGroup = null;
+      placeGroup(key, x, y);
+      return;
+    }
     if (floorEditing && floorArmed !== null) {
       const [x, y] = floorPoint(e);
       const id = floorArmed;
@@ -4244,7 +4306,18 @@ document.getElementById("floorList").addEventListener("click", e => {
 });
 document.getElementById("floorFind").addEventListener("input", () => { if (floorData) renderFloorList(floorData, floorData.floors.find(f => f.id === floorId)); });
 document.getElementById("floorShow").onchange = () => renderFloor();
-document.getElementById("floorEdit").onclick = () => { floorEditing = !floorEditing; floorArmed = null; floorSel = null; renderFloor(); };
+document.getElementById("floorEdit").onclick = () => { floorEditing = !floorEditing; floorArmed = null; floorArmedGroup = null; floorSel = null; renderFloor(); };
+// "Place all" arms the group; the next click on the plan drops them in a block.
+document.getElementById("floorList").addEventListener("click", e => {
+  const b = e.target.closest("button[data-group]");
+  if (!b) return;
+  e.stopPropagation();
+  const key = b.dataset.group;
+  floorArmed = null;
+  floorArmedGroup = floorArmedGroup === key ? null : key;
+  if (floorArmedGroup !== null) toast("Now click where they go: they'll land in a block you can tidy up");
+  renderFloor();
+});
 // Adding a floor, or replacing a floor's image: the file picker, then its
 // size read in the browser, then the bytes as the request body.
 let floorPick = null;
@@ -14539,7 +14612,7 @@ document.addEventListener("keydown", e => {
     return;
   }
   if (!$("freeModal").hidden) { $("freeModal").hidden = true; return; }
-  if (floorArmed !== null) { floorArmed = null; renderFloor(); return; }
+  if (floorArmed !== null || floorArmedGroup !== null) { floorArmed = null; floorArmedGroup = null; renderFloor(); return; }
   if (!$("tagsModal").hidden) { closeTagsDialog(); return; }
   if (!$("cardsModal").hidden) { closeCardsDialog(); return; }
   if (!$("gwModal").hidden) { closeGatewayDialog(); return; }
