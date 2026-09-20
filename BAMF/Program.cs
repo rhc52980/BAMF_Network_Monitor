@@ -959,12 +959,27 @@ app.MapDelete("/api/floors/places/{hostId:long}", (long hostId, HostStore store)
 });
 
 // The internet watch: is the line out of the house up, and was it earlier?
-app.MapGet("/api/wan", (WanWatch wan, HostStore store) => Results.Json(new
+app.MapGet("/api/wan", (WanWatch wan, HostStore store) =>
 {
-    state = wan.Now(),
-    samples = store.GetWanSamples(24).Select(s => new { at = s.At, gateway = s.Gateway, internet = s.Internet }),
-    outages = store.GetWanOutages(24 * 30).Take(20).Select(o => new { start = o.Start, end = o.End, minutes = o.Minutes, local = o.Local }),
-}));
+    // The log is what's kept; an outage still running is added on top of it so
+    // the card can say "since 14:02" while it's happening.
+    var logged = store.GetWanOutageLog(50).Select(o => new { start = o.Start, end = o.End, minutes = o.Minutes, local = o.Local, running = false });
+    if (wan.Current is { } now)
+        logged = new[] { new { start = now.Since.ToString("o"), end = DateTime.UtcNow.ToString("o"),
+            minutes = Math.Max(1, (int)Math.Round((DateTime.UtcNow - now.Since).TotalMinutes)), local = now.Local, running = true } }.Concat(logged);
+    return Results.Json(new
+    {
+        state = wan.Now(),
+        samples = store.GetWanSamples(24).Select(s => new { at = s.At, gateway = s.Gateway, internet = s.Internet }),
+        outages = logged,
+    });
+});
+app.MapPost("/api/settings/waninterval", (WanIntervalRequest body, HostStore store, WanWatch wan) =>
+{
+    if (body.Seconds is < 20 or > 3600) return Results.BadRequest(new { error = "Between 20 seconds and an hour." });
+    store.SetSetting("wanInterval", body.Seconds.ToString());
+    return Results.Json(new { seconds = wan.IntervalSeconds });
+});
 app.MapPost("/api/settings/wanwatch", (ActiveArpRequest body, HostStore store, WanWatch wan) =>
 {
     store.SetSetting("wanWatch", body.Enabled ? "true" : "false");
@@ -1165,6 +1180,7 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             greynoise = store.GetSetting("greynoise") == "true",
             wanWatch = wan.Enabled,
             wanTarget = wan.Target,
+            wanInterval = wan.IntervalSeconds,
             trafficMonitor = scanner.TrafficMonitorEnabled,
             trafficStatus = TrafficJson(scanner),
             report = ReportJson(reports),
@@ -1750,6 +1766,7 @@ record ActiveArpRequest(bool Enabled);
 record RouterNamesApply(bool Overwrite);
 record FloorPlaceRequest(long HostId, double X, double Y);
 record WanTargetRequest(string? Target);
+record WanIntervalRequest(int Seconds);
 // A plan as it travels: walls, doors and windows as two points each, labels as
 // a point and a word, plus the grid that gives them their real-world size.
 record PlanItem(string? K, double[]? A, double[]? B, double[]? P, string? T);

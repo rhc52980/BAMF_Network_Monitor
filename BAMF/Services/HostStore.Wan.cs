@@ -22,6 +22,12 @@ public partial class HostStore
                 gateway  INTEGER NOT NULL,
                 internet INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS wan_outages (
+                start   TEXT PRIMARY KEY,
+                ended   TEXT NOT NULL,
+                minutes INTEGER NOT NULL,
+                local   INTEGER NOT NULL
+            );
             """;
         cmd.ExecuteNonQuery();
     }
@@ -37,6 +43,42 @@ public partial class HostStore
             cmd.Parameters.AddWithValue("$g", gatewayMs);
             cmd.Parameters.AddWithValue("$i", internetMs);
             cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>
+    /// Writes an outage down when it ends. The minute-by-minute readings are
+    /// pruned with everything else, so without this the history of outages
+    /// would quietly disappear after a few weeks; this row stays.
+    /// </summary>
+    public void AddWanOutage(DateTime start, DateTime ended, bool local)
+    {
+        lock (_lock)
+        {
+            using var conn = Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "INSERT OR REPLACE INTO wan_outages (start, ended, minutes, local) VALUES ($s, $e, $m, $l)";
+            cmd.Parameters.AddWithValue("$s", start.ToString("o"));
+            cmd.Parameters.AddWithValue("$e", ended.ToString("o"));
+            cmd.Parameters.AddWithValue("$m", Math.Max(1, (int)Math.Round((ended - start).TotalMinutes)));
+            cmd.Parameters.AddWithValue("$l", local ? 1 : 0);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Outages as they were written down, newest first.</summary>
+    public List<WanOutage> GetWanOutageLog(int limit = 50)
+    {
+        lock (_lock)
+        {
+            using var conn = Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT start, ended, minutes, local FROM wan_outages ORDER BY start DESC LIMIT $n";
+            cmd.Parameters.AddWithValue("$n", Math.Clamp(limit, 1, 500));
+            var list = new List<WanOutage>();
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) list.Add(new WanOutage(r.GetString(0), r.GetString(1), r.GetInt32(2), r.GetInt32(3) != 0));
+            return list;
         }
     }
 

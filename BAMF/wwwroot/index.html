@@ -1248,6 +1248,7 @@
   .wan-outage { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; padding: 3px 0; border-top: 1px solid var(--line); }
   .wan-outage .dur { color: var(--danger); font-family: "IBM Plex Mono", monospace; }
   .wan-outage.local .dur { color: var(--led-warn); }
+  .wan-outage.running .dur::after { content: " so far"; color: var(--text-dim); }
   .gn-row { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12.5px; }
   .gn-row a { color: var(--focus); text-decoration: none; }
   .gn-row a:hover { text-decoration: underline; }
@@ -3269,6 +3270,13 @@
         <span class="set-hint" id="setWanStatus"></span>
       </span>
       <span class="set-field"><button type="button" class="arp-toggle" id="setWan" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+    </label>
+    <label class="set-row">
+      <span class="set-label">Check the internet every
+        <span class="set-hint">How often the internet watch pings, from 20 seconds to an hour. A minute suits most houses. An outage is called after three misses in a row, so at a minute that's about three minutes before you're told, and at 20 seconds about one - at the cost of three times the pings.</span>
+        <span class="set-hint" id="setWanIntervalStatus"></span>
+      </span>
+      <span class="set-field"><input class="modal-input" id="setWanInterval" type="number" min="20" max="3600" step="10" value="60" size="6"><span class="set-unit">seconds</span><button type="button" class="export-btn" id="setWanIntervalSave">Save</button></span>
     </label>
     <label class="set-row">
       <span class="set-label">Address to ping
@@ -14012,7 +14020,7 @@ document.getElementById("gnWhat").onclick = () => {
   btn.textContent = box.hidden ? "What's this?" : "Hide";
 };
 // ---- The internet watch ----
-let wanCache = null, wanAt = 0;
+let wanCache = null, wanAt = 0, wanAllOutages = false;
 function loadWan(force) {
   if (!force && wanCache && Date.now() - wanAt < 30e3) return Promise.resolve(wanCache);
   return fetch("/api/wan").then(r => r.ok ? r.json() : null).then(d => {
@@ -14069,13 +14077,21 @@ function renderWanCard() {
   }
   const out = d.outages || [];
   if (out.length) {
-    bits.push(`<div class="sub" style="margin-top:10px">Outages, newest first</div>`);
-    for (const o of out.slice(0, 6))
-      bits.push(`<div class="wan-outage${o.local ? " local" : ""}"><span>${esc(fmtExact(o.start))}${o.local ? " \u00b7 router down too" : ""}</span><span class="dur">${o.minutes} min</span></div>`);
+    const shown = wanAllOutages ? out : out.slice(0, 6);
+    bits.push(`<div class="sub" style="margin-top:10px">Outages, newest first \u00b7 kept even after the readings are pruned</div>`);
+    for (const o of shown) {
+      const when = `${fmtExact(o.start)} \u2192 ${wanClock(new Date(o.end))}`;
+      bits.push(`<div class="wan-outage${o.local ? " local" : ""}${o.running ? " running" : ""}">` +
+        `<span>${esc(o.running ? fmtExact(o.start) + " \u00b7 still down" : when)}${o.local ? " \u00b7 router down too" : ""}</span>` +
+        `<span class="dur">${o.minutes} min</span></div>`);
+    }
+    if (out.length > 6) bits.push(`<button type="button" class="hy-more" id="wanMore">${wanAllOutages ? "Show fewer" : `All ${out.length} outages`}</button>`);
   } else if (samples.length) {
-    bits.push(`<div class="sub" style="margin-top:8px">No outages in the last month.</div>`);
+    bits.push(`<div class="sub" style="margin-top:8px">No outages recorded yet.</div>`);
   }
   $("wanBody").innerHTML = bits.join("");
+  const more = $("wanMore");
+  if (more) more.onclick = () => { wanAllOutages = !wanAllOutages; renderWanCard(); };
 }
 function renderWanToggle() {
   const t = $("setWan");
@@ -14085,6 +14101,11 @@ function renderWanToggle() {
   setToggleState(t, on);
   t.title = on ? "BAMF is watching the internet connection - click to stop" : "Click to have BAMF watch the internet connection";
   if (st && st.target) $("setWanTarget").value = st.target;
+  if (settingsData && settingsData.editable && settingsData.editable.wanInterval) {
+    const secs = settingsData.editable.wanInterval;
+    $("setWanInterval").value = secs;
+    $("setWanIntervalStatus").textContent = on ? `Every ${secs} seconds. An outage is called after ${Math.round(secs * 3 / 60) || 1} minute${Math.round(secs * 3 / 60) === 1 ? "" : "s"} of no answer.` : "";
+  }
   $("setWanStatus").textContent = !on ? "" : st.up === null ? "On. Waiting for the first ping."
     : st.up ? `On. The internet is up, ${st.ms} ms to ${st.target}.` : "On. The internet is down.";
 }
@@ -14098,6 +14119,17 @@ $("setWan").onclick = async () => {
     renderWanCard();
     toast(on ? "The internet watch is off: BAMF won't ping anything outside" : "The internet watch is on: a ping a minute to " + (wanCache.state.target || "8.8.8.8"));
   } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); renderWanToggle(); }
+};
+$("setWanIntervalSave").onclick = async () => {
+  const seconds = Math.round(Number($("setWanInterval").value));
+  try {
+    const r = await fetch("/api/settings/waninterval", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seconds }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't save that"); return; }
+    $("setWanInterval").value = d.seconds;
+    $("setWanIntervalStatus").textContent = `Every ${d.seconds} seconds. An outage is called after ${Math.round(d.seconds * 3 / 60) || 1} minute${Math.round(d.seconds * 3 / 60) === 1 ? "" : "s"} of no answer.`;
+    toast(`The internet watch now checks every ${d.seconds} seconds`);
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
 };
 $("setWanTargetSave").onclick = async () => {
   const target = $("setWanTarget").value.trim();
