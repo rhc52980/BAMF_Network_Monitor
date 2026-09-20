@@ -890,7 +890,7 @@ app.MapGet("/api/free-ips", (int? days, HostStore store, ScannerService scanner)
 // could carry script, and these are served from this origin.
 app.MapGet("/api/floors", (HostStore store) => Results.Json(new
 {
-    floors = store.GetFloors().Select(f => new { id = f.Id, name = f.Name, width = f.Width, height = f.Height, updated = f.Updated }),
+    floors = store.GetFloors().Select(f => new { id = f.Id, name = f.Name, width = f.Width, height = f.Height, updated = f.Updated, kind = f.Mime == HostStore.PlanMime ? "plan" : "image" }),
     places = store.GetFloorPlaces().Select(p => new { hostId = p.HostId, floorId = p.FloorId, x = p.X, y = p.Y }),
 }));
 app.MapGet("/api/floors/{id:long}/image", (long id, HostStore store, HttpContext ctx) =>
@@ -925,6 +925,29 @@ app.MapPost("/api/floors/{id:long}", async (long id, string? name, int? width, i
     return store.UpdateFloor(id, string.IsNullOrEmpty(clean) ? null : clean, mime, data, width ?? 0, height ?? 0) ? Results.Ok() : Results.NotFound();
 });
 app.MapDelete("/api/floors/{id:long}", (long id, HostStore store) => store.DeleteFloor(id) ? Results.Ok() : Results.NotFound());
+app.MapGet("/api/floors/{id:long}/plan", (long id, HostStore store) =>
+{
+    if (store.GetFloorImage(id) is not { } f || f.Mime != HostStore.PlanMime) return Results.NotFound();
+    return Results.Text(System.Text.Encoding.UTF8.GetString(f.Data), "application/json");
+});
+app.MapPost("/api/floors/plan", async (string? name, HttpContext ctx, HostStore store) =>
+{
+    var (plan, error) = await ReadFloorPlan(ctx);
+    if (error is not null) return Results.BadRequest(new { error });
+    var clean = (name ?? "").Trim();
+    var id = store.AddFloor(clean == "" ? "Floor" : clean.Length > 40 ? clean[..40] : clean,
+        HostStore.PlanMime, System.Text.Encoding.UTF8.GetBytes(plan!.Json), plan.Width, plan.Height);
+    return Results.Json(new { id });
+});
+app.MapPost("/api/floors/{id:long}/plan", async (long id, string? name, HttpContext ctx, HostStore store) =>
+{
+    var (plan, error) = await ReadFloorPlan(ctx);
+    if (error is not null) return Results.BadRequest(new { error });
+    var clean = name?.Trim();
+    if (clean is { Length: > 40 }) clean = clean[..40];
+    return store.UpdateFloor(id, string.IsNullOrEmpty(clean) ? null : clean, HostStore.PlanMime,
+        System.Text.Encoding.UTF8.GetBytes(plan!.Json), plan.Width, plan.Height) ? Results.Ok() : Results.NotFound();
+});
 app.MapPost("/api/floors/{id:long}/places", (long id, FloorPlaceRequest body, HostStore store) =>
     store.PlaceOnFloor(body.HostId, id, body.X, body.Y) ? Results.Ok() : Results.NotFound());
 app.MapDelete("/api/floors/places/{hostId:long}", (long hostId, HostStore store) =>
@@ -1569,6 +1592,54 @@ static async Task<(string? Mime, byte[]? Data, string? Error)> ReadFloorImage(Ht
     return mime is null ? (null, null, "Use a PNG, JPEG or WebP image.") : (mime, d, null);
 }
 
+// A floor plan drawn in BAMF, as JSON from the request body. Everything is
+// checked and then written out again from what was checked, so the file on
+// disk is only ever BAMF's own shape - never whatever was posted.
+static async Task<(PlanFile? Plan, string? Error)> ReadFloorPlan(HttpContext ctx)
+{
+    const int max = 512 * 1024;
+    if (ctx.Request.ContentLength is > max) return (null, "That plan is too big.");
+    using var ms = new MemoryStream();
+    var buf = new byte[16384];
+    int n;
+    while ((n = await ctx.Request.Body.ReadAsync(buf)) > 0)
+    {
+        ms.Write(buf, 0, n);
+        if (ms.Length > max) return (null, "That plan is too big.");
+    }
+    PlanDoc? doc;
+    try { doc = System.Text.Json.JsonSerializer.Deserialize<PlanDoc>(ms.ToArray(), new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }); }
+    catch { return (null, "That plan couldn't be read."); }
+    if (doc is null) return (null, "That plan couldn't be read.");
+    if (doc.Width is < 100 or > 8000 || doc.Height is < 100 or > 8000) return (null, "That plan's size is out of range.");
+    if (doc.Unit is not ("ft" or "m")) return (null, "Measurements are in feet or metres.");
+    if (doc.Step is < 4 or > 400 || doc.PerStep is <= 0 or > 1000) return (null, "That plan's scale is out of range.");
+    var items = doc.Items ?? new();
+    if (items.Count > 2000) return (null, "That plan has too much in it: 2000 pieces at most.");
+    var ok = new List<PlanItem>(items.Count);
+    var ptIn = (double[]? p) => p is { Length: 2 } && p.All(v => double.IsFinite(v) && v is >= -10000 and <= 10000);
+    foreach (var it in items)
+    {
+        switch (it.K)
+        {
+            case "wall" or "door" or "window":
+                if (!ptIn(it.A) || !ptIn(it.B)) return (null, "That plan has a piece BAMF can't place.");
+                ok.Add(new PlanItem(it.K, it.A, it.B, null, null));
+                break;
+            case "label":
+                if (!ptIn(it.P)) return (null, "That plan has a label BAMF can't place.");
+                var t = (it.T ?? "").Trim();
+                if (t.Length == 0) continue;
+                ok.Add(new PlanItem("label", null, null, it.P, t.Length > 40 ? t[..40] : t));
+                break;
+            default:
+                return (null, "That plan has a piece BAMF doesn't know.");
+        }
+    }
+    var clean = new PlanDoc(1, doc.Width, doc.Height, doc.Unit, doc.Step, doc.PerStep, ok);
+    return (new PlanFile(System.Text.Json.JsonSerializer.Serialize(clean), doc.Width, doc.Height), null);
+}
+
 // Holiday Spirit, effective: a value saved from Settings wins over appsettings.json.
 static bool HolidaySpirit(HostStore store, IConfiguration config) =>
     store.GetSetting("holidaySpirit") is string v ? v == "true" : config.GetValue("Bamf:HolidaySpirit", false);
@@ -1654,6 +1725,11 @@ record ForgetRequest(bool Forgotten);
 record ActiveArpRequest(bool Enabled);
 record RouterNamesApply(bool Overwrite);
 record FloorPlaceRequest(long HostId, double X, double Y);
+// A plan as it travels: walls, doors and windows as two points each, labels as
+// a point and a word, plus the grid that gives them their real-world size.
+record PlanItem(string? K, double[]? A, double[]? B, double[]? P, string? T);
+record PlanDoc(int V, int Width, int Height, string? Unit, double Step, double PerStep, List<PlanItem>? Items);
+record PlanFile(string Json, int Width, int Height);
 record NightRequest(bool Enabled, string? From, string? To, string? Theme);
 record ScanSettingsRequest(
     int? ScanIntervalSeconds,

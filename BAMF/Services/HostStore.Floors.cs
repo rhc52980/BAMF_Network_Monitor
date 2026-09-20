@@ -11,7 +11,10 @@ namespace LanWatch.Services;
 /// </summary>
 public partial class HostStore
 {
-    public sealed record FloorRow(long Id, string Name, int Width, int Height, int Sort, string Updated);
+    public sealed record FloorRow(long Id, string Name, int Width, int Height, int Sort, string Updated, string Mime);
+
+    /// <summary>What a floor drawn in BAMF is stored as, rather than an uploaded picture.</summary>
+    public const string PlanMime = "application/vnd.bamf.plan+json";
     public sealed record FloorPlace(long HostId, long FloorId, double X, double Y);
 
     private static void InitFloors(SqliteConnection conn)
@@ -44,10 +47,10 @@ public partial class HostStore
         {
             using var conn = Open();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id, name, width, height, sort, updated FROM floors ORDER BY sort, id";
+            cmd.CommandText = "SELECT id, name, width, height, sort, updated, mime FROM floors ORDER BY sort, id";
             var list = new List<FloorRow>();
             using var r = cmd.ExecuteReader();
-            while (r.Read()) list.Add(new FloorRow(r.GetInt64(0), r.GetString(1), r.GetInt32(2), r.GetInt32(3), r.GetInt32(4), r.GetString(5)));
+            while (r.Read()) list.Add(new FloorRow(r.GetInt64(0), r.GetString(1), r.GetInt32(2), r.GetInt32(3), r.GetInt32(4), r.GetString(5), r.GetString(6)));
             return list;
         }
     }

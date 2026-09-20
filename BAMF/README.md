@@ -1181,6 +1181,9 @@ scan, or delete a thing.
 | GET | `/api/floors/{id}/image` | That floor's image |
 | POST | `/api/floors?name=…&width=…&height=…` | Body: the image itself (PNG, JPEG or WebP, up to 12 MB), with its size in pixels in the query. Adds a floor and returns `{"id"}`, or 400 with `{"error": "…"}` |
 | POST | `/api/floors/{id}?name=…` | Renames a floor. With an image as the body (and `width` and `height`), replaces its image; the pins stay where they were |
+| GET | `/api/floors/{id}/plan` | The drawing behind a floor you drew in BAMF: `{"Width", "Height", "Unit", "Step", "PerStep", "Items"}`, each item a wall, door, window or label |
+| POST | `/api/floors/plan?name=…` | Body: a drawing in that shape. Adds a floor drawn rather than uploaded, and returns `{"id"}`. Everything is checked and written back out from what was checked |
+| POST | `/api/floors/{id}/plan` | Replaces a floor's drawing; the devices keep their spots |
 | DELETE | `/api/floors/{id}` | Deletes a floor and takes its devices off it |
 | POST | `/api/floors/{id}/places` | Body `{"hostId": 7, "x": 0.4, "y": 0.62}`: puts a device on that floor, or moves it there |
 | DELETE | `/api/floors/places/{hostId}` | Takes a device off its floor |
@@ -1634,10 +1637,34 @@ ask them.
 ## Floor plan
 
 The **Floor plan** tab puts your devices on a picture of your home, so
-"the camera is offline" becomes a pin by the back door. Add a floor with
-**+ Add a floor** and pick a PNG, JPEG or WebP image: a photo of a sketch, an
-estate agent's plan, or a screenshot from a floor planning app. Each floor is
-a tab of its own.
+"the camera is offline" becomes a pin by the back door. Each floor is a tab of
+its own, and there are two ways to make one:
+
+- **+ Upload a plan** takes a PNG, JPEG or WebP image: a photo of a sketch, an
+  estate agent's plan, or a screenshot from a floor planning app.
+- **✎ Draw a plan** opens a drawing board, for when you haven't got a picture.
+
+### Drawing a plan
+
+The board has a grid, and a scale you set yourself: **1 square =** so many feet
+or metres. Everything you draw is measured against it.
+
+- **Wall** - click each corner in turn. A wall straightens to the nearest right
+  angle or diagonal, and its ends snap to walls you've already drawn, so rooms
+  close properly. The length shows as you go, and the box under the last wall
+  takes an exact number: type `12`, press Enter, and the wall becomes 12 feet,
+  with anything joined to that corner coming along. **Esc** or a double-click
+  ends a run.
+- **Room** - drag out a rectangle and it becomes four walls, with its size
+  shown as you drag.
+- **Door** and **Window** - click a wall. The opening is cut into it, a door
+  gets the quarter circle it swings through, and a window a thin blue line.
+- **Label** - click where a room's name goes and type it.
+- **Erase** removes whatever you click; **Undo** (or Ctrl+Z) takes back the
+  last piece.
+
+**Save plan** keeps it. Afterwards **Edit drawing** opens it again, and the
+devices keep their spots. It works on a phone by touch.
 
 **Place devices** opens the editor:
 
@@ -1654,10 +1681,12 @@ editor each pin is green, amber or grey for online, unknown and offline.
 **Show** narrows the plan to offline devices, and clicking a pin opens that
 device in Devices.
 
-The images are stored in BAMF's database. Backups include them, but the
-layout export (Settings → Switches and routers) doesn't. SVG isn't accepted,
-since an SVG can carry script, and images are capped at 12 MB. With the
-view-only password, the floor plan is visible but can't be changed.
+Images and drawings are both stored in BAMF's database. Backups include them,
+but the layout export (Settings → Switches and routers) doesn't. SVG isn't
+accepted for an upload, since an SVG can carry script, and images are capped at
+12 MB. A drawing is kept as its walls and labels rather than a picture, so it
+stays editable, and BAMF writes back only the pieces it recognises. With the
+view-only password, the floor plan is visible but can't be changed or drawn.
 
 ## Setting a device's type and icon
 
