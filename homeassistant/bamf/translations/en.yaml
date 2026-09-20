@@ -11,6 +11,12 @@ configuration:
   viewer_password:
     name: View-only password
     description: With a dashboard password set, a second password that can look at everything but change nothing. For family, or a wall display.
+  wan_watch:
+    name: Watch the internet connection
+    description: Pings your router and one address on the internet every minute, so BAMF can tell you when the line goes down and for how long. This sends a ping out of your house every minute.
+  wan_target:
+    name: Address to ping
+    description: Which address the internet watch pings. 8.8.8.8 by default; your provider's DNS or 1.1.1.1 work too.
   webhook_url:
     name: Webhook
     description: Discord, ntfy, Gotify or any URL that takes a JSON POST, for alerts.

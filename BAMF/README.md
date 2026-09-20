@@ -150,6 +150,9 @@ git tag v1.9.0 && git push --tags
 | `Bamf:Mqtt:*` | Presence per device over MQTT: `Server` (set it to turn this on), `Port` (1883), `Tls`, `Username`, `Password`, `ClientId` (bamf), `TopicPrefix` (bamf), `Discovery` (true), `DiscoveryPrefix` (homeassistant). Read at startup only. See [MQTT](#mqtt-and-home-assistant). |
 | `Bamf:TrafficMonitor` | With Npcap, watch the wire receive-only: bytes in and out per device, and every DHCP and DNS server in use, alerting on new ones (default true). Also in Settings → Behaviour. See [Traffic, DHCP and DNS](#traffic-dhcp-and-dns). |
 | `Bamf:LatencyProbe` | After each scan, ping every online device on the networks it covered and keep the round-trip time (default true). Also in Settings → Behaviour, which wins once changed there. See [Latency and uptime](#latency-and-uptime). |
+| `Bamf:WanWatch` | `true` watches the internet connection: a ping a minute to your router and to `Bamf:WanTarget` (default false). Also in Settings → Behaviour, which wins once changed there. See [Internet watch](#internet-watch). |
+| `Bamf:WanTarget` | Which address the internet watch pings (default `8.8.8.8`). |
+| `Bamf:WanIntervalSeconds` | How often it pings, 20 to 3600 (default 60). |
 | `Bamf:HolidaySpirit` | `true` puts every dashboard in a season's theme by date: Halloween through October, Thanksgiving for the week of the holiday, Christmas from December 1st to 25th, and New Year to January 2nd (default false). Also in Settings → Behaviour, which wins once changed there. See [Holiday Spirit](#holiday-spirit). |
 | `Bamf:WebhookUrl` | Optional starting value for the notification webhook — the dashboard's **Tools → Notifications** saves over it. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use the dashboard's Test webhook button to verify. |
 | `Bamf:Password` | Optional. If set, the UI/API require it via HTTP Basic auth (any username). Over plain HTTP the credential is only base64-encoded — see [What BAMF talks to](#what-bamf-talks-to). |
@@ -228,6 +231,7 @@ Everything BAMF initiates on its own, and how it's protected:
 | IEEE vendor registry (`standards-oui.ieee.org`) | **HTTPS** | First run, unless `AutoDownloadOui` is false |
 | GitHub update check (`api.github.com`) | **HTTPS** | Daily, only if you enable the update check |
 | Your public address (`api.ipify.org`, or `checkip.amazonaws.com`) and GreyNoise (`api.greynoise.io`) | **HTTPS** | Daily, only if you switch on the GreyNoise check. What they learn is your public address |
+| One address on the internet (`8.8.8.8` by default) | **an echo request, nothing else** | A ping a minute, only if you switch on the internet watch. Nothing about your network goes with it |
 | Your webhook | **whatever scheme your URL uses** | When a new host appears, a watched host changes state, or an alert fires |
 
 **On your own network:**
@@ -1193,6 +1197,9 @@ scan, or delete a thing.
 | POST | `/api/hosts/{id}/blink` | Body `{"seconds": 30}` (optional, 5–60) — "Find port": send the device bursts of UDP traffic, one second on and one second off, so its switch-port light pulses. Private addresses only; replaces any blink already running. Returns `until` |
 | POST | `/api/map/positions` | Body `{"subnet": "192.168.1.0/24", "positions": {"s:1": [120, 140], "h:7": null}}` — save where nodes sit on the topology Map for one network. Keys are `h:<host id>`, `s:<switch id>`, `gw`, `self`, `net` and `box`. A null position forgets that node, so it goes back to the automatic layout. `GET /api/hosts` returns them all as `mapPositions` |
 | DELETE | `/api/map/positions?subnet=…` | "Auto-arrange": forget every saved position on one network |
+| GET | `/api/wan` | The internet watch: `{"state", "samples", "outages"}` — the last reading, a day of one-a-minute readings, and the outages of the last month |
+| POST | `/api/settings/wanwatch` | Body `{"enabled": true}` — switch the internet watch on or off |
+| POST | `/api/settings/wantarget` | Body `{"target": "8.8.8.8"}` — which address it pings |
 | GET | `/api/floors` | `{"floors": [{"id", "name", "width", "height", "updated"}], "places": [{"hostId", "floorId", "x", "y"}]}`. `x` and `y` are shares of the image, 0 to 1 |
 | GET | `/api/floors/{id}/image` | That floor's image |
 | POST | `/api/floors?name=…&width=…&height=…` | Body: the image itself (PNG, JPEG or WebP, up to 12 MB), with its size in pixels in the query. Adds a floor and returns `{"id"}`, or 400 with `{"error": "…"}` |
@@ -2006,6 +2013,31 @@ Two caveats. If your internet provider shares one address between many homes
 (carrier-grade NAT), a neighbour's device can flag you. And clean isn't
 proof: GreyNoise only knows about scanning, not a device quietly sending your
 data somewhere else.
+
+### Internet watch
+
+Off by default. Switch on **Watch the internet connection** under
+**Settings → Behaviour** and once a minute BAMF pings two things: your router,
+and one address out on the internet — `8.8.8.8` unless you change it, which is
+one of Google's public DNS servers.
+
+That second ping is a packet leaving your house every minute. It's an echo
+request like any other ping, and nothing about your network goes with it, but
+it's outbound traffic on a timer, so it's off until you ask for it. With the
+update check and the GreyNoise check, that's everything BAMF sends outside.
+
+What you get for it:
+
+- **An alert when the line goes down**, after three missed pings in a row, and
+  another when it comes back saying how long it was out.
+- **Which side of the wall the problem is on.** If your router answered while
+  the outside address didn't, it's your provider, the modem or the cable to it.
+  If your router went quiet too, it's something in here.
+- **An Internet card on Activity**: what it is now, a bar per few minutes over
+  the last day, and the outages of the last month with how long each lasted.
+  Amber means your router was down too. Grey means BAMF wasn't watching.
+
+The readings are kept with everything else, pruned to your history retention.
 
 ### Certificate watch
 
