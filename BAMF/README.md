@@ -428,8 +428,10 @@ Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
 Night Street, Constellation, Claw Machine, Claw Machine Dusk, Laser Show,
 Spring, Summer, Winter, New Year and Thanksgiving. Your choice is remembered in your browser.
 
-The menu is grouped: **Colours** for the schemes where nothing moves,
-**Animated** for the ones with something going on behind the dashboard,
+The menu is grouped: **Colours** for the schemes where nothing much moves —
+including Synthwave, Hacker Red and Cotton Candy, which are colour schemes
+with a flourish rather than scenes — **Animated** for the ones with something
+going on behind the dashboard,
 **Holidays** for the seasonal ones Holiday Spirit uses, **Installed** for
 drop-ins, and **Secret** for anything you've unlocked.
 
@@ -589,12 +591,16 @@ Some themes have a little life in them:
   header. A finished scan snaps every beam into a starburst, and a new device
   sends one hard beam across the room. Reduced motion lights the rig and holds
   it still.
-- **Spring**: blossom drifting down over a pale green morning, and a bee
-  wandering across every so often. A finished scan shakes a fresh handful off
-  the branch. Reduced motion leaves the blossom lying where it fell.
-- **Summer**: a high sun with slowly turning rays, clouds crossing, and the sea
-  rolling along the bottom of the page. A finished scan sends a bigger set of
-  waves through. Reduced motion holds the scene at one moment.
+- **Spring**: blossom drifting down over a pale green morning, with a border of
+  grass, tulips and daffodils nodding along the bottom of the screen, a bee
+  wandering across, a butterfly flitting through and birds crossing high up. A
+  finished scan shakes a fresh handful off the branch. Reduced motion leaves
+  the blossom lying where it fell.
+- **Summer**: a high sun with slowly turning rays, clouds crossing, gulls out
+  over the water, and the sea rolling along the bottom of the page. A sailboat
+  leans past on the swell, and a parasol and towel are set out on the sand. A
+  finished scan sends a bigger set of waves through. Reduced motion holds the
+  scene at one moment.
 - **Winter**: snow falling past frost that reaches in from the edges of the
   screen, settling into a drift along the bottom. A finished scan blows a gust
   through. Reduced motion leaves the snow settled.
@@ -602,8 +608,11 @@ Some themes have a little life in them:
   the skyline, burst, and the sparks fall and fade; a finished scan sets one
   off. Reduced motion keeps three bursts hanging over the rooftops.
 - **Thanksgiving**: autumn leaves coming down and tumbling as they go, over
-  warm browns and burnt orange. A finished scan blows a gust across the
-  screen. Reduced motion lays the leaves along the bottom instead.
+  warm browns and burnt orange, with pumpkins and gourds set out along the
+  bottom. Every so often a turkey struts across the foot of the screen, tail
+  fanned, dipping his head to peck as he walks; a finished scan blows a gust
+  of leaves through and puffs him up. Reduced motion lays the leaves along the
+  bottom and leaves the turkey out of it.
 - **Hotdog Stand**: a tribute to Windows 3.1's loudest colour scheme. It's
   mustard yellow with ketchup-red title bars, in the bold system font, with a
   striped awning under the header. The next-scan bar is a sausage sliding into
