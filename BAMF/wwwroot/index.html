@@ -330,9 +330,12 @@
   .ns-car.rtl .ns-taxi-sign { left: auto; right: 12px; }
   /* Something crossing the sky: an airliner high up with its navigation
      lights, and a helicopter lower down with a searchlight under it. */
-  .ns-air { position: absolute; left: 0; pointer-events: none; animation: ns-fly linear forwards; }
+  .ns-air { position: absolute; left: 0; pointer-events: none; opacity: .92;
+    filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .55)); animation: ns-fly linear forwards; }
   .ns-air.rtl { animation-name: ns-fly-rtl; }
-  .ns-air.rtl > svg { transform: scaleX(-1); }
+  /* Both are drawn facing left, so the one crossing to the right is the one
+     that gets turned round. */
+  .ns-air:not(.rtl) > svg { transform: scaleX(-1); }
   .ns-air svg { display: block; overflow: visible; position: static; }
   .ns-air.ns-plane svg { width: 86px; height: 26px; }
   .ns-air.ns-heli svg { width: 150px; height: 150px; }
@@ -12632,12 +12635,12 @@ const NS_PLANE = `<svg width="86" height="26" viewBox="0 0 86 26">
 // nose sweeping the street as it goes.
 const NS_HELI = `<svg width="150" height="150" viewBox="0 0 150 150">
   <defs><linearGradient id="nsBeamCone" x1="0" x2="0" y1="0" y2="1">
-    <stop offset="0" stop-color="#fff2c4" stop-opacity=".5"/><stop offset="1" stop-color="#fff2c4" stop-opacity="0"/>
+    <stop offset="0" stop-color="#fff2c4" stop-opacity=".38"/><stop offset="1" stop-color="#fff2c4" stop-opacity="0"/>
   </linearGradient></defs>
-  <g class="ns-beam" transform="translate(52 44)">
+  <g transform="translate(52 44)"><g class="ns-beam">
     <path d="M-7 0L-54 104H54L7 0z" fill="url(#nsBeamCone)"/>
     <ellipse cx="0" cy="104" rx="52" ry="9" fill="#fff2c4" opacity=".16"/>
-  </g>
+  </g></g>
   <ellipse cx="52" cy="30" rx="30" ry="13" fill="#28324a" stroke="#3b4764" stroke-width="1"/>
   <path d="M74 26q22 2 44 6l2 5q-24 2-46 1z" fill="#28324a"/>
   <path d="M112 20h5l3 16h-5z" fill="#1b2130"/>
@@ -12771,14 +12774,14 @@ function buildNightStreet(root) {
   // Traffic in the sky. The plane crosses high up; the helicopter comes over
   // lower, with its searchlight sweeping the street.
   const sky = (cls, art, top, secs) => {
-    if (calm || document.hidden || bg.querySelector("." + cls)) return null;
+    if (calm || document.hidden || document.querySelector("." + cls)) return null;
     const el = document.createElement("div");
     el.className = `ns-air ${cls}` + (Math.random() < .5 ? " rtl" : "");
     el.style.top = top + "px";
     el.style.animationDuration = secs.toFixed(0) + "s";
     el.innerHTML = art;
     el.addEventListener("animationend", e => { if (e.target === el) el.remove(); });
-    bg.appendChild(el);
+    root.appendChild(el);
     return el;
   };
   // Both fly in the band of sky above the cards, where they can be seen: the
