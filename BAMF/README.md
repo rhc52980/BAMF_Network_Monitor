@@ -490,7 +490,12 @@ Some themes have a little life in them:
   out of its row. On the Map, the thin "on this network" lines are copper
   pipe.
 - **Aquarium**: fish, bubbles, swaying weed and gravel behind the glass, with
-  light rays drifting through, and now and then a shark cruising past. A new device swims in as a fish carrying its
+  light rays drifting through, and now and then a shark cruising past. An
+  octopus drifts through the tank with its arms curling, a crab sidles along
+  the bottom of the screen with its claws working, and a scuba diver swims
+  slowly across, finning, breathing out a few bubbles as he goes. The crab and
+  the diver pass in front of the page, since the gravel is under the table and
+  a crab back there would never be seen. A new device swims in as a fish carrying its
   name, a finished scan sends up a column of bubbles, and a device going
   offline sinks for a moment. Watched devices have a pet fish that swims
   beside their name and floats still when they're down. On the Map, bubbles
