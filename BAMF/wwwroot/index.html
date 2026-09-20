@@ -1862,6 +1862,39 @@
   .aq-shark { opacity: .72; }
   .aq-shark svg { width: 250px; height: auto; }
   .aq-shark .tail { animation-duration: 1s; }
+  /* The octopus: drifts across mid-water, arms trailing and curling. */
+  .aq-oct { position: absolute; left: 0; opacity: .95; animation: aq-swim linear forwards; }
+  .aq-oct svg { display: block; width: 140px; height: auto; }
+  .aq-oct .arm { transform-box: fill-box; transform-origin: top center; animation: aq-arm 2.2s ease-in-out infinite alternate; }
+  .aq-oct .arm:nth-of-type(2n) { animation-delay: -1.1s; }
+  .aq-oct .arm:nth-of-type(3n) { animation-duration: 2.8s; }
+  @keyframes aq-arm { from { transform: rotate(-5deg); } to { transform: rotate(6deg) translateY(2px); } }
+  /* The crab: sidles along the gravel, claws working. */
+  .aq-crab { position: absolute; bottom: 10px; left: 0; opacity: .92; filter: drop-shadow(0 3px 6px rgba(0, 20, 30, .5)); animation: aq-crawl linear forwards; }
+  .aq-crab svg { display: block; width: 76px; height: auto; animation: aq-scuttle .46s ease-in-out infinite alternate; }
+  .aq-crab.rtl svg { transform: scaleX(-1); }
+  .aq-crab .claw { transform-box: fill-box; transform-origin: 80% 60%; animation: aq-snip 1.2s ease-in-out infinite alternate; }
+  .aq-crab .claw.b { animation-delay: -.6s; }
+  @keyframes aq-crawl { from { transform: translateX(-90px); } to { transform: translateX(calc(100vw + 90px)); } }
+  @keyframes aq-crawl-rtl { from { transform: translateX(calc(100vw + 90px)); } to { transform: translateX(-90px); } }
+  @keyframes aq-scuttle { to { transform: translateY(-3px) rotate(1.5deg); } }
+  @keyframes aq-snip { to { transform: rotate(-18deg); } }
+  .aq-crab.rtl { animation-name: aq-crawl-rtl; }
+  .aq-crab.rtl svg { animation-name: aq-scuttle-rtl; }
+  @keyframes aq-scuttle-rtl { from { transform: scaleX(-1); } to { transform: scaleX(-1) translateY(3px) rotate(1.5deg); } }
+  .aq-crab.still svg { animation: none; }
+  /* The diver: swims slowly across, finning, breathing out as he goes. */
+  .aq-diver { position: absolute; left: 0; opacity: .82; filter: drop-shadow(0 4px 10px rgba(0, 20, 30, .5)); animation: aq-swim linear forwards; }
+  .aq-diver svg { display: block; width: 150px; height: auto; }
+  .aq-diver.rtl svg { transform: scaleX(-1); }
+  .aq-diver .fin { transform-box: fill-box; transform-origin: right center; animation: aq-kick 1.9s ease-in-out infinite alternate; }
+  .aq-diver .fin.b { animation-delay: -.95s; }
+  @keyframes aq-kick { from { transform: rotate(-12deg); } to { transform: rotate(13deg); } }
+  .aq-dbub { position: absolute; border-radius: 50%; pointer-events: none;
+    border: 1.2px solid rgba(200, 245, 255, .6);
+    background: radial-gradient(circle at 32% 30%, rgba(255, 255, 255, .8) 0 18%, rgba(160, 230, 255, .12) 40%, transparent 70%);
+    animation: aq-breath 3.6s ease-out forwards; }
+  @keyframes aq-breath { 0% { transform: translate(0, 0) scale(.5); opacity: 0; } 12% { opacity: .85; } 100% { transform: translate(18px, -180px) scale(1.25); opacity: 0; } }
   .aq-fish.rtl { animation-name: aq-swim-rtl; }
   .aq-fish.rtl svg { transform: scaleX(-1); }
   @keyframes aq-swim { from { transform: translate(-80px, 0); } 50% { transform: translate(50vw, 16px); } to { transform: translate(calc(100vw + 40px), -6px); } }
@@ -9204,6 +9237,52 @@ const AQ_SHARK = `<svg width="170" height="70" viewBox="0 0 170 70">
   <path d="M80 19L95 0l9 21z" fill="#5d7584"/><path d="M100 44L87 63l25-17z" fill="#5d7584"/><path d="M52 44l-4 9 12-7z" fill="#5d7584"/>
   <path d="M125 31v8M130 30v9M135 30v8" stroke="#4b6170" stroke-width="1.4" stroke-linecap="round"/>
   <circle cx="146" cy="31" r="2.3" fill="#0b1a22"/><path d="M149 40q7 2 13-1" fill="none" stroke="#3b4d59" stroke-width="1.2"/></svg>`;
+// An octopus, facing right: mantle, two eyes and eight arms that curl.
+const AQ_OCTOPUS = `<svg width="140" height="110" viewBox="0 0 140 110">
+  <g fill="#a85fd0">
+    <path class="arm" d="M44 56c-6 14-16 20-28 22 10 2 22-2 30-12z"/>
+    <path class="arm" d="M52 60c-4 16-10 26-20 32 12 0 22-10 27-23z"/>
+    <path class="arm" d="M62 63c-1 17-4 28-10 36 10-4 17-16 18-30z"/>
+    <path class="arm" d="M72 63c3 17 3 28 0 37 8-6 12-19 10-33z"/>
+    <path class="arm" d="M82 61c7 15 9 26 8 35 7-7 8-21 3-33z"/>
+    <path class="arm" d="M91 57c11 12 16 21 18 30 4-9 1-23-9-33z"/>
+    <path class="arm" d="M97 51c13 7 21 14 26 22 1-10-7-22-19-27z"/>
+    <path class="arm" d="M38 49c-13 6-21 12-27 20 0-10 9-20 22-24z"/>
+  </g>
+  <ellipse cx="68" cy="38" rx="36" ry="30" fill="#b46ad8"/>
+  <ellipse cx="68" cy="46" rx="28" ry="20" fill="#c98ae4"/>
+  <circle cx="84" cy="30" r="9" fill="#fff"/><circle cx="87" cy="30" r="4.5" fill="#1b0c26"/>
+  <circle cx="58" cy="28" r="8" fill="#fff"/><circle cx="61" cy="28" r="4" fill="#1b0c26"/>
+  <g fill="#8e4cb4" opacity=".55">
+    <circle cx="52" cy="58" r="2"/><circle cx="64" cy="62" r="2"/><circle cx="76" cy="62" r="2"/><circle cx="88" cy="58" r="2"/>
+  </g></svg>`;
+// A crab, facing right: shell, two claws, six legs and eyes on stalks.
+const AQ_CRAB = `<svg width="96" height="60" viewBox="0 0 96 60">
+  <g stroke="#b53a22" stroke-width="3.4" stroke-linecap="round" fill="none">
+    <path d="M30 40l-9 12M40 42l-5 13M50 42l3 13M60 40l8 12"/>
+  </g>
+  <path class="claw" d="M20 30c-8-2-14 2-15 8 4 3 9 3 12 0l1 5c4-3 5-9 2-13z" fill="#e0563b"/>
+  <path class="claw b" d="M74 28c8-3 15 0 16 6-3 4-8 5-12 2l-1 5c-4-2-6-9-3-13z" fill="#e0563b"/>
+  <ellipse cx="47" cy="33" rx="25" ry="16" fill="#e0563b"/>
+  <path d="M26 30q21-10 42 0" fill="none" stroke="#f08a6f" stroke-width="3" stroke-linecap="round"/>
+  <g stroke="#c0442a" stroke-width="3" stroke-linecap="round"><path d="M40 19v-8M55 19v-8"/></g>
+  <circle cx="40" cy="9" r="4.5" fill="#fff"/><circle cx="41" cy="9" r="2.2" fill="#2a0d06"/>
+  <circle cx="55" cy="9" r="4.5" fill="#fff"/><circle cx="56" cy="9" r="2.2" fill="#2a0d06"/>
+  <path d="M36 38q11 6 22 0" fill="none" stroke="#8f2d19" stroke-width="2" stroke-linecap="round"/></svg>`;
+// A diver, facing right: tank, hose, mask, and fins that kick.
+const AQ_DIVER = `<svg width="170" height="86" viewBox="0 0 170 86">
+  <path class="fin" d="M18 36l-16-9 2 12-2 12 16-7z" fill="#2f9fbf"/>
+  <path class="fin b" d="M20 48l-14 4 4 8 12-4z" fill="#2aa0a8"/>
+  <path d="M26 32c18-7 44-9 62-5l4 14c-18 6-46 6-66 0z" fill="#22364a"/>
+  <rect x="44" y="18" width="26" height="20" rx="8" fill="#8fa6b3"/>
+  <rect x="48" y="16" width="6" height="6" rx="2" fill="#5d7584"/>
+  <path d="M70 26c14-2 22 2 26 8" fill="none" stroke="#1b2a3a" stroke-width="4"/>
+  <path d="M96 30q8-8 16-4" fill="none" stroke="#3d5063" stroke-width="3.4" stroke-linecap="round"/>
+  <circle cx="116" cy="30" r="15" fill="#22364a"/>
+  <path d="M118 22a12 12 0 0 1 12 10 12 12 0 0 1-12 8 9 9 0 0 1-4-9z" fill="#bfe9ff" opacity=".9"/>
+  <path d="M104 33q6 8 14 6" fill="none" stroke="#12202e" stroke-width="3" stroke-linecap="round"/>
+  <path d="M88 40q16 8 30 2" fill="none" stroke="#2c4358" stroke-width="7" stroke-linecap="round"/>
+  <path d="M116 44q10 6 18 0" fill="none" stroke="#e0b48a" stroke-width="6" stroke-linecap="round"/></svg>`;
 const AQ_COLOURS = [["#ff9f43", "#e8662a"], ["#ffd23f", "#e0a800"], ["#7ae0ff", "#2fa7d6"], ["#ff7ab6", "#d8438a"], ["#b18cff", "#7a55d6"]];
 
 function buildAquarium(root) {
@@ -9276,6 +9355,62 @@ function buildAquarium(root) {
     };
     const nextShark = first => festiveTimers.push(setTimeout(() => { shark(); nextShark(false); }, first ? rnd(20e3, 40e3) : rnd(90e3, 180e3)));
     nextShark(true);
+
+    // One of each at a time, each on its own unhurried schedule.
+    // The octopus swims in the tank, behind the panels with the fish. The crab
+    // and the diver would be lost back there - a crab is small and the gravel
+    // is under the table - so they pass in front of the page instead, the way
+    // the hotdog cart does, slow and see-through enough to read through.
+    const swimmer = (cls, art, style, parent) => {
+      if (document.hidden || document.querySelector("." + cls)) return null;
+      const el = document.createElement("div");
+      el.className = cls + (Math.random() < .5 ? " rtl" : "");
+      el.style.cssText = style;
+      el.innerHTML = art;
+      el.addEventListener("animationend", e => { if (e.target === el) el.remove(); });
+      (parent || bg).appendChild(el);
+      return el;
+    };
+    const octopus = () => swimmer("aq-oct", AQ_OCTOPUS, `top:${rnd(24, 62).toFixed(0)}vh;animation-duration:${rnd(48, 70).toFixed(0)}s`);
+    const crab = () => swimmer("aq-crab", AQ_CRAB, `animation-duration:${rnd(34, 55).toFixed(0)}s`, root);
+    // The diver breathes out as he goes: a few bubbles from the regulator,
+    // rising from wherever he's got to, until he's off the screen.
+    const diver = () => {
+      const el = swimmer("aq-diver", AQ_DIVER, `top:${rnd(26, 58).toFixed(0)}vh;animation-duration:${rnd(55, 80).toFixed(0)}s`, root);
+      if (!el) return;
+      const breathe = setInterval(() => {
+        if (!el.isConnected) { clearInterval(breathe); return; }
+        if (document.hidden) return;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0) return;
+        for (let i = 0; i < 3; i++) {
+          const b = document.createElement("i");
+          b.className = "aq-dbub";
+          const sz = rnd(4, 9);
+          // Out of the regulator: the front of him, whichever way he's facing.
+          b.style.cssText = `left:${(el.classList.contains("rtl") ? r.left + r.width * .18 : r.left + r.width * .78).toFixed(0)}px;` +
+            `top:${(r.top + r.height * .34).toFixed(0)}px;width:${sz.toFixed(0)}px;height:${sz.toFixed(0)}px;` +
+            `animation-delay:${(i * .28).toFixed(2)}s`;
+          b.addEventListener("animationend", () => b.remove());
+          root.appendChild(b);
+        }
+      }, 2600);
+      festiveTimers.push(breathe);
+    };
+    const every = (fn, first, gap) => {
+      const again = () => festiveTimers.push(setTimeout(() => { fn(); again(); }, rnd(gap[0], gap[1])));
+      festiveTimers.push(setTimeout(() => { fn(); again(); }, first));
+    };
+    every(crab, rnd(6e3, 14e3), [30e3, 70e3]);
+    every(octopus, rnd(25e3, 45e3), [80e3, 150e3]);
+    every(diver, rnd(45e3, 70e3), [110e3, 200e3]);
+  } else {
+    // Reduced motion: a crab sits on the gravel instead of scuttling across it.
+    const el = document.createElement("div");
+    el.className = "aq-crab still";
+    el.style.cssText = "animation:none;left:14vw";
+    el.innerHTML = AQ_CRAB;
+    root.appendChild(el);
   }
 
   // A scan: a column of bubbles from the gravel.
