@@ -508,6 +508,32 @@
   [data-theme="halloween"] .brand h1 { color:#ff8c1a; text-shadow:0 0 10px rgba(255,140,26,.6); }
   [data-theme="halloween"] .brand h1::after { content:" 🎃"; text-shadow:none; }
 
+  /* ---- New Year: fireworks over a midnight skyline ---- */
+  [data-theme="newyear"] {
+    --bg:#060916; --panel:rgba(14,19,40,.94); --panel-2:rgba(22,28,54,.96); --line:#2b3566;
+    --text:#f2f0ff; --text-dim:#9aa2cc; --led-on:#8cff9e; --led-warn:#ffd166;
+    --led-off:#38406b; --danger:#ff7b7b; --focus:#ffd166; --radius:10px;
+  }
+  [data-theme="newyear"] .brand h1 { color:#ffd166; text-shadow:0 0 12px rgba(255,209,102,.6); }
+  [data-theme="newyear"] .brand h1::after { content:" 🎆"; text-shadow:none; }
+  [data-theme="newyear"] header { background:linear-gradient(rgba(10,14,34,.94), rgba(7,10,26,.9)); border-bottom:1px solid #2b3566; }
+  [data-theme="newyear"] .stat .num { text-shadow:0 0 10px rgba(255,209,102,.35); }
+  /* The table sits on its own backing, so rows stay readable with a city and
+     fireworks behind them. Same for the other themes with a busy sky. */
+  [data-theme="newyear"] table, [data-theme="newyear"] .feed { background:rgba(8,11,26,.96); }
+
+  /* ---- Thanksgiving: leaves coming down over a harvest table ---- */
+  [data-theme="thanksgiving"] {
+    --bg:#1a1008; --panel:rgba(40,24,13,.95); --panel-2:rgba(53,32,17,.96); --line:#5c3a1e;
+    --text:#f7ead6; --text-dim:#c0a081; --led-on:#a7c04f; --led-warn:#e8a33d;
+    --led-off:#4e3721; --danger:#d1452f; --focus:#e8873d; --radius:10px;
+  }
+  [data-theme="thanksgiving"] .brand h1 { color:#e8873d; text-shadow:0 0 10px rgba(232,135,61,.5); }
+  [data-theme="thanksgiving"] .brand h1::after { content:" 🦃"; text-shadow:none; }
+  [data-theme="thanksgiving"] header { background:linear-gradient(#47291339, #2a180b); border-bottom:2px solid #7a4a22; }
+  [data-theme="thanksgiving"] thead th { color:#e8a33d; }
+  [data-theme="thanksgiving"] table, [data-theme="thanksgiving"] .feed { background:rgba(30,18,9,.96); }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
@@ -3017,7 +3043,7 @@
     </label>
     <label class="set-row">
       <span class="set-label">Holiday Spirit
-        <span class="set-hint">Every dashboard wears the Halloween theme from October 1st to 31st and the Christmas theme from December 1st to 25th, then goes back to its own theme. Pick another theme during the season and that browser keeps it until the next one.</span>
+        <span class="set-hint">Every dashboard wears Halloween through October, Thanksgiving for the week of the holiday, Christmas from December 1st to 25th and New Year to January 2nd, then goes back to its own theme. Pick another theme during a season and that browser keeps it until the next one.</span>
         <span class="set-hint" id="setHolidayStatus"></span>
       </span>
       <span class="set-field"><button type="button" class="arp-toggle" id="setHoliday" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
@@ -8277,6 +8303,8 @@ const THEMES = [
   { id: "claw",        name: "Claw Machine", sw: ["#140b24", "#ff4fa3", "#3de0ff"] },
   { id: "clawdusk",    name: "Claw Machine Dusk", sw: ["#15171c", "#b8788a", "#7fb0ae"] },
   // Hidden until unlocked: type BAMF anywhere, or tap the logo five times.
+  { id: "newyear",     name: "New Year",     sw: ["#060916", "#ffd166", "#7ee0ff"], cat: "holiday" },
+  { id: "thanksgiving", name: "Thanksgiving", sw: ["#1a1008", "#e8873d", "#a7c04f"], cat: "holiday" },
   { id: "christmas",   name: "Christmas",    sw: ["#0b1712", "#ff3b3b", "#3ddc6f"], secret: true, cat: "holiday" },
   { id: "halloween",   name: "Halloween",    sw: ["#0f0913", "#ff8c1a", "#8cff4f"], secret: true, cat: "holiday" },
 ];
@@ -8378,14 +8406,28 @@ function applyTheme(theme, { holiday = false } = {}) {
   }
 }
 // ---- Holiday Spirit ----
-// With it on, every dashboard wears Halloween through October and Christmas
-// from December 1st to 25th, by this browser's date, then goes back to its
-// own theme on November 1st and December 26th. Checked on every poll, so an
-// open dashboard changes over at midnight. Picking another theme from the menu
-// during a season keeps that pick in this browser until the next season.
+// With it on, every dashboard wears Halloween through October, Thanksgiving
+// for the week of the holiday, Christmas from December 1st to 25th and New
+// Year from Boxing Day to January 2nd, by this browser's date, then goes back
+// to its own theme. Checked on every poll, so an open dashboard changes over
+// at midnight. Picking another theme from the menu during a season keeps that
+// pick in this browser until the next season.
+// Thanksgiving is the fourth Thursday of November, so it moves every year.
+// The theme runs from the Monday of that week to the Sunday after it.
+function thanksgivingDay(year) {
+  const first = new Date(year, 10, 1);
+  return 1 + ((11 - first.getDay()) % 7) + 21; // first Thursday, then three weeks
+}
 function holidaySeason(d = new Date()) {
-  if (d.getMonth() === 9) return "halloween";
-  if (d.getMonth() === 11 && d.getDate() <= 25) return "christmas";
+  const m = d.getMonth(), day = d.getDate();
+  if (m === 9) return "halloween";
+  if (m === 10) {
+    const t = thanksgivingDay(d.getFullYear());
+    if (day >= t - 3 && day <= t + 3) return "thanksgiving";
+    return null;
+  }
+  if (m === 11) return day <= 25 ? "christmas" : "newyear";
+  if (m === 0 && day <= 2) return "newyear";
   return null;
 }
 const seasonKey = season => `${season}-${new Date().getFullYear()}`;
@@ -8439,12 +8481,24 @@ function renderHolidayToggle() {
   if (!t) return;
   setToggleState(t, holidaySpirit);
   const season = holidaySeason();
-  const name = season === "halloween" ? "Halloween" : "Christmas";
+  const name = { halloween: "Halloween", thanksgiving: "Thanksgiving", christmas: "Christmas", newyear: "New Year" }[season];
+  const until = { halloween: "November 1st", thanksgiving: "the Monday after", christmas: "December 26th", newyear: "January 3rd" }[season];
   $("setHolidayStatus").textContent = !holidaySpirit ? ""
-    : season ? (holidayShowing ? `It's ${name}: the ${name} theme is on until ${season === "halloween" ? "November 1st" : "December 26th"}.`
+    : season ? (holidayShowing ? `It's ${name}: the ${name} theme is on until ${until}.`
       : `It's ${name}, but this browser picked its own theme for the season.`)
-    : "Next up: " + (new Date().getMonth() === 10 ? "Christmas on December 1st." : "Halloween on October 1st.");
+    : "Next up: " + nextHoliday();
   t.title = holidaySpirit ? "Holiday Spirit is on - click to turn off" : "Click to turn on Holiday Spirit";
+}
+// Whichever season comes round next, by this browser's date.
+function nextHoliday(d = new Date()) {
+  const y = d.getFullYear(), t = thanksgivingDay(y);
+  const when = [
+    ["Halloween", new Date(y, 9, 1), "October 1st"],
+    ["Thanksgiving", new Date(y, 10, t - 3), `November ${t - 3}`],
+    ["Christmas", new Date(y, 11, 1), "December 1st"],
+    ["New Year", new Date(y, 11, 26), "December 26th"],
+  ].find(([, start]) => start > d);
+  return when ? `${when[0]} on ${when[2]}.` : `Halloween on October 1st, ${y + 1}.`;
 }
 
 // ---- Night mode ----
@@ -8545,7 +8599,8 @@ let festivePrev = null;
 const THEME_FX = { christmas: (r, sw) => buildChristmas(r, sw), halloween: (r, sw) => buildHalloween(r, sw),
   matrix: buildMatrix, synthwave: buildSynthwave, hackerred: buildHackerRed, cottoncandy: buildCottonCandy, storm: buildStorm, hotdog: buildHotdog, terminal: buildTerminal, steampunk: buildSteampunk, waterworks: buildWaterworks, aquarium: buildAquarium, goat: buildGoat,
   goatnight: (r, sw) => buildGoat(r, sw, true), nightstreet: buildNightStreet,
-  constellation: buildConstellation, claw: buildClaw, clawdusk: (r, sw) => buildClaw(r, sw, true) };
+  constellation: buildConstellation, claw: buildClaw, clawdusk: (r, sw) => buildClaw(r, sw, true),
+  newyear: buildNewYear, thanksgiving: buildThanksgiving };
 const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
@@ -11684,6 +11739,186 @@ const PRESENT_STACK = `<svg viewBox="0 0 60 44" width="58">
   <rect x="30" y="18" width="26" height="24" rx="1" fill="#d42426"/><rect x="41" y="18" width="4" height="24" fill="#fff6d0"/>
   <rect x="12" y="6" width="22" height="16" rx="1" fill="#2f6fd4"/><rect x="21" y="6" width="4" height="16" fill="#fff6d0"/>
   <path d="M23 6c-3-5-8-5-7-1 1 2 7 1 7 1z M23 6c3-5 8-5 7-1-1 2-7 1-7 1z" fill="#fff6d0"/></svg>`;
+
+// New Year: fireworks over a skyline. Rockets climb, burst, and the sparks
+// fall and fade; a finished scan sets one off. Nothing runs while the tab is
+// in the background, and reduced motion gets the sky at one moment, still.
+function buildNewYear(root) {
+  const calm = calmMotion();
+  const bg = document.createElement("div");
+  bg.id = "themeBg";
+  bg.className = "theme-bg";
+  bg.setAttribute("aria-hidden", "true");
+  bg.innerHTML = "<canvas></canvas>";
+  document.body.prepend(bg);
+  const cv = bg.querySelector("canvas"), ctx = cv.getContext("2d");
+  const W = innerWidth, H = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.scale(dpr, dpr);
+  const COLORS = ["#ffd166", "#ff7b7b", "#7ee0ff", "#c2a7ff", "#8cff9e", "#ffffff"];
+
+  // The skyline is drawn once and stamped back over the fade each frame.
+  const sky = document.createElement("canvas");
+  sky.width = W * dpr; sky.height = H * dpr;
+  const sx = sky.getContext("2d");
+  sx.scale(dpr, dpr);
+  const roof = H * .82;
+  for (let x = 0, i = 0; x < W; i++) {
+    const w = rnd(40, 95), h = rnd(H * .06, H * .17);
+    sx.fillStyle = i % 2 ? "#080c1c" : "#0b1024";
+    sx.fillRect(x, roof - h, w, H - roof + h);
+    for (let wy = roof - h + 8; wy < H - 10; wy += 13)
+      for (let wx = x + 6; wx < x + w - 6; wx += 11)
+        if (Math.random() < .28) { sx.fillStyle = Math.random() < .8 ? "rgba(255, 209, 102, .5)" : "rgba(126, 224, 255, .45)"; sx.fillRect(wx, wy, 4, 6); }
+    x += w + rnd(2, 10);
+  }
+
+  const rockets = [], sparks = [];
+  const burst = (x, y, col) => {
+    const n = calm ? 70 : Math.round(rnd(48, 86)), spd = rnd(90, 190);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rnd(-.05, .05), v = spd * rnd(.45, 1);
+      sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rnd(1, 1.9), col });
+    }
+  };
+  const launch = (x) => rockets.push({
+    x: x ?? rnd(W * .12, W * .88), y: H * .92, vy: -rnd(H * .34, H * .52),
+    col: COLORS[Math.floor(Math.random() * COLORS.length)],
+  });
+
+  const draw = () => {
+    ctx.fillStyle = "rgba(6, 9, 22, .26)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.drawImage(sky, 0, 0, W, H);
+    for (const r of rockets) {
+      ctx.fillStyle = r.col;
+      ctx.fillRect(r.x - 1, r.y - 4, 2, 8);
+    }
+    for (const p of sparks) {
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+      ctx.fillStyle = p.col;
+      ctx.fillRect(p.x - 1.2, p.y - 1.2, 2.4, 2.4);
+    }
+    ctx.globalAlpha = 1;
+  };
+
+  if (calm) {
+    // Reduced motion: three bursts hanging over the city, holding still.
+    ctx.fillStyle = "#060916";
+    ctx.fillRect(0, 0, W, H);
+    for (const [fx, fy, c] of [[W * .25, H * .3, "#ffd166"], [W * .55, H * .2, "#7ee0ff"], [W * .78, H * .36, "#ff7b7b"]]) burst(fx, fy, c);
+    for (const p of sparks) { p.x += p.vx * .5; p.y += p.vy * .5; }
+    draw();
+    return;
+  }
+
+  let raf = 0, last = 0, next = 0;
+  const frame = now => {
+    raf = requestAnimationFrame(frame);
+    if (now - last < 33) return;
+    const dt = Math.min(.05, (now - last) / 1000);
+    last = now;
+    if (now > next) { launch(); next = now + rnd(1100, 2600); }
+    for (let i = rockets.length - 1; i >= 0; i--) {
+      const r = rockets[i];
+      r.y += r.vy * dt; r.vy += 150 * dt;
+      if (r.vy > -60) { burst(r.x, r.y, r.col); rockets.splice(i, 1); }
+    }
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const p = sparks[i];
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 52 * dt;
+      p.vx *= .985; p.vy *= .985; p.life -= dt * .62;
+      if (p.life <= 0) sparks.splice(i, 1);
+    }
+    draw();
+  };
+  const run = () => { if (!raf) { last = performance.now(); next = last + 600; raf = requestAnimationFrame(frame); } };
+  const stop = () => { cancelAnimationFrame(raf); raf = 0; };
+  const vis = () => document.hidden ? stop() : run();
+  document.addEventListener("visibilitychange", vis);
+  run();
+  festiveStops.push(() => { stop(); document.removeEventListener("visibilitychange", vis); });
+  festiveHooks.scanDone = () => { if (!document.hidden) launch(); };
+}
+
+// Thanksgiving: leaves coming down, tumbling as they go, and a gust of them
+// when a scan finishes. Reduced motion lays them on the ground instead.
+const TG_LEAF = ["#d1452f", "#e8873d", "#e8a33d", "#a7642f", "#8c6b2f", "#a7c04f"];
+function buildThanksgiving(root) {
+  const calm = calmMotion();
+  const bg = document.createElement("div");
+  bg.id = "themeBg";
+  bg.className = "theme-bg";
+  bg.setAttribute("aria-hidden", "true");
+  bg.innerHTML = "<canvas></canvas>";
+  document.body.prepend(bg);
+  const cv = bg.querySelector("canvas"), ctx = cv.getContext("2d");
+  const W = innerWidth, H = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.scale(dpr, dpr);
+
+  // One leaf: a rounded blade with a stem, drawn at the origin and rotated.
+  const leaf = (x, y, r, sz, col, flat) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(r);
+    ctx.scale(1, flat);
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.moveTo(0, -sz);
+    ctx.bezierCurveTo(sz * .9, -sz * .5, sz * .75, sz * .6, 0, sz);
+    ctx.bezierCurveTo(-sz * .75, sz * .6, -sz * .9, -sz * .5, 0, -sz);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(60, 30, 10, .45)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, -sz); ctx.lineTo(0, sz * 1.15); ctx.stroke();
+    ctx.restore();
+  };
+  const make = (top) => ({
+    x: rnd(0, W), y: top ? rnd(-H * .3, -10) : rnd(0, H),
+    sz: rnd(6, 13), r: rnd(0, 6.3), spin: rnd(-1.6, 1.6),
+    vy: rnd(24, 62), sway: rnd(10, 34), phase: rnd(0, 6.3),
+    col: TG_LEAF[Math.floor(Math.random() * TG_LEAF.length)],
+  });
+  const leaves = Array.from({ length: Math.min(70, Math.round(W / 22)) }, () => make(false));
+
+  const draw = (t) => {
+    ctx.clearRect(0, 0, W, H);
+    for (const l of leaves) leaf(l.x + Math.sin(t / 1000 + l.phase) * l.sway, l.y, l.r, l.sz, l.col, Math.cos(l.r * .7) * .6 + .4);
+  };
+
+  if (calm) {
+    // Reduced motion: fallen leaves, scattered along the bottom.
+    for (const l of leaves) { l.y = H - rnd(4, 46); l.sway = 0; }
+    draw(0);
+    return;
+  }
+
+  let raf = 0, last = 0;
+  const frame = now => {
+    raf = requestAnimationFrame(frame);
+    if (now - last < 33) return;
+    const dt = Math.min(.05, (now - last) / 1000);
+    last = now;
+    for (const l of leaves) {
+      l.y += l.vy * dt;
+      l.r += l.spin * dt;
+      if (l.y > H + 20) Object.assign(l, make(true));
+    }
+    draw(now);
+  };
+  const run = () => { if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); } };
+  const stop = () => { cancelAnimationFrame(raf); raf = 0; };
+  const vis = () => document.hidden ? stop() : run();
+  document.addEventListener("visibilitychange", vis);
+  run();
+  festiveStops.push(() => { stop(); document.removeEventListener("visibilitychange", vis); });
+  // A finished scan blows a handful across the screen.
+  festiveHooks.scanDone = () => {
+    if (document.hidden) return;
+    for (const l of leaves.slice(0, 14)) { l.x = rnd(-40, W * .2); l.y = rnd(0, H * .7); l.spin = rnd(2, 4.5); l.vy = rnd(50, 90); }
+  };
+}
 
 function buildChristmas(root) {
   const W = window.innerWidth, H = window.innerHeight, NS = "http://www.w3.org/2000/svg";
