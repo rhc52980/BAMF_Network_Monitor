@@ -508,6 +508,39 @@
   [data-theme="halloween"] .brand h1 { color:#ff8c1a; text-shadow:0 0 10px rgba(255,140,26,.6); }
   [data-theme="halloween"] .brand h1::after { content:" 🎃"; text-shadow:none; }
 
+  /* ---- Spring: blossom coming down over a bright morning ---- */
+  [data-theme="spring"] {
+    --bg:#f3f8ef; --panel:rgba(255,255,255,.95); --panel-2:#e8f3e4; --line:#cfe2ca;
+    --text:#22301e; --text-dim:#5f7259; --led-on:#2f9e5b; --led-warn:#e08a1e;
+    --led-off:#b9c9b4; --danger:#d6453f; --focus:#3f8f62; --radius:10px;
+  }
+  [data-theme="spring"] .brand h1 { color:#3f8f62; }
+  [data-theme="spring"] .brand h1::after { content:" 🌸"; text-shadow:none; }
+  [data-theme="spring"] header { background:linear-gradient(#ffffff, #eaf4e6); border-bottom:1px solid #cfe2ca; }
+  [data-theme="spring"] table, [data-theme="spring"] .feed { background:rgba(255,255,255,.96); }
+
+  /* ---- Summer: sun, clouds and the sea along the bottom ---- */
+  [data-theme="summer"] {
+    --bg:#e7f4ff; --panel:rgba(255,255,255,.95); --panel-2:#dcecf8; --line:#c3dced;
+    --text:#15303f; --text-dim:#5a7385; --led-on:#1aa37a; --led-warn:#e69100;
+    --led-off:#afc6d4; --danger:#e2503f; --focus:#f07a2d; --radius:10px;
+  }
+  [data-theme="summer"] .brand h1 { color:#f07a2d; }
+  [data-theme="summer"] .brand h1::after { content:" 🌞"; text-shadow:none; }
+  [data-theme="summer"] header { background:linear-gradient(#ffffff, #dff0fb); border-bottom:1px solid #c3dced; }
+  [data-theme="summer"] table, [data-theme="summer"] .feed { background:rgba(255,255,255,.96); }
+
+  /* ---- Winter: snow, and frost creeping in at the edges ---- */
+  [data-theme="winter"] {
+    --bg:#0d1620; --panel:rgba(19,32,45,.95); --panel-2:rgba(26,42,58,.96); --line:#24384c;
+    --text:#e6f1fa; --text-dim:#8fa6bb; --led-on:#7ee0b8; --led-warn:#ffd08a;
+    --led-off:#33485c; --danger:#ff7b8a; --focus:#8fd3ff; --radius:10px;
+  }
+  [data-theme="winter"] .brand h1 { color:#cfeaff; text-shadow:0 0 12px rgba(143,211,255,.5); }
+  [data-theme="winter"] .brand h1::after { content:" ❄"; text-shadow:none; }
+  [data-theme="winter"] header { background:linear-gradient(rgba(16,28,40,.95), rgba(12,21,31,.92)); border-bottom:1px solid #24384c; }
+  [data-theme="winter"] table, [data-theme="winter"] .feed { background:rgba(12,21,31,.96); }
+
   /* ---- New Year: fireworks over a midnight skyline ---- */
   [data-theme="newyear"] {
     --bg:#060916; --panel:rgba(14,19,40,.94); --panel-2:rgba(22,28,54,.96); --line:#2b3566;
@@ -8303,6 +8336,9 @@ const THEMES = [
   { id: "claw",        name: "Claw Machine", sw: ["#140b24", "#ff4fa3", "#3de0ff"] },
   { id: "clawdusk",    name: "Claw Machine Dusk", sw: ["#15171c", "#b8788a", "#7fb0ae"] },
   // Hidden until unlocked: type BAMF anywhere, or tap the logo five times.
+  { id: "spring",      name: "Spring",       sw: ["#f3f8ef", "#f7a8c4", "#3f8f62"] },
+  { id: "summer",      name: "Summer",       sw: ["#e7f4ff", "#f07a2d", "#1aa37a"] },
+  { id: "winter",      name: "Winter",       sw: ["#0d1620", "#8fd3ff", "#e6f1fa"] },
   { id: "newyear",     name: "New Year",     sw: ["#060916", "#ffd166", "#7ee0ff"], cat: "holiday" },
   { id: "thanksgiving", name: "Thanksgiving", sw: ["#1a1008", "#e8873d", "#a7c04f"], cat: "holiday" },
   { id: "christmas",   name: "Christmas",    sw: ["#0b1712", "#ff3b3b", "#3ddc6f"], secret: true, cat: "holiday" },
@@ -8600,7 +8636,8 @@ const THEME_FX = { christmas: (r, sw) => buildChristmas(r, sw), halloween: (r, s
   matrix: buildMatrix, synthwave: buildSynthwave, hackerred: buildHackerRed, cottoncandy: buildCottonCandy, storm: buildStorm, hotdog: buildHotdog, terminal: buildTerminal, steampunk: buildSteampunk, waterworks: buildWaterworks, aquarium: buildAquarium, goat: buildGoat,
   goatnight: (r, sw) => buildGoat(r, sw, true), nightstreet: buildNightStreet,
   constellation: buildConstellation, claw: buildClaw, clawdusk: (r, sw) => buildClaw(r, sw, true),
-  newyear: buildNewYear, thanksgiving: buildThanksgiving };
+  newyear: buildNewYear, thanksgiving: buildThanksgiving,
+  spring: buildSpring, summer: buildSummer, winter: buildWinter };
 const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
@@ -11739,6 +11776,258 @@ const PRESENT_STACK = `<svg viewBox="0 0 60 44" width="58">
   <rect x="30" y="18" width="26" height="24" rx="1" fill="#d42426"/><rect x="41" y="18" width="4" height="24" fill="#fff6d0"/>
   <rect x="12" y="6" width="22" height="16" rx="1" fill="#2f6fd4"/><rect x="21" y="6" width="4" height="16" fill="#fff6d0"/>
   <path d="M23 6c-3-5-8-5-7-1 1 2 7 1 7 1z M23 6c3-5 8-5 7-1-1 2-7 1-7 1z" fill="#fff6d0"/></svg>`;
+
+// The three seasons share their plumbing: a canvas behind the dashboard, a
+// frame loop that stops with the tab, and a still picture under reduced
+// motion. This hands back the canvas and a run/stop pair so each one only has
+// to say what it draws.
+function seasonCanvas(draw, step) {
+  const bg = document.createElement("div");
+  bg.id = "themeBg";
+  bg.className = "theme-bg";
+  bg.setAttribute("aria-hidden", "true");
+  bg.innerHTML = "<canvas></canvas>";
+  document.body.prepend(bg);
+  const cv = bg.querySelector("canvas"), ctx = cv.getContext("2d");
+  const W = innerWidth, H = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.scale(dpr, dpr);
+  return { ctx, W, H, start() {
+    let raf = 0, last = 0;
+    const frame = now => {
+      raf = requestAnimationFrame(frame);
+      if (now - last < 33) return;
+      const dt = Math.min(.05, (now - last) / 1000);
+      last = now;
+      step(dt, now);
+      draw(now);
+    };
+    const run = () => { if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); } };
+    const stop = () => { cancelAnimationFrame(raf); raf = 0; };
+    const vis = () => document.hidden ? stop() : run();
+    document.addEventListener("visibilitychange", vis);
+    run();
+    festiveStops.push(() => { stop(); document.removeEventListener("visibilitychange", vis); });
+  } };
+}
+
+// Spring: blossom drifting down, and a bee wandering across now and then. A
+// finished scan shakes a fresh handful off the branch.
+function buildSpring() {
+  const calm = calmMotion();
+  const petals = [];
+  let bee = null, beeAt = 0;
+  const c = seasonCanvas(draw, step);
+  const { ctx, W, H } = c;
+  const PETAL = ["#f7a8c4", "#fbd3e0", "#ffffff", "#f3c1d6"];
+  const make = (top) => ({
+    x: rnd(0, W), y: top ? rnd(-H * .3, -8) : rnd(0, H), sz: rnd(4, 8),
+    r: rnd(0, 6.3), spin: rnd(-1.2, 1.2), vy: rnd(18, 44), sway: rnd(14, 40), phase: rnd(0, 6.3),
+    col: PETAL[Math.floor(Math.random() * PETAL.length)],
+  });
+  for (let i = 0; i < Math.min(80, Math.round(W / 18)); i++) petals.push(make(false));
+
+  function step(dt, now) {
+    for (const p of petals) {
+      p.y += p.vy * dt;
+      p.r += p.spin * dt;
+      if (p.y > H + 12) Object.assign(p, make(true));
+    }
+    if (!bee && now > beeAt) bee = { x: -30, y: rnd(H * .2, H * .7), v: rnd(70, 120), t: 0 };
+    if (bee) {
+      bee.t += dt;
+      bee.x += bee.v * dt;
+      if (bee.x > W + 30) { bee = null; beeAt = now + rnd(9000, 20000); }
+    }
+  }
+  function draw(now) {
+    ctx.clearRect(0, 0, W, H);
+    for (const p of petals) {
+      const x = p.x + Math.sin((now || 0) / 1000 + p.phase) * p.sway;
+      ctx.save();
+      ctx.translate(x, p.y);
+      ctx.rotate(p.r);
+      ctx.fillStyle = p.col;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, p.sz, p.sz * .58, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    if (bee) {
+      const y = bee.y + Math.sin(bee.t * 6) * 9;
+      ctx.save();
+      ctx.translate(bee.x, y);
+      ctx.fillStyle = "rgba(255,255,255,.75)";
+      const wing = Math.sin(bee.t * 40) * 3;
+      ctx.beginPath(); ctx.ellipse(-1, -5 + wing, 5, 3, -.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#f0b429";
+      ctx.beginPath(); ctx.ellipse(0, 0, 7, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#3a2a10";
+      for (const dx of [-2.5, 0.5, 3.5]) ctx.fillRect(dx, -4.5, 1.8, 9);
+      ctx.restore();
+    }
+  }
+
+  if (calm) {
+    // Reduced motion: blossom already fallen, lying still.
+    for (const p of petals) { p.y = H - rnd(2, 40); p.sway = 0; }
+    draw(0);
+    return;
+  }
+  beeAt = performance.now() + 4000;
+  c.start();
+  festiveHooks.scanDone = () => {
+    if (document.hidden) return;
+    for (const p of petals.slice(0, 18)) { p.y = rnd(-60, 0); p.x = rnd(0, W); p.vy = rnd(40, 80); }
+  };
+}
+
+// Summer: a high sun, clouds crossing, and the sea along the bottom. A
+// finished scan sends a bigger set of waves through.
+function buildSummer() {
+  const calm = calmMotion();
+  const clouds = Array.from({ length: 5 }, () => ({ x: rnd(0, innerWidth), y: rnd(40, innerHeight * .4), sc: rnd(.6, 1.5), v: rnd(6, 16) }));
+  let surge = 0;
+  const c = seasonCanvas(draw, step);
+  const { ctx, W, H } = c;
+  const sunX = W * .84, sunY = H * .18;
+
+  function step(dt) {
+    for (const cl of clouds) {
+      cl.x += cl.v * dt;
+      if (cl.x > W + 120 * cl.sc) { cl.x = -120 * cl.sc; cl.y = rnd(40, H * .4); }
+    }
+    if (surge > 0) surge = Math.max(0, surge - dt * .5);
+  }
+  const cloud = (x, y, sc) => {
+    ctx.fillStyle = "rgba(255,255,255,.82)";
+    for (const [dx, dy, r] of [[0, 0, 26], [22, 6, 20], [-22, 6, 18], [8, -12, 18]]) {
+      ctx.beginPath(); ctx.arc(x + dx * sc, y + dy * sc, r * sc, 0, Math.PI * 2); ctx.fill();
+    }
+  };
+  function draw(now) {
+    const t = (now || 0) / 1000;
+    ctx.clearRect(0, 0, W, H);
+    // Sun, with rays that turn slowly.
+    const g = ctx.createRadialGradient(sunX, sunY, 4, sunX, sunY, 120);
+    g.addColorStop(0, "rgba(255, 214, 120, .95)");
+    g.addColorStop(.35, "rgba(255, 190, 90, .35)");
+    g.addColorStop(1, "rgba(255, 190, 90, 0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(sunX - 130, sunY - 130, 260, 260);
+    ctx.save();
+    ctx.translate(sunX, sunY);
+    ctx.rotate(t * .06);
+    ctx.strokeStyle = "rgba(255, 200, 110, .35)";
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 12; i++) {
+      ctx.rotate(Math.PI / 6);
+      ctx.beginPath(); ctx.moveTo(46, 0); ctx.lineTo(70, 0); ctx.stroke();
+    }
+    ctx.restore();
+    ctx.fillStyle = "#ffd166";
+    ctx.beginPath(); ctx.arc(sunX, sunY, 34, 0, Math.PI * 2); ctx.fill();
+    for (const cl of clouds) cloud(cl.x, cl.y, cl.sc);
+    // The sea: three bands of swell, the front one darkest.
+    const amp = 6 + surge * 14;
+    for (const [i, col] of [[0, "rgba(120, 200, 235, .55)"], [1, "rgba(70, 170, 215, .6)"], [2, "rgba(30, 130, 185, .65)"]]) {
+      const base = H - 46 + i * 20;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (let x = 0; x <= W; x += 12)
+        ctx.lineTo(x, base + Math.sin(x / 90 + t * (.7 + i * .25) + i) * amp + Math.sin(x / 33 - t) * 2);
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  if (calm) { draw(0); return; }
+  c.start();
+  festiveHooks.scanDone = () => { if (!document.hidden) surge = 1; };
+}
+
+// Winter: snow falling past frosted edges, settling into a drift along the
+// bottom. A finished scan brings a gust through.
+function buildWinter() {
+  const calm = calmMotion();
+  const flakes = [];
+  let gust = 0;
+  const c = seasonCanvas(draw, step);
+  const { ctx, W, H } = c;
+  const make = (top) => ({
+    x: rnd(0, W), y: top ? rnd(-H * .3, -6) : rnd(0, H), sz: rnd(1.2, 3.4),
+    vy: rnd(22, 70), sway: rnd(8, 26), phase: rnd(0, 6.3), a: rnd(.35, .95),
+  });
+  for (let i = 0; i < Math.min(180, Math.round(W / 7)); i++) flakes.push(make(false));
+  // Frost around the edges, drawn once: spikes reaching in from each side.
+  const frost = document.createElement("canvas");
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  frost.width = W * dpr; frost.height = H * dpr;
+  const fx = frost.getContext("2d");
+  fx.scale(dpr, dpr);
+  const spike = (x, y, dx, dy, len, w) => {
+    fx.strokeStyle = `rgba(200, 235, 255, ${rnd(.1, .3).toFixed(2)})`;
+    fx.lineWidth = w;
+    fx.beginPath();
+    fx.moveTo(x, y);
+    fx.lineTo(x + dx * len, y + dy * len);
+    fx.stroke();
+    for (let i = 1; i <= 3; i++) {
+      const t = i / 4, bx = x + dx * len * t, by = y + dy * len * t, bl = len * .28 * (1 - t);
+      fx.beginPath(); fx.moveTo(bx, by); fx.lineTo(bx + dy * bl - dx * bl * .3, by + dx * bl - dy * bl * .3); fx.stroke();
+      fx.beginPath(); fx.moveTo(bx, by); fx.lineTo(bx - dy * bl - dx * bl * .3, by - dx * bl - dy * bl * .3); fx.stroke();
+    }
+  };
+  for (let x = 0; x < W; x += 26) {
+    spike(x, 0, rnd(-.25, .25), 1, rnd(20, 70), rnd(.6, 1.4));
+    spike(x, H, rnd(-.25, .25), -1, rnd(16, 56), rnd(.6, 1.4));
+  }
+  for (let y = 0; y < H; y += 26) {
+    spike(0, y, 1, rnd(-.25, .25), rnd(18, 60), rnd(.6, 1.4));
+    spike(W, y, -1, rnd(-.25, .25), rnd(18, 60), rnd(.6, 1.4));
+  }
+
+  function step(dt) {
+    for (const f of flakes) {
+      f.y += f.vy * dt * (1 + gust);
+      f.x += gust * 90 * dt;
+      if (f.y > H + 6 || f.x > W + 10) Object.assign(f, make(true));
+    }
+    if (gust > 0) gust = Math.max(0, gust - dt * .6);
+  }
+  function draw(now) {
+    const t = (now || 0) / 1000;
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(frost, 0, 0, W, H);
+    // The drift along the bottom.
+    ctx.fillStyle = "rgba(226, 242, 255, .16)";
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let x = 0; x <= W; x += 24) ctx.lineTo(x, H - 14 - Math.sin(x / 120) * 7);
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fill();
+    for (const f of flakes) {
+      ctx.globalAlpha = f.a;
+      ctx.fillStyle = "#eaf6ff";
+      ctx.beginPath();
+      ctx.arc(f.x + Math.sin(t + f.phase) * f.sway, f.y, f.sz, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  if (calm) {
+    // Reduced motion: settled snow and frost, holding still.
+    for (const f of flakes) { f.y = Math.min(H - rnd(2, 30), f.y); f.sway = 0; }
+    draw(0);
+    return;
+  }
+  c.start();
+  festiveHooks.scanDone = () => { if (!document.hidden) gust = 1; };
+}
 
 // New Year: fireworks over a skyline. Rockets climb, burst, and the sparks
 // fall and fade; a finished scan sets one off. Nothing runs while the tab is

@@ -423,8 +423,8 @@ The ◑ button in the header opens the theme menu: Dark, Light, Terminal, Amber
 CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
 Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
-Night Street, Constellation, Claw Machine, Claw Machine Dusk, New Year and
-Thanksgiving. Your choice is remembered in your browser.
+Night Street, Constellation, Claw Machine, Claw Machine Dusk, Spring, Summer,
+Winter, New Year and Thanksgiving. Your choice is remembered in your browser.
 
 The menu is grouped: **Colours** for the schemes where nothing moves,
 **Animated** for the ones with something going on behind the dashboard,
@@ -575,6 +575,15 @@ Some themes have a little life in them:
   speed, the counts glow soft amber, the neon tubes are turned down, and the
   prizes are faded pastels. Everything else plays the same, claw and 🕹
   button included.
+- **Spring**: blossom drifting down over a pale green morning, and a bee
+  wandering across every so often. A finished scan shakes a fresh handful off
+  the branch. Reduced motion leaves the blossom lying where it fell.
+- **Summer**: a high sun with slowly turning rays, clouds crossing, and the sea
+  rolling along the bottom of the page. A finished scan sends a bigger set of
+  waves through. Reduced motion holds the scene at one moment.
+- **Winter**: snow falling past frost that reaches in from the edges of the
+  screen, settling into a drift along the bottom. A finished scan blows a gust
+  through. Reduced motion leaves the snow settled.
 - **New Year**: fireworks over a city at midnight. Rockets climb from behind
   the skyline, burst, and the sparks fall and fade; a finished scan sets one
   off. Reduced motion keeps three bursts hanging over the rooftops.
