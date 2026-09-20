@@ -423,8 +423,8 @@ The ◑ button in the header opens the theme menu: Dark, Light, Terminal, Amber
 CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
 Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
-Night Street, Constellation, Claw Machine, Claw Machine Dusk, Spring, Summer,
-Winter, New Year and Thanksgiving. Your choice is remembered in your browser.
+Night Street, Constellation, Claw Machine, Claw Machine Dusk, Laser Show,
+Spring, Summer, Winter, New Year and Thanksgiving. Your choice is remembered in your browser.
 
 The menu is grouped: **Colours** for the schemes where nothing moves,
 **Animated** for the ones with something going on behind the dashboard,
@@ -575,6 +575,13 @@ Some themes have a little life in them:
   speed, the counts glow soft amber, the neon tubes are turned down, and the
   prizes are faded pastels. Everything else plays the same, claw and 🕹
   button included.
+- **Laser Show**: a club rig in a dark room. Two heads in the top corners throw
+  fans of cyan and magenta through the haze, sweeping across each other, while
+  a green projector traces a figure that leaves a fading trail behind its dot.
+  A grid runs back to the horizon, and a beam plays along the bottom of the
+  header. A finished scan snaps every beam into a starburst, and a new device
+  sends one hard beam across the room. Reduced motion lights the rig and holds
+  it still.
 - **Spring**: blossom drifting down over a pale green morning, and a bee
   wandering across every so often. A finished scan shakes a fresh handful off
   the branch. Reduced motion leaves the blossom lying where it fell.
