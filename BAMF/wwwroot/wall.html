@@ -62,6 +62,18 @@
   .foot .lost { color: var(--warn); }
   #hint { transition: opacity 1s; }
   #hint.gone { opacity: 0; }
+  /* The floor plan, when the wall is showing one: as big as the space allows,
+     with a dot per device where it sits. */
+  .plan { position: relative; flex: 1 1 auto; min-height: 0; display: flex; justify-content: center; align-items: center; }
+  .plan .sheet { position: relative; max-width: 100%; max-height: 100%; }
+  .plan img, .plan svg { display: block; max-width: 100%; max-height: 60vh; width: auto; height: auto; border-radius: 10px; }
+  .plan .pin { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .plan .pin b { width: clamp(12px, 1.6vw, 20px); height: clamp(12px, 1.6vw, 20px); border-radius: 50%; background: var(--off); box-shadow: 0 0 0 3px rgba(0, 0, 0, .45); }
+  .plan .pin.on b { background: var(--on); box-shadow: 0 0 0 3px rgba(0, 0, 0, .45), 0 0 14px var(--on); }
+  .plan .pin.unknown b { background: var(--warn); box-shadow: 0 0 0 3px rgba(0, 0, 0, .45), 0 0 14px var(--warn); }
+  .plan .pin span { font-size: clamp(9px, 1.1vw, 13px); color: #e8f0f8; background: rgba(6, 10, 16, .72); border-radius: 5px; padding: 1px 5px; white-space: nowrap; }
+  .plan .name { position: absolute; left: 10px; top: 10px; color: #e8f0f8; background: rgba(6, 10, 16, .72); border-radius: 6px; padding: 2px 8px; font-family: "IBM Plex Mono", monospace; font-size: clamp(11px, 1.4vw, 15px); }
+  .plan .none { color: var(--dim); font-family: "IBM Plex Mono", monospace; }
   @media (max-height: 520px) { .board { gap: 2vh; } .events li:nth-child(n+4) { display: none; } }
   @media (prefers-reduced-motion: reduce) { .board { transition: none; } .grid i { transition: none; } }
 </style>
@@ -90,6 +102,7 @@
     <div class="num warn zero"><b id="nNew">–</b><span>unknown</span></div>
   </div>
   <div class="grid" id="grid" aria-label="One square per device: green online, amber online and unknown, dark offline"></div>
+  <div class="plan" id="plan" hidden></div>
   <ul class="events" id="events"></ul>
   <footer class="foot">
     <span id="scan"></span>
@@ -112,10 +125,64 @@
   };
   tick(); setInterval(tick, 1000);
 
+  // ?floor=1 shows that floor's plan instead of the squares; ?floor=all turns
+  // through every floor. The dots follow the same colours as the squares.
+  const floorWanted = params.get("floor");
+  let floors = null, floorAt = 0, planCache = new Map();
+  const planFor = async f => {
+    if (f.kind !== "plan") return null;
+    const key = f.id + ":" + f.updated;
+    if (!planCache.has(key)) {
+      const r = await fetch(`/api/floors/${f.id}/plan`, { cache: "no-store" });
+      planCache.set(key, r.ok ? await r.json() : null);
+    }
+    return planCache.get(key);
+  };
+  // The walls of a drawn plan, in the same shapes the dashboard uses.
+  const planSvg = p => {
+    const w = p.Width ?? p.width, h = p.Height ?? p.height, items = p.Items ?? p.items ?? [];
+    const at = i => [i.A ?? i.a, i.B ?? i.b, i.P ?? i.p, i.K ?? i.k, i.T ?? i.t];
+    let out = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="#f6f3ec"/>`;
+    for (const i of items) { const [a, b, , k] = at(i); if (k === "wall") out += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#2f2a24" stroke-width="7"/>`; }
+    for (const i of items) {
+      const [a, b, , k] = at(i);
+      if (k !== "door" && k !== "window") continue;
+      out += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#f6f3ec" stroke-width="9"/>`;
+      if (k === "window") out += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#5f7f9a" stroke-width="3"/>`;
+    }
+    for (const i of items) { const [, , p2, k, t] = at(i); if (k === "label") out += `<text x="${p2[0]}" y="${p2[1]}" text-anchor="middle" fill="#4a4034" font-size="17" font-family="system-ui">${esc(t)}</text>`; }
+    return out + "</svg>";
+  };
+  const drawPlan = async (hosts) => {
+    if (!floorWanted || !floors || !floors.floors.length) { $("plan").hidden = true; $("grid").hidden = false; return; }
+    $("grid").hidden = true;
+    $("plan").hidden = false;
+    const list = floors.floors;
+    const f = floorWanted === "all"
+      ? list[Math.floor(Date.now() / 20000) % list.length]
+      : list.find(x => String(x.id) === floorWanted || x.name.toLowerCase() === floorWanted.toLowerCase()) || list[0];
+    const places = floors.places.filter(p => p.floorId === f.id);
+    const byId = new Map(hosts.map(h => [h.id, h]));
+    const sheet = f.kind === "plan"
+      ? planSvg(await planFor(f) || { width: 1200, height: 800, items: [] })
+      : `<img src="/api/floors/${f.id}/image?v=${encodeURIComponent(f.updated)}" alt="">`;
+    const pins = places.map(p => {
+      const h = byId.get(p.hostId);
+      if (!h || h.forgotten) return "";
+      const state = !h.online ? "" : h.known === false ? "unknown" : "on";
+      return `<div class="pin ${state}" style="left:${(p.x * 100).toFixed(2)}%;top:${(p.y * 100).toFixed(2)}%"><b></b><span>${esc(name(h))}</span></div>`;
+    }).join("");
+    $("plan").innerHTML = `<div class="sheet">${sheet}${pins}<div class="name">${esc(f.name)}${list.length > 1 && floorWanted === "all" ? " \u00b7 " + list.length + " floors" : ""}</div></div>`;
+  };
+
   let lost = false;
   const name = h => h.customName || (h.hostname && h.hostname !== "—" ? h.hostname : h.ip);
   const load = async () => {
     try {
+      if (floorWanted && (!floors || Date.now() - floorAt > 60e3)) {
+        const fr = await fetch("/api/floors", { cache: "no-store" });
+        if (fr.ok) { floors = await fr.json(); floorAt = Date.now(); }
+      }
       const r = await fetch("/api/hosts", { cache: "no-store" });
       if (!r.ok) throw new Error("API " + r.status);
       const data = await r.json();
@@ -134,6 +201,7 @@
       const grid = $("grid");
       const html = order.map(h => `<i class="${h.online ? (h.known ? "on" : "warn") : ""}" title="${esc(name(h))} · ${esc(h.ip)}"></i>`).join("");
       if (grid.innerHTML !== html) grid.innerHTML = html;
+      await drawPlan(live);
       const last = data.lastScan ? new Date(data.lastScan) : null;
       $("scan").textContent = last ? "last scan " + last.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
       $("scan").className = "";
