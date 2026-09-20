@@ -390,13 +390,14 @@ survive IP changes.
   automations can fire when someone gets home. See [MQTT](#mqtt-and-home-assistant).
 - **Tags** - group devices as "kids", "IoT", "work" or whatever fits, then
   filter the list and the Map by tag. See [Tags](#tags).
-- **34 themes** - click the theme button for a picker, grouped into colours,
+- **36 themes** - click the theme button for a picker, grouped into colours,
   animated and holidays: Dark, Light, Terminal, Amber CRT, Synthwave, Commodore
   64, Game Boy, Nord, Dracula, Solarized (dark + light), Gruvbox, High Contrast,
   Matrix, Blueprint, Hacker Red, Cotton Candy, Thunderstorm, Hotdog Stand,
   Steampunk, Waterworks, Aquarium, Goat, Goat Night, Night Street,
-  Constellation, Claw Machine (dark + dusk), Laser Show, Spring, Summer, Winter,
-  New Year and Thanksgiving. See [Theme](#theme).
+  Constellation, Claw Machine (dark + dusk), Laser Show, Factory (day + night
+  shift), Spring, Summer, Winter, New Year and Thanksgiving. See
+  [Theme](#theme).
   CRT themes get scanlines; each pick triggers a BAMF! splat. Choice persists.
   There are also two seasonal themes you won't find in the list. They unlock the
   way a friendly program would: just tell it its name. (On a phone, the logo is
@@ -430,7 +431,8 @@ CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
 Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
 Night Street, Constellation, Claw Machine, Claw Machine Dusk, Laser Show,
-Spring, Summer, Winter, New Year and Thanksgiving. Your choice is remembered in your browser.
+Factory, Factory Night Shift, Spring, Summer, Winter, New Year and
+Thanksgiving. Your choice is remembered in your browser.
 
 The menu is grouped: **Colours** for the schemes where nothing much moves —
 including Synthwave, Hacker Red and Cotton Candy, which are colour schemes
@@ -588,6 +590,20 @@ Some themes have a little life in them:
   speed, the counts glow soft amber, the neon tubes are turned down, and the
   prizes are faded pastels. Everything else plays the same, claw and 🕹
   button included.
+- **Factory**: the dashboard as a shop floor. Lamps hang from a gantry across
+  the roof, machines turn against the back wall, a welder throws sparks in the
+  corner, and a conveyor runs along the bottom of the screen with crates on it,
+  each stencilled with a device's name. A finished scan is a batch coming off
+  the line: the belt speeds up, the press comes down and crates go out. A new
+  device arrives as a crate of its own; one that goes off the air comes back
+  down the belt stamped **REJECT**, the machines stop turning and the beacon
+  goes red. The **andon board** in the header is the light over the floor —
+  green running, amber for unknown devices, red when something watched is
+  down. With sound on you get the belt's hum, the thump of the press, crates
+  landing and the alarm; it stops in a background tab.
+- **Factory Night Shift**: the same floor with the lights down and the lamps
+  turned low, for a screen in a dark room. The beacons and the hazard tape stay
+  bright, because they're what you can see at night.
 - **Laser Show**: a club rig in a dark room. Two heads in the top corners throw
   fans of cyan and magenta through the haze, sweeping across each other, while
   a green projector traces a figure that leaves a fading trail behind its dot.
