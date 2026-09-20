@@ -394,7 +394,7 @@ survive IP changes.
   animated and holidays: Dark, Light, Terminal, Amber CRT, Synthwave, Commodore
   64, Game Boy, Nord, Dracula, Solarized (dark + light), Gruvbox, High Contrast,
   Matrix, Blueprint, Hacker Red, Cotton Candy, Thunderstorm, Hotdog Stand,
-  Steampunk, Waterworks, Aquarium, Goat, Goat Night, Night Street,
+  Steampunk, Waterworks, Aquarium, Goat, Goat Night, City Lights,
   Constellation, Claw Machine (dark + dusk), Laser Show, Data Centre, Power
   Plant, Factory (day + night shift), Spring, Summer, Winter, New Year and
   Thanksgiving. See [Theme](#theme).
@@ -430,7 +430,7 @@ The ◑ button in the header opens the theme menu: Dark, Light, Terminal, Amber
 CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
 Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
-Night Street, Constellation, Claw Machine, Claw Machine Dusk, Laser Show,
+City Lights, Constellation, Claw Machine, Claw Machine Dusk, Laser Show,
 Data Centre, Power Plant, Factory, Factory Night Shift, Spring, Summer,
 Winter, New Year and Thanksgiving. Your choice is remembered in your browser.
 
@@ -548,13 +548,18 @@ Some themes have a little life in them:
   jokes, on dark panels under a moonlit sky, with stars, a barn with a lit
   window and fireflies over the meadow. With sound on, crickets chirp between
   the bleats.
-- **Night Street**: a city block after dark. A skyline stands behind the
-  page, and its lit windows go up and down with how much of your network is
-  up (the odd one flickers with a TV). Street lamps pool light on the pavement:
-  one always buzzes, and moths circle a couple of them. Cars go by along the
-  road at the bottom. A new device arrives by taxi with its name on the roof
-  sign, a finished scan brightens every lamp and the Map's wiring, and a device
-  going offline puts a lamp out for a moment.
+- **City Lights** (called Night Street before 1.46): a city block after dark.
+  A skyline stands behind the page, and **windows go on and off all night**,
+  the way a city does - someone home, someone to bed, the odd one flickering
+  with a television - while the overall number lit follows how much of your
+  network is up. Street lamps pool light on the pavement: one always buzzes,
+  and moths circle a couple of them. Cars go by along the road at the bottom.
+  **An airliner crosses high up** with its wingtip lights and belly strobe,
+  and **a helicopter comes over lower, sweeping a searchlight over the street**
+  - and it turns out to look whenever a device goes off the air. A new device
+  arrives by taxi with its name on the roof sign, a finished scan brightens
+  every lamp and the Map's wiring, and a device going offline puts a lamp out
+  for a moment.
 - **Constellation**: the night sky, with your network written in it. Every
   device is a star with its own place in the sky, and the stars are joined by
   faint constellation lines. Unknown devices shine red and offline ones dim.
@@ -735,8 +740,8 @@ reduced motion it all holds still, lit.
 Switch on **Night mode** under **Settings → Behaviour** and every dashboard
 wears a night theme between two clock times, by each screen's own clock, then
 goes back to its own theme in the morning. The defaults are 9 pm to 6 am and
-**Night Street**; pick any hours and any theme, including a drop-in. Night
-Street, Goat Night and Constellation were made for it, and Dark is the quiet
+**City Lights**; pick any hours and any theme, including a drop-in. City
+Lights, Goat Night and Constellation were made for it, and Dark is the quiet
 choice for a screen in a bedroom.
 
 It works like Holiday Spirit: your own theme isn't touched and comes back at
