@@ -292,7 +292,7 @@
   [data-theme="nightstreet"] .map-svg .t-tile { stroke: #6b5a3a; }
   [data-theme="nightstreet"].ns-bright .map-svg .spoke.cable { stroke: #ffd99a; }
   .ns-bg { overflow: hidden; background: linear-gradient(#04060c, #0b1020 45%, #161c30); }
-  .ns-bg svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ns-bg > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
   .ns-bg .ns-star { animation: ns-twinkle ease-in-out infinite alternate; }
   @keyframes ns-twinkle { from { opacity: .15; } to { opacity: .9; } }
   .ns-bg .ns-win { fill: #1a1f2e; transition: fill 1.2s; }
@@ -316,8 +316,30 @@
   .ns-taxi-sign { position: absolute; left: 12px; bottom: 20px; padding: 1px 6px; background: #ffe36b; color: #1a1a1a; border: 1px solid #1a1a1a; border-radius: 3px;
     font: 700 11px "IBM Plex Mono", monospace; white-space: nowrap; }
   .ns-car.rtl .ns-taxi-sign { left: auto; right: 12px; }
+  /* Something crossing the sky: an airliner high up with its navigation
+     lights, and a helicopter lower down with a searchlight under it. */
+  .ns-air { position: absolute; left: 0; pointer-events: none; animation: ns-fly linear forwards; }
+  .ns-air.rtl { animation-name: ns-fly-rtl; }
+  .ns-air.rtl > svg { transform: scaleX(-1); }
+  .ns-air svg { display: block; overflow: visible; position: static; }
+  .ns-air.ns-plane svg { width: 86px; height: 26px; }
+  .ns-air.ns-heli svg { width: 150px; height: 150px; }
+  @keyframes ns-fly { from { transform: translateX(-200px); } to { transform: translateX(calc(100vw + 200px)); } }
+  @keyframes ns-fly-rtl { from { transform: translateX(calc(100vw + 200px)); } to { transform: translateX(-200px); } }
+  .ns-nav { filter: drop-shadow(0 0 5px currentColor); }
+  .ns-nav.red { color: #ff4a4a; animation: ns-navblink 2s steps(2) infinite; }
+  .ns-nav.green { color: #4aff88; animation: ns-navblink 2s steps(2) infinite; animation-delay: -1s; }
+  .ns-strobe { filter: drop-shadow(0 0 6px #fff); animation: ns-strobe 1.4s steps(1) infinite; }
+  @keyframes ns-navblink { 50% { opacity: .15; } }
+  @keyframes ns-strobe { 0%, 92%, 100% { opacity: .1; } 94% { opacity: 1; } 96% { opacity: .15; } 98% { opacity: 1; } }
+  .ns-rotor { transform-box: fill-box; transform-origin: center; animation: ns-rotor .12s linear infinite; }
+  @keyframes ns-rotor { to { transform: rotate(360deg); } }
+  /* The searchlight: a cone under the helicopter, swinging as it hunts. */
+  .ns-beam { transform-box: fill-box; transform-origin: top center; animation: ns-sweep 3.4s ease-in-out infinite alternate; }
+  @keyframes ns-sweep { from { transform: rotate(-26deg); } to { transform: rotate(24deg); } }
   @media (prefers-reduced-motion: reduce) {
-    .ns-bg .ns-star, .ns-bg .ns-lamp.buzz .ns-glow, .ns-bg .ns-win.on.tv { animation: none !important; }
+    .ns-bg .ns-star, .ns-bg .ns-lamp.buzz .ns-glow, .ns-bg .ns-win.on.tv,
+    .ns-air, .ns-nav, .ns-strobe, .ns-rotor, .ns-beam { animation: none !important; }
   }
 
   /* Terminal is Battlezone: the green vector battlefield behind the page. */
@@ -9237,7 +9259,7 @@ const THEMES = [
   { id: "aquarium",    name: "Aquarium",     sw: ["#032a3a", "#5ff0c8", "#ff9f43"] },
   { id: "goat",        name: "Goat",         sw: ["#9e2b25", "#fdf8ec", "#6d8f3a"] },
   { id: "goatnight",   name: "Goat Night",   sw: ["#0f1622", "#f5d77a", "#5a1a17"] },
-  { id: "nightstreet", name: "Night Street", sw: ["#0b0e16", "#ffc46b", "#6fe39a"] },
+  { id: "nightstreet", name: "City Lights",  sw: ["#0b0e16", "#ffc46b", "#6fe39a"] },
   { id: "constellation", name: "Constellation", sw: ["#070b1f", "#b9a4ff", "#7ee0ff"] },
   { id: "claw",        name: "Claw Machine", sw: ["#140b24", "#ff4fa3", "#3de0ff"] },
   { id: "clawdusk",    name: "Claw Machine Dusk", sw: ["#15171c", "#b8788a", "#7fb0ae"] },
@@ -12584,6 +12606,38 @@ function buildConstellation(root) {
 // the bottom. A new device arrives by taxi with its name on the roof sign; a
 // finished scan brightens every lamp; a device going offline puts one out
 // for a moment.
+// An airliner at height: a silhouette with its wingtip lights and the strobe
+// on the belly. Small, because it's a long way up.
+const NS_PLANE = `<svg width="86" height="26" viewBox="0 0 86 26">
+  <path d="M6 14q14-5 30-6l16-6 6 1-6 11 18-1 7-4h4l-3 6 3 6h-4l-7-4-18-1 6 11-6 1-16-6q-16-1-30-6z" fill="#28324a" stroke="#3b4764" stroke-width="1"/>
+  <path d="M30 9l10-6 5 1-6 9z" fill="#36425e"/>
+  <circle class="ns-nav red" cx="8" cy="13" r="3" fill="#ff4a4a"/>
+  <circle class="ns-nav green" cx="80" cy="13" r="3" fill="#4aff88"/>
+  <circle class="ns-strobe" cx="44" cy="19" r="3" fill="#ffffff"/>
+</svg>`;
+// The helicopter: rotor turning, nav lights, and the searchlight under the
+// nose sweeping the street as it goes.
+const NS_HELI = `<svg width="150" height="150" viewBox="0 0 150 150">
+  <defs><linearGradient id="nsBeamCone" x1="0" x2="0" y1="0" y2="1">
+    <stop offset="0" stop-color="#fff2c4" stop-opacity=".5"/><stop offset="1" stop-color="#fff2c4" stop-opacity="0"/>
+  </linearGradient></defs>
+  <g class="ns-beam" transform="translate(52 44)">
+    <path d="M-7 0L-54 104H54L7 0z" fill="url(#nsBeamCone)"/>
+    <ellipse cx="0" cy="104" rx="52" ry="9" fill="#fff2c4" opacity=".16"/>
+  </g>
+  <ellipse cx="52" cy="30" rx="30" ry="13" fill="#28324a" stroke="#3b4764" stroke-width="1"/>
+  <path d="M74 26q22 2 44 6l2 5q-24 2-46 1z" fill="#28324a"/>
+  <path d="M112 20h5l3 16h-5z" fill="#1b2130"/>
+  <path d="M30 26q10-9 24-9t20 9z" fill="#6f86b8" opacity=".55"/>
+  <path d="M36 42h34l-2 8H38z" fill="#1b2130"/>
+  <path d="M28 52h52M34 52v6M74 52v6" stroke="#1b2130" stroke-width="4" fill="none"/>
+  <rect x="50" y="8" width="4" height="10" rx="1.5" fill="#1b2130"/>
+  <g class="ns-rotor"><ellipse cx="52" cy="8" rx="62" ry="2.6" fill="#8a93a6" opacity=".55"/>
+    <ellipse cx="52" cy="8" rx="30" ry="1.6" fill="#b9c2d4" opacity=".4" transform="rotate(60 52 8)"/></g>
+  <circle class="ns-nav red" cx="22" cy="30" r="3.2" fill="#ff4a4a"/>
+  <circle class="ns-nav green" cx="120" cy="30" r="3" fill="#4aff88"/>
+  <circle class="ns-strobe" cx="52" cy="46" r="3.4" fill="#fff2c4"/>
+</svg>`;
 const NS_CAR = (body, roof) => `<svg width="70" height="24" viewBox="0 0 70 24">
   <path d="M68 14L150 2V26z" fill="url(#nsBeam)" opacity=".8"/>
   <path d="M4 16v-5q0-3 3-3h10l7-6h22l8 6h9q4 0 4 4v4z" fill="${body}"/>
@@ -12650,13 +12704,48 @@ function buildNightStreet(root) {
     while (lit.length > want && steps-- > 0) { const w = lit.splice(Math.floor(Math.random() * lit.length), 1)[0]; w.classList.remove("on", "tv"); }
   };
   lightWindows(true);
+  // Windows going on and off all over the city, all night: a few flick every
+  // couple of seconds, on top of the slow drift that follows the network.
   if (!calm) festiveTimers.push(setInterval(() => {
     if (document.hidden) return;
-    // Someone switches a light, somewhere.
-    const w = pick(winEls);
-    if (w?.classList.contains("on")) { w.classList.remove("on", "tv"); festiveTimers.push(setTimeout(lightWindows, 4000)); }
-    else lightWindows();
-  }, 3500));
+    for (let i = 0, n = 1 + Math.floor(Math.random() * 3); i < n; i++) {
+      const w = pick(winEls);
+      if (!w) break;
+      if (w.classList.contains("on")) {
+        // Someone turns in for the night - or just turns the television on.
+        if (Math.random() < .25) w.classList.toggle("tv");
+        else w.classList.remove("on", "tv");
+      } else {
+        w.classList.add("on");
+        if (Math.random() < .1) w.classList.add("tv");
+      }
+    }
+  }, 1900));
+  // And the slow drift back to however much of the network is up.
+  if (!calm) festiveTimers.push(setInterval(() => { if (!document.hidden) lightWindows(); }, 9000));
+
+  // Traffic in the sky. The plane crosses high up; the helicopter comes over
+  // lower, with its searchlight sweeping the street.
+  const sky = (cls, art, top, secs) => {
+    if (calm || document.hidden || bg.querySelector("." + cls)) return null;
+    const el = document.createElement("div");
+    el.className = `ns-air ${cls}` + (Math.random() < .5 ? " rtl" : "");
+    el.style.top = top + "px";
+    el.style.animationDuration = secs.toFixed(0) + "s";
+    el.innerHTML = art;
+    el.addEventListener("animationend", e => { if (e.target === el) el.remove(); });
+    bg.appendChild(el);
+    return el;
+  };
+  // Both fly in the band of sky above the cards, where they can be seen: the
+  // plane high in it, the helicopter lower, with its beam reaching down.
+  const plane = () => sky("ns-plane", NS_PLANE, rnd(H * .07, H * .12), rnd(38, 60));
+  const heli = () => sky("ns-heli", NS_HELI, rnd(H * .08, H * .15), rnd(26, 40));
+  const again = (fn, gap) => festiveTimers.push(setTimeout(() => { fn(); again(fn, gap); }, rnd(gap[0], gap[1])));
+  if (!calm) {
+    festiveTimers.push(setTimeout(() => { plane(); again(plane, [70e3, 150e3]); }, rnd(12e3, 30e3)));
+    festiveTimers.push(setTimeout(() => { heli(); again(heli, [120e3, 260e3]); }, rnd(45e3, 90e3)));
+  }
 
   // Traffic.
   const car = (opts = {}) => {
@@ -12685,9 +12774,12 @@ function buildNightStreet(root) {
   festiveHooks.netChange = off => {
     if (!off.length || calm) return;
     const l = pick(lampEls.filter(x => !x.classList.contains("out")));
-    if (!l) return;
-    l.classList.add("out");
-    festiveTimers.push(setTimeout(() => l.classList.remove("out"), 6000));
+    if (l) {
+      l.classList.add("out");
+      festiveTimers.push(setTimeout(() => l.classList.remove("out"), 6000));
+    }
+    // Something's gone missing, so the helicopter comes over to look for it.
+    festiveTimers.push(setTimeout(heli, rnd(1500, 4000)));
   };
   festiveHooks.rendered = () => lightWindows();
 }
