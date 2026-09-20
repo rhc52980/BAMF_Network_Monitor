@@ -552,11 +552,15 @@ Some themes have a little life in them:
   A skyline stands behind the page, and **windows go on and off all night**,
   the way a city does - someone home, someone to bed, the odd one flickering
   with a television - while the overall number lit follows how much of your
-  network is up. Street lamps pool light on the pavement: one always buzzes,
+  network is up. **One tower stands over the rest**, running its windows as a
+  colour wave, floor by floor, with lit bands at its crown and a red beacon on
+  the mast; its lights are a show of their own and don't go out with the rest
+  of the city. Street lamps pool light on the pavement: one always buzzes,
   and moths circle a couple of them. Cars go by along the road at the bottom.
   **An airliner crosses high up** with its wingtip lights and belly strobe,
-  and **a helicopter comes over lower, sweeping a searchlight over the street**
-  - and it turns out to look whenever a device goes off the air. A new device
+  and **a helicopter comes over lower, sweeping a searchlight below it** - and
+  it turns out to look whenever a device goes off the air. Both pass in front
+  of the page, the way something overhead would. A new device
   arrives by taxi with its name on the roof sign, a finished scan brightens
   every lamp and the Map's wiring, and a device going offline puts a lamp out
   for a moment.

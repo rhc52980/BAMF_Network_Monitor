@@ -299,6 +299,18 @@
   .ns-bg .ns-win.on { fill: #f7cf7e; }
   .ns-bg .ns-win.on.tv { fill: #8fb6ff; animation: ns-tv 1.3s steps(3) infinite; }
   @keyframes ns-tv { 33% { fill: #b4a0ff; } 66% { fill: #7fd0ff; } }
+  /* The tower's own windows: a class of their own, so the on-and-off of the
+     rest of the city leaves them alone. They run a colour wave instead, each
+     floor a beat behind the one below. Their fill attribute is the colour they
+     hold when the animation is off. */
+  .ns-bg .ns-tw { animation: ns-rgb 9s linear infinite; }
+  @keyframes ns-rgb {
+    0%   { fill: #ff4d6d; } 17% { fill: #ff9a3d; } 34% { fill: #ffe14a; }
+    50%  { fill: #4dff88; } 67% { fill: #4ad4ff; } 84% { fill: #b07cff; } 100% { fill: #ff4d6d; }
+  }
+  .ns-bg .ns-crown { animation: ns-rgb 9s linear infinite; }
+  .ns-bg .ns-beacon { animation: ns-beacon 2.6s steps(2) infinite; }
+  @keyframes ns-beacon { 50% { opacity: .15; } }
   .ns-bg .ns-glow { transition: opacity .25s; }
   .ns-bg .ns-lamp.out .ns-glow { opacity: 0; }
   .ns-bg .ns-lamp.buzz .ns-glow { animation: ns-flicker 5s steps(1) infinite; }
@@ -318,9 +330,12 @@
   .ns-car.rtl .ns-taxi-sign { left: auto; right: 12px; }
   /* Something crossing the sky: an airliner high up with its navigation
      lights, and a helicopter lower down with a searchlight under it. */
-  .ns-air { position: absolute; left: 0; pointer-events: none; animation: ns-fly linear forwards; }
+  .ns-air { position: absolute; left: 0; pointer-events: none; opacity: .92;
+    filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .55)); animation: ns-fly linear forwards; }
   .ns-air.rtl { animation-name: ns-fly-rtl; }
-  .ns-air.rtl > svg { transform: scaleX(-1); }
+  /* Both are drawn facing left, so the one crossing to the right is the one
+     that gets turned round. */
+  .ns-air:not(.rtl) > svg { transform: scaleX(-1); }
   .ns-air svg { display: block; overflow: visible; position: static; }
   .ns-air.ns-plane svg { width: 86px; height: 26px; }
   .ns-air.ns-heli svg { width: 150px; height: 150px; }
@@ -339,6 +354,7 @@
   @keyframes ns-sweep { from { transform: rotate(-26deg); } to { transform: rotate(24deg); } }
   @media (prefers-reduced-motion: reduce) {
     .ns-bg .ns-star, .ns-bg .ns-lamp.buzz .ns-glow, .ns-bg .ns-win.on.tv,
+    .ns-bg .ns-tw, .ns-bg .ns-crown, .ns-bg .ns-beacon,
     .ns-air, .ns-nav, .ns-strobe, .ns-rotor, .ns-beam { animation: none !important; }
   }
 
@@ -12619,12 +12635,12 @@ const NS_PLANE = `<svg width="86" height="26" viewBox="0 0 86 26">
 // nose sweeping the street as it goes.
 const NS_HELI = `<svg width="150" height="150" viewBox="0 0 150 150">
   <defs><linearGradient id="nsBeamCone" x1="0" x2="0" y1="0" y2="1">
-    <stop offset="0" stop-color="#fff2c4" stop-opacity=".5"/><stop offset="1" stop-color="#fff2c4" stop-opacity="0"/>
+    <stop offset="0" stop-color="#fff2c4" stop-opacity=".38"/><stop offset="1" stop-color="#fff2c4" stop-opacity="0"/>
   </linearGradient></defs>
-  <g class="ns-beam" transform="translate(52 44)">
+  <g transform="translate(52 44)"><g class="ns-beam">
     <path d="M-7 0L-54 104H54L7 0z" fill="url(#nsBeamCone)"/>
     <ellipse cx="0" cy="104" rx="52" ry="9" fill="#fff2c4" opacity=".16"/>
-  </g>
+  </g></g>
   <ellipse cx="52" cy="30" rx="30" ry="13" fill="#28324a" stroke="#3b4764" stroke-width="1"/>
   <path d="M74 26q22 2 44 6l2 5q-24 2-46 1z" fill="#28324a"/>
   <path d="M112 20h5l3 16h-5z" fill="#1b2130"/>
@@ -12657,12 +12673,43 @@ function buildNightStreet(root) {
   // The skyline: blocks of every height, each with a grid of windows.
   let x = -10, blocks = "", wins = [];
   const shades = ["#0f1320", "#121725", "#0d111b", "#141a29"];
+  // One building stands over the rest, and runs its lights as a colour show -
+  // the tower every city has now. It goes up somewhere right of centre.
+  const towerX = W * rnd(.52, .76);
+  let towerDone = false;
+  const RGB = ["#ff4d6d", "#ff9a3d", "#ffe14a", "#4dff88", "#4ad4ff", "#b07cff"];
   while (x < W) {
-    const bw = Math.round(rnd(70, 150)), bh = Math.round(rnd(140, Math.min(440, H * .58))), top = WALK - bh;
-    blocks += `<rect x="${x}" y="${top}" width="${bw}" height="${bh}" fill="${pick(shades)}"/>`;
-    if (Math.random() < .3) blocks += `<rect x="${x + bw / 2 - 1}" y="${top - 26}" width="2" height="26" fill="#1c2233"/><circle cx="${x + bw / 2}" cy="${top - 27}" r="2" fill="#ff4a4a" class="ns-star"/>`;
-    for (let wy = top + 14; wy < WALK - 34; wy += 22)
-      for (let wx = x + 10; wx < x + bw - 16; wx += 18) wins.push(`<rect class="ns-win" x="${wx}" y="${wy}" width="8" height="11"/>`);
+    const tower = !towerDone && x >= towerX;
+    if (tower) towerDone = true;
+    const bw = tower ? 82 : Math.round(rnd(70, 150));
+    const bh = tower ? Math.round(Math.min(H * .74, WALK - 70)) : Math.round(rnd(140, Math.min(440, H * .58)));
+    const top = WALK - bh;
+    if (tower) {
+      // A setback near the top, a crown that washes through the colours, and
+      // the aircraft beacon on the mast above it.
+      const inset = 14, ct = top + 42;
+      // A shade lighter than the other blocks, with an edge: up above the
+      // rooftops it has only the sky behind it, and a black tower on a black
+      // sky is just windows hanging in the air.
+      blocks += `<rect x="${x}" y="${ct}" width="${bw}" height="${bh - 42}" fill="#161d2d" stroke="#222c44" stroke-width="1.5"/>` +
+        `<rect x="${x + inset}" y="${top}" width="${bw - inset * 2}" height="52" fill="#1a2234" stroke="#222c44" stroke-width="1.5"/>` +
+        `<rect class="ns-crown" x="${x + inset + 3}" y="${top + 4}" width="${bw - inset * 2 - 6}" height="5" fill="#4ad4ff"/>` +
+        `<rect class="ns-crown" x="${x + 4}" y="${ct - 5}" width="${bw - 8}" height="4" fill="#b07cff" style="animation-delay:-3s"/>` +
+        `<rect x="${x + bw / 2 - 1.5}" y="${top - 46}" width="3" height="48" fill="#1c2233"/>` +
+        `<circle class="ns-beacon" cx="${x + bw / 2}" cy="${top - 48}" r="3" fill="#ff4a4a"/>`;
+      // Its windows: a grid that waves through the colours, floor by floor.
+      let row = 0;
+      for (let wy = ct + 10; wy < WALK - 30; wy += 20, row++) {
+        let col = 0;
+        for (let wx = x + 9; wx < x + bw - 12; wx += 15, col++)
+          wins.push(`<rect class="ns-tw" x="${wx}" y="${wy}" width="8" height="11" fill="${RGB[(row + col) % RGB.length]}" style="animation-delay:-${(((row * 2 + col) % 9) * 1.05).toFixed(2)}s"/>`);
+      }
+    } else {
+      blocks += `<rect x="${x}" y="${top}" width="${bw}" height="${bh}" fill="${pick(shades)}"/>`;
+      if (Math.random() < .3) blocks += `<rect x="${x + bw / 2 - 1}" y="${top - 26}" width="2" height="26" fill="#1c2233"/><circle cx="${x + bw / 2}" cy="${top - 27}" r="2" fill="#ff4a4a" class="ns-star"/>`;
+      for (let wy = top + 14; wy < WALK - 34; wy += 22)
+        for (let wx = x + 10; wx < x + bw - 16; wx += 18) wins.push(`<rect class="ns-win" x="${wx}" y="${wy}" width="8" height="11"/>`);
+    }
     x += bw + Math.round(rnd(3, 18));
   }
   const stars = Array.from({ length: 40 }, (_, i) =>
@@ -12727,14 +12774,14 @@ function buildNightStreet(root) {
   // Traffic in the sky. The plane crosses high up; the helicopter comes over
   // lower, with its searchlight sweeping the street.
   const sky = (cls, art, top, secs) => {
-    if (calm || document.hidden || bg.querySelector("." + cls)) return null;
+    if (calm || document.hidden || document.querySelector("." + cls)) return null;
     const el = document.createElement("div");
     el.className = `ns-air ${cls}` + (Math.random() < .5 ? " rtl" : "");
     el.style.top = top + "px";
     el.style.animationDuration = secs.toFixed(0) + "s";
     el.innerHTML = art;
     el.addEventListener("animationend", e => { if (e.target === el) el.remove(); });
-    bg.appendChild(el);
+    root.appendChild(el);
     return el;
   };
   // Both fly in the band of sky above the cards, where they can be seen: the
