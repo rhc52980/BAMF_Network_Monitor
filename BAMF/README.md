@@ -1699,6 +1699,24 @@ or metres. Everything you draw is measured against it.
 - **Erase** removes whatever you click; **Undo** (or Ctrl+Z) takes back the
   last piece.
 
+### How big a plan can be
+
+Two controls, beside the scale:
+
+- **Area** grows the sheet in steps, from a flat to a site: 1200×800 up to
+  6000×4000 of the grid. What that covers depends on the scale — at 1 foot a
+  square it's 30 by 20 feet, at 5 feet a square it's 750 by 500. The readout
+  between the buttons always says what the sheet covers in feet or metres, so
+  you can set it to a garden, a yard, a paddock or a small industrial estate.
+- **Zoom** is just how big it looks: **−**, **+**, and **Fit** for the whole
+  plan on screen. **Ctrl** and the wheel zooms too. Zoomed out, walls and
+  measurements are drawn heavier so they stay readable instead of thinning
+  away to nothing.
+
+Growing the area doesn't move anything you've drawn, and devices already on
+the floor keep their spots against the walls: their positions are adjusted by
+the same ratio when you save.
+
 **Save plan** keeps it. Afterwards **Edit drawing** opens it again, and the
 devices keep their spots. It works on a phone by touch.
 
