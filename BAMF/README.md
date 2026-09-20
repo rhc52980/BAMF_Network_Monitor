@@ -150,7 +150,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:Mqtt:*` | Presence per device over MQTT: `Server` (set it to turn this on), `Port` (1883), `Tls`, `Username`, `Password`, `ClientId` (bamf), `TopicPrefix` (bamf), `Discovery` (true), `DiscoveryPrefix` (homeassistant). Read at startup only. See [MQTT](#mqtt-and-home-assistant). |
 | `Bamf:TrafficMonitor` | With Npcap, watch the wire receive-only: bytes in and out per device, and every DHCP and DNS server in use, alerting on new ones (default true). Also in Settings → Behaviour. See [Traffic, DHCP and DNS](#traffic-dhcp-and-dns). |
 | `Bamf:LatencyProbe` | After each scan, ping every online device on the networks it covered and keep the round-trip time (default true). Also in Settings → Behaviour, which wins once changed there. See [Latency and uptime](#latency-and-uptime). |
-| `Bamf:HolidaySpirit` | `true` puts every dashboard in the Halloween theme from October 1st to 31st and the Christmas theme from December 1st to 25th (default false). Also in Settings → Behaviour, which wins once changed there. See [Holiday Spirit](#holiday-spirit). |
+| `Bamf:HolidaySpirit` | `true` puts every dashboard in a season's theme by date: Halloween through October, Thanksgiving for the week of the holiday, Christmas from December 1st to 25th, and New Year to January 2nd (default false). Also in Settings → Behaviour, which wins once changed there. See [Holiday Spirit](#holiday-spirit). |
 | `Bamf:WebhookUrl` | Optional starting value for the notification webhook — the dashboard's **Tools → Notifications** saves over it. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use the dashboard's Test webhook button to verify. |
 | `Bamf:Password` | Optional. If set, the UI/API require it via HTTP Basic auth (any username). Over plain HTTP the credential is only base64-encoded — see [What BAMF talks to](#what-bamf-talks-to). |
 | `Bamf:ViewerPassword` | Optional, with `Password` set: a second password that opens the same dashboard to look at but not change. See [A view-only password](#a-view-only-password). |
@@ -423,8 +423,13 @@ The ◑ button in the header opens the theme menu: Dark, Light, Terminal, Amber
 CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
 Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
-Night Street, Constellation, Claw Machine and Claw Machine Dusk. Your choice
-is remembered in your browser.
+Night Street, Constellation, Claw Machine, Claw Machine Dusk, New Year and
+Thanksgiving. Your choice is remembered in your browser.
+
+The menu is grouped: **Colours** for the schemes where nothing moves,
+**Animated** for the ones with something going on behind the dashboard,
+**Holidays** for the seasonal ones Holiday Spirit uses, **Installed** for
+drop-ins, and **Secret** for anything you've unlocked.
 
 Some themes have a little life in them:
 
@@ -570,6 +575,12 @@ Some themes have a little life in them:
   speed, the counts glow soft amber, the neon tubes are turned down, and the
   prizes are faded pastels. Everything else plays the same, claw and 🕹
   button included.
+- **New Year**: fireworks over a city at midnight. Rockets climb from behind
+  the skyline, burst, and the sparks fall and fade; a finished scan sets one
+  off. Reduced motion keeps three bursts hanging over the rooftops.
+- **Thanksgiving**: autumn leaves coming down and tumbling as they go, over
+  warm browns and burnt orange. A finished scan blows a gust across the
+  screen. Reduced motion lays the leaves along the bottom instead.
 - **Hotdog Stand**: a tribute to Windows 3.1's loudest colour scheme. It's
   mustard yellow with ketchup-red title bars, in the bold system font, with a
   striped awning under the header. The next-scan bar is a sausage sliding into
@@ -620,9 +631,12 @@ Switch on **Holiday Spirit** under **Settings → Behaviour** (or set
 `HolidaySpirit` to `true` in `appsettings.json`) and every dashboard dresses up
 for the holidays:
 
-- **Halloween theme** from **October 1st** to **31st**, back to its own theme on
+- **Halloween** from **October 1st** to **31st**, back to its own theme on
   November 1st;
-- **Christmas theme** from **December 1st** to **25th**, back on December 26th.
+- **Thanksgiving** for the week around the **fourth Thursday of November**, from
+  the Monday to the Sunday after, so it moves with the holiday;
+- **Christmas** from **December 1st** to **25th**;
+- **New Year** from **December 26th** to **January 2nd**, back on January 3rd.
 
 It goes by each browser's date and changes over by itself, even on a dashboard
 left open. Your own theme isn't touched: it comes back when the season ends.
