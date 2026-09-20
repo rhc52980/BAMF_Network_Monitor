@@ -8277,9 +8277,21 @@ const THEMES = [
   { id: "claw",        name: "Claw Machine", sw: ["#140b24", "#ff4fa3", "#3de0ff"] },
   { id: "clawdusk",    name: "Claw Machine Dusk", sw: ["#15171c", "#b8788a", "#7fb0ae"] },
   // Hidden until unlocked: type BAMF anywhere, or tap the logo five times.
-  { id: "christmas",   name: "Christmas",    sw: ["#0b1712", "#ff3b3b", "#3ddc6f"], secret: true },
-  { id: "halloween",   name: "Halloween",    sw: ["#0f0913", "#ff8c1a", "#8cff4f"], secret: true },
+  { id: "christmas",   name: "Christmas",    sw: ["#0b1712", "#ff3b3b", "#3ddc6f"], secret: true, cat: "holiday" },
+  { id: "halloween",   name: "Halloween",    sw: ["#0f0913", "#ff8c1a", "#8cff4f"], secret: true, cat: "holiday" },
 ];
+// The menu groups themes so a list this long can be read at a glance. A theme
+// with something moving behind the dashboard is "Animated", which is also the
+// honest warning for anyone who'd rather things held still. Anything not said
+// here is worked out from whether it has effects.
+const THEME_CATS = [
+  { key: "plain",     name: "Colours",   title: "Colour schemes: nothing moves." },
+  { key: "animated",  name: "Animated",  title: "Something moves behind the dashboard. Reduced motion settles them all." },
+  { key: "holiday",   name: "Holidays",  title: "Seasonal. Holiday Spirit puts these on by date." },
+  { key: "installed", name: "Installed", title: "Drop-in themes from the server's themes folder." },
+  { key: "secret",    name: "Secret",    title: "" },
+];
+const themeCat = t => t.dropIn ? "installed" : t.cat || (t.secret ? "secret" : THEME_FX[t.id] ? "animated" : "plain");
 function secretUnlocked() { try { return localStorage.getItem("bamf-secret") === "1"; } catch { return false; } }
 
 let themeMenuOpen = false;
@@ -8295,35 +8307,27 @@ function buildThemeMenu() {
   menu.innerHTML = "";
   const cur = currentTheme();
   const unlocked = secretUnlocked();
-  let headed = false, installedHead = false;
-  for (const t of THEMES) {
-    if (t.secret && !unlocked) continue;
-    if (t.dropIn && !installedHead) {
-      const h = document.createElement("div");
-      h.className = "theme-head";
-      h.textContent = "Installed";
-      h.title = "Drop-in themes from the server's themes folder";
-      menu.appendChild(h);
-      installedHead = true;
+  for (const cat of THEME_CATS) {
+    const list = THEMES.filter(t => (!t.secret || unlocked) && themeCat(t) === cat.key);
+    if (!list.length) continue;
+    const h = document.createElement("div");
+    h.className = "theme-head";
+    h.textContent = cat.name;
+    if (cat.title) h.title = cat.title;
+    menu.appendChild(h);
+    for (const t of list) {
+      const item = document.createElement("button");
+      item.className = "theme-item" + (t.id === cur ? " active" : "");
+      item.innerHTML = `
+        <span class="sw">${t.sw.map(c => `<i style="background:${esc(c)}"></i>`).join("")}</span>
+        <span class="tn">${esc(t.name)}</span>`;
+      item.onclick = () => {
+        pickThemeFromMenu(t.id);
+        showSplat();
+        closeThemeMenu();
+      };
+      menu.appendChild(item);
     }
-    if (t.secret && !headed) {
-      const h = document.createElement("div");
-      h.className = "theme-head";
-      h.textContent = "Secret";
-      menu.appendChild(h);
-      headed = true;
-    }
-    const item = document.createElement("button");
-    item.className = "theme-item" + (t.id === cur ? " active" : "");
-    item.innerHTML = `
-      <span class="sw">${t.sw.map(c => `<i style="background:${esc(c)}"></i>`).join("")}</span>
-      <span class="tn">${esc(t.name)}</span>`;
-    item.onclick = () => {
-      pickThemeFromMenu(t.id);
-      showSplat();
-      closeThemeMenu();
-    };
-    menu.appendChild(item);
   }
   // Under the toggle button, kept inside the screen on a narrow one.
   const r = $("themeToggle").getBoundingClientRect();
