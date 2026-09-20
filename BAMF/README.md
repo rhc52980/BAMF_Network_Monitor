@@ -390,14 +390,14 @@ survive IP changes.
   automations can fire when someone gets home. See [MQTT](#mqtt-and-home-assistant).
 - **Tags** - group devices as "kids", "IoT", "work" or whatever fits, then
   filter the list and the Map by tag. See [Tags](#tags).
-- **37 themes** - click the theme button for a picker, grouped into colours,
+- **38 themes** - click the theme button for a picker, grouped into colours,
   animated and holidays: Dark, Light, Terminal, Amber CRT, Synthwave, Commodore
   64, Game Boy, Nord, Dracula, Solarized (dark + light), Gruvbox, High Contrast,
   Matrix, Blueprint, Hacker Red, Cotton Candy, Thunderstorm, Hotdog Stand,
   Steampunk, Waterworks, Aquarium, Goat, Goat Night, Night Street,
-  Constellation, Claw Machine (dark + dusk), Laser Show, Data Centre, Factory
-  (day + night shift), Spring, Summer, Winter, New Year and Thanksgiving. See
-  [Theme](#theme).
+  Constellation, Claw Machine (dark + dusk), Laser Show, Data Centre, Power
+  Plant, Factory (day + night shift), Spring, Summer, Winter, New Year and
+  Thanksgiving. See [Theme](#theme).
   CRT themes get scanlines; each pick triggers a BAMF! splat. Choice persists.
   There are also two seasonal themes you won't find in the list. They unlock the
   way a friendly program would: just tell it its name. (On a phone, the logo is
@@ -431,8 +431,8 @@ CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
 Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
 Night Street, Constellation, Claw Machine, Claw Machine Dusk, Laser Show,
-Data Centre, Factory, Factory Night Shift, Spring, Summer, Winter, New Year
-and Thanksgiving. Your choice is remembered in your browser.
+Data Centre, Power Plant, Factory, Factory Night Shift, Spring, Summer,
+Winter, New Year and Thanksgiving. Your choice is remembered in your browser.
 
 The menu is grouped: **Colours** for the schemes where nothing much moves —
 including Synthwave, Hacker Red and Cotton Candy, which are colour schemes
@@ -603,6 +603,20 @@ Some themes have a little life in them:
   faceplate; one that drops turns its port red and says its name. With sound on
   there's the hum of the room, a chirp as a port comes up and a lower one as it
   goes; it stops in a background tab.
+- **Power Plant**: the dashboard as a generating station. Cooling towers steam
+  outside the window wall, the line leaves the site on its pylons with current
+  crawling along it, and inside the hall the boiler glows through its
+  inspection door while the turbine set turns and drives its generator, with a
+  transformer bank at the far end. Along the bottom is **the control desk**: a
+  **LOAD** gauge, an **OUTPUT** gauge, a busbar carrying **a breaker for every
+  device** — closed and green while it answers, amber when it's unknown,
+  tripped and red when it's down — and an annunciator panel of alarm tiles.
+  The header carries the **grid frequency**, which sags from 60.00 Hz as
+  devices drop off and goes red when a watched one trips. A finished scan is a
+  load surge: the set runs up and **POLL RUNNING** lights. A trip stops the
+  machines and lights **FEEDER TRIP**. With sound on there's the hum of the
+  hall, the clunk of a breaker closing or opening, and the two-tone klaxon on a
+  trip; it stops in a background tab.
 - **Factory**: the dashboard as a shop floor. Lamps hang from a gantry across
   the roof, machines turn against the back wall, a welder throws sparks in the
   corner, and a conveyor runs along the bottom of the screen with crates on it,
