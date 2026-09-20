@@ -13,7 +13,7 @@ serves a dashboard on port 8840.
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
 
-![The BAMF dashboard: every device on two networks, with vendor, device guess, 24-hour history and latency, tags under device names, a v6 chip on devices with IPv6 addresses, and a New tab counting recent arrivals](docs/dashboard.png)
+![The BAMF dashboard: every device on two networks, with vendor, device guess, 24-hour history and latency, a row of device-type filters, a v6 chip on devices with IPv6 addresses, and a New tab counting recent arrivals](docs/dashboard.png)
 
 <sub>Sample data — a demo database, not a real network.</sub>
 
@@ -125,7 +125,7 @@ screen. It works with any switch, including unmanaged ones.
 
 ### See where things are
 
-![The Floor plan tab: a drawing of a home with Living room, Kitchen, Office, Hall, Garage and Server closet, and a pin on each device where it sits. Green pins for devices that are online, grey for the garage camera and the workshop Pi that are off, each labelled with its name. Above the plan, a tab for the floor with a count of what's off, a button to add another floor, a filter for which devices to show, and a button to place devices](docs/floor-plan.png)
+![The Floor plan tab: a drawing of a home with Living room, Kitchen, Office, Hall, Garage and Server closet, and a pin on each device where it sits. Green pins for devices that are online, red for the garage camera and the workshop Pi that are off, each labelled with its name. Above the plan, a tab for the floor with a count of what's off, a button to add another floor, a filter for which devices to show, and a button to place devices](docs/floor-plan.png)
 
 The **Floor plan** tab puts each device on a picture of your home, so an
 offline camera is a grey pin by the back door rather than an address you have
