@@ -499,6 +499,10 @@
     --led-off:#35493e; --danger:#ff4d4d; --focus:#ff5f5f; --radius:10px;
   }
   [data-theme="christmas"] .brand h1 { color:#ff5f5f; text-shadow:0 0 10px rgba(255,95,95,.55); }
+  /* The house behind the page is bright, so the table gets its own backing and
+     the house sits back a little. */
+  [data-theme="christmas"] table, [data-theme="christmas"] .feed { background:rgba(10,22,16,.88); }
+  [data-theme="christmas"] .xh-house { opacity:.88; }
   [data-theme="christmas"] .brand h1::after { content:" 🎄"; text-shadow:none; }
   [data-theme="halloween"] {
     --bg:#0f0913; --panel:#1a1020; --panel-2:#24162c; --line:#3e2749;
@@ -2136,6 +2140,22 @@
   .snowman .arm { transform-origin: 34px 30px; }
   .snowman.wave .arm { animation: arm-wave .35s ease-in-out 6 alternate; }
   @keyframes arm-wave { from { transform: rotate(0deg); } to { transform: rotate(-38deg); } }
+  /* The house: behind everything, filling the screen, lit to within an inch of
+     its life. The bulbs twinkle on their own clocks; a finished scan blazes
+     the lot for a second. */
+  .xh-bg { background: linear-gradient(#050b16 0%, #0a1526 45%, #101f33 100%); }
+  .xh-house { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: min(1500px, 100vw); }
+  .xh-house svg { display: block; width: 100%; height: auto; }
+  .xh-bulb { animation: xh-tw 2.6s ease-in-out infinite alternate; }
+  @keyframes xh-tw { from { opacity: .55; } to { opacity: 1; } }
+  .xh-win { animation: xh-warm 7s ease-in-out infinite alternate; }
+  @keyframes xh-warm { from { opacity: .82; } to { opacity: 1; } }
+  .xh-house.blaze .xh-bulb { animation: none; opacity: 1; filter: drop-shadow(0 0 7px currentColor); }
+  .xh-house.blaze .xh-glow { opacity: .55; }
+  .xh-glow { opacity: .22; transition: opacity .5s; }
+  @media (prefers-reduced-motion: reduce) {
+    .xh-bulb, .xh-win { animation: none !important; opacity: 1; }
+  }
   .drift { position: absolute; left: 0; bottom: 0; width: 100%; height: 16px; transform-origin: 50% 100%; transition: transform 18s linear; }
   .drift svg { position: static; display: block; width: 100%; height: 16px; }
   /* On the map, online devices wear Santa hats and unknown ones arrive as presents. */
@@ -12891,10 +12911,121 @@ function buildThanksgiving(root) {
   };
 }
 
+// A suburban house done up for Christmas: every eave, gable, window and tree
+// strung with bulbs, the way the neighbour who takes it too far does it. Drawn
+// here rather than loaded, so it costs nothing to ship and scales to any
+// screen. Lights are laid along a line of points, a bulb every so often.
+const XH_COLS = ["#ff4d4d", "#ffd23f", "#3ddc6f", "#4fa3ff", "#ff8ad6", "#fff1c9"];
+let xhBulb = 0;
+function xhLights(pts, gap = 26, r = 4.4) {
+  let out = "";
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x1, y1] = pts[i], [x2, y2] = pts[i + 1];
+    const d = Math.hypot(x2 - x1, y2 - y1), n = Math.max(1, Math.round(d / gap));
+    for (let k = 0; k <= n; k++) {
+      if (i > 0 && k === 0) continue; // no doubling up on corners
+      const t = k / n, x = x1 + (x2 - x1) * t, y = y1 + (y2 - y1) * t;
+      const c = XH_COLS[xhBulb % XH_COLS.length];
+      out += `<circle class="xh-bulb" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${c}" color="${c}" style="animation-delay:-${(xhBulb * .17).toFixed(2)}s;animation-duration:${(2 + (xhBulb % 5) * .35).toFixed(2)}s"/>`;
+      xhBulb++;
+    }
+  }
+  return out;
+}
+// Icicle strands off an eave: the short hanging kind, uneven lengths.
+function xhIcicles(x1, x2, y, gap = 44) {
+  let out = "";
+  for (let x = x1, i = 0; x <= x2; x += gap, i++) {
+    const len = 14 + (i % 4) * 11;
+    out += `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + len}" stroke="#bfe3ff" stroke-width="1.4" opacity=".35"/>`;
+    for (let k = 1; k <= Math.max(2, Math.round(len / 13)); k++) {
+      const c = k % 2 ? "#fff1c9" : "#bfe3ff";
+      out += `<circle class="xh-bulb" cx="${x}" cy="${(y + len * k / Math.max(2, Math.round(len / 13))).toFixed(1)}" r="2.6" fill="${c}" color="${c}" style="animation-delay:-${(i * .31 + k * .12).toFixed(2)}s;animation-duration:${(2.4 + (i % 3) * .4).toFixed(2)}s"/>`;
+    }
+  }
+  return out;
+}
+function xhTree(x, y, h, i) {
+  const w = h * .62;
+  let t = `<path d="M${x} ${y - h}L${x + w / 2} ${y}H${x - w / 2}Z" fill="#12351f"/><rect x="${x - 5}" y="${y}" width="10" height="16" fill="#3b2a1b"/>`;
+  // Lights wound round it, a few turns from top to bottom.
+  const pts = [];
+  for (let k = 0; k <= 26; k++) {
+    const t2 = k / 26, yy = y - h + h * t2, rad = (w / 2) * t2;
+    pts.push([x + Math.sin(t2 * 11 + i) * rad, yy]);
+  }
+  return t + xhLights(pts, 20, 3.6);
+}
+function xmasHouse() {
+  xhBulb = 0;
+  const win = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="#ffd98a" class="xh-win"/>` +
+    `<path d="M${x + w / 2} ${y}V${y + h}M${x} ${y + h / 2}H${x + w}" stroke="#2a2118" stroke-width="3"/>` +
+    xhLights([[x - 4, y - 4], [x + w + 4, y - 4], [x + w + 4, y + h + 4], [x - 4, y + h + 4], [x - 4, y - 4]], 22, 3.4);
+  return `<svg viewBox="0 0 1500 760" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+    <defs>
+      <radialGradient id="xhHalo" cx="50%" cy="46%" r="52%">
+        <stop offset="0" stop-color="#ffe6a8" stop-opacity=".85"/><stop offset="1" stop-color="#ffe6a8" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <ellipse class="xh-glow" cx="750" cy="430" rx="640" ry="330" fill="url(#xhHalo)"/>
+    <!-- snow on the ground, and the drive up to the garage -->
+    <path d="M0 700q210-34 420-22t300 6 360-16 420 22v70H0z" fill="#e9f2fb" opacity=".92"/>
+    <path d="M980 760l70-118h190l40 118z" fill="#d8e4f0" opacity=".85"/>
+    ${xhTree(120, 700, 250, 1)}
+    ${xhTree(1380, 706, 210, 3)}
+    <!-- garage wing -->
+    <path d="M900 420l190-92 190 92z" fill="#4a2f22"/>
+    <rect x="920" y="420" width="340" height="230" fill="#6b4632"/>
+    <rect x="960" y="470" width="260" height="180" rx="4" fill="#8a6a52"/>
+    <path d="M960 520h260M960 570h260M960 620h260" stroke="#6f5340" stroke-width="4"/>
+    <!-- the house itself -->
+    <path d="M170 400L560 150l390 250z" fill="#4a2f22"/>
+    <rect x="210" y="400" width="700" height="250" fill="#6b4632"/>
+    <rect x="596" y="196" width="54" height="120" fill="#5b3b2a"/>
+    <rect x="590" y="186" width="66" height="18" fill="#6e4a35"/>
+    <!-- porch -->
+    <path d="M470 520h190l-16-40H486z" fill="#4a2f22"/>
+    <rect x="516" y="520" width="90" height="130" rx="3" fill="#7d4a2e"/>
+    <circle cx="561" cy="556" r="20" fill="none" stroke="#2f7a44" stroke-width="9"/>
+    <circle cx="561" cy="556" r="20" fill="none" stroke="#c62f2f" stroke-width="3" stroke-dasharray="4 9"/>
+    ${win(270, 250, 84, 70)}
+    ${win(420, 232, 84, 70)}
+    ${win(620, 232, 84, 70)}
+    ${win(770, 250, 84, 70)}
+    ${win(270, 470, 96, 92)}
+    ${win(690, 470, 96, 92)}
+    <!-- and now the lights: roof, eaves, corners, chimney, garage, porch -->
+    ${xhLights([[170, 400], [560, 150], [950, 400]], 27, 5)}
+    ${xhLights([[210, 404], [910, 404]], 27, 4.6)}
+    ${xhLights([[214, 404], [214, 650]], 28, 4.2)}
+    ${xhLights([[906, 404], [906, 650]], 28, 4.2)}
+    ${xhLights([[210, 646], [910, 646]], 30, 4.2)}
+    ${xhLights([[596, 316], [596, 196], [650, 196], [650, 316]], 24, 4)}
+    ${xhLights([[900, 420], [1090, 328], [1280, 420]], 26, 4.6)}
+    ${xhLights([[924, 424], [1256, 424]], 26, 4.2)}
+    ${xhLights([[956, 466], [1224, 466], [1224, 650], [956, 650], [956, 466]], 28, 3.8)}
+    ${xhLights([[470, 520], [486, 480], [644, 480], [660, 520]], 22, 4)}
+    ${xhLights([[512, 520], [512, 652], [610, 652], [610, 520]], 24, 3.8)}
+    ${xhIcicles(232, 892, 410)}
+    ${xhIcicles(940, 1244, 430)}
+    ${xhIcicles(486, 648, 484, 38)}
+  </svg>`;
+}
+
 function buildChristmas(root) {
   const W = window.innerWidth, H = window.innerHeight, NS = "http://www.w3.org/2000/svg";
   bulbIndex = 0;
   // Northern lights, very faint, behind the top string.
+  // The house, behind the page; the lights and snow above it are unchanged.
+  const bg = document.createElement("div");
+  bg.id = "themeBg";
+  bg.className = "theme-bg xh-bg";
+  bg.setAttribute("aria-hidden", "true");
+  const house = document.createElement("div");
+  house.className = "xh-house";
+  house.innerHTML = xmasHouse();
+  bg.appendChild(house);
+  document.body.prepend(bg);
   const aurora = document.createElement("div");
   aurora.className = "aurora";
   root.appendChild(aurora);
@@ -13062,6 +13193,11 @@ function buildChristmas(root) {
   // and a finished scan runs a quick chase along the lights.
   festiveHooks.newDevice = () => sleigh(true);
   festiveHooks.scanDone = () => {
+    // The house blazes for a second, the way it does when the switch finally works.
+    if (!document.hidden && !calmMotion()) {
+      house.classList.add("blaze");
+      festiveTimers.push(setTimeout(() => house.classList.remove("blaze"), 1200));
+    }
     if (!shown() || rippling) return;
     rippling = true;
     lamps.forEach(b => b.el.classList.add("off"));

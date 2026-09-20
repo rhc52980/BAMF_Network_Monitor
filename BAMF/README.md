@@ -667,6 +667,13 @@ Pick another theme from the menu during a season and that browser keeps it
 until the next season. Switching Holiday Spirit off puts every dashboard back
 on its own theme.
 
+The **Christmas** theme puts a house behind the dashboard, done up by someone
+who doesn't know when to stop: lights along every eave, gable, window and
+garage door, icicles hanging off the guttering, a wreath on the door, lit
+windows and a couple of trees in the snow. The bulbs twinkle on their own
+clocks, and the whole place blazes for a second when a scan finishes. With
+reduced motion it all holds still, lit.
+
 ### Night mode
 
 Switch on **Night mode** under **Settings → Behaviour** and every dashboard
