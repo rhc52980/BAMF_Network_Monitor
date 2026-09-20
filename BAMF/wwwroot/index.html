@@ -9859,6 +9859,10 @@ function buildDataCentre(root) {
       el.dataset.id = h.id;
     });
   };
+  // The panel is repainted whenever the table is, which is also how it fills
+  // in once the first scan lands. It has to be set before reduced motion
+  // takes the early way out, or the ports would stay empty.
+  festiveHooks.rendered = () => paint();
   paint();
   if (calm) return; // Reduced motion: the room is lit, nothing moves.
 
@@ -9892,7 +9896,6 @@ function buildDataCentre(root) {
     if (off.length && soundOn()) linkAlarm();
     if (back.length && soundOn()) linkChirp(.7);
   };
-  festiveHooks.rendered = () => paint();
 }
 
 // ---- The factory's noises, made in the browser like the rest. Off unless
