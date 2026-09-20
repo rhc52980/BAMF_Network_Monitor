@@ -1226,6 +1226,22 @@
   .free-runs { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--text-dim); }
   .free-runs .n { margin-left: 5px; font-size: 11px; opacity: .8; }
   .free-runs .n::before { content: "("; } .free-runs .n::after { content: ")"; }
+  /* The internet watch: a day of minutes as one strip, newest on the right. */
+  .wan-state { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .wan-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--led-off); flex: none; }
+  .wan-dot.up { background: var(--led-on); }
+  .wan-dot.down { background: var(--danger); }
+  .wan-now { font: 600 14px "Space Grotesk", system-ui, sans-serif; }
+  .wan-ms { color: var(--text-dim); font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+  .wan-strip { display: flex; gap: 1px; height: 26px; align-items: flex-end; margin: 8px 0 4px; }
+  .wan-strip i { flex: 1 1 0; min-width: 2px; background: var(--led-on); border-radius: 1px; height: 40%; }
+  .wan-strip i.down { background: var(--danger); height: 100%; }
+  .wan-strip i.local { background: var(--led-warn); height: 100%; }
+  .wan-strip i.gap { background: var(--line); height: 18%; }
+  .wan-scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); }
+  .wan-outage { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; padding: 3px 0; border-top: 1px solid var(--line); }
+  .wan-outage .dur { color: var(--danger); font-family: "IBM Plex Mono", monospace; }
+  .wan-outage.local .dur { color: var(--led-warn); }
   .gn-row { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12.5px; }
   .gn-row a { color: var(--focus); text-decoration: none; }
   .gn-row a:hover { text-decoration: underline; }
@@ -3231,6 +3247,19 @@
       <span class="set-field"><button type="button" class="arp-toggle" id="setGreyNoise" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
     </label>
     <label class="set-row">
+      <span class="set-label">Watch the internet connection
+        <span class="set-hint">Off by default. Once a minute BAMF pings your router and one address out on the internet, so it can tell you when the line goes down, for how long, and whether your router answered while it was down - the difference between your provider being out and something in here being wrong. <b>This sends a ping out of your house every minute</b>, to the address below; it's an echo request like any other ping, and nothing about your network goes with it. With the update check and the GreyNoise check, that's everything BAMF sends outside.</span>
+        <span class="set-hint" id="setWanStatus"></span>
+      </span>
+      <span class="set-field"><button type="button" class="arp-toggle" id="setWan" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+    </label>
+    <label class="set-row">
+      <span class="set-label">Address to ping
+        <span class="set-hint">Which address the internet watch pings. 8.8.8.8 is one of Google's public DNS servers and answers pings reliably; your provider's DNS or 1.1.1.1 work too. Your router is always pinged as well, and that one never leaves the house.</span>
+      </span>
+      <span class="set-field"><input class="modal-input" id="setWanTarget" value="8.8.8.8" size="14" inputmode="decimal"><button type="button" class="export-btn" id="setWanTargetSave">Save</button></span>
+    </label>
+    <label class="set-row">
       <span class="set-label">Holiday Spirit
         <span class="set-hint">Every dashboard wears Halloween through October, Thanksgiving for the week of the holiday, Christmas from December 1st to 25th and New Year to January 2nd, then goes back to its own theme. Pick another theme during a season and that browser keeps it until the next one.</span>
         <span class="set-hint" id="setHolidayStatus"></span>
@@ -3405,6 +3434,11 @@
       <h3>Alerts</h3>
       <div class="sub">What BAMF raised: rules, ports, DHCP and DNS, the ARP watch and certificates.</div>
       <div id="alertsBody"></div>
+    </div>
+    <div class="act-card" id="wanCard">
+      <h3>Internet</h3>
+      <div class="sub" id="wanSub"></div>
+      <div id="wanBody"></div>
     </div>
     <div class="act-card">
       <h3>Network hygiene</h3>
@@ -6987,6 +7021,7 @@ function render() {
     fetch("/api/alerts").then(r => r.json()).then(a => { alertsCache = a; renderAlertsCard(); renderHygiene(); }).catch(() => {});
     loadSecurity().then(renderHygiene);
     loadGreyNoise().then(renderHygiene);
+    loadWan(true).then(renderWanCard);
     loadChanges();
     loadIpv6();
     renderFeed();
@@ -13825,6 +13860,107 @@ document.getElementById("gnWhat").onclick = () => {
   btn.setAttribute("aria-expanded", String(!box.hidden));
   btn.textContent = box.hidden ? "What's this?" : "Hide";
 };
+// ---- The internet watch ----
+let wanCache = null, wanAt = 0;
+function loadWan(force) {
+  if (!force && wanCache && Date.now() - wanAt < 30e3) return Promise.resolve(wanCache);
+  return fetch("/api/wan").then(r => r.ok ? r.json() : null).then(d => {
+    if (d) { wanCache = d; wanAt = Date.now(); }
+    return wanCache;
+  }).catch(() => wanCache);
+}
+const wanClock = d => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+function renderWanCard() {
+  const card = $("wanCard");
+  if (!card) return;
+  const d = wanCache, st = d && d.state;
+  if (!st || !st.enabled) {
+    $("wanSub").textContent = "Off. Switch on \u201cWatch the internet connection\u201d under Settings \u2192 Behaviour and BAMF will keep an eye on the line out of the house.";
+    $("wanBody").innerHTML = "";
+    return;
+  }
+  $("wanSub").textContent = `Pinging ${esc(st.target)} and your router once a minute.`;
+  const bits = [];
+  const state = st.up === null ? ["", "Waiting for the first ping\u2026", ""]
+    : st.up ? ["up", "The internet is up", st.ms != null ? st.ms + " ms to " + st.target : ""]
+    : ["down", st.routerUp ? "The internet is down" : "The internet is down, and so is your router",
+       st.routerUp ? "Your router is answering, so it's the line out of the house" : "Your router isn't answering either, so it's in here"];
+  bits.push(`<div class="wan-state"><span class="wan-dot ${state[0]}"></span><span class="wan-now">${esc(state[1])}</span><span class="wan-ms">${esc(state[2])}</span></div>`);
+  // A day of samples, one bar a minute, with gaps where BAMF wasn't watching.
+  const samples = (d.samples || []).slice(-1440);
+  if (samples.length) {
+    // One bar per few minutes, showing the worst of what happened in them, so
+    // a short outage is never averaged into looking fine.
+    const COLS = 160, span = 24 * 3600e3 / COLS, end = Date.now();
+    const buckets = Array.from({ length: COLS }, () => ({ n: 0, ms: 0, down: 0, local: 0 }));
+    for (const s of samples) {
+      const i = Math.floor((new Date(s.at) - (end - 24 * 3600e3)) / span);
+      if (i < 0 || i >= COLS) continue;
+      const b = buckets[i];
+      b.n++;
+      if (s.internet >= 0) b.ms += s.internet;
+      else if (s.gateway >= 0) b.down++;
+      else b.local++;
+    }
+    let strip = "";
+    for (let i = 0; i < COLS; i++) {
+      const b = buckets[i], at = new Date(end - 24 * 3600e3 + i * span + span / 2);
+      const cls = !b.n ? "gap" : b.local ? "local" : b.down ? "down" : "";
+      const up = b.n - b.down - b.local;
+      const title = !b.n ? `${wanClock(at)} \u00b7 BAMF wasn't watching`
+        : b.local ? `${wanClock(at)} \u00b7 no answer, router silent too`
+        : b.down ? `${wanClock(at)} \u00b7 ${b.down} minute${b.down === 1 ? "" : "s"} with no answer`
+        : `${wanClock(at)} \u00b7 ${Math.round(b.ms / Math.max(1, up))} ms`;
+      strip += `<i class="${cls}" title="${esc(title)}"></i>`;
+    }
+    bits.push(`<div class="wan-strip">${strip}</div>`);
+    bits.push(`<div class="wan-scale"><span>${esc(wanClock(new Date(end - 24 * 3600e3)))}</span><span>last 24 hours</span><span>now</span></div>`);
+  }
+  const out = d.outages || [];
+  if (out.length) {
+    bits.push(`<div class="sub" style="margin-top:10px">Outages, newest first</div>`);
+    for (const o of out.slice(0, 6))
+      bits.push(`<div class="wan-outage${o.local ? " local" : ""}"><span>${esc(fmtExact(o.start))}${o.local ? " \u00b7 router down too" : ""}</span><span class="dur">${o.minutes} min</span></div>`);
+  } else if (samples.length) {
+    bits.push(`<div class="sub" style="margin-top:8px">No outages in the last month.</div>`);
+  }
+  $("wanBody").innerHTML = bits.join("");
+}
+function renderWanToggle() {
+  const t = $("setWan");
+  if (!t) return;
+  const st = wanCache && wanCache.state;
+  const on = !!(st && st.enabled);
+  setToggleState(t, on);
+  t.title = on ? "BAMF is watching the internet connection - click to stop" : "Click to have BAMF watch the internet connection";
+  if (st && st.target) $("setWanTarget").value = st.target;
+  $("setWanStatus").textContent = !on ? "" : st.up === null ? "On. Waiting for the first ping."
+    : st.up ? `On. The internet is up, ${st.ms} ms to ${st.target}.` : "On. The internet is down.";
+}
+$("setWan").onclick = async () => {
+  const on = !!(wanCache && wanCache.state && wanCache.state.enabled);
+  try {
+    const r = await fetch("/api/settings/wanwatch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: !on }) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    await loadWan(true);
+    renderWanToggle();
+    renderWanCard();
+    toast(on ? "The internet watch is off: BAMF won't ping anything outside" : "The internet watch is on: a ping a minute to " + (wanCache.state.target || "8.8.8.8"));
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); renderWanToggle(); }
+};
+$("setWanTargetSave").onclick = async () => {
+  const target = $("setWanTarget").value.trim();
+  try {
+    const r = await fetch("/api/settings/wantarget", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't save that address"); return; }
+    await loadWan(true);
+    renderWanToggle();
+    renderWanCard();
+    toast("The internet watch now pings " + target);
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
+};
+
 function renderGreyNoiseToggle() {
   const t = $("setGreyNoise");
   if (!t) return;
@@ -14627,6 +14763,7 @@ async function loadSettings() {
   renderCertWatchToggle();
   renderIpv6WatchToggle();
   loadGreyNoise().then(renderGreyNoiseToggle);
+  loadWan(true).then(renderWanToggle);
   loadRouterImport();
 
   // The instant-apply toggles and the notifications card draw from the last

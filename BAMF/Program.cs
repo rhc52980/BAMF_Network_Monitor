@@ -63,6 +63,8 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ReportService>());
 builder.Services.AddSingleton<MqttPublisher>();
 builder.Services.AddSingleton<SecurityCheck>();
 builder.Services.AddSingleton<GreyNoiseCheck>();
+builder.Services.AddSingleton<WanWatch>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<WanWatch>());
 builder.Services.AddSingleton<RouterImport>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RouterImport>());
 builder.Services.AddSingleton<RuleService>();
@@ -956,6 +958,26 @@ app.MapDelete("/api/floors/places/{hostId:long}", (long hostId, HostStore store)
     return Results.Ok();
 });
 
+// The internet watch: is the line out of the house up, and was it earlier?
+app.MapGet("/api/wan", (WanWatch wan, HostStore store) => Results.Json(new
+{
+    state = wan.Now(),
+    samples = store.GetWanSamples(24).Select(s => new { at = s.At, gateway = s.Gateway, internet = s.Internet }),
+    outages = store.GetWanOutages(24 * 30).Take(20).Select(o => new { start = o.Start, end = o.End, minutes = o.Minutes, local = o.Local }),
+}));
+app.MapPost("/api/settings/wanwatch", (ActiveArpRequest body, HostStore store, WanWatch wan) =>
+{
+    store.SetSetting("wanWatch", body.Enabled ? "true" : "false");
+    return Results.Json(new { state = wan.Now() });
+});
+app.MapPost("/api/settings/wantarget", (WanTargetRequest body, HostStore store, WanWatch wan) =>
+{
+    var t = (body.Target ?? "").Trim();
+    if (!System.Net.IPAddress.TryParse(t, out var ip)) return Results.BadRequest(new { error = "That isn't an address BAMF can ping. Try 8.8.8.8, or your provider's DNS." });
+    store.SetSetting("wanTarget", ip.ToString());
+    return Results.Json(new { state = wan.Now() });
+});
+
 // GreyNoise: has this network's public address been seen scanning the internet?
 // Off unless switched on; turning it on checks straight away.
 app.MapGet("/api/greynoise", (GreyNoiseCheck greynoise) => Results.Json(new { enabled = greynoise.Enabled, result = greynoise.Last }));
@@ -1103,7 +1125,7 @@ app.MapPost("/api/settings/night", (NightRequest body, HostStore store) =>
 // appsettings.json on purpose. Subnets in particular is the boundary the wildcard
 // port-scan guard depends on - a pattern can only expand across configured
 // networks, so letting the UI edit that list would dissolve the guarantee.
-app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChecker updates, IConfiguration cfg, ReportService reports, MqttPublisher mqtt, RuleService rulesSvc, RemoteService remotesSvc2) =>
+app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChecker updates, IConfiguration cfg, ReportService reports, MqttPublisher mqtt, RuleService rulesSvc, RemoteService remotesSvc2, WanWatch wan) =>
 {
     var overrides = scanner.ReadIntervalOverrides();
     return Results.Ok(new
@@ -1141,6 +1163,8 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             certWatch = store.GetSetting("certWatch") != "false",
             ipv6Watch = scanner.Ipv6WatchEnabled,
             greynoise = store.GetSetting("greynoise") == "true",
+            wanWatch = wan.Enabled,
+            wanTarget = wan.Target,
             trafficMonitor = scanner.TrafficMonitorEnabled,
             trafficStatus = TrafficJson(scanner),
             report = ReportJson(reports),
@@ -1725,6 +1749,7 @@ record ForgetRequest(bool Forgotten);
 record ActiveArpRequest(bool Enabled);
 record RouterNamesApply(bool Overwrite);
 record FloorPlaceRequest(long HostId, double X, double Y);
+record WanTargetRequest(string? Target);
 // A plan as it travels: walls, doors and windows as two points each, labels as
 // a point and a word, plus the grid that gives them their real-world size.
 record PlanItem(string? K, double[]? A, double[]? B, double[]? P, string? T);
