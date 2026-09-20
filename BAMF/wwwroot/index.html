@@ -508,6 +508,34 @@
   [data-theme="halloween"] .brand h1 { color:#ff8c1a; text-shadow:0 0 10px rgba(255,140,26,.6); }
   [data-theme="halloween"] .brand h1::after { content:" 🎃"; text-shadow:none; }
 
+  /* ---- Laser: a show in a dark room, beams through the haze ---- */
+  [data-theme="laser"] {
+    --bg:#05060a; --panel:rgba(10,13,22,.93); --panel-2:rgba(16,21,34,.95); --line:#1d2740;
+    --text:#e8f6ff; --text-dim:#7f93b0; --led-on:#9dff3d; --led-warn:#ffd54a;
+    --led-off:#2a3550; --danger:#ff2f6e; --focus:#00e5ff; --radius:8px;
+  }
+  [data-theme="laser"] .brand h1 {
+    color:#e8fdff; letter-spacing:.06em;
+    text-shadow:0 0 6px #00e5ff, 0 0 18px rgba(0,229,255,.7), 0 0 36px rgba(255,47,209,.45);
+  }
+  [data-theme="laser"] header { background:linear-gradient(rgba(7,9,16,.92), rgba(5,6,10,.86)); border-bottom:0; position:relative; }
+  /* A beam runs along the bottom edge of the header, left to right. */
+  [data-theme="laser"] header::after {
+    content:""; position:absolute; left:0; right:0; top:100%; height:2px; z-index:5; pointer-events:none;
+    background:linear-gradient(90deg, transparent 0 8%, #00e5ff 18%, #ff2fd1 50%, #9dff3d 82%, transparent 92%);
+    filter:drop-shadow(0 0 6px rgba(0,229,255,.8));
+    animation:lz-sweep 5.5s ease-in-out infinite alternate;
+  }
+  @keyframes lz-sweep { from { transform:translateX(-14%) scaleX(.85); } to { transform:translateX(14%) scaleX(1.1); } }
+  [data-theme="laser"] .stat .num { text-shadow:0 0 12px rgba(0,229,255,.5); }
+  [data-theme="laser"] .tab.active { background:rgba(0,229,255,.14); color:#d8fbff; }
+  [data-theme="laser"] thead th { color:#00e5ff; }
+  [data-theme="laser"] table, [data-theme="laser"] .feed { background:rgba(6,8,15,.95); }
+  [data-theme="laser"] tbody tr:hover td { background:linear-gradient(90deg, rgba(0,229,255,.12), rgba(255,47,209,.07) 60%, transparent); }
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme="laser"] header::after { animation:none; }
+  }
+
   /* ---- Spring: blossom coming down over a bright morning ---- */
   [data-theme="spring"] {
     --bg:#f3f8ef; --panel:rgba(255,255,255,.95); --panel-2:#e8f3e4; --line:#cfe2ca;
@@ -8336,6 +8364,7 @@ const THEMES = [
   { id: "claw",        name: "Claw Machine", sw: ["#140b24", "#ff4fa3", "#3de0ff"] },
   { id: "clawdusk",    name: "Claw Machine Dusk", sw: ["#15171c", "#b8788a", "#7fb0ae"] },
   // Hidden until unlocked: type BAMF anywhere, or tap the logo five times.
+  { id: "laser",       name: "Laser Show",   sw: ["#05060a", "#00e5ff", "#ff2fd1"] },
   { id: "spring",      name: "Spring",       sw: ["#f3f8ef", "#f7a8c4", "#3f8f62"] },
   { id: "summer",      name: "Summer",       sw: ["#e7f4ff", "#f07a2d", "#1aa37a"] },
   { id: "winter",      name: "Winter",       sw: ["#0d1620", "#8fd3ff", "#e6f1fa"] },
@@ -8637,7 +8666,7 @@ const THEME_FX = { christmas: (r, sw) => buildChristmas(r, sw), halloween: (r, s
   goatnight: (r, sw) => buildGoat(r, sw, true), nightstreet: buildNightStreet,
   constellation: buildConstellation, claw: buildClaw, clawdusk: (r, sw) => buildClaw(r, sw, true),
   newyear: buildNewYear, thanksgiving: buildThanksgiving,
-  spring: buildSpring, summer: buildSummer, winter: buildWinter };
+  spring: buildSpring, summer: buildSummer, winter: buildWinter, laser: buildLaser };
 const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
@@ -11776,6 +11805,154 @@ const PRESENT_STACK = `<svg viewBox="0 0 60 44" width="58">
   <rect x="30" y="18" width="26" height="24" rx="1" fill="#d42426"/><rect x="41" y="18" width="4" height="24" fill="#fff6d0"/>
   <rect x="12" y="6" width="22" height="16" rx="1" fill="#2f6fd4"/><rect x="21" y="6" width="4" height="16" fill="#fff6d0"/>
   <path d="M23 6c-3-5-8-5-7-1 1 2 7 1 7 1z M23 6c3-5 8-5 7-1-1 2-7 1-7 1z" fill="#fff6d0"/></svg>`;
+
+// Laser Show: a club rig in a dark room. Fan beams sweep out of two emitters
+// through the haze, a projector traces a figure that leaves a glowing trail,
+// and a grid runs back to the horizon. A finished scan snaps every beam into a
+// starburst; a new device sends one hard beam across the room.
+const LZ_COLORS = [[0, 229, 255], [255, 47, 209], [157, 255, 61], [255, 213, 74]];
+function buildLaser(root, switched) {
+  const calm = calmMotion();
+  const bg = document.createElement("div");
+  bg.id = "themeBg";
+  bg.className = "theme-bg";
+  bg.setAttribute("aria-hidden", "true");
+  bg.innerHTML = "<canvas></canvas>";
+  document.body.prepend(bg);
+  const cv = bg.querySelector("canvas"), ctx = cv.getContext("2d");
+  const W = innerWidth, H = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.scale(dpr, dpr);
+  const horizon = H * .62;
+
+  // Two rigs up in the corners, each throwing a fan of beams.
+  const rigs = [
+    { x: W * .08, y: 8, dir: 1, spread: .5, phase: 0, speed: .55, col: 0 },
+    { x: W * .92, y: 8, dir: -1, spread: .5, phase: 2.1, speed: .43, col: 1 },
+  ];
+  let flare = 0, shot = null, figure = 0, figureAt = 0;
+
+  const beam = (x, y, ang, len, rgb, width, alpha) => {
+    const x2 = x + Math.cos(ang) * len, y2 = y + Math.sin(ang) * len;
+    const g = ctx.createLinearGradient(x, y, x2, y2);
+    g.addColorStop(0, `rgba(${rgb}, ${(alpha * .95).toFixed(3)})`);
+    g.addColorStop(.75, `rgba(${rgb}, ${(alpha * .22).toFixed(3)})`);
+    g.addColorStop(1, `rgba(${rgb}, 0)`);
+    ctx.strokeStyle = g;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  };
+
+  const draw = (now) => {
+    const t = (now || 0) / 1000;
+    // The room, and last frame's light fading out of the haze.
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "rgba(5, 6, 10, .34)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = "lighter";
+
+    // Grid running back to the horizon.
+    ctx.strokeStyle = "rgba(0, 229, 255, .1)";
+    ctx.lineWidth = 1;
+    for (let i = -14; i <= 14; i++) {
+      ctx.beginPath();
+      ctx.moveTo(W / 2 + i * (W / 12), H);
+      ctx.lineTo(W / 2 + i * 14, horizon);
+      ctx.stroke();
+    }
+    for (let i = 1; i <= 12; i++) {
+      const y = horizon + Math.pow(i / 12, 2.1) * (H - horizon);
+      const off = calm ? 0 : (t * .25 % 1) * (Math.pow((i + 1) / 12, 2.1) - Math.pow(i / 12, 2.1)) * (H - horizon);
+      ctx.beginPath();
+      ctx.moveTo(0, y + off);
+      ctx.lineTo(W, y + off);
+      ctx.stroke();
+    }
+
+    // The fans.
+    for (const r of rigs) {
+      const swing = calm ? .35 : Math.sin(t * r.speed + r.phase) * .55;
+      const rgb = LZ_COLORS[r.col].join(", ");
+      for (let i = -4; i <= 4; i++) {
+        const ang = Math.PI / 2 + swing + i * (r.spread / 4) * r.dir + (flare ? i * flare * .18 : 0);
+        beam(r.x, r.y, ang, H * 1.25, rgb, 2 + Math.abs(i) * .25, (.5 - Math.abs(i) * .045) * (1 + flare));
+      }
+      // The lens itself.
+      ctx.fillStyle = `rgba(${rgb}, .9)`;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, 4 + flare * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // The projector: a Lissajous figure traced in light, redrawn each frame so
+    // the trail lives in the haze rather than in a list of points.
+    const [a, b] = [[3, 2], [5, 4], [3, 4], [5, 3]][figure];
+    const cx = W / 2, cy = horizon - Math.min(H, W) * .19, rx = Math.min(W * .19, 230), ry = Math.min(H * .13, 125);
+    const rgbF = LZ_COLORS[2].join(", ");
+    const at = u => [cx + Math.sin(a * u + (calm ? 0 : t * .3)) * rx, cy + Math.sin(b * u) * ry];
+    // Drawn as short segments so the tail can fade behind the head, the way a
+    // real projector's dot lingers in the haze.
+    ctx.lineWidth = 2;
+    const head = calm ? 0 : (t * 1.5) % (Math.PI * 2), step = .03;
+    for (let u = 0; u < Math.PI * 2; u += step) {
+      const behind = calm ? .55 : Math.max(0, 1 - ((head - u + Math.PI * 2) % (Math.PI * 2)) / 2.4);
+      if (behind <= .02) continue;
+      const [x1, y1] = at(u), [x2, y2] = at(u + step);
+      ctx.strokeStyle = `rgba(${rgbF}, ${(behind * (.5 + flare * .4)).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+
+    // One hard beam across the room when a device turns up.
+    if (shot) {
+      const p = Math.min(1, (now - shot.at) / 900);
+      const rgbS = LZ_COLORS[3].join(", ");
+      beam(shot.x0, shot.y0, Math.atan2(shot.y1 - shot.y0, shot.x1 - shot.x0), Math.hypot(shot.x1 - shot.x0, shot.y1 - shot.y0) * p, rgbS, 3, .9 * (1 - p * .5));
+      if (p >= 1) shot = null;
+    }
+    ctx.globalCompositeOperation = "source-over";
+  };
+
+  if (calm) {
+    // Reduced motion: the rig lit, everything holding still.
+    ctx.fillStyle = "#05060a";
+    ctx.fillRect(0, 0, W, H);
+    draw(0);
+    return;
+  }
+
+  let raf = 0, last = 0;
+  const frame = now => {
+    raf = requestAnimationFrame(frame);
+    if (now - last < 33) return;
+    const dt = Math.min(.05, (now - last) / 1000);
+    last = now;
+    if (flare > 0) flare = Math.max(0, flare - dt * 1.6);
+    if (now > figureAt) { figure = (figure + 1) % 4; figureAt = now + 14000; }
+    draw(now);
+  };
+  const run = () => { if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); } };
+  const stop = () => { cancelAnimationFrame(raf); raf = 0; };
+  const vis = () => document.hidden ? stop() : run();
+  document.addEventListener("visibilitychange", vis);
+  figureAt = performance.now() + 14000;
+  run();
+  festiveStops.push(() => { stop(); document.removeEventListener("visibilitychange", vis); });
+  // Switching to the theme opens with a flare, like the rig warming up.
+  if (switched) flare = 1;
+
+  festiveHooks.scanDone = () => { if (!document.hidden) flare = 1; };
+  festiveHooks.newDevice = () => {
+    if (document.hidden) return;
+    const r = rigs[Math.floor(Math.random() * rigs.length)];
+    shot = { at: performance.now(), x0: r.x, y0: r.y, x1: rnd(W * .1, W * .9), y1: rnd(horizon, H) };
+  };
+}
 
 // The three seasons share their plumbing: a canvas behind the dashboard, a
 // frame loop that stops with the tab, and a still picture under reduced
