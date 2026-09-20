@@ -540,6 +540,22 @@
     [data-theme="laser"] header::after { animation:none; }
   }
 
+  /* A turkey struts along the bottom of the screen, in front of the page like
+     the Aquarium's crab: the ground is under the table, so behind it he'd
+     never be seen. */
+  .tg-bird { position: absolute; bottom: 8px; left: 0; opacity: .95; filter: drop-shadow(0 3px 7px rgba(30, 12, 0, .45)); animation: tg-walk linear forwards; }
+  .tg-bird svg { display: block; width: 92px; height: auto; animation: tg-bob .5s ease-in-out infinite alternate; }
+  .tg-bird.rtl { animation-name: tg-walk-rtl; }
+  .tg-bird.rtl svg { transform: scaleX(-1); animation-name: tg-bob-rtl; }
+  .tg-bird .head { transform-box: fill-box; transform-origin: bottom center; animation: tg-peck 2.6s ease-in-out infinite; }
+  .tg-bird .fan { transform-box: fill-box; transform-origin: 80% 70%; transition: transform .5s ease-out; }
+  .tg-bird.proud .fan { transform: scale(1.22); }
+  @keyframes tg-walk { from { transform: translateX(-120px); } to { transform: translateX(calc(100vw + 120px)); } }
+  @keyframes tg-walk-rtl { from { transform: translateX(calc(100vw + 120px)); } to { transform: translateX(-120px); } }
+  @keyframes tg-bob { to { transform: translateY(-3px); } }
+  @keyframes tg-bob-rtl { from { transform: scaleX(-1); } to { transform: scaleX(-1) translateY(3px); } }
+  @keyframes tg-peck { 0%, 62%, 100% { transform: rotate(0); } 72% { transform: rotate(16deg); } 82% { transform: rotate(2deg); } }
+
   /* ---- Spring: blossom coming down over a bright morning ---- */
   [data-theme="spring"] {
     --bg:#f3f8ef; --panel:rgba(255,255,255,.95); --panel-2:#e8f3e4; --line:#cfe2ca;
@@ -8762,7 +8778,7 @@ const THEMES = [
   { id: "light",       name: "Light",        sw: ["#eef1f5", "#1ba85a", "#d67d00"] },
   { id: "terminal",    name: "Terminal",     sw: ["#020a02", "#33ff66", "#ffcc33"] },
   { id: "amber",       name: "Amber CRT",    sw: ["#0a0600", "#ffb000", "#ffd633"] },
-  { id: "synthwave",   name: "Synthwave",    sw: ["#1a0b2e", "#ff6ac1", "#2de2e6"] },
+  { id: "synthwave",   name: "Synthwave",    sw: ["#1a0b2e", "#ff6ac1", "#2de2e6"], cat: "plain" },
   { id: "c64",         name: "Commodore 64", sw: ["#40318d", "#a5a0e0", "#8bc673"] },
   { id: "gameboy",     name: "Game Boy",     sw: ["#0f380f", "#9bbc0f", "#c4cf4a"] },
   { id: "nord",        name: "Nord",         sw: ["#2e3440", "#88c0d0", "#a3be8c"] },
@@ -8773,8 +8789,8 @@ const THEMES = [
   { id: "contrast",    name: "High Contrast",sw: ["#000000", "#00ff00", "#ffff00"] },
   { id: "matrix",      name: "Matrix",       sw: ["#000700", "#00ff41", "#88ff00"] },
   { id: "blueprint",   name: "Blueprint",    sw: ["#0d2b52", "#7fffd4", "#a0d8ff"] },
-  { id: "hackerred",   name: "Hacker Red",   sw: ["#0a0000", "#ff3333", "#ff8833"] },
-  { id: "cottoncandy", name: "Cotton Candy", sw: ["#fdeef7", "#f47ca0", "#7ececa"] },
+  { id: "hackerred",   name: "Hacker Red",   sw: ["#0a0000", "#ff3333", "#ff8833"], cat: "plain" },
+  { id: "cottoncandy", name: "Cotton Candy", sw: ["#fdeef7", "#f47ca0", "#7ececa"], cat: "plain" },
   { id: "storm",       name: "Thunderstorm", sw: ["#0e1319", "#9fd8ff", "#ffd23f"] },
   { id: "hotdog",      name: "Hotdog Stand", sw: ["#ffff00", "#ff0000", "#000000"] },
   { id: "steampunk",   name: "Steampunk",    sw: ["#150e08", "#c99a3f", "#52c3a4"] },
@@ -12483,6 +12499,23 @@ function buildLaser(root, switched) {
 // frame loop that stops with the tab, and a still picture under reduced
 // motion. This hands back the canvas and a run/stop pair so each one only has
 // to say what it draws.
+// Anything along the bottom of the screen would be hidden behind the device
+// table on the back canvas, so it gets a canvas of its own in front of the
+// page, the way the Aquarium's crab and the Thanksgiving turkey do.
+function frontCanvas(root) {
+  const el = document.createElement("canvas");
+  el.className = "theme-front";
+  el.setAttribute("aria-hidden", "true");
+  const W = innerWidth, H = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+  el.width = W * dpr; el.height = H * dpr;
+  el.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none";
+  const ctx = el.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.globalAlpha = .9;
+  root.appendChild(el);
+  return ctx;
+}
+
 function seasonCanvas(draw, step) {
   const bg = document.createElement("div");
   bg.id = "themeBg";
@@ -12515,12 +12548,13 @@ function seasonCanvas(draw, step) {
 
 // Spring: blossom drifting down, and a bee wandering across now and then. A
 // finished scan shakes a fresh handful off the branch.
-function buildSpring() {
+function buildSpring(root) {
   const calm = calmMotion();
   const petals = [];
-  let bee = null, beeAt = 0;
+  let bee = null, beeAt = 0, bfly = null, bflyAt = 0;
   const c = seasonCanvas(draw, step);
   const { ctx, W, H } = c;
+  const front = frontCanvas(root);
   const PETAL = ["#f7a8c4", "#fbd3e0", "#ffffff", "#f3c1d6"];
   const make = (top) => ({
     x: rnd(0, W), y: top ? rnd(-H * .3, -8) : rnd(0, H), sz: rnd(4, 8),
@@ -12529,7 +12563,71 @@ function buildSpring() {
   });
   for (let i = 0; i < Math.min(80, Math.round(W / 18)); i++) petals.push(make(false));
 
+  // A border along the bottom: grass, and tulips and daffodils coming up
+  // through it, each nodding at its own pace.
+  const blooms = [];
+  for (let x = rnd(10, 60); x < W - 10; x += rnd(34, 96)) {
+    blooms.push({ x, h: rnd(22, 44), kind: Math.random() < .55 ? "tulip" : "daff", phase: rnd(0, 6.3),
+      col: pick(["#f06292", "#ef5350", "#ffca28", "#ffffff", "#ba68c8"]) });
+  }
+  const grass = [];
+  for (let x = 0; x < W; x += 7) grass.push({ x, h: rnd(8, 20), phase: rnd(0, 6.3) });
+  // Birds, high up, crossing in their own time.
+  const birds = Array.from({ length: 3 }, (_, i) => ({ x: rnd(-W, W), y: rnd(H * .08, H * .3), v: rnd(26, 52), sc: rnd(.7, 1.2), t: i }));
+
+  function drawBloom(ctx, b, t) {
+    const sway = Math.sin(t / 1400 + b.phase) * 5;
+    const tipX = b.x + sway, tipY = H - b.h;
+    ctx.strokeStyle = "#4e8a3f";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(b.x, H);
+    ctx.quadraticCurveTo(b.x + sway * .4, H - b.h * .5, tipX, tipY);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(b.x + sway * .3 - 7, H - b.h * .45, 8, 3.5, -.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#57993f";
+    ctx.fill();
+    ctx.fillStyle = b.col;
+    if (b.kind === "tulip") {
+      ctx.beginPath();
+      ctx.moveTo(tipX - 7, tipY + 2);
+      ctx.quadraticCurveTo(tipX, tipY - 16, tipX + 7, tipY + 2);
+      ctx.quadraticCurveTo(tipX, tipY + 9, tipX - 7, tipY + 2);
+      ctx.fill();
+    } else {
+      for (let i = 0; i < 6; i++) {
+        const a = i / 6 * Math.PI * 2;
+        ctx.beginPath();
+        ctx.ellipse(tipX + Math.cos(a) * 6, tipY + Math.sin(a) * 6, 5, 3.4, a, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = "#ffb300";
+      ctx.beginPath(); ctx.arc(tipX, tipY, 3.4, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  function drawBird(b, t) {
+    const flap = Math.sin(t / 220 + b.t) * 5;
+    ctx.strokeStyle = "rgba(60, 80, 70, .55)";
+    ctx.lineWidth = 2 * b.sc;
+    ctx.beginPath();
+    ctx.moveTo(b.x - 9 * b.sc, b.y + flap);
+    ctx.quadraticCurveTo(b.x, b.y - 4, b.x + 9 * b.sc, b.y + flap);
+    ctx.stroke();
+  }
+
   function step(dt, now) {
+    for (const b of birds) {
+      b.x += b.v * dt;
+      if (b.x > W + 30) { b.x = -30; b.y = rnd(H * .08, H * .32); }
+    }
+    if (!bfly && now > bflyAt) bfly = { x: rnd(0, W), y: rnd(H * .3, H * .75), t: 0, dir: Math.random() < .5 ? 1 : -1 };
+    if (bfly) {
+      bfly.t += dt;
+      bfly.x += bfly.dir * 46 * dt;
+      bfly.y += Math.sin(bfly.t * 3) * 34 * dt;
+      if (bfly.x < -40 || bfly.x > W + 40) { bfly = null; bflyAt = now + rnd(7000, 16000); }
+    }
     for (const p of petals) {
       p.y += p.vy * dt;
       p.r += p.spin * dt;
@@ -12543,9 +12641,34 @@ function buildSpring() {
     }
   }
   function draw(now) {
+    const t = now || 0;
     ctx.clearRect(0, 0, W, H);
+    for (const b of birds) drawBird(b, t);
+    // The border grows in front of the page; behind it the table covers it.
+    front.clearRect(0, 0, W, H);
+    front.strokeStyle = "#5c9b4a";
+    front.lineWidth = 2;
+    for (const g of grass) {
+      const lean = Math.sin(t / 1300 + g.phase) * 4;
+      front.beginPath();
+      front.moveTo(g.x, H);
+      front.quadraticCurveTo(g.x + lean * .5, H - g.h * .6, g.x + lean, H - g.h);
+      front.stroke();
+    }
+    for (const b of blooms) drawBloom(front, b, t);
+    if (bfly) {
+      const w = Math.abs(Math.sin(bfly.t * 9)) * 7 + 3;
+      ctx.save();
+      ctx.translate(bfly.x, bfly.y);
+      ctx.fillStyle = "#ff9800";
+      ctx.beginPath(); ctx.ellipse(-w * .6, -2, w, 6, -.4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w * .6, -2, w, 6, .4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#4e342e";
+      ctx.beginPath(); ctx.ellipse(0, 0, 2, 7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
     for (const p of petals) {
-      const x = p.x + Math.sin((now || 0) / 1000 + p.phase) * p.sway;
+      const x = p.x + Math.sin(t / 1000 + p.phase) * p.sway;
       ctx.save();
       ctx.translate(x, p.y);
       ctx.rotate(p.r);
@@ -12586,12 +12709,15 @@ function buildSpring() {
 
 // Summer: a high sun, clouds crossing, and the sea along the bottom. A
 // finished scan sends a bigger set of waves through.
-function buildSummer() {
+function buildSummer(root) {
   const calm = calmMotion();
   const clouds = Array.from({ length: 5 }, () => ({ x: rnd(0, innerWidth), y: rnd(40, innerHeight * .4), sc: rnd(.6, 1.5), v: rnd(6, 16) }));
+  const gulls = Array.from({ length: 3 }, (_, i) => ({ x: rnd(-innerWidth, innerWidth), y: rnd(60, innerHeight * .32), v: rnd(18, 40), sc: rnd(.8, 1.4), t: i }));
+  const boat = { x: rnd(0, innerWidth), v: rnd(9, 16) };
   let surge = 0;
   const c = seasonCanvas(draw, step);
   const { ctx, W, H } = c;
+  const front = frontCanvas(root);
   const sunX = W * .84, sunY = H * .18;
 
   function step(dt) {
@@ -12599,6 +12725,12 @@ function buildSummer() {
       cl.x += cl.v * dt;
       if (cl.x > W + 120 * cl.sc) { cl.x = -120 * cl.sc; cl.y = rnd(40, H * .4); }
     }
+    for (const g of gulls) {
+      g.x += g.v * dt;
+      if (g.x > W + 30) { g.x = -30; g.y = rnd(60, H * .34); }
+    }
+    boat.x += boat.v * dt;
+    if (boat.x > W + 90) boat.x = -90;
     if (surge > 0) surge = Math.max(0, surge - dt * .5);
   }
   const cloud = (x, y, sc) => {
@@ -12630,6 +12762,46 @@ function buildSummer() {
     ctx.fillStyle = "#ffd166";
     ctx.beginPath(); ctx.arc(sunX, sunY, 34, 0, Math.PI * 2); ctx.fill();
     for (const cl of clouds) cloud(cl.x, cl.y, cl.sc);
+    // Gulls, out over the water.
+    for (const g of gulls) {
+      const flap = Math.sin(t * 4 + g.t) * 4;
+      ctx.strokeStyle = "rgba(70, 90, 105, .6)";
+      ctx.lineWidth = 2 * g.sc;
+      ctx.beginPath();
+      ctx.moveTo(g.x - 10 * g.sc, g.y + flap);
+      ctx.quadraticCurveTo(g.x, g.y - 5, g.x + 10 * g.sc, g.y + flap);
+      ctx.stroke();
+    }
+    // The boat and the parasol sit at the water line, so they go in front of
+    // the page; the sky and the sea stay behind it.
+    front.clearRect(0, 0, W, H);
+    const bob = Math.sin(t * .9) * 4, lean = Math.sin(t * .6) * .06, by = H - 34 + bob;
+    front.save();
+    front.translate(boat.x, by);
+    front.rotate(lean);
+    front.fillStyle = "#ffffff";
+    front.beginPath(); front.moveTo(0, -46); front.lineTo(0, -6); front.lineTo(-26, -6); front.closePath(); front.fill();
+    front.fillStyle = "#ff8a3d";
+    front.beginPath(); front.moveTo(3, -42); front.lineTo(22, -6); front.lineTo(3, -6); front.closePath(); front.fill();
+    front.fillStyle = "#37474f";
+    front.beginPath(); front.moveTo(-28, -4); front.lineTo(30, -4); front.lineTo(20, 8); front.lineTo(-18, 8); front.closePath(); front.fill();
+    front.restore();
+    const ux = W * .06, uy = H - 30;
+    ctx.strokeStyle = "#8d6e63";
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(ux, uy); ctx.lineTo(ux + 6, uy - 66); ctx.stroke();
+    for (let i = 0; i < 6; i++) {
+      ctx.fillStyle = i % 2 ? "#ff7043" : "#fff3e0";
+      ctx.beginPath();
+      ctx.moveTo(ux + 6, uy - 66);
+      ctx.arc(ux + 6, uy - 66, 54, Math.PI + i * Math.PI / 6, Math.PI + (i + 1) * Math.PI / 6);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.fillStyle = "#4dd0e1";
+    ctx.fillRect(ux + 34, uy - 6, 76, 14);
+    ctx.fillStyle = "#26c6da";
+    for (let i = 0; i < 4; i++) ctx.fillRect(ux + 42 + i * 18, uy - 6, 7, 14);
     // The sea: three bands of swell, the front one darkest.
     const amp = 6 + surge * 14;
     for (const [i, col] of [[0, "rgba(120, 200, 235, .55)"], [1, "rgba(70, 170, 215, .6)"], [2, "rgba(30, 130, 185, .65)"]]) {
@@ -12652,12 +12824,13 @@ function buildSummer() {
 
 // Winter: snow falling past frosted edges, settling into a drift along the
 // bottom. A finished scan brings a gust through.
-function buildWinter() {
+function buildWinter(root) {
   const calm = calmMotion();
   const flakes = [];
   let gust = 0;
   const c = seasonCanvas(draw, step);
   const { ctx, W, H } = c;
+  const front = frontCanvas(root);
   const make = (top) => ({
     x: rnd(0, W), y: top ? rnd(-H * .3, -6) : rnd(0, H), sz: rnd(1.2, 3.4),
     vy: rnd(22, 70), sway: rnd(8, 26), phase: rnd(0, 6.3), a: rnd(.35, .95),
@@ -12703,14 +12876,15 @@ function buildWinter() {
     const t = (now || 0) / 1000;
     ctx.clearRect(0, 0, W, H);
     ctx.drawImage(frost, 0, 0, W, H);
-    // The drift along the bottom.
-    ctx.fillStyle = "rgba(226, 242, 255, .16)";
-    ctx.beginPath();
-    ctx.moveTo(0, H);
-    for (let x = 0; x <= W; x += 24) ctx.lineTo(x, H - 14 - Math.sin(x / 120) * 7);
-    ctx.lineTo(W, H);
-    ctx.closePath();
-    ctx.fill();
+    // The drift banks up against the bottom of the screen, in front of the page.
+    front.clearRect(0, 0, W, H);
+    front.fillStyle = "rgba(226, 242, 255, .72)";
+    front.beginPath();
+    front.moveTo(0, H);
+    for (let x = 0; x <= W; x += 24) front.lineTo(x, H - 14 - Math.sin(x / 120) * 7);
+    front.lineTo(W, H);
+    front.closePath();
+    front.fill();
     for (const f of flakes) {
       ctx.globalAlpha = f.a;
       ctx.fillStyle = "#eaf6ff";
@@ -12873,8 +13047,40 @@ function buildThanksgiving(root) {
   });
   const leaves = Array.from({ length: Math.min(70, Math.round(W / 22)) }, () => make(false));
 
+  // The harvest along the bottom: pumpkins, a couple of gourds and some corn,
+  // drawn once and kept, so they sit there like they were put out on the step.
+  const patch = [];
+  for (let x = rnd(30, 90); x < W - 40; x += rnd(150, 320)) {
+    const r = rnd(16, 30);
+    patch.push({ x, r, kind: Math.random() < .68 ? "pumpkin" : "gourd", col: Math.random() < .5 ? "#e8873d" : "#d1652f", tilt: rnd(-.2, .2) });
+  }
+  const gourd = (g) => {
+    ctx.save();
+    ctx.translate(g.x, H - 6 - g.r * .7);
+    ctx.rotate(g.tilt);
+    if (g.kind === "pumpkin") {
+      ctx.fillStyle = g.col;
+      for (const [dx, rx] of [[-g.r * .5, g.r * .6], [g.r * .5, g.r * .6], [0, g.r]]) {
+        ctx.beginPath(); ctx.ellipse(dx, 0, rx, g.r * .82, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.strokeStyle = "rgba(120, 55, 15, .35)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(0, 0, g.r * .45, g.r * .8, 0, 0, Math.PI * 2); ctx.stroke();
+    } else {
+      ctx.fillStyle = "#c7a23f";
+      ctx.beginPath(); ctx.ellipse(0, g.r * .2, g.r * .55, g.r * .62, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0, -g.r * .5, g.r * .3, g.r * .4, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.strokeStyle = "#5a3d1b";
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(0, -g.r * .78); ctx.lineTo(g.r * .15, -g.r * 1.1); ctx.stroke();
+    ctx.restore();
+  };
+
   const draw = (t) => {
     ctx.clearRect(0, 0, W, H);
+    for (const g of patch) gourd(g);
     for (const l of leaves) leaf(l.x + Math.sin(t / 1000 + l.phase) * l.sway, l.y, l.r, l.sz, l.col, Math.cos(l.r * .7) * .6 + .4);
   };
 
@@ -12904,12 +13110,50 @@ function buildThanksgiving(root) {
   document.addEventListener("visibilitychange", vis);
   run();
   festiveStops.push(() => { stop(); document.removeEventListener("visibilitychange", vis); });
-  // A finished scan blows a handful across the screen.
+  // A turkey comes through every so often, tail up, pecking as he goes.
+  const turkey = () => {
+    if (document.hidden || document.querySelector(".tg-bird")) return;
+    const el = document.createElement("div");
+    el.className = "tg-bird" + (Math.random() < .5 ? " rtl" : "");
+    el.style.animationDuration = rnd(34, 58).toFixed(0) + "s";
+    el.innerHTML = TG_TURKEY;
+    el.addEventListener("animationend", e => { if (e.target === el) el.remove(); });
+    root.appendChild(el);
+  };
+  const again = () => festiveTimers.push(setTimeout(() => { turkey(); again(); }, rnd(45e3, 95e3)));
+  festiveTimers.push(setTimeout(() => { turkey(); again(); }, rnd(8e3, 20e3)));
+
+  // A finished scan blows a handful across the screen, and puffs him up.
   festiveHooks.scanDone = () => {
     if (document.hidden) return;
     for (const l of leaves.slice(0, 14)) { l.x = rnd(-40, W * .2); l.y = rnd(0, H * .7); l.spin = rnd(2, 4.5); l.vy = rnd(50, 90); }
+    const t = document.querySelector(".tg-bird");
+    if (t) { t.classList.add("proud"); festiveTimers.push(setTimeout(() => t.classList.remove("proud"), 1600)); }
   };
 }
+
+// A turkey, facing right: tail fanned behind him, wattle, and a head that
+// dips to peck as he walks.
+const TG_TURKEY = `<svg width="150" height="120" viewBox="0 0 150 120">
+  <g class="fan">
+    <path d="M18 78C2 60 6 26 30 12c-8 18-6 40 6 54z" fill="#8c4a21"/>
+    <path d="M30 80C16 56 26 22 52 12c-12 18-14 44-6 62z" fill="#b25c26"/>
+    <path d="M44 82C36 54 50 22 76 16c-16 18-22 44-16 64z" fill="#d1652f"/>
+    <path d="M60 84C58 56 74 26 98 24c-18 16-26 40-24 58z" fill="#e8a33d"/>
+    <path d="M76 86C80 60 96 36 118 36c-18 14-28 32-28 50z" fill="#c7a23f"/>
+  </g>
+  <ellipse cx="86" cy="86" rx="32" ry="24" fill="#5a3218"/>
+  <ellipse cx="94" cy="92" rx="22" ry="15" fill="#6e401f"/>
+  <g class="head">
+    <path d="M106 70c8-10 22-12 28-4" fill="none" stroke="#5a3218" stroke-width="11" stroke-linecap="round"/>
+    <circle cx="130" cy="62" r="11" fill="#7d4a24"/>
+    <path d="M139 60l10 4-10 5z" fill="#e8a33d"/>
+    <path d="M128 72q4 10-2 14" fill="none" stroke="#d1452f" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="133" cy="58" r="2.4" fill="#1d0e04"/>
+  </g>
+  <g stroke="#e8a33d" stroke-width="5" stroke-linecap="round"><path d="M80 108v8M96 108v8"/></g>
+  <g stroke="#e8a33d" stroke-width="4" stroke-linecap="round"><path d="M74 116h12M90 116h12"/></g>
+</svg>`;
 
 // A suburban house done up for Christmas: every eave, gable, window and tree
 // strung with bulbs, the way the neighbour who takes it too far does it. Drawn
