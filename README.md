@@ -133,6 +133,12 @@ to place. Upload a plan per floor — a photo of a sketch does — then pick a
 device and click where it goes. Pins follow whether each device is online, and
 clicking one opens it.
 
+![The drawing board: a plan of a home on a grid, its walls drawn to scale with their lengths beside them, doors shown with the arc they swing through, windows as blue lines in the wall, and Kitchen, Living room and Office named. Along the top are the Wall, Room, Door, Window, Label, Erase and Undo tools, the scale set to one square per foot, and Cancel and Save plan. A box under the last wall holds its length, ready to be typed over](docs/plan-draw.png)
+
+No plan of your home? **✎ Draw a plan** gives you walls that straighten
+themselves and snap together, measured against a scale you set, with doors,
+windows and room names. Type an exact length for a wall and it takes it.
+
 ### Tune it without touching the server
 
 ![The Settings tab: scan interval, probe concurrency, history retention, an on/off switch and scan interval per network, the recorded switches, access point and SSIDs with layout export and import, the instant toggles for active ARP, randomised MACs, the traffic monitor, latency measuring, the ARP watch, IPv6 neighbours, the certificate watch, the GreyNoise check of your public address with its explanation, Holiday Spirit, Night mode with its hours and theme, and update checks, then alert rules including a scheduled wake, quiet hours and the daily port watch](docs/settings.png)
