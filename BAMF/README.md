@@ -386,11 +386,13 @@ survive IP changes.
   automations can fire when someone gets home. See [MQTT](#mqtt-and-home-assistant).
 - **Tags** - group devices as "kids", "IoT", "work" or whatever fits, then
   filter the list and the Map by tag. See [Tags](#tags).
-- **26 themes** - click the theme button for a picker: Dark, Light, Terminal,
-  Amber CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized (dark
-  + light), Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
-  Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
-  Night Street and Constellation. See [Theme](#theme).
+- **34 themes** - click the theme button for a picker, grouped into colours,
+  animated and holidays: Dark, Light, Terminal, Amber CRT, Synthwave, Commodore
+  64, Game Boy, Nord, Dracula, Solarized (dark + light), Gruvbox, High Contrast,
+  Matrix, Blueprint, Hacker Red, Cotton Candy, Thunderstorm, Hotdog Stand,
+  Steampunk, Waterworks, Aquarium, Goat, Goat Night, Night Street,
+  Constellation, Claw Machine (dark + dusk), Laser Show, Spring, Summer, Winter,
+  New Year and Thanksgiving. See [Theme](#theme).
   CRT themes get scanlines; each pick triggers a BAMF! splat. Choice persists.
   There are also two seasonal themes you won't find in the list. They unlock the
   way a friendly program would: just tell it its name. (On a phone, the logo is
