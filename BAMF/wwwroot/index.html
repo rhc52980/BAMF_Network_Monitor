@@ -1142,6 +1142,39 @@
   .fl-item .d.on { background: var(--led-on); }
   .fl-item small { margin-left: auto; color: var(--text-dim); font-size: 11px; white-space: nowrap; }
   body.viewer .floor-wrap .edit-only { display: none !important; }
+  /* ---- Drawing a plan ---- */
+  .plan-ed { position: fixed; inset: 0; z-index: 9000; display: flex; flex-direction: column; background: var(--bg); }
+  .plan-ed[hidden] { display: none; }
+  .plan-top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .plan-top .sp { flex: 1 1 auto; }
+  .plan-tool { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  .plan-tool.on { border-color: var(--focus); color: var(--focus); }
+  .plan-scale { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-dim); }
+  .plan-scale input { width: 56px; }
+  .plan-scale input, .plan-scale select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; font: inherit; font-size: 12.5px; }
+  .plan-hint { padding: 6px 16px; font-size: 12px; color: var(--text-dim); border-bottom: 1px solid var(--line); background: var(--panel); }
+  .plan-canvas { flex: 1; min-height: 0; overflow: auto; padding: 16px; display: flex; justify-content: center; align-items: flex-start; position: relative; }
+  .plan-canvas svg { background: #f6f3ec; border: 1px solid var(--line); border-radius: 6px; touch-action: none; max-width: 100%; height: auto; }
+  .plan-len { position: absolute; width: 92px; padding: 4px 6px; font: 12px "IBM Plex Mono", monospace; text-align: center;
+    background: var(--panel); color: var(--text); border: 1px solid var(--focus); border-radius: 6px; }
+  .plan-len[hidden] { display: none; }
+  .floor-plan-svg svg { display: block; width: 100%; height: auto; }
+  .floor-plan-svg[hidden] { display: none; }
+  /* The plan itself, drawn the same way in the editor and on the floor. */
+  .fp-wall { stroke: #2f2a24; stroke-width: 7; stroke-linecap: square; }
+  .fp-open { stroke: #f6f3ec; stroke-width: 9; stroke-linecap: butt; }
+  .fp-door { stroke: #8a7a63; stroke-width: 2; fill: none; }
+  .fp-win { stroke: #5f7f9a; stroke-width: 3; }
+  .fp-label { fill: #4a4034; font: 600 17px "Space Grotesk", system-ui, sans-serif; }
+  .fp-meas { fill: #8a7a63; font: 11px "IBM Plex Mono", monospace; }
+  .fp-grid { stroke: #ded7c8; stroke-width: 1; }
+  .fp-grid.big { stroke: #cdc3ae; }
+  .fp-ghost { stroke: #2f80c2; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 8 6; }
+  .fp-snap { fill: none; stroke: #2f80c2; stroke-width: 2; }
+  @media (max-width: 700px) {
+    .plan-top { padding: 8px 12px; }
+    .plan-canvas { padding: 8px; }
+  }
   @media (max-width: 700px) {
     .floor-wrap { padding-left: 16px; padding-right: 16px; }
     .floor-main { flex-direction: column; }
@@ -2956,7 +2989,8 @@
 <div class="floor-wrap" id="floorWrap" hidden>
   <div class="floor-bar">
     <div class="floor-tabs" id="floorTabs"></div>
-    <button type="button" class="toggle edit-only" id="floorAdd" title="Upload a plan of a floor: a PNG, JPEG or WebP image, up to 12 MB">+ Add a floor</button>
+    <button type="button" class="toggle edit-only" id="floorAdd" title="Upload a plan of a floor: a PNG, JPEG or WebP image, up to 12 MB">+ Upload a plan</button>
+    <button type="button" class="toggle edit-only" id="floorDraw" title="Draw a floor yourself: walls, doors, windows and room names, to scale">✎ Draw a plan</button>
     <span class="floor-tools">
       <label class="floor-show">Show <select id="floorShow"><option value="all">every device</option><option value="offline">offline only</option></select></label>
       <button type="button" class="toggle edit-only" id="floorEdit" aria-pressed="false" title="Put devices on this floor, move them, or take them off">Place devices</button>
@@ -2965,11 +2999,12 @@
   <div class="floor-edit-bar edit-only" id="floorEditBar" hidden>
     <button type="button" class="toggle" id="floorRename">Rename floor</button>
     <button type="button" class="toggle" id="floorReplace" title="Swap the image; devices stay where they are">Replace image</button>
+    <button type="button" class="toggle" id="floorRedraw" hidden title="Change the walls; devices stay where they are">Edit drawing</button>
     <button type="button" class="toggle danger-text" id="floorDelete">Delete floor</button>
     <span class="hint">Pick a device on the right, then click where it goes. Drag a pin to move it; select one and press ✕ to take it off.</span>
   </div>
   <div class="floor-main" id="floorMain">
-    <div class="floor-stage" id="floorStage"><img id="floorImg" alt="" draggable="false"><div class="floor-pins" id="floorPins"></div></div>
+    <div class="floor-stage" id="floorStage"><img id="floorImg" alt="" draggable="false"><div class="floor-plan-svg" id="floorSvg" hidden></div><div class="floor-pins" id="floorPins"></div></div>
     <aside class="floor-side" id="floorSide" hidden>
       <input class="modal-input" id="floorFind" placeholder="Find a device" autocomplete="off">
       <div class="floor-list" id="floorList"></div>
@@ -2979,6 +3014,30 @@
     No floor plans yet. <span class="edit-only">Add a floor with a plan of your home: a photo of the fire-escape plan, a sketch, or an estate agent's floor plan all work. Then put each device in its room.</span>
   </div>
   <input type="file" id="floorFile" accept="image/png,image/jpeg,image/webp" hidden>
+</div>
+
+<div class="plan-ed" id="planEd" hidden aria-label="Draw a floor plan">
+  <div class="plan-top">
+    <button type="button" class="plan-tool on" data-tool="wall" id="planWall">Wall</button>
+    <button type="button" class="plan-tool" data-tool="room">Room</button>
+    <button type="button" class="plan-tool" data-tool="door">Door</button>
+    <button type="button" class="plan-tool" data-tool="window">Window</button>
+    <button type="button" class="plan-tool" data-tool="label">Label</button>
+    <button type="button" class="plan-tool" data-tool="erase">Erase</button>
+    <button type="button" class="plan-tool" id="planUndo" title="Undo the last piece">Undo</button>
+    <span class="plan-scale">1 square =
+      <input id="planPer" type="number" min="0.1" max="100" step="0.5" value="1">
+      <select id="planUnit"><option value="ft">feet</option><option value="m">metres</option></select>
+    </span>
+    <span class="sp"></span>
+    <button type="button" class="plan-tool" id="planCancel">Cancel</button>
+    <button type="button" class="plan-tool on" id="planSave">Save plan</button>
+  </div>
+  <div class="plan-hint" id="planHint"></div>
+  <div class="plan-canvas" id="planCanvas">
+    <svg id="planSvgEd" viewBox="0 0 1200 800" width="1200" height="800"></svg>
+    <input class="plan-len" id="planLen" hidden inputmode="decimal" title="Type the real length of that wall and press Enter">
+  </div>
 </div>
 
 <div class="home-wrap" id="homeWrap" hidden>
@@ -3894,6 +3953,62 @@ function loadFloors(force) {
   return fetch("/api/floors").then(r => r.ok ? r.json() : null).then(d => { if (d) { floorData = d; floorLoadedAt = Date.now(); } return floorData; }).catch(() => floorData);
 }
 function floorState(h) { return !h.online ? "off" : h.known ? "on" : "warn"; }
+// ---- Floor plans drawn in BAMF ----
+// A plan is walls, doors, windows and labels, in the same coordinate space as
+// an uploaded image, so a device's spot means the same thing either way.
+const PLAN_W = 1200, PLAN_H = 800, PLAN_STEP = 40;
+const planCache = new Map();
+const newPlan = () => ({ v: 1, width: PLAN_W, height: PLAN_H, unit: "ft", step: PLAN_STEP, perStep: 1, items: [] });
+// How long a wall is, in whatever the plan is measured in.
+const planLen = (plan, a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]) / plan.step * plan.perStep;
+const planShow = (plan, v) => (v < 10 ? v.toFixed(1) : Math.round(v)) + (plan.unit === "m" ? " m" : " ft");
+// Pixels for a real-world length, used to size doors and windows.
+const planPx = (plan, v) => v / plan.perStep * plan.step;
+
+function planSvg(plan, { grid = false, measure = false } = {}) {
+  const e = [`<rect x="0" y="0" width="${plan.width}" height="${plan.height}" fill="#f6f3ec"/>`];
+  if (grid) {
+    for (let x = 0; x <= plan.width; x += plan.step) e.push(`<line class="fp-grid${x % (plan.step * 5) ? "" : " big"}" x1="${x}" y1="0" x2="${x}" y2="${plan.height}"/>`);
+    for (let y = 0; y <= plan.height; y += plan.step) e.push(`<line class="fp-grid${y % (plan.step * 5) ? "" : " big"}" x1="0" y1="${y}" x2="${plan.width}" y2="${y}"/>`);
+  }
+  for (const it of plan.items) if (it.k === "wall") e.push(`<line class="fp-wall" x1="${it.a[0]}" y1="${it.a[1]}" x2="${it.b[0]}" y2="${it.b[1]}"/>`);
+  // Doors and windows cut the wall they sit on, then draw their own mark.
+  for (const it of plan.items) {
+    if (it.k !== "door" && it.k !== "window") continue;
+    e.push(`<line class="fp-open" x1="${it.a[0]}" y1="${it.a[1]}" x2="${it.b[0]}" y2="${it.b[1]}"/>`);
+    if (it.k === "window") { e.push(`<line class="fp-win" x1="${it.a[0]}" y1="${it.a[1]}" x2="${it.b[0]}" y2="${it.b[1]}"/>`); continue; }
+    // A door: the leaf, and the quarter circle it swings through.
+    const dx = it.b[0] - it.a[0], dy = it.b[1] - it.a[1], w = Math.hypot(dx, dy) || 1;
+    const nx = -dy / w, ny = dx / w;
+    e.push(`<path class="fp-door" d="M${it.a[0]} ${it.a[1]}L${(it.a[0] + nx * w).toFixed(1)} ${(it.a[1] + ny * w).toFixed(1)}"/>`);
+    e.push(`<path class="fp-door" d="M${(it.a[0] + nx * w).toFixed(1)} ${(it.a[1] + ny * w).toFixed(1)}A${w.toFixed(1)} ${w.toFixed(1)} 0 0 ${dx * ny - dy * nx > 0 ? 1 : 0} ${it.b[0]} ${it.b[1]}"/>`);
+  }
+  for (const it of plan.items) if (it.k === "label") e.push(`<text class="fp-label" x="${it.p[0]}" y="${it.p[1]}" text-anchor="middle">${esc(it.t)}</text>`);
+  if (measure) {
+    for (const it of plan.items) {
+      if (it.k !== "wall") continue;
+      const mx = (it.a[0] + it.b[0]) / 2, my = (it.a[1] + it.b[1]) / 2;
+      const dx = it.b[0] - it.a[0], dy = it.b[1] - it.a[1];
+      const w = Math.hypot(dx, dy) || 1, nx = -dy / w * 13, ny = dx / w * 13;
+      e.push(`<text class="fp-meas" x="${(mx + nx).toFixed(0)}" y="${(my + ny).toFixed(0)}" text-anchor="middle">${esc(planShow(plan, planLen(plan, it.a, it.b)))}</text>`);
+    }
+  }
+  return e.join("");
+}
+
+function loadPlan(floor) {
+  const key = floor.id + ":" + floor.updated;
+  if (planCache.has(key)) return Promise.resolve(planCache.get(key));
+  return fetch(`/api/floors/${floor.id}/plan`).then(r => r.ok ? r.json() : null).then(d => {
+    if (!d) return null;
+    // Server-side names are the long ones; the page works in short ones.
+    const plan = { v: 1, width: d.Width ?? d.width, height: d.Height ?? d.height, unit: d.Unit ?? d.unit, step: d.Step ?? d.step, perStep: d.PerStep ?? d.perStep,
+      items: (d.Items ?? d.items ?? []).map(i => ({ k: i.K ?? i.k, a: i.A ?? i.a, b: i.B ?? i.b, p: i.P ?? i.p, t: i.T ?? i.t })) };
+    planCache.set(key, plan);
+    return plan;
+  }).catch(() => null);
+}
+
 async function renderFloor() {
   const d = await loadFloors();
   if (!d || view !== "floor") return;
@@ -3922,8 +4037,19 @@ async function renderFloor() {
   $("floorEdit").textContent = floorEditing ? "Done" : "Place devices";
   if (!floor) return;
   const img = $("floorImg");
-  const src = `/api/floors/${floor.id}/image?v=${encodeURIComponent(floor.updated)}`;
-  if (img.getAttribute("src") !== src) { img.src = src; img.alt = "Floor plan: " + floor.name; }
+  const drawn = floor.kind === "plan";
+  $("floorReplace").hidden = drawn;
+  $("floorRedraw").hidden = !drawn;
+  img.hidden = drawn;
+  $("floorSvg").hidden = !drawn;
+  if (drawn) {
+    const plan = await loadPlan(floor);
+    if (!plan) { $("floorSvg").innerHTML = `<div class="empty">That plan couldn't be loaded.</div>`; return; }
+    $("floorSvg").innerHTML = `<svg viewBox="0 0 ${plan.width} ${plan.height}" width="${plan.width}" height="${plan.height}" role="img" aria-label="Floor plan: ${esc(floor.name)}">${planSvg(plan)}</svg>`;
+  } else {
+    const src = `/api/floors/${floor.id}/image?v=${encodeURIComponent(floor.updated)}`;
+    if (img.getAttribute("src") !== src) { img.src = src; img.alt = "Floor plan: " + floor.name; }
+  }
   const stage = $("floorStage");
   stage.classList.toggle("editing", floorEditing);
   stage.classList.toggle("arming", floorEditing && floorArmed !== null);
@@ -3976,9 +4102,16 @@ async function removeFromFloor(hostId) {
   floorSel = null;
   renderFloor();
 }
-// Where a pointer is on the plan, as shares of its width and height.
+// Where a pointer is on the plan, as shares of its width and height. The plan
+// is an uploaded image or a drawing; measure against whichever is showing, not
+// the hidden one, or every spot lands at the bottom of the plan.
+function floorPlanEl() {
+  const svg = document.querySelector("#floorSvg svg");
+  return svg && !document.getElementById("floorSvg").hidden ? svg : document.getElementById("floorImg");
+}
 function floorPoint(e) {
-  const r = document.getElementById("floorImg").getBoundingClientRect();
+  const r = floorPlanEl().getBoundingClientRect();
+  if (!r.width || !r.height) return [.5, .5];
   return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))];
 }
 {
@@ -4071,6 +4204,243 @@ document.getElementById("floorAdd").onclick = () => {
     renderFloor();
     toast("Floor added: pick a device on the right, then click where it goes");
   });
+};
+// ---- The drawing editor ----
+// Walls are drawn by clicking corner to corner; they straighten to the nearest
+// right angle or diagonal, snap to the ends of walls already there, and settle
+// on the grid otherwise. Every wall says how long it is, and the last one can
+// be given an exact length by typing it.
+let planDoc = null, planTool = "wall", planFrom = null, planAt = null, planDrag = null, planTarget = null, planLast = null;
+const planEl = () => document.getElementById("planSvgEd");
+const PLAN_HINTS = {
+  wall: "Click each corner. Walls straighten to right angles and diagonals and snap to walls already drawn. Type over the length to set it exactly. Esc or double-click finishes a run.",
+  room: "Drag out a room and it becomes four walls.",
+  door: "Click a wall where the door goes.",
+  window: "Click a wall where the window goes.",
+  label: "Click where a room's name goes.",
+  erase: "Click a wall, door, window or name to remove it.",
+};
+
+function planPoint(e) {
+  const svg = planEl(), r = svg.getBoundingClientRect();
+  return [(e.clientX - r.left) / r.width * planDoc.width, (e.clientY - r.top) / r.height * planDoc.height];
+}
+// Every end of every wall, so a new one can land exactly on an old one.
+function planEnds() {
+  const out = [];
+  for (const it of planDoc.items) if (it.k === "wall") { out.push(it.a); out.push(it.b); }
+  return out;
+}
+function planSnap(pt, from) {
+  const near = planEnds().find(q => Math.hypot(q[0] - pt[0], q[1] - pt[1]) < 14);
+  if (near) return [near[0], near[1]];
+  let [x, y] = pt;
+  if (from) {
+    // Straighten: right angles first, then the diagonals.
+    const dx = x - from[0], dy = y - from[1], len = Math.hypot(dx, dy);
+    if (len > 4) {
+      const a = Math.atan2(dy, dx), step = Math.PI / 4;
+      const snapped = Math.round(a / step) * step;
+      if (Math.abs(((a - snapped + Math.PI * 3) % (Math.PI * 2)) - Math.PI) > Math.PI - 0.13) {
+        x = from[0] + Math.cos(snapped) * len;
+        y = from[1] + Math.sin(snapped) * len;
+      }
+    }
+  }
+  const g = planDoc.step / 2;
+  const gx = Math.round(x / g) * g, gy = Math.round(y / g) * g;
+  if (Math.hypot(gx - x, gy - y) < 9) { x = gx; y = gy; }
+  return [Math.max(0, Math.min(planDoc.width, x)), Math.max(0, Math.min(planDoc.height, y))];
+}
+// The wall nearest a point, and where on it that point falls.
+function planNearestWall(pt) {
+  let best = null;
+  for (const it of planDoc.items) {
+    if (it.k !== "wall") continue;
+    const dx = it.b[0] - it.a[0], dy = it.b[1] - it.a[1], L2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((pt[0] - it.a[0]) * dx + (pt[1] - it.a[1]) * dy) / L2));
+    const px = it.a[0] + dx * t, py = it.a[1] + dy * t, d = Math.hypot(px - pt[0], py - pt[1]);
+    if (!best || d < best.d) best = { it, t, at: [px, py], d, len: Math.sqrt(L2) };
+  }
+  return best;
+}
+function planOpening(pt, kind) {
+  const w = planNearestWall(pt);
+  if (!w || w.d > 26) { toast("Click on a wall to put a " + kind + " in it"); return; }
+  const want = planPx(planDoc, kind === "door" ? (planDoc.unit === "m" ? .9 : 3) : (planDoc.unit === "m" ? 1.2 : 4));
+  const half = Math.min(want, w.len * .8) / 2;
+  const ux = (w.it.b[0] - w.it.a[0]) / w.len, uy = (w.it.b[1] - w.it.a[1]) / w.len;
+  const c = Math.max(half, Math.min(w.len - half, w.t * w.len));
+  planDoc.items.push({ k: kind, a: [w.it.a[0] + ux * (c - half), w.it.a[1] + uy * (c - half)], b: [w.it.a[0] + ux * (c + half), w.it.a[1] + uy * (c + half)] });
+  planDraw();
+}
+function planErase(pt) {
+  let best = null;
+  planDoc.items.forEach((it, i) => {
+    let d;
+    if (it.k === "label") d = Math.hypot(it.p[0] - pt[0], it.p[1] - pt[1]) - 14;
+    else {
+      const dx = it.b[0] - it.a[0], dy = it.b[1] - it.a[1], L2 = dx * dx + dy * dy || 1;
+      const t = Math.max(0, Math.min(1, ((pt[0] - it.a[0]) * dx + (pt[1] - it.a[1]) * dy) / L2));
+      d = Math.hypot(it.a[0] + dx * t - pt[0], it.a[1] + dy * t - pt[1]);
+    }
+    if (d < 14 && (!best || d < best.d)) best = { i, d };
+  });
+  if (best) { planDoc.items.splice(best.i, 1); planDraw(); }
+}
+function planDraw() {
+  const extra = [];
+  if (planFrom && planAt) {
+    extra.push(`<line class="fp-ghost" x1="${planFrom[0]}" y1="${planFrom[1]}" x2="${planAt[0]}" y2="${planAt[1]}"/>`);
+    const mx = (planFrom[0] + planAt[0]) / 2, my = (planFrom[1] + planAt[1]) / 2;
+    extra.push(`<text class="fp-meas" x="${mx.toFixed(0)}" y="${(my - 12).toFixed(0)}" text-anchor="middle">${esc(planShow(planDoc, planLen(planDoc, planFrom, planAt)))}</text>`);
+  }
+  if (planDrag && planAt) {
+    const x = Math.min(planDrag[0], planAt[0]), y = Math.min(planDrag[1], planAt[1]);
+    const w = Math.abs(planAt[0] - planDrag[0]), h = Math.abs(planAt[1] - planDrag[1]);
+    extra.push(`<rect class="fp-ghost" fill="none" x="${x}" y="${y}" width="${w}" height="${h}"/>`);
+    extra.push(`<text class="fp-meas" x="${(x + w / 2).toFixed(0)}" y="${(y - 8).toFixed(0)}" text-anchor="middle">${esc(planShow(planDoc, w / planDoc.step * planDoc.perStep))} × ${esc(planShow(planDoc, h / planDoc.step * planDoc.perStep))}</text>`);
+  }
+  if (planAt) extra.push(`<circle class="fp-snap" cx="${planAt[0]}" cy="${planAt[1]}" r="6"/>`);
+  planEl().innerHTML = planSvg(planDoc, { grid: true, measure: true }) + extra.join("");
+  planLenBox();
+}
+// The box over the last wall: its length, ready to be typed over.
+function planLenBox() {
+  const box = $("planLen"), it = planLast;
+  if (!it || planTool !== "wall" || planFrom) { box.hidden = true; return; }
+  const svg = planEl(), r = svg.getBoundingClientRect(), host = $("planCanvas").getBoundingClientRect();
+  const mx = (it.a[0] + it.b[0]) / 2, my = (it.a[1] + it.b[1]) / 2;
+  box.hidden = false;
+  box.style.left = (r.left - host.left + mx / planDoc.width * r.width - 46) + "px";
+  box.style.top = (r.top - host.top + my / planDoc.height * r.height + 10) + "px";
+  if (document.activeElement !== box) box.value = planLen(planDoc, it.a, it.b).toFixed(1);
+}
+// Typing a length moves the far end of that wall, keeping its direction.
+function planApplyLen() {
+  const v = parseFloat($("planLen").value);
+  if (!planLast || !(v > 0)) return;
+  const px = planPx(planDoc, v);
+  const dx = planLast.b[0] - planLast.a[0], dy = planLast.b[1] - planLast.a[1], len = Math.hypot(dx, dy) || 1;
+  const was = planLast.b;
+  const now = [planLast.a[0] + dx / len * px, planLast.a[1] + dy / len * px];
+  planLast.b = now;
+  // Whatever else met at that corner moves with it, so the walls stay joined.
+  const same = q => q && Math.hypot(q[0] - was[0], q[1] - was[1]) < .5;
+  for (const it of planDoc.items) {
+    if (it === planLast || it.k === "label") continue;
+    if (same(it.a)) it.a = [now[0], now[1]];
+    if (same(it.b)) it.b = [now[0], now[1]];
+  }
+  if (planFrom && same(planFrom)) planFrom = [now[0], now[1]];
+  planDraw();
+  $("planLen").blur();
+}
+
+function planOpen(floor) {
+  planTarget = floor || null;
+  planFrom = planAt = planDrag = planLast = null;
+  planTool = "wall";
+  const start = plan => {
+    planDoc = plan || newPlan();
+    $("planPer").value = planDoc.perStep;
+    $("planUnit").value = planDoc.unit;
+    document.querySelectorAll(".plan-tool[data-tool]").forEach(b => b.classList.toggle("on", b.dataset.tool === "wall"));
+    $("planHint").textContent = PLAN_HINTS.wall;
+    $("planEd").hidden = false;
+    planEl().setAttribute("viewBox", `0 0 ${planDoc.width} ${planDoc.height}`);
+    planDraw();
+  };
+  if (floor) loadPlan(floor).then(pl => start(pl ? JSON.parse(JSON.stringify(pl)) : null));
+  else start(null);
+}
+function planClose() { $("planEd").hidden = true; planDoc = null; planTarget = null; }
+
+document.querySelectorAll(".plan-tool[data-tool]").forEach(b => {
+  b.onclick = () => {
+    planTool = b.dataset.tool;
+    planFrom = planDrag = null;
+    document.querySelectorAll(".plan-tool[data-tool]").forEach(x => x.classList.toggle("on", x === b));
+    $("planHint").textContent = PLAN_HINTS[planTool] || "";
+    planDraw();
+  };
+});
+document.getElementById("planUndo").onclick = () => { if (!planDoc) return; const it = planDoc.items.pop(); if (planLast === it) planLast = null; planFrom = null; planDraw(); };
+document.getElementById("planPer").oninput = () => { if (planDoc) { planDoc.perStep = Math.max(.1, Math.min(100, parseFloat($("planPer").value) || 1)); planDraw(); } };
+document.getElementById("planUnit").onchange = () => { if (planDoc) { planDoc.unit = $("planUnit").value; planDraw(); } };
+document.getElementById("planCancel").onclick = () => planClose();
+document.getElementById("planLen").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); planApplyLen(); } if (e.key === "Escape") $("planLen").blur(); };
+document.getElementById("planLen").onchange = () => planApplyLen();
+
+planEl().addEventListener("pointerdown", e => {
+  if (!planDoc) return;
+  const pt = planPoint(e);
+  if (planTool === "room") { planDrag = planSnap(pt, null); planAt = planDrag; planDraw(); return; }
+  if (planTool === "door" || planTool === "window") { planOpening(pt, planTool); return; }
+  if (planTool === "erase") { planErase(pt); return; }
+  if (planTool === "label") {
+    const t = prompt("Name this room (e.g. Kitchen):", "");
+    if (t && t.trim()) { planDoc.items.push({ k: "label", p: planSnap(pt, null), t: t.trim().slice(0, 40) }); planDraw(); }
+    return;
+  }
+  const at = planSnap(pt, planFrom);
+  if (!planFrom) { planFrom = at; planAt = at; planDraw(); return; }
+  if (Math.hypot(at[0] - planFrom[0], at[1] - planFrom[1]) > 3) {
+    const it = { k: "wall", a: planFrom, b: at };
+    planDoc.items.push(it);
+    planLast = it;
+    planFrom = at; // keep going from that corner
+  }
+  planDraw();
+});
+planEl().addEventListener("pointermove", e => {
+  if (!planDoc) return;
+  planAt = planSnap(planPoint(e), planTool === "wall" ? planFrom : null);
+  if (planFrom || planDrag || planTool === "wall") planDraw();
+});
+planEl().addEventListener("pointerup", e => {
+  if (!planDoc || planTool !== "room" || !planDrag) return;
+  const b = planSnap(planPoint(e), null), a = planDrag;
+  planDrag = null;
+  if (Math.abs(b[0] - a[0]) > 8 && Math.abs(b[1] - a[1]) > 8) {
+    const c = [[a[0], a[1]], [b[0], a[1]], [b[0], b[1]], [a[0], b[1]]];
+    for (let i = 0; i < 4; i++) planDoc.items.push({ k: "wall", a: c[i], b: c[(i + 1) % 4] });
+    planLast = null;
+  }
+  planDraw();
+});
+planEl().addEventListener("dblclick", () => { planFrom = null; planDraw(); });
+document.addEventListener("keydown", e => {
+  if ($("planEd").hidden || e.target === $("planLen")) return;
+  if (e.key === "Escape") { e.preventDefault(); if (planFrom) { planFrom = null; planDraw(); } else planClose(); }
+  if ((e.key === "z" && (e.ctrlKey || e.metaKey)) || e.key === "Backspace") { e.preventDefault(); $("planUndo").click(); }
+});
+
+document.getElementById("planSave").onclick = async () => {
+  if (!planDoc) return;
+  if (!planDoc.items.length) { toast("Draw a wall or two first"); return; }
+  const body = JSON.stringify({ v: 1, width: planDoc.width, height: planDoc.height, unit: planDoc.unit, step: planDoc.step, perStep: planDoc.perStep,
+    items: planDoc.items.map(i => i.k === "label" ? { k: "label", p: i.p, t: i.t } : { k: i.k, a: i.a, b: i.b }) });
+  const url = planTarget ? `/api/floors/${planTarget.id}/plan` : "/api/floors/plan?name=" + encodeURIComponent(planTarget ? "" : (planDoc.name || ""));
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(d.error || "Couldn't save that plan"); return; }
+  if (!planTarget && d.id) { floorId = d.id; try { localStorage.setItem("bamf-floor", d.id); } catch { } floorEditing = true; }
+  planCache.clear();
+  planClose();
+  await loadFloors(true);
+  renderFloor();
+  toast(planTarget ? "Plan saved; the devices kept their spots" : "Floor drawn: pick a device on the right, then click where it goes");
+};
+document.getElementById("floorDraw").onclick = () => {
+  const name = prompt("Name this floor (e.g. Ground floor, Upstairs, Garage):", floorData && floorData.floors.length ? "" : "Ground floor");
+  if (name === null) return;
+  planOpen(null);
+  planDoc.name = name;
+};
+document.getElementById("floorRedraw").onclick = () => {
+  const f = floorData.floors.find(x => x.id === floorId);
+  if (f) planOpen(f);
 };
 document.getElementById("floorReplace").onclick = () => pickFloorImage(async (file, w, h) => {
   const r = await fetch(`/api/floors/${floorId}?width=${w}&height=${h}`, { method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
