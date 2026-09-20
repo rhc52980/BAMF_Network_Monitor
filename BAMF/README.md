@@ -390,13 +390,13 @@ survive IP changes.
   automations can fire when someone gets home. See [MQTT](#mqtt-and-home-assistant).
 - **Tags** - group devices as "kids", "IoT", "work" or whatever fits, then
   filter the list and the Map by tag. See [Tags](#tags).
-- **36 themes** - click the theme button for a picker, grouped into colours,
+- **37 themes** - click the theme button for a picker, grouped into colours,
   animated and holidays: Dark, Light, Terminal, Amber CRT, Synthwave, Commodore
   64, Game Boy, Nord, Dracula, Solarized (dark + light), Gruvbox, High Contrast,
   Matrix, Blueprint, Hacker Red, Cotton Candy, Thunderstorm, Hotdog Stand,
   Steampunk, Waterworks, Aquarium, Goat, Goat Night, Night Street,
-  Constellation, Claw Machine (dark + dusk), Laser Show, Factory (day + night
-  shift), Spring, Summer, Winter, New Year and Thanksgiving. See
+  Constellation, Claw Machine (dark + dusk), Laser Show, Data Centre, Factory
+  (day + night shift), Spring, Summer, Winter, New Year and Thanksgiving. See
   [Theme](#theme).
   CRT themes get scanlines; each pick triggers a BAMF! splat. Choice persists.
   There are also two seasonal themes you won't find in the list. They unlock the
@@ -431,8 +431,8 @@ CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
 Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
 Night Street, Constellation, Claw Machine, Claw Machine Dusk, Laser Show,
-Factory, Factory Night Shift, Spring, Summer, Winter, New Year and
-Thanksgiving. Your choice is remembered in your browser.
+Data Centre, Factory, Factory Night Shift, Spring, Summer, Winter, New Year
+and Thanksgiving. Your choice is remembered in your browser.
 
 The menu is grouped: **Colours** for the schemes where nothing much moves —
 including Synthwave, Hacker Red and Cotton Candy, which are colour schemes
@@ -590,6 +590,19 @@ Some themes have a little life in them:
   speed, the counts glow soft amber, the neon tubes are turned down, and the
   prizes are faded pastels. Everything else plays the same, claw and 🕹
   button included.
+- **Data Centre**: the room your network would live in if it were racked and
+  patched. Six racks stand behind the page, each unit drawn out — servers with
+  their drive bays, switches with banks of link lights, patch panels with their
+  ports — under a cable tray with coloured bundles dropping into the rows, with
+  fibre running between them that light chases along, a cooling unit whose fans
+  turn, and a crash cart still logged in. Along the bottom is a **patch panel
+  with a port for every device**, lit green when it's answering, amber when it's
+  unknown and red when it's down; the header carries a **link panel** counting
+  how many are up. A finished scan lights the whole room for a moment and sends
+  the fibre running; a new device slides in as a blade with its name on the
+  faceplate; one that drops turns its port red and says its name. With sound on
+  there's the hum of the room, a chirp as a port comes up and a lower one as it
+  goes; it stops in a background tab.
 - **Factory**: the dashboard as a shop floor. Lamps hang from a gantry across
   the roof, machines turn against the back wall, a welder throws sparks in the
   corner, and a conveyor runs along the bottom of the screen with crates on it,
