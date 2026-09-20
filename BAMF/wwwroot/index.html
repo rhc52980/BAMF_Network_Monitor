@@ -1089,7 +1089,19 @@
   .gn-row { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12.5px; }
   .gn-row a { color: var(--focus); text-decoration: none; }
   .gn-row a:hover { text-decoration: underline; }
-  .gn-row .gn-what { margin: 0 0 0 6px; }
+  /* The GreyNoise check is a button like "Check now" above it, not a line of
+     link text: it's the same kind of thing to do, and it reads as something
+     you press. Wider than the others because it carries its question. */
+  .gn-row a.gn-btn, .gn-row a.gn-btn:hover { text-decoration: none; }
+  .gn-btn {
+    display: flex; flex-direction: column; gap: 3px; width: 100%; box-sizing: border-box;
+    margin-top: 2px; padding: 10px 14px; text-align: left;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  .gn-btn:hover { border-color: var(--focus); }
+  .gn-btn .gn-go { font-size: 13px; color: var(--focus); }
+  .gn-btn .gn-ask { font-size: 11.5px; color: var(--text-dim); }
+  .gn-row .gn-what { margin: 6px 0 0; }
   .gn-explain { margin-top: 6px; color: var(--text-dim); font-size: 12px; }
   .gn-explain p { margin: 0 0 6px; }
   .gn-status { margin-top: 4px; color: var(--text-dim); font-size: 12px; }
@@ -3189,7 +3201,8 @@
       </div>
       <div class="gn-row">
         <a id="gnLink" href="https://check.labs.greynoise.io/" target="_blank" rel="noopener noreferrer"
-           title="GreyNoise runs sensors all over the internet and records every address that scans them. This checks your home's public address: if it shows up, something behind it has been probing the internet, often a hacked camera, NAS or router in a botnet. It can't say which device, only your address as a whole.&#10;&#10;The link checks whatever network this browser is on, so it's only right from home, not from work or over a VPN. If your internet provider shares one address between many homes (carrier-grade NAT), a neighbour's device can flag you. And clean isn't proof: GreyNoise only knows about scanning, not a device quietly sending your data elsewhere.&#10;&#10;Opens GreyNoise's page in a new tab; BAMF itself sends nothing.">Has your home's address been seen scanning the internet? Check on GreyNoise ↗</a>
+           title="GreyNoise runs sensors all over the internet and records every address that scans them. This checks your home's public address: if it shows up, something behind it has been probing the internet, often a hacked camera, NAS or router in a botnet. It can't say which device, only your address as a whole.&#10;&#10;The link checks whatever network this browser is on, so it's only right from home, not from work or over a VPN. If your internet provider shares one address between many homes (carrier-grade NAT), a neighbour's device can flag you. And clean isn't proof: GreyNoise only knows about scanning, not a device quietly sending your data elsewhere.&#10;&#10;Opens GreyNoise's page in a new tab; BAMF itself sends nothing."
+           class="gn-btn"><span class="gn-go">Check on GreyNoise ↗</span><span class="gn-ask">Has your home's address been seen scanning the internet?</span></a>
         <button type="button" class="hy-more gn-what" id="gnWhat" aria-expanded="false">What's this?</button>
         <div class="gn-explain" id="gnExplain" hidden>
           <p>GreyNoise runs sensors all over the internet and records every address that scans them. This checks your home's public address: if it shows up, something behind it has been probing the internet, often a hacked camera, NAS or router in a botnet. It can't say which device, only your address as a whole.</p>
