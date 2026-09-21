@@ -145,7 +145,16 @@ jobs:
           TAG="${GITHUB_REF#refs/tags/}"
           # Create the release if it doesn't exist yet, so pushing the tag first
           # and writing notes later both work.
-          gh release view "$TAG" >/dev/null 2>&1 ||             gh release create "$TAG" --title "BAMF ${{ steps.ver.outputs.version }}" --generate-notes
+          #
+          # Both matrix jobs arrive here within a second of each other, so the
+          # one that loses the race finds the release gone when it looks and
+          # created by the time it tries. That is not a failure: look again,
+          # and carry on if it's there now. Without this the loser dies on
+          # "Release.tag_name already exists" before uploading, and the release
+          # is published missing one of its two packages.
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "BAMF ${{ steps.ver.outputs.version }}" --generate-notes || gh release view "$TAG" >/dev/null
+          fi
           gh release upload "$TAG" "${{ steps.pack.outputs.asset }}" --clobber
 
   # The container image, for anyone who would rather `docker run` than unpack a
