@@ -1248,6 +1248,7 @@ scan, or delete a thing.
 | GET | `/api/hosts/{id}/ports` | Every port found open on a device, open now or once: `{"port", "service", "firstSeen", "lastSeen", "open"}`. A port scan (`/api/hosts/{id}/portscan`, which now returns `{"ports", "newlyOpen"}`) records here |
 | GET | `/api/hosts/{id}/traffic` | Bytes per hour for a device over the last 7 days (`?days=` for more): `[{"hour", "rx", "tx"}]` |
 | GET | `/api/backup` | The whole database as one SQLite file, named `bamf-YYYYMMDD-HHMM.db`, taken while BAMF runs. Refused with the view-only password, since it carries the saved webhook URL |
+| POST | `/api/settings/alertnudge` | Body `{"off": true}` — hide the dashboard's "Alerts are off" banner; `false` brings it back |
 | POST | `/api/settings/report` | Body `{"schedule": "daily", "hour": 8, "day": 1}` — the scheduled report: `off`, `daily`, `weekly` or `monthly`, the hour (0–23, the server's local time) and, for weekly, the day (0 Sunday to 6 Saturday). Monthly goes out on the 1st |
 | POST | `/api/reports/send` | Send the report now, whatever the schedule; returns what was sent |
 | GET | `/api/reports/preview` | The report as it would be sent |
@@ -1861,6 +1862,13 @@ of the network. It respects `Bamf:Password` like every other route.
 **Settings tab → Notifications** (or **Tools ▾ → Notifications…**, which takes
 you there) — paste a webhook URL, pick a format, hit **Save & test**. No config
 edit, no service restart.
+
+Until a webhook is saved, a banner across the top of the dashboard says
+**Alerts are off**: BAMF still notices everything, but nothing is being sent
+anywhere. **Set up alerts** goes straight to the phone setup below. **Don't
+remind me** hides it for good, in every browser; it only comes back if you save
+a webhook and later remove it. The view-only password never sees it, since it
+can't save a webhook anyway.
 
 Four formats, chosen in the dialog (or with `Bamf:WebhookFormat`):
 

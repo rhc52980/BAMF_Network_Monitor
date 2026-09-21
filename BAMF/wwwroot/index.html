@@ -1075,6 +1075,14 @@
   }
 
   .stats { display: flex; gap: 12px; padding: 14px 24px; flex-wrap: wrap; }
+  .alerts-off { display: flex; align-items: center; gap: 12px 18px; flex-wrap: wrap;
+    margin: 0 24px 14px; padding: 10px 14px; background: var(--panel);
+    border: 1px solid var(--line); border-left: 3px solid var(--led-warn); border-radius: var(--radius); }
+  .alerts-off[hidden] { display: none; }
+  .alerts-off .ao-text { flex: 1 1 360px; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  .alerts-off .ao-text b { color: var(--led-warn); margin-right: 4px; }
+  .alerts-off .ao-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  @media (max-width: 640px) { .alerts-off { margin: 0 12px 12px; } }
   .stat {
     flex: 1; min-width: 130px;
     background: var(--panel); border: 1px solid var(--line);
@@ -3257,6 +3265,18 @@
   <div class="stat"><div class="num mono" id="statLast">—</div><div class="lbl" id="statLastLbl">Last scan</div></div>
 </div>
 
+<div class="alerts-off" id="alertsOff" role="status" hidden>
+  <div class="ao-text">
+    <b>Alerts are off.</b>
+    BAMF is still noticing new devices, watched devices going offline and anything
+    suspicious, but no webhook is saved, so none of it is being sent anywhere.
+  </div>
+  <div class="ao-actions">
+    <button type="button" class="export-btn" id="alertsOffSetup">Set up alerts</button>
+    <button type="button" class="toggle" id="alertsOffDismiss" title="Hide this. It comes back if you save a webhook and later remove it.">Don't remind me</button>
+  </div>
+</div>
+
 <div class="viewbar">
   <div class="views" role="tablist">
     <button class="view-btn active" data-view="devices">Devices</button>
@@ -4245,6 +4265,7 @@ try { holidaySpirit = localStorage.getItem("bamf-holiday-spirit") === "1"; } cat
 let nightMode = { enabled: false, from: "21:00", to: "06:00", theme: "nightstreet" };
 try { const n = JSON.parse(localStorage.getItem("bamf-night") || "null"); if (n && typeof n === "object") nightMode = { ...nightMode, ...n }; } catch {}
 let webhookConfigured = false;
+let alertsNudgeOff = false;     // "Don't remind me" on the alerts-off banner
 let webhookMasked = null;   // masked form only; the server never sends the full URL
 let webhookFormat = "auto"; // auto | ntfy | gotify | json
 let repoUrl = "";           // project page, for the feedback link
@@ -9136,6 +9157,8 @@ async function refresh() {
     }
     buildDate = data.buildDate || buildDate;
     webhookConfigured = !!data.webhookConfigured;
+    alertsNudgeOff = !!data.alertsNudgeOff;
+    renderAlertsOff();
     webhookMasked = data.webhookMasked || null;
     webhookFormat = data.webhookFormat || "auto";
     repoUrl = data.repoUrl || repoUrl;
@@ -15783,6 +15806,36 @@ $("layoutFile").onchange = async () => {
 
 // Tools ▾ → Notifications… used to open a dialog; it now goes to the card, so
 // the old habit still lands somewhere sensible.
+// ---- The alerts-off banner ----
+// Nothing on the dashboard said when alerts weren't going anywhere: the only
+// sign was a line inside Settings. A viewer can't save a webhook, so they
+// aren't told about something they can't fix.
+function renderAlertsOff() {
+  $("alertsOff").hidden = webhookConfigured || alertsNudgeOff || role === "viewer";
+}
+$("alertsOffSetup").onclick = () => {
+  showView("settings");
+  setTimeout(() => {
+    // Straight to the phone setup: for most people that's the whole answer.
+    if ($("phonePanel").hidden) $("phoneSetup").click();
+    $("phoneSetup").scrollIntoView({ behavior: "smooth", block: "center" });
+  }, 150);
+};
+$("alertsOffDismiss").onclick = async () => {
+  alertsNudgeOff = true;
+  renderAlertsOff();
+  try {
+    const r = await fetch("/api/settings/alertnudge", { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ off: true }) });
+    if (!r.ok) throw new Error();
+    toast("Won't remind you. Settings \u2192 Notifications is where alerts are set up.");
+  } catch {
+    alertsNudgeOff = false;
+    renderAlertsOff();
+    toast("Couldn't reach BAMF");
+  }
+};
+
 $("notifySetup").onclick = () => {
   showView("settings");
   setTimeout(() => {
