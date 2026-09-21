@@ -380,9 +380,9 @@ survive IP changes.
   network tabs. See [Other BAMF servers](#other-bamf-servers).
 - **Bandwidth history** - bytes per device per hour, kept for the retention
   window, so the History panel shows the week and reports say who used the most.
-- **Scheduled reports** - a daily or weekly summary to your webhook: what's
-  new, what went away, the flakiest, the longest offline. See
-  [Scheduled reports](#scheduled-reports).
+- **Scheduled reports** - a daily, weekly or monthly summary to your webhook:
+  what's new, what went away, the flakiest, the longest offline, and over a
+  month how the internet held up. See [Scheduled reports](#scheduled-reports).
 - **Export and import the layout** - everything you recorded as one JSON file,
   keyed by MAC, for backup or a move to a new server. See
   [Export and import the layout](#export-and-import-the-layout).
@@ -1245,7 +1245,7 @@ scan, or delete a thing.
 | POST | `/api/ports/watch` | Run that scan now; returns how many newly open ports it found |
 | GET | `/api/hosts/{id}/ports` | Every port found open on a device, open now or once: `{"port", "service", "firstSeen", "lastSeen", "open"}`. A port scan (`/api/hosts/{id}/portscan`, which now returns `{"ports", "newlyOpen"}`) records here |
 | GET | `/api/hosts/{id}/traffic` | Bytes per hour for a device over the last 7 days (`?days=` for more): `[{"hour", "rx", "tx"}]` |
-| POST | `/api/settings/report` | Body `{"schedule": "daily", "hour": 8, "day": 1}` — the scheduled report: `off`, `daily` or `weekly`, the hour (0–23, the server's local time) and, for weekly, the day (0 Sunday to 6 Saturday) |
+| POST | `/api/settings/report` | Body `{"schedule": "daily", "hour": 8, "day": 1}` — the scheduled report: `off`, `daily`, `weekly` or `monthly`, the hour (0–23, the server's local time) and, for weekly, the day (0 Sunday to 6 Saturday). Monthly goes out on the 1st |
 | POST | `/api/reports/send` | Send the report now, whatever the schedule; returns what was sent |
 | GET | `/api/reports/preview` | The report as it would be sent |
 | GET | `/api/traffic` | The traffic monitor's status, the top talkers with their five-minute strips, the DHCP and DNS servers seen, and the watch alerts. `GET /api/hosts` carries each host's `traffic` (`rx`, `tx` bytes per second; `rxTotal`, `txTotal`) and `dns` (the servers it asks) |
@@ -1971,13 +1971,14 @@ this server's networks only.
 
 ### Scheduled reports
 
-Under **Settings → Notifications → Scheduled report**, pick **daily** or
-**weekly**, a day for weekly, and an hour (the server's local time). At that
-time BAMF sends a summary to the same webhook the alerts use:
+Under **Settings → Notifications → Scheduled report**, pick **daily**,
+**weekly** or **monthly**, a day for weekly, and an hour (the server's local
+time). Weekly goes out on the day you pick, monthly on the 1st. At that time
+BAMF sends a summary to the same webhook the alerts use:
 
 - how many devices there are and how many are online;
-- **new devices** first seen in the period (the last 24 hours, or the last 7
-  days for a weekly report);
+- **new devices** first seen in the period (the last 24 hours, the last 7 days,
+  or the last 30);
 - devices that **went away**: went offline in the period and are still off;
 - the **flakiest** device, the one that dropped most often;
 - the **longest offline** known device, and for how long;
@@ -1985,7 +1986,11 @@ time BAMF sends a summary to the same webhook the alerts use:
 - devices that **moved address**, and ports that **opened**;
 - any **security** or **certificate** alerts;
 - any DHCP or DNS **watch alerts**;
-- the **top talkers**, when the traffic monitor is running.
+- the **top talkers**, when the traffic monitor is running;
+- in the monthly report, **how the internet held up**: how many outages, how
+  many minutes in total and the longest one, from the outage log the
+  [internet watch](#internet-watch) keeps. Outages that took your router down
+  too are counted separately.
 
 On Discord it's an embed with a field per item; on ntfy, Gotify and generic
 webhooks it's text. **Preview** shows what would go out, and **Send now** sends

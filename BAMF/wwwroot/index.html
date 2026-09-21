@@ -3686,10 +3686,12 @@
     <p class="modal-help">
       A summary to the same webhook: how many devices are up, what's new, what went away, the
       flakiest device, the longest offline, the least reliable, any watch alerts, and the top
-      talkers. Daily covers the last 24 hours; weekly the last 7 days.
+      talkers. Daily covers the last 24 hours, weekly the last 7 days, and monthly the last 30
+      &mdash; which also totals up any internet outages, if the internet watch is on.
     </p>
     <div class="report-row">
-      <label>Send <select id="reportSchedule"><option value="off">never</option><option value="daily">daily</option><option value="weekly">weekly</option></select></label>
+      <label>Send <select id="reportSchedule"><option value="off">never</option><option value="daily">daily</option><option value="weekly">weekly</option><option value="monthly">monthly</option></select></label>
+      <label id="reportMonthWrap">on the 1st</label>
       <label id="reportDayWrap">on <select id="reportDay"><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option></select></label>
       <label>at <select id="reportHour"></select></label>
       <span class="note" id="reportTz"></span>
@@ -15613,6 +15615,7 @@ function fillReport(r) {
 function syncReportRow() {
   const sch = $("reportSchedule").value;
   $("reportDayWrap").style.display = sch === "weekly" ? "" : "none";
+  $("reportMonthWrap").style.display = sch === "monthly" ? "" : "none";
   $("reportHour").parentElement.style.display = sch === "off" ? "none" : "";
 }
 $("reportSchedule").onchange = syncReportRow;
