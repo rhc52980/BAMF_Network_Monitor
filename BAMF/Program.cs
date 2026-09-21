@@ -109,7 +109,8 @@ if (!string.IsNullOrEmpty(app.Configuration["Bamf:Password"]))
 // ---------- optional HTTP Basic auth ----------
 // Password opens everything. ViewerPassword, if set as well, opens the same
 // dashboard to look at but not change: every POST and DELETE is refused, and
-// so are the port scans, the only GETs that send packets.
+// so are the port scans, the only GETs that send packets, and the database
+// backup, which carries the saved webhook URL a viewer only ever sees masked.
 var password = app.Configuration["Bamf:Password"];
 var viewerPassword = app.Configuration["Bamf:ViewerPassword"];
 var hookToken = app.Configuration["Bamf:HookToken"];
@@ -151,11 +152,14 @@ if (!string.IsNullOrEmpty(password))
         }
         ctx.Items["bamfRole"] = role;
         if (role == "viewer" && (!(HttpMethods.IsGet(ctx.Request.Method) || HttpMethods.IsHead(ctx.Request.Method))
-                                 || ctx.Request.Path.Value?.Contains("/portscan", StringComparison.OrdinalIgnoreCase) == true))
+                                 || ctx.Request.Path.Value?.Contains("/portscan", StringComparison.OrdinalIgnoreCase) == true
+                                 || ctx.Request.Path.StartsWithSegments("/api/backup")))
         {
             ctx.Response.StatusCode = 403;
             ctx.Response.Headers["X-BAMF-ViewOnly"] = "1";
-            await ctx.Response.WriteAsJsonAsync(new { error = "View-only: this password can look at everything but not change anything." });
+            await ctx.Response.WriteAsJsonAsync(new { error = ctx.Request.Path.StartsWithSegments("/api/backup")
+                ? "View-only: a backup carries the saved webhook URL, so it takes the main password."
+                : "View-only: this password can look at everything but not change anything." });
             return;
         }
         await next();
@@ -734,6 +738,15 @@ app.MapPost("/api/layout", (System.Text.Json.JsonElement body, HostStore store) 
 {
     var r = store.ImportLayout(body);
     return r.Error is null ? Results.Json(new { r.Devices, r.Switches, r.Skipped }) : Results.BadRequest(new { error = r.Error });
+});
+
+// The whole database as one file, for a backup kept somewhere else. The copy
+// goes to a temp file and is deleted as soon as it has been sent.
+app.MapGet("/api/backup", (HostStore store) =>
+{
+    var file = store.SnapshotTo(Path.Combine(Path.GetTempPath(), "bamf-backup"));
+    var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.DeleteOnClose);
+    return Results.File(stream, "application/vnd.sqlite3", $"bamf-{DateTime.Now:yyyyMMdd-HHmm}.db");
 });
 
 // Scheduled reports: off, daily, weekly or monthly at an hour of the server's local day.

@@ -386,6 +386,8 @@ survive IP changes.
 - **Export and import the layout** - everything you recorded as one JSON file,
   keyed by MAC, for backup or a move to a new server. See
   [Export and import the layout](#export-and-import-the-layout).
+- **Back up the database** - the whole thing as one file, from Settings, while
+  BAMF keeps running. See [Back up the database](#back-up-the-database).
 - **Home Assistant** - presence per device over MQTT, with discovery, so
   automations can fire when someone gets home. See [MQTT](#mqtt-and-home-assistant).
 - **Tags** - group devices as "kids", "IoT", "work" or whatever fits, then
@@ -1245,6 +1247,7 @@ scan, or delete a thing.
 | POST | `/api/ports/watch` | Run that scan now; returns how many newly open ports it found |
 | GET | `/api/hosts/{id}/ports` | Every port found open on a device, open now or once: `{"port", "service", "firstSeen", "lastSeen", "open"}`. A port scan (`/api/hosts/{id}/portscan`, which now returns `{"ports", "newlyOpen"}`) records here |
 | GET | `/api/hosts/{id}/traffic` | Bytes per hour for a device over the last 7 days (`?days=` for more): `[{"hour", "rx", "tx"}]` |
+| GET | `/api/backup` | The whole database as one SQLite file, named `bamf-YYYYMMDD-HHMM.db`, taken while BAMF runs. Refused with the view-only password, since it carries the saved webhook URL |
 | POST | `/api/settings/report` | Body `{"schedule": "daily", "hour": 8, "day": 1}` — the scheduled report: `off`, `daily`, `weekly` or `monthly`, the hour (0–23, the server's local time) and, for weekly, the day (0 Sunday to 6 Saturday). Monthly goes out on the 1st |
 | POST | `/api/reports/send` | Send the report now, whatever the schedule; returns what was sent |
 | GET | `/api/reports/preview` | The report as it would be sent |
@@ -2476,6 +2479,29 @@ to add or remove it. Tags show as small chips under the device's name.
   every device carrying one tag, so the board can show "kids" one moment and
   "IoT" the next.
 - Search matches tags as well.
+
+### Back up the database
+
+**Settings → Back up the database → Download a backup** saves everything BAMF
+knows as one file, `bamf-YYYYMMDD-HHMM.db`: every device and its history, the
+names, notes and tags, the Map, the floor plans, alert rules, and the settings
+saved in the dashboard.
+
+It's taken while BAMF keeps running. SQLite's `VACUUM INTO` writes a fresh,
+compacted copy from one read transaction, so the file is whole even if a scan
+lands halfway through - which copying a live database byte for byte can't
+promise.
+
+To restore one, stop BAMF, put the file in place of `bamf.db` (in `/data` for
+Docker and the Home Assistant add-on), and start it again.
+
+The file carries your saved webhook URL, and that URL is the credential for a
+Discord channel or an ntfy topic, so keep backups somewhere private. For the
+same reason the view-only password can't download one. The Windows and Linux
+updaters keep their own copy from before each update as well, in `backups`
+beside the database; this is for a copy you keep somewhere else.
+
+`GET /api/backup` does the same from a script.
 
 ### Export and import the layout
 

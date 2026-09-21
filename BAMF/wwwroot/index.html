@@ -3752,6 +3752,25 @@
     </div>
   </div>
 
+  <div class="set-card" id="backupCard">
+    <div class="set-card-title">Back up the database</div>
+    <p class="modal-help">
+      Everything BAMF knows, as one file: every device and its history, the names, notes and tags,
+      the Map, the floor plans, alert rules, and the settings saved on this page. It's taken while
+      BAMF keeps running, so there's no need to stop anything first. The file includes your saved
+      webhook URL, so keep it somewhere private.
+    </p>
+    <div class="modal-actions" style="justify-content:flex-start">
+      <button class="export-btn" id="backupDownload">Download a backup</button>
+    </div>
+    <div class="modal-note" id="backupResult"></div>
+    <div class="modal-note">
+      To restore one: stop BAMF, put the file in place of <span class="mono">bamf.db</span>, and
+      start it again. The Windows and Linux updaters also keep their own copy from before each
+      update, in <span class="mono">backups</span> beside the database.
+    </div>
+  </div>
+
   <div class="set-card">
     <div class="set-card-title">Set in appsettings.json</div>
     <p class="modal-help">
@@ -15716,6 +15735,32 @@ $("layoutExport").onclick = async () => {
     toast("Layout exported");
   } catch { toast("Couldn't export the layout"); }
 };
+// Fetched rather than linked, so a refusal shows as a message instead of
+// being saved to disk as a file called bamf.db.
+$("backupDownload").onclick = async () => {
+  const b = $("backupDownload"), out = $("backupResult");
+  b.disabled = true;
+  out.textContent = "Taking a copy\u2026";
+  try {
+    const r = await fetch("/api/backup");
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      out.textContent = d.error || `Couldn't take a backup (HTTP ${r.status}).`;
+      return;
+    }
+    const name = ((r.headers.get("Content-Disposition") || "").match(/filename="?([^";]+)"?/) || [])[1] || "bamf-backup.db";
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    const mb = blob.size / 1048576;
+    out.textContent = `Saved ${name} \u00b7 ${mb >= 1 ? mb.toFixed(1) + " MB" : Math.max(1, Math.round(blob.size / 1024)) + " kB"}`;
+  } catch { out.textContent = "Couldn't reach BAMF."; }
+  finally { b.disabled = false; }
+};
+
 $("layoutImport").onclick = () => $("layoutFile").click();
 $("layoutFile").onchange = async () => {
   const f = $("layoutFile").files[0];
