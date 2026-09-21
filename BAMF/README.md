@@ -645,8 +645,18 @@ Some themes have a little life in them:
   a green projector traces a figure that leaves a fading trail behind its dot.
   A grid runs back to the horizon, and a beam plays along the bottom of the
   header. A finished scan snaps every beam into a starburst, and a new device
-  sends one hard beam across the room. Reduced motion lights the rig and holds
-  it still.
+  sends one hard beam across the room.
+
+  Along the bottom, on a lit floor of their own, two squads of droids are dug
+  in behind barricades, cyan on the left and magenta on the right. They pop up
+  to trade fire across the room, and every bolt comes out a colour of its own.
+  A droid that's hit tumbles back in a shower of sparks and gets up a few
+  seconds later. The network runs the fight: a finished scan or a new device
+  starts a firefight, **a device dropping off takes a droid down and keeps it
+  down until the device comes back**, and each squad always keeps one droid
+  standing. The page gets room at the bottom so the floor never hides the last
+  rows. Reduced motion lights the rig and holds it still, with the fight a
+  still of itself: droids up and bolts caught mid-air.
 - **Spring**: blossom drifting down over a pale green morning, with a border of
   grass, tulips and daffodils nodding along the bottom of the screen, a bee
   wandering across, a butterfly flitting through and birds crossing high up. A
