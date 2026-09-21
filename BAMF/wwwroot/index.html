@@ -13797,11 +13797,271 @@ function buildLaser(root, switched) {
     ctx.globalCompositeOperation = "source-over";
   };
 
+
+  // ---- The droids ----
+  // Two squads dug in along the floor behind barricades, cyan on the left and
+  // magenta on the right, popping up to trade fire across the room. Every
+  // bolt comes out a colour of its own. They're on a canvas in front of the
+  // page, since anything that low on the back one is behind the device table.
+  //
+  // The network runs the fight. A finished scan or a new device starts a
+  // firefight. A device dropping off takes a droid down and keeps it down,
+  // and the device coming back gets that droid up again.
+  const fx = frontCanvas(root);
+  const S = Math.max(.7, Math.min(1.15, W / 1400));
+  const GY = H - 3;
+  // They fight on a floor of their own along the bottom. It's solid, so a
+  // droid never stands on top of a row of the table and garbles it, and the
+  // page gets that much more room at the bottom so the last rows still
+  // scroll clear of it.
+  const BAND = Math.round(66 * S);
+  // The room is a spacer after everything else, not padding: the body is the
+  // height of the window and the page overflows it, so padding on the body
+  // would land mid-page and make no room at all.
+  const room = document.createElement("div");
+  room.style.height = `${BAND}px`;
+  room.setAttribute("aria-hidden", "true");
+  document.body.appendChild(room);
+  festiveStops.push(() => room.remove());
+  const perSide = W < 700 ? 2 : W < 1200 ? 3 : 4;
+  const TEAM = ["0, 229, 255", "255, 47, 209"];
+  const droids = [], bolts = [], sparks = [];
+  for (let side = 0; side < 2; side++) {
+    for (let i = 0; i < perSide; i++) {
+      const f = .04 + i * (.22 / Math.max(1, perSide - 1));
+      droids.push({ side, dir: side ? -1 : 1, x: side ? W * (1 - f) : W * f,
+        rise: 0, want: 0, state: "cover", next: 0, shots: 0, shotAt: 0, aim: 0,
+        tilt: 0, downUntil: 0, pinned: null, target: null, flash: 0 });
+    }
+  }
+  let heat = .25, skirmishAt = 0;
+  // Where each piece sits, in screen space.
+  const liftOf = d => (1 - d.rise) * 28 * S;
+  // The barricade: its front well out ahead of the droid, and its back just
+  // past the droid's own back, so nothing of a crouched one shows.
+  const cover = d => { const f = d.x + d.dir * 19 * S, r = d.x - d.dir * 10 * S;
+    return { x0: Math.min(f, r), x1: Math.max(f, r), y0: GY - 28 * S, y1: GY }; };
+  const body = d => ({ x0: d.x - 9 * S, x1: d.x + 9 * S, y0: GY + liftOf(d) - 50 * S, y1: GY + liftOf(d) - 15 * S });
+  const inBox = (x, y, b) => x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1;
+  const shoulder = d => [d.x + d.dir * 4 * S, GY + liftOf(d) - 31 * S];
+  const rr = (c, x, y, w, h, r) => {
+    c.beginPath();
+    c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  };
+  const burst = (x, y, rgb, n) => {
+    for (let i = 0; i < n; i++) {
+      const a = rnd(0, Math.PI * 2), v = rnd(60, 260) * S;
+      sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 90 * S, life: 1, rgb: Math.random() < .35 ? "255, 255, 255" : rgb });
+    }
+  };
+  const knock = (d, now) => {
+    d.state = "down"; d.want = 0; d.shots = 0;
+    d.downUntil = now + rnd(2600, 4600);
+    burst(d.x, GY + liftOf(d) - 34 * S, TEAM[d.side], 16);
+  };
+  const enemiesOf = d => droids.filter(e => e.side !== d.side && e.state !== "down");
+
+  function fire(d) {
+    const e = d.target;
+    if (!e || e.state === "down") return;
+    const [sx, sy] = shoulder(d);
+    const tx = e.x, ty = GY + liftOf(e) - 32 * S + rnd(-9, 9) * S;
+    // Muzzle at the end of the blaster, along the aim.
+    const mx = sx + d.dir * Math.cos(d.aim) * 24 * S, my = sy + Math.sin(d.aim) * 24 * S;
+    const len = Math.hypot(tx - mx, ty - my) || 1, v = 1100 * S;
+    bolts.push({ x: mx, y: my, vx: (tx - mx) / len * v, vy: (ty - my) / len * v, hue: Math.floor(rnd(0, 360)), side: d.side });
+    d.flash = 1;
+  }
+
+  function fight(dt, now) {
+    if (now > skirmishAt) { heat = 1; skirmishAt = now + rnd(25e3, 45e3); }
+    heat = Math.max(.25, heat - dt / 9);
+    for (const d of droids) {
+      if (d.state === "down") {
+        d.tilt = Math.min(1.35, d.tilt + dt * 6);
+        if (!d.pinned && now > d.downUntil) { d.state = "cover"; d.next = now + rnd(700, 1800); }
+      } else {
+        d.tilt = Math.max(0, d.tilt - dt * 4);
+      }
+      if (d.state === "cover") {
+        d.want = 0;
+        d.aim += (-1.2 - d.aim) * Math.min(1, dt * 8);
+        if (now > d.next) {
+          const foes = enemiesOf(d);
+          if (foes.length) {
+            d.state = "up"; d.target = pick(foes);
+            d.shots = 1 + Math.floor(rnd(0, 2 + heat * 3));
+            d.shotAt = now + rnd(220, 480);
+          } else d.next = now + 1500;
+        }
+      }
+      if (d.state === "up") {
+        d.want = 1;
+        if (d.target) {
+          const [sx, sy] = shoulder(d);
+          const want = Math.atan2(GY + liftOf(d.target) - 32 * S - sy, (d.target.x - sx) * d.dir);
+          d.aim += (want - d.aim) * Math.min(1, dt * 10);
+        }
+        if (d.rise > .85 && now > d.shotAt) {
+          if (d.shots > 0 && d.target && d.target.state !== "down") { fire(d); d.shots--; d.shotAt = now + rnd(160, 380); }
+          else { d.state = "cover"; d.next = now + rnd(1200, 5500) * (1 - .7 * heat); }
+        }
+      }
+      d.rise += (d.want - d.rise) * Math.min(1, dt * 9);
+      d.flash = Math.max(0, d.flash - dt * 8);
+    }
+    // Bolts, stepped in short hops so a fast one can't skip over a droid.
+    for (let i = bolts.length - 1; i >= 0; i--) {
+      const b = bolts[i];
+      const hops = Math.max(1, Math.ceil(Math.hypot(b.vx, b.vy) * dt / (5 * S)));
+      let dead = false;
+      for (let h = 0; h < hops && !dead; h++) {
+        b.x += b.vx * dt / hops; b.y += b.vy * dt / hops;
+        for (const e of droids) {
+          if (e.side === b.side) continue;
+          if (inBox(b.x, b.y, cover(e))) { burst(b.x, b.y, `${hslRgb(b.hue)}`, 7); e.flash = Math.max(e.flash, .5); dead = true; break; }
+          if (e.state !== "down" && e.rise > .5 && inBox(b.x, b.y, body(e))) { knock(e, now); dead = true; break; }
+        }
+      }
+      if (b.y > GY) { burst(b.x, GY, hslRgb(b.hue), 5); dead = true; }
+      if (dead || b.x < -60 || b.x > W + 60 || b.y < -60) bolts.splice(i, 1);
+    }
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const p = sparks[i];
+      p.vy += 900 * S * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt * 2.2;
+      if (p.life <= 0) sparks.splice(i, 1);
+    }
+    drawFight();
+  }
+
+  // hsl(h, 100%, 60%) as an "r, g, b" string, for the rgba() the sparks use.
+  function hslRgb(h) {
+    const f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (.6 - .4 * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); };
+    return `${f(0)}, ${f(8)}, ${f(4)}`;
+  }
+
+  function drawDroid(d) {
+    const glow = d.state === "down" ? .22 : .95;
+    fx.save();
+    fx.translate(d.x, GY + liftOf(d));
+    if (d.tilt) fx.rotate(-d.dir * d.tilt);
+    fx.scale(d.dir * S, S);
+    fx.fillStyle = "#171c29";
+    fx.fillRect(-6, -16, 4, 16); fx.fillRect(2, -16, 4, 16);
+    fx.fillRect(-8, -3, 7, 3); fx.fillRect(1, -3, 7, 3);
+    fx.fillStyle = "#232b3d";
+    rr(fx, -9, -36, 18, 21, 4); fx.fill();
+    fx.fillStyle = `rgba(${TEAM[d.side]}, ${glow * .85})`;
+    fx.fillRect(-9, -27, 18, 2);
+    fx.fillStyle = "#2c3549";
+    rr(fx, -7, -49, 14, 12, 5); fx.fill();
+    fx.fillStyle = `rgba(${TEAM[d.side]}, ${glow})`;
+    fx.fillRect(0, -45, 7, 3);
+    fx.strokeStyle = "#3b4661"; fx.lineWidth = 1.5;
+    fx.beginPath(); fx.moveTo(-3, -49); fx.lineTo(-5, -56); fx.stroke();
+    fx.beginPath(); fx.arc(-5, -57, 1.7, 0, Math.PI * 2); fx.fill();
+    fx.save();
+    fx.translate(4, -31);
+    fx.rotate(d.state === "down" ? .6 : d.aim);
+    fx.fillStyle = "#171c29"; fx.fillRect(0, -2, 10, 4);
+    fx.fillStyle = "#3a445c"; fx.fillRect(8, -3.5, 13, 6);
+    fx.fillStyle = "#0e1119"; fx.fillRect(19, -2, 5, 3);
+    if (d.flash > 0) {
+      fx.globalCompositeOperation = "lighter";
+      fx.fillStyle = `rgba(255, 255, 255, ${(d.flash * .9).toFixed(2)})`;
+      fx.beginPath(); fx.arc(25, -.5, 4 * d.flash + 1, 0, Math.PI * 2); fx.fill();
+      fx.globalCompositeOperation = "source-over";
+    }
+    fx.restore();
+    fx.restore();
+  }
+
+  function drawCover(d) {
+    const c = cover(d);
+    fx.fillStyle = "#141926";
+    fx.fillRect(c.x0, c.y0, c.x1 - c.x0, c.y1 - c.y0);
+    fx.strokeStyle = `rgba(${TEAM[d.side]}, .55)`;
+    fx.lineWidth = 2;
+    fx.beginPath(); fx.moveTo(c.x0, c.y0 + 1); fx.lineTo(c.x1, c.y0 + 1); fx.stroke();
+    fx.strokeStyle = "rgba(255, 213, 74, .18)";
+    fx.lineWidth = 3 * S;
+    for (let k = 0; k < 3; k++) {
+      const x = c.x0 + (k + .5) * (c.x1 - c.x0) / 3;
+      fx.beginPath(); fx.moveTo(x - 4 * S, c.y1 - 4 * S); fx.lineTo(x + 4 * S, c.y0 + 8 * S); fx.stroke();
+    }
+    if (d.flash > 0 && d.state !== "up") {
+      fx.fillStyle = `rgba(255, 255, 255, ${(d.flash * .25).toFixed(2)})`;
+      fx.fillRect(c.x0, c.y0, c.x1 - c.x0, c.y1 - c.y0);
+    }
+  }
+
+  function drawFloor() {
+    const y0 = H - BAND;
+    fx.save();
+    fx.globalAlpha = 1;
+    const g = fx.createLinearGradient(0, y0, 0, H);
+    g.addColorStop(0, "#0b0d17"); g.addColorStop(1, "#05060a");
+    fx.fillStyle = g;
+    fx.fillRect(0, y0, W, BAND);
+    // A grid on it, running back like the one behind the page.
+    fx.strokeStyle = "rgba(0, 229, 255, .09)";
+    fx.lineWidth = 1;
+    for (let i = -10; i <= 10; i++) {
+      fx.beginPath(); fx.moveTo(W / 2 + i * W / 9, H); fx.lineTo(W / 2 + i * W / 15, y0); fx.stroke();
+    }
+    // Its edge, lit end to end in the two squads' colours.
+    const e = fx.createLinearGradient(0, 0, W, 0);
+    e.addColorStop(0, "rgba(0, 229, 255, .95)");
+    e.addColorStop(.5, "rgba(170, 120, 255, .55)");
+    e.addColorStop(1, "rgba(255, 47, 209, .95)");
+    fx.fillStyle = e;
+    fx.fillRect(0, y0, W, 2);
+    fx.globalAlpha = .16;
+    fx.fillRect(0, y0 - 4, W, 10);
+    fx.restore();
+  }
+
+  function drawFight() {
+    fx.clearRect(0, 0, W, H);
+    drawFloor();
+    fx.save();
+    fx.beginPath(); fx.rect(0, 0, W, GY); fx.clip();
+    for (const d of droids) drawDroid(d);
+    fx.restore();
+    for (const d of droids) drawCover(d);
+    fx.globalCompositeOperation = "lighter";
+    fx.lineCap = "round";
+    for (const b of bolts) {
+      const sp = Math.hypot(b.vx, b.vy) || 1, L = 26 * S;
+      const x2 = b.x - b.vx / sp * L, y2 = b.y - b.vy / sp * L;
+      fx.strokeStyle = `hsla(${b.hue}, 100%, 60%, .45)`;
+      fx.lineWidth = 6 * S;
+      fx.beginPath(); fx.moveTo(b.x, b.y); fx.lineTo(x2, y2); fx.stroke();
+      fx.strokeStyle = `hsl(${b.hue}, 100%, 88%)`;
+      fx.lineWidth = 2 * S;
+      fx.beginPath(); fx.moveTo(b.x, b.y); fx.lineTo(x2, y2); fx.stroke();
+    }
+    for (const p of sparks) {
+      fx.strokeStyle = `rgba(${p.rgb}, ${Math.max(0, p.life).toFixed(2)})`;
+      fx.lineWidth = 1.5 * S;
+      fx.beginPath(); fx.moveTo(p.x, p.y); fx.lineTo(p.x - p.vx * .02, p.y - p.vy * .02); fx.stroke();
+    }
+    fx.globalCompositeOperation = "source-over";
+  }
+
   if (calm) {
-    // Reduced motion: the rig lit, everything holding still.
+    // Reduced motion: the rig lit, everything holding still. The fight is a
+    // still of itself: a droid or two up, a few bolts caught mid-air.
     ctx.fillStyle = "#05060a";
     ctx.fillRect(0, 0, W, H);
     draw(0);
+    droids.forEach((d, i) => { d.rise = i % 2 ? 1 : .15; d.want = d.rise; d.state = i % 2 ? "up" : "cover"; d.aim = i % 2 ? -.05 : -1.2; });
+    for (let k = 0; k < 3; k++) {
+      const y = GY - rnd(30, 44) * S, x = W * rnd(.38, .62), dir = k % 2 ? -1 : 1;
+      bolts.push({ x, y, vx: dir * 1100 * S, vy: 0, hue: Math.floor(rnd(0, 360)), side: k % 2 });
+    }
+    drawFight();
     return;
   }
 
@@ -13814,6 +14074,7 @@ function buildLaser(root, switched) {
     if (flare > 0) flare = Math.max(0, flare - dt * 1.6);
     if (now > figureAt) { figure = (figure + 1) % 4; figureAt = now + 14000; }
     draw(now);
+    fight(dt, now);
   };
   const run = () => { if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); } };
   const stop = () => { cancelAnimationFrame(raf); raf = 0; };
@@ -13825,11 +14086,30 @@ function buildLaser(root, switched) {
   // Switching to the theme opens with a flare, like the rig warming up.
   if (switched) flare = 1;
 
-  festiveHooks.scanDone = () => { if (!document.hidden) flare = 1; };
+  skirmishAt = performance.now() + rnd(6000, 12000);
+  // Staggered, so the squads don't all stand up on the first frame.
+  droids.forEach(d => { d.next = performance.now() + rnd(500, 4500); });
+  festiveHooks.scanDone = () => { if (!document.hidden) { flare = 1; heat = 1; } };
   festiveHooks.newDevice = () => {
     if (document.hidden) return;
+    heat = Math.max(heat, .8);
     const r = rigs[Math.floor(Math.random() * rigs.length)];
     shot = { at: performance.now(), x0: r.x, y0: r.y, x1: rnd(W * .1, W * .9), y1: rnd(horizon, H) };
+  };
+  festiveHooks.netChange = (wentOff, cameBack) => {
+    const now = performance.now();
+    for (const id of wentOff) {
+      // Always leave each squad someone standing, or the fight stops.
+      const free = droids.filter(d => !d.pinned && droids.filter(o => o.side === d.side && !o.pinned).length > 1);
+      if (!free.length) break;
+      const d = pick(free);
+      d.pinned = id;
+      knock(d, now);
+    }
+    for (const id of cameBack) {
+      const d = droids.find(o => o.pinned === id);
+      if (d) { d.pinned = null; d.downUntil = now + 500; }
+    }
   };
 }
 
