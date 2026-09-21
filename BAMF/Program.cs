@@ -299,6 +299,8 @@ app.MapGet("/api/hosts", (HttpContext ctx, HostStore store, ScannerService scann
             checkedUtc = updates.LastCheckedUtc?.ToString("o"),
         },
         webhookConfigured = !string.IsNullOrWhiteSpace(scanner.WebhookUrl),
+        // Whether "Don't remind me" was pressed on the alerts-off banner.
+        alertsNudgeOff = store.GetSetting("alertsNudgeOff") == "true",
         // Masked, never the full URL: anyone who can load the dashboard could
         // read it, and the token in a Discord webhook URL is the credential.
         webhookMasked = MaskWebhook(scanner.WebhookUrl),
@@ -749,6 +751,14 @@ app.MapGet("/api/backup", (HostStore store) =>
     return Results.File(stream, "application/vnd.sqlite3", $"bamf-{DateTime.Now:yyyyMMdd-HHmm}.db");
 });
 
+// The alerts-off banner's "Don't remind me". Saved on the server, so it holds
+// in every browser rather than coming back on the next device.
+app.MapPost("/api/settings/alertnudge", (NudgeRequest body, HostStore store) =>
+{
+    store.SetSetting("alertsNudgeOff", body.Off ? "true" : "");
+    return Results.Json(new { off = body.Off });
+});
+
 // Scheduled reports: off, daily, weekly or monthly at an hour of the server's local day.
 app.MapPost("/api/settings/report", (ReportRequest body, HostStore store, ReportService reports) =>
 {
@@ -1067,6 +1077,7 @@ app.MapPost("/api/settings/webhook", (WebhookRequest body, HostStore store, Scan
     if (url.Length == 0)
     {
         store.SetSetting("webhookUrl", "");
+        store.SetSetting("alertsNudgeOff", "");
         return Results.Json(new { ok = true, configured = false, masked = (string?)null, format });
     }
 
@@ -1763,6 +1774,7 @@ record CombineRequest(long ParentId);
 record TagsRequest(List<string>? Tags);
 record TrustRequest(string? Kind, string? Ip, bool Trusted);
 record ReportRequest(string? Schedule, int? Hour, int? Day);
+record NudgeRequest(bool Off);
 record QuietRequest(string? From, string? To, bool Digest);
 record PortEntry(long HostId, int Port);
 record BlinkRequest(int? Seconds);
