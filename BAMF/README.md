@@ -1872,6 +1872,26 @@ Priorities: a new device or an offline alert is high (ntfy 4, Gotify 8); a
 recovery or a test is normal. ntfy alerts carry emoji tags so the notification
 shows a 🔴 for offline and a 🟢 for recovered without any setup on your side.
 
+### Alerts on your phone, without Discord
+
+**On your phone, without Discord…** in the Notifications card walks the whole
+way through it:
+
+1. Install **ntfy** on your phone. It's free and open source, and it's on the
+   App Store and on Google Play.
+2. BAMF picks a topic for you — `bamf-` and twelve random characters. Subscribe
+   to it in the app.
+3. **Use this topic** fills the webhook box with `https://ntfy.sh/<topic>`, sets
+   the format to ntfy, saves it and sends a test. It arrives on the phone in a
+   second or two.
+
+A topic on the public ntfy.sh is open to anyone who knows its name, which is
+why BAMF picks a long random one rather than letting you type `home`. Don't
+shorten it and don't post it anywhere: your alerts carry device names, MACs and
+addresses. If you'd rather nothing left your network at all, run
+[your own ntfy](https://docs.ntfy.sh/install/) or a Gotify server and paste its
+URL in the box instead — everything above works the same way.
+
 ### Alert rules and quiet hours
 
 Watched devices alert the moment they drop or return. **Settings → Alert

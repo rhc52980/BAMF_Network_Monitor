@@ -1605,6 +1605,16 @@
   .night-fields { width: auto; flex-wrap: wrap; }
   .night-fields input[type="time"] { width: auto; }
   .set-field.night-fields select.modal-input { width: auto; max-width: 200px; }
+  .phone-setup { margin: -2px 0 12px; }
+  .phone-steps { margin: 12px 0 0; padding-left: 20px; color: var(--text-dim); font-size: 13px; line-height: 1.55; }
+  .phone-steps li + li { margin-top: 10px; }
+  .phone-steps b { color: var(--text); }
+  .phone-steps .note { display: block; margin-top: 4px; font-size: 12px; color: var(--text-dim); }
+  .phone-topic { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 4px; }
+  .phone-topic .mono { color: var(--text); background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 9px; user-select: all; word-break: break-all; }
+  .phone-go { margin-top: 8px; }
+
   /* In the Notifications card the URL is the point of the row: let it and the
      format picker take the width the dialog never had. */
   .set-card .modal-row .modal-input, .set-card .modal-row select { flex: 1 1 auto; min-width: 0; max-width: 560px; }
@@ -3665,6 +3675,30 @@
       e.g. <span class="mono">https://ntfy.sh/bamf-alerts</span>. Gotify: your
       server's <span class="mono">/message?token=…</span> URL.
     </p>
+    <div class="phone-setup">
+      <button type="button" class="toggle" id="phoneSetup" aria-expanded="false">On your phone, without Discord…</button>
+      <div id="phonePanel" hidden>
+        <ol class="phone-steps">
+          <li>Install <b>ntfy</b> on your phone. It's free and open source, and it's on the App
+            Store and on Google Play. If you already run your own ntfy or a Gotify server, use
+            its URL in the box below instead — the rest of this works the same way.</li>
+          <li>Open the app, tap <b>+</b>, and subscribe to this topic:
+            <div class="phone-topic">
+              <span class="mono" id="phoneTopic"></span>
+              <button type="button" class="toggle" id="phoneCopy">Copy</button>
+              <button type="button" class="toggle" id="phoneNew" title="Pick a different one">Another</button>
+            </div>
+            <div class="note">A topic on the public ntfy.sh is open to anyone who knows its
+              name, so this one is long and random on purpose: don't shorten it, and don't
+              put it anywhere public. Your alerts carry device names, MACs and addresses.</div>
+          </li>
+          <li>Press this, and BAMF fills the box below, saves it, and sends a test straight away.
+            It should land on your phone in a second or two.
+            <div class="phone-go"><button type="button" class="export-btn" id="phoneUse">Use this topic</button></div>
+          </li>
+        </ol>
+      </div>
+    </div>
     <label class="modal-row">Webhook URL
       <input id="notifyUrl" class="modal-input" placeholder="https://discord.com/api/webhooks/… or https://ntfy.sh/topic" autocomplete="off" spellcheck="false">
     </label>
@@ -15413,8 +15447,7 @@ async function loadFreeIps() {
       </div>`;
     }).join("");
     body.querySelectorAll(".free-copy").forEach(b => b.onclick = async () => {
-      try { await navigator.clipboard.writeText(b.dataset.ip); toast(`Copied ${b.dataset.ip}`); }
-      catch { toast(b.dataset.ip); }
+      toast(await copyText(b.dataset.ip) ? `Copied ${b.dataset.ip}` : b.dataset.ip);
     });
   } catch (e) { body.innerHTML = `<div class="modal-note">Couldn't work it out: ${esc(e.message)}</div>`; }
 }
@@ -15809,6 +15842,50 @@ document.addEventListener("keydown", e => {
   if (guessFilter !== null) { guessFilter = null; render(); return; }
   if (expandedId !== null) { expandedId = null; render(); }
 });
+
+// Copy that also works on a plain http:// LAN address, where the browser
+// leaves navigator.clipboard undefined because the page isn't a secure context.
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {}
+  try {
+    const t = document.createElement("textarea");
+    t.value = text;
+    t.style.cssText = "position:fixed;top:-1000px;opacity:0";
+    document.body.appendChild(t);
+    t.select();
+    const ok = document.execCommand("copy");
+    t.remove();
+    return ok;
+  } catch { return false; }
+}
+
+// ---- Phone alerts without Discord: ntfy, with the topic picked for you ----
+// The topic name is the only thing keeping the channel private, so it's 12
+// random characters from an alphabet with no lookalikes to mistype.
+function newPhoneTopic() {
+  const n = new Uint8Array(12);
+  if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(n);
+  else for (let i = 0; i < n.length; i++) n[i] = Math.floor(Math.random() * 256);
+  const ALPHA = "abcdefghijkmnpqrstuvwxyz23456789";
+  return "bamf-" + [...n].map(v => ALPHA[v % ALPHA.length]).join("");
+}
+function phoneUrl() { return "https://ntfy.sh/" + $("phoneTopic").textContent; }
+
+$("phoneSetup").onclick = () => {
+  const panel = $("phonePanel");
+  panel.hidden = !panel.hidden;
+  $("phoneSetup").setAttribute("aria-expanded", String(!panel.hidden));
+  if (!panel.hidden && !$("phoneTopic").textContent) $("phoneTopic").textContent = newPhoneTopic();
+};
+$("phoneNew").onclick = () => { $("phoneTopic").textContent = newPhoneTopic(); };
+$("phoneCopy").onclick = async () => {
+  toast(await copyText(phoneUrl()) ? "Copied " + phoneUrl() : phoneUrl());
+};
+$("phoneUse").onclick = () => {
+  $("notifyUrl").value = phoneUrl();
+  $("notifyFormat").value = "ntfy";
+  $("notifySave").click();
+};
 
 async function saveWebhook(url) {
   const r = await fetch("/api/settings/webhook", {
