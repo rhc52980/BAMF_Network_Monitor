@@ -392,14 +392,14 @@ survive IP changes.
   automations can fire when someone gets home. See [MQTT](#mqtt-and-home-assistant).
 - **Tags** - group devices as "kids", "IoT", "work" or whatever fits, then
   filter the list and the Map by tag. See [Tags](#tags).
-- **38 themes** - click the theme button for a picker, grouped into colours,
+- **39 themes** - click the theme button for a picker, grouped into colours,
   animated and holidays: Dark, Light, Terminal, Amber CRT, Synthwave, Commodore
   64, Game Boy, Nord, Dracula, Solarized (dark + light), Gruvbox, High Contrast,
   Matrix, Blueprint, Hacker Red, Cotton Candy, Thunderstorm, Hotdog Stand,
   Steampunk, Waterworks, Aquarium, Goat, Goat Night, City Lights,
   Constellation, Claw Machine (dark + dusk), Laser Show, Data Centre, Power
-  Plant, Factory (day + night shift), Spring, Summer, Winter, New Year and
-  Thanksgiving. See [Theme](#theme).
+  Plant, Factory (day + night shift), Spring, Summer, Winter, Woodlands, New
+  Year and Thanksgiving. See [Theme](#theme).
   CRT themes get scanlines; each pick triggers a BAMF! splat. Choice persists.
   There are also two seasonal themes you won't find in the list. They unlock the
   way a friendly program would: just tell it its name. (On a phone, the logo is
@@ -434,7 +434,8 @@ Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
 Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
 City Lights, Constellation, Claw Machine, Claw Machine Dusk, Laser Show,
 Data Centre, Power Plant, Factory, Factory Night Shift, Spring, Summer,
-Winter, New Year and Thanksgiving. Your choice is remembered in your browser.
+Winter, Woodlands, New Year and Thanksgiving. Your choice is remembered in
+your browser.
 
 The menu is grouped: **Colours** for the schemes where nothing much moves —
 including Synthwave, Hacker Red and Cotton Candy, which are colour schemes
@@ -672,6 +673,26 @@ Some themes have a little life in them:
 - **Winter**: snow falling past frost that reaches in from the edges of the
   screen, settling into a drift along the bottom. A finished scan blows a gust
   through. Reduced motion leaves the snow settled.
+- **Woodlands**: a forest late in the afternoon. Ridges of pine go back into
+  the haze towards a low sun, light comes down through the trees in shafts,
+  mist lies in the valley, leaves come down, and flocks cross high up, with
+  now and then a hawk circling. A vine runs along the top of the screen with
+  songbirds perched on it - robins, bluebirds, goldfinches, chickadees and
+  cardinals - hopping, flicking their tails and now and then singing. A trunk
+  stands in each margin, with an owl blinking out of a hollow and a woodpecker
+  drumming on one, and a squirrel running up and down the other. Along the
+  bottom is a strip of forest floor, with ferns, mushrooms and a fallen log,
+  where a deer or a fox comes through and stops to graze or sniff, a rabbit
+  hops across, and a butterfly drifts by.
+
+  **The birds on the vine are the network**: as many perches are taken as the
+  share of your devices that are up, so a device dropping off sends a bird
+  away and one coming back brings one in. A finished scan startles a flock
+  out of the trees and wakes the owl, and a new device is someone new
+  wandering into the clearing. The page gets room at the bottom so the floor
+  never hides the last rows. Reduced motion holds the wood still, with a deer
+  grazing and a rabbit sat up, and the vine still showing how much of the
+  network is up.
 - **New Year**: fireworks over a city at midnight. Rockets climb from behind
   the skyline, burst, and the sparks fall and fade; a finished scan sets one
   off. Reduced motion keeps three bursts hanging over the rooftops.
