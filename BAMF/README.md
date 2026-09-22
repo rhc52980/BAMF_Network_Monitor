@@ -617,11 +617,13 @@ Some themes have a little life in them:
   faceplate; one that drops turns its port red and says its name. With sound on
   there's the hum of the room, a chirp as a port comes up and a lower one as it
   goes; it stops in a background tab.
-- **Power Plant**: the dashboard as a generating station. Cooling towers steam
-  outside the window wall, the line leaves the site on its pylons with current
-  crawling along it, and inside the hall the boiler glows through its
-  inspection door while the turbine set turns and drives its generator, with a
-  transformer bank at the far end. Along the bottom is **the control desk**: a
+- **Power Plant**: the dashboard as a generating station. Out of the window
+  wall, the cooling towers steam, the stack's beacon blinks on top of the
+  boiler house, and the line leaves the site on lattice pylons with current
+  crawling along it. Inside, the gantry crane waits up in the roof, and down on
+  the floor the boiler glows through its inspection door while the turbine set
+  turns and drives its generator, with the step-up transformer at the end of
+  the shaft. The hall's air is left dark, so the page reads over it. Along the bottom is **the control desk**: a
   **LOAD** gauge, an **OUTPUT** gauge, a busbar carrying **a breaker for every
   device** — closed and green while it answers, amber when it's unknown,
   tripped and red when it's down — and an annunciator panel of alarm tiles.

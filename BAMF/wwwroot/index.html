@@ -576,7 +576,7 @@
   @keyframes pp-flash { 50% { opacity:.3; } }
 
   /* The hall behind the page. */
-  .pp-bg { background:linear-gradient(#20262b 0%, #1a1f23 55%, #12161a 100%); }
+  .pp-bg { background:linear-gradient(#171c21 0%, #13171b 55%, #0d1013 100%); }
   .pp-bg svg { position:absolute; inset:0; width:100%; height:100%; }
   .pp-spin { transform-box:fill-box; transform-origin:center; animation:pp-turn 2.2s linear infinite; }
   .pp-spin.fast { animation-duration:.9s; }
@@ -2369,6 +2369,7 @@
   /* The diver: swims slowly across, finning, breathing out as he goes. */
   .aq-diver { position: absolute; left: 0; opacity: .82; filter: drop-shadow(0 4px 10px rgba(0, 20, 30, .5)); animation: aq-swim linear forwards; }
   .aq-diver svg { display: block; width: 150px; height: auto; }
+  .aq-diver.rtl { animation-name: aq-swim-rtl; }
   .aq-diver.rtl svg { transform: scaleX(-1); }
   .aq-diver .fin { transform-box: fill-box; transform-origin: right center; animation: aq-kick 1.9s ease-in-out infinite alternate; }
   .aq-diver .fin.b { animation-delay: -.95s; }
@@ -10351,53 +10352,119 @@ function tripKlaxon() {
 // The hall: two cooling towers steaming outside the window, the turbine set
 // turning in the middle, the boiler glowing at the back, and the line leaving
 // through the pylons with current crawling along it.
+// The station itself, drawn rather than loaded. What says "power station" is
+// the shape of the plant, so the pieces are the recognisable ones: hyperbolic
+// cooling towers steaming, the stack with its beacon, lattice pylons carrying
+// the line away, and the turbine hall - gantry crane overhead, the turbine set
+// and its generator on the floor, the step-up transformer at the end of it.
+//
+// It's laid out in bands: the window and the yard beyond it along the top, the
+// hall's air left dark in the middle where the page is read, and the machine
+// floor along the bottom.
+const PP_TOWER = (x, base, h, w) => {
+  // A cooling tower's waist is what makes it read as one: widest at the feet,
+  // pinched about three quarters up, flaring a little to the rim. Sampled off a
+  // hyperbola rather than drawn by eye.
+  const rw = w * .55, yw = .72, c = .52;
+  const r = t => rw * Math.sqrt(1 + ((t - yw) / c) ** 2);
+  const y = t => base - h * t;
+  // Up the left side and back down the right, so the outline closes cleanly.
+  const side = (sign, down) => Array.from({ length: 13 }, (_, k) => {
+    const t = down ? 1 - k / 12 : k / 12;
+    return `${(x + sign * r(t)).toFixed(1)} ${y(t).toFixed(1)}`;
+  }).join("L");
+  return `<g class="pp-tower">
+    ${Array.from({ length: 3 }, (_, k) => `<ellipse class="pp-steam" cx="${(x + (k - 1) * 18).toFixed(0)}" cy="${(y(1) - 4).toFixed(0)}" rx="${15 + k * 5}" ry="${9 + k * 3}" fill="#9fb4c2" opacity=".13" style="animation-delay:-${(k * 2.7 + x % 5).toFixed(1)}s"/>`).join("")}
+    <path d="M${side(-1, false)}L${side(1, true)}z" fill="#1c242a" stroke="#333e46" stroke-width="3"/>
+    ${[.2, .42, .64, .86].map(t => `<path d="M${(x - r(t)).toFixed(1)} ${y(t).toFixed(1)}h${(r(t) * 2).toFixed(1)}" stroke="#2a343b" stroke-width="2" opacity=".65"/>`).join("")}
+    <ellipse cx="${x}" cy="${y(1).toFixed(1)}" rx="${r(1).toFixed(1)}" ry="${(r(1) * .17).toFixed(1)}" fill="#141a1f" stroke="#333e46" stroke-width="3"/>
+    <ellipse cx="${x}" cy="${y(0).toFixed(1)}" rx="${r(0).toFixed(1)}" ry="${(r(0) * .1).toFixed(1)}" fill="#161d22" opacity=".9"/>
+  </g>`;
+};
+// A lattice pylon: two legs, cross-bracing, and the arms the line hangs from.
+const PP_PYLON = (x, base, h) => {
+  const legs = [], braces = [];
+  const wAt = t => 34 - 22 * t;                     // wide at the feet, narrow at the top
+  for (let k = 0; k <= 6; k++) {
+    const t = k / 6, y = base - h * t, w = wAt(t);
+    legs.push(`${k ? "L" : "M"}${(x - w).toFixed(1)} ${y.toFixed(1)}`);
+    if (k < 6) {
+      const t2 = (k + 1) / 6, y2 = base - h * t2, w2 = wAt(t2);
+      braces.push(`M${(x - w).toFixed(1)} ${y.toFixed(1)}L${(x + w2).toFixed(1)} ${y2.toFixed(1)}M${(x + w).toFixed(1)} ${y.toFixed(1)}L${(x - w2).toFixed(1)} ${y2.toFixed(1)}`);
+    }
+  }
+  const mirror = [];
+  for (let k = 0; k <= 6; k++) { const t = k / 6; mirror.push(`${k ? "L" : "M"}${(x + wAt(t)).toFixed(1)} ${(base - h * t).toFixed(1)}`); }
+  return `<g fill="none" stroke="#39434b" stroke-width="3">
+    <path d="${legs.join("")}"/><path d="${mirror.join("")}"/>
+    <path d="${braces.join("")}" stroke-width="1.6" opacity=".8"/>
+    <path d="M${x - 40} ${base - h * .74}h80M${x - 30} ${base - h * .92}h60" stroke-width="4"/>
+    ${[-40, -14, 14, 40].map(dx => `<path d="M${x + dx} ${base - h * .74}v9" stroke="#4a545b" stroke-width="3"/>`).join("")}
+  </g>`;
+};
 const PP_SCENE = () => `<svg viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-  <!-- the sky through the window wall, with the towers steaming outside -->
-  <rect x="0" y="0" width="1400" height="210" fill="#10161b"/>
-  ${[[150, 210], [330, 180]].map(([cx, w], i) => `<g>
-    ${Array.from({ length: 3 }, (_, k) => `<ellipse class="pp-steam" cx="${cx + (k - 1) * 30}" cy="90" rx="${40 + k * 8}" ry="${22 + k * 5}" fill="#cfe0ea" opacity=".4" style="animation-delay:-${(i * 3 + k * 2.4).toFixed(1)}s"/>`).join("")}
-    <path d="M${cx - w / 2} 210L${cx - w / 6} 120Q${cx} 96 ${cx + w / 6} 120L${cx + w / 2} 210z" fill="#242c32" stroke="#39434b" stroke-width="3"/>
-    <path d="M${cx - w / 6} 120h${w / 3}" stroke="#39434b" stroke-width="3"/></g>`).join("")}
-  <!-- the line leaving the site, on its pylons -->
-  ${[900, 1120, 1340].map(x => `<g stroke="#4a545b" stroke-width="5" fill="none">
-    <path d="M${x} 210V40M${x - 34} 78h68M${x - 26} 118h52"/></g>`).join("")}
-  <path d="M900 78C1000 104 1020 104 1120 78C1220 52 1240 52 1340 78" fill="none" stroke="#2b3237" stroke-width="5"/>
-  <path class="pp-line" d="M900 78C1000 104 1020 104 1120 78C1220 52 1240 52 1340 78"/>
-  <path d="M900 118C1000 144 1020 144 1120 118C1220 92 1240 92 1340 118" fill="none" stroke="#2b3237" stroke-width="5"/>
-  <path class="pp-line" style="animation-delay:-2s" d="M900 118C1000 144 1020 144 1120 118C1220 92 1240 92 1340 118"/>
-  <!-- the window frame, and the hall floor below it -->
-  <g stroke="#39434b" stroke-width="6" fill="none"><path d="M0 210h1400M220 0v210M520 0v210M760 0v210"/></g>
-  <rect x="0" y="210" width="1400" height="690" fill="#1b2126"/>
-  <g stroke="#232a30" stroke-width="2">${Array.from({ length: 9 }, (_, i) => `<path d="M${-140 + i * 190} 900L${360 + i * 86} 240"/>`).join("")}</g>
-  <!-- the hall stretches back: a second row of plant down at the floor -->
-  <rect x="300" y="640" width="760" height="150" rx="8" fill="#20272d" stroke="#39434b" stroke-width="3"/>
-  ${[380, 560, 740, 920].map(x => `<circle class="pp-spin slow" cx="${x}" cy="715" r="26" fill="none" stroke="#4a545b" stroke-width="6" stroke-dasharray="11 10"/>`).join("")}
-  <path d="M0 800h1400" stroke="#232a30" stroke-width="3"/>
-  <!-- steam pipes along the hall -->
-  <path d="M60 268h1240" stroke="#39434b" stroke-width="13" fill="none"/>
-  <path d="M300 268v56M700 268v50M1040 268v44" stroke="#39434b" stroke-width="9"/>
-  <!-- the boiler, glowing through its inspection door -->
-  <rect x="70" y="300" width="220" height="280" rx="8" fill="#242c32" stroke="#39434b" stroke-width="4"/>
-  <rect x="104" y="340" width="152" height="104" rx="4" fill="#161a1d"/>
-  <ellipse class="pp-glow" cx="180" cy="392" rx="60" ry="38" fill="#ff8a3d"/>
-  <ellipse class="pp-glow" cx="180" cy="392" rx="34" ry="20" fill="#ffd36b" style="animation-delay:-2s"/>
-  <rect x="96" y="478" width="168" height="76" rx="4" fill="#1b2126" stroke="#39434b" stroke-width="3"/>
-  <circle class="pp-spin slow" cx="140" cy="516" r="22" fill="none" stroke="#5c676f" stroke-width="6" stroke-dasharray="10 9"/>
-  <circle class="pp-spin slow" cx="220" cy="516" r="22" fill="none" stroke="#5c676f" stroke-width="6" stroke-dasharray="10 9"/>
-  <!-- the turbine set, and the generator on the end of the shaft -->
-  <rect x="360" y="330" width="420" height="140" rx="66" fill="#2b3237" stroke="#39434b" stroke-width="4"/>
-  ${[430, 510, 590, 670].map(x => `<path d="M${x} 330v140" stroke="#39434b" stroke-width="3"/>`).join("")}
-  <circle class="pp-spin" cx="790" cy="400" r="58" fill="#242c32" stroke="#4a545b" stroke-width="5"/>
-  <g class="pp-spin">${Array.from({ length: 8 }, (_, i) => `<path d="M790 400L${(790 + Math.cos(i / 8 * 6.283) * 52).toFixed(1)} ${(400 + Math.sin(i / 8 * 6.283) * 52).toFixed(1)}" stroke="#5c676f" stroke-width="7" stroke-linecap="round"/>`).join("")}</g>
-  <circle cx="790" cy="400" r="13" fill="#ffd36b" opacity=".85"/>
-  <rect x="856" y="356" width="180" height="120" rx="6" fill="#242c32" stroke="#39434b" stroke-width="4"/>
-  <rect x="880" y="384" width="132" height="24" rx="3" fill="#48c5ff" opacity=".25"/>
-  <rect x="880" y="422" width="132" height="24" rx="3" fill="#161a1d"/>
-  <!-- the switchyard end: a transformer bank and its bushings -->
-  <rect x="1090" y="360" width="150" height="120" rx="5" fill="#242c32" stroke="#39434b" stroke-width="4"/>
-  ${[1120, 1165, 1210].map(x => `<g><path d="M${x} 360v-40" stroke="#4a545b" stroke-width="5"/>
-    ${[0, 1, 2].map(k => `<ellipse cx="${x}" cy="${332 + k * 10}" rx="11" ry="4" fill="#39434b"/>`).join("")}</g>`).join("")}
-  ${[1100, 1230].map(x => `<path d="M${x} 480v40" stroke="#39434b" stroke-width="6"/>`).join("")}
+  <!-- Out of the control room window: the yard at dusk. -->
+  <rect x="0" y="0" width="1400" height="212" fill="#0c1115"/>
+  <rect x="0" y="150" width="1400" height="62" fill="#111820"/>
+  <!-- the boiler house and its stack, with the beacon on top -->
+  <rect x="520" y="120" width="160" height="92" fill="#1a2126" stroke="#2c353c" stroke-width="3"/>
+  <path d="M700 212V40h28v172z" fill="#1c242a" stroke="#333e46" stroke-width="3"/>
+  <path d="M700 72h28M700 104h28M700 136h28" stroke="#2a343b" stroke-width="2"/>
+  <circle class="pp-glow" cx="714" cy="36" r="6" fill="#ff4b3e"/>
+  ${Array.from({ length: 3 }, (_, k) => `<ellipse class="pp-steam" cx="${714 + (k - 1) * 14}" cy="30" rx="${16 + k * 6}" ry="${9 + k * 3}" fill="#8fa3b0" opacity=".16" style="animation-delay:-${(k * 3.1).toFixed(1)}s"/>`).join("")}
+  ${PP_TOWER(852, 212, 146, 80)}
+  ${PP_TOWER(1024, 212, 120, 64)}
+  <!-- the switchyard, and the line leaving the site -->
+  ${PP_PYLON(1190, 212, 172)}
+  ${PP_PYLON(1372, 212, 172)}
+  <path d="M700 96C820 120 1060 128 1190 96C1290 72 1300 72 1372 92" fill="none" stroke="#242b30" stroke-width="4"/>
+  <path class="pp-line" d="M700 96C820 120 1060 128 1190 96C1290 72 1300 72 1372 92"/>
+  <path d="M700 132C820 156 1060 164 1190 132C1290 108 1300 108 1372 128" fill="none" stroke="#242b30" stroke-width="4"/>
+  <path class="pp-line" style="animation-delay:-2s" d="M700 132C820 156 1060 164 1190 132C1290 108 1300 108 1372 128"/>
+  <!-- the window frame, and the hall inside it -->
+  <g stroke="#2c353c" stroke-width="6" fill="none"><path d="M0 212h1400M220 0v212M520 0v212M760 0v212M1060 0v212"/></g>
+  <rect x="0" y="212" width="1400" height="688" fill="#12171b"/>
+  <!-- the hall's gantry crane, up in the roof where there's open air -->
+  <path d="M0 262h1400M0 300h1400" stroke="#1f272d" stroke-width="7"/>
+  <g class="pp-crane">
+    <rect x="470" y="252" width="300" height="20" rx="4" fill="#232c33" stroke="#39434b" stroke-width="3"/>
+    <rect x="596" y="272" width="52" height="30" rx="3" fill="#2b353d" stroke="#39434b" stroke-width="3"/>
+    <path d="M622 302v46" stroke="#4a545b" stroke-width="3"/>
+    <path d="M610 348h24v14h-24z" fill="#3b464f" stroke="#4a545b" stroke-width="2"/>
+  </g>
+  <!-- the machine floor, low enough to stay out of the table's way -->
+  <g class="pp-hall">
+    <path d="M0 612h1400" stroke="#232b31" stroke-width="3"/>
+    <g stroke="#1b2228" stroke-width="2">${Array.from({ length: 7 }, (_, i) => `<path d="M${-120 + i * 250} 900L${420 + i * 100} 616"/>`).join("")}</g>
+    <!-- the boiler front, glowing through its inspection door -->
+    <rect x="44" y="600" width="188" height="300" rx="6" fill="#1a2126" stroke="#2c353c" stroke-width="4"/>
+    <path d="M44 660h188M44 720h188" stroke="#232b31" stroke-width="3"/>
+    <rect x="76" y="742" width="124" height="86" rx="4" fill="#0e1215"/>
+    <ellipse class="pp-glow" cx="138" cy="785" rx="50" ry="30" fill="#ff8a3d"/>
+    <ellipse class="pp-glow" cx="138" cy="785" rx="26" ry="15" fill="#ffd36b" style="animation-delay:-2s"/>
+    <!-- feedwater pumps in front of it -->
+    ${[268, 330].map((x, i) => `<g><rect x="${x - 26}" y="812" width="52" height="46" rx="4" fill="#1a2126" stroke="#2c353c" stroke-width="3"/>
+      <circle class="pp-spin slow" cx="${x}" cy="835" r="14" fill="none" stroke="#4a545b" stroke-width="5" stroke-dasharray="8 7" style="animation-delay:-${i}s"/></g>`).join("")}
+    <!-- the turbine set on its plinth: three casings getting bigger down the shaft -->
+    <rect x="360" y="856" width="640" height="24" fill="#1a2126" stroke="#2c353c" stroke-width="3"/>
+    <path d="M660 700v156M860 700v156" stroke="#232b31" stroke-width="2"/>
+    <rect x="372" y="752" width="128" height="104" rx="40" fill="#212930" stroke="#333e46" stroke-width="4"/>
+    <rect x="506" y="724" width="152" height="132" rx="52" fill="#232c34" stroke="#333e46" stroke-width="4"/>
+    <rect x="664" y="700" width="186" height="156" rx="62" fill="#252e37" stroke="#333e46" stroke-width="4"/>
+    ${[402, 440, 470, 540, 584, 628, 700, 752, 804].map(x => `<path d="M${x} ${x < 500 ? 754 : x < 660 ? 726 : 702}v${x < 500 ? 100 : x < 660 ? 128 : 152}" stroke="#2c353c" stroke-width="3"/>`).join("")}
+    <!-- the coupling, turning, and the generator with its exciter on the end -->
+    <circle class="pp-spin" cx="876" cy="778" r="30" fill="#1a2126" stroke="#39434b" stroke-width="4"/>
+    <g class="pp-spin">${Array.from({ length: 6 }, (_, i) => `<path d="M876 778L${(876 + Math.cos(i / 6 * 6.283) * 26).toFixed(1)} ${(778 + Math.sin(i / 6 * 6.283) * 26).toFixed(1)}" stroke="#4a545b" stroke-width="6" stroke-linecap="round"/>`).join("")}</g>
+    <rect x="906" y="726" width="150" height="104" rx="26" fill="#232c34" stroke="#333e46" stroke-width="4"/>
+    <rect x="1060" y="756" width="46" height="44" rx="12" fill="#1f272e" stroke="#333e46" stroke-width="3"/>
+    <rect x="930" y="748" width="102" height="18" rx="3" fill="#48c5ff" opacity=".18"/>
+    <!-- the step-up transformer at the end of it, bushings and radiators -->
+    <rect x="1168" y="736" width="150" height="124" rx="5" fill="#1a2126" stroke="#2c353c" stroke-width="4"/>
+    ${[1180, 1300].map(x => `<g stroke="#2c353c" stroke-width="3">${Array.from({ length: 5 }, (_, k) => `<path d="M${x - 10} ${750 + k * 24}h20"/>`).join("")}</g>`).join("")}
+    ${[1200, 1243, 1286].map(x => `<g><path d="M${x} 736v-44" stroke="#39434b" stroke-width="5"/>
+      ${[0, 1, 2].map(k => `<ellipse cx="${x}" cy="${702 + k * 11}" rx="11" ry="4" fill="#2c353c"/>`).join("")}</g>`).join("")}
+    <path d="M1200 692q22-40 86-40h44" fill="none" stroke="#242b30" stroke-width="4"/>
+  </g>
 </svg>`;
 
 // Power Plant: the dashboard as a generating station. Every device is a feeder
@@ -10805,13 +10872,15 @@ const FAC_ARM = `<svg viewBox="0 0 70 72" width="70" height="72">
     <g class="fore"><rect x="34" y="16" width="30" height="9" rx="3" fill="#6d7884" stroke="#232a32" stroke-width="2"/>
       <path d="M62 14v13M66 16v9" stroke="#ffb300" stroke-width="3" stroke-linecap="round"/></g>
     <circle cx="37" cy="26" r="5" fill="#ffb300" stroke="#232a32" stroke-width="2"/></g></svg>`;
+// It crosses left to right, so the mast and forks are on the right: a forklift
+// drives forks-first when it's running empty.
 const FAC_FORK = `<svg viewBox="0 0 118 64">
-  <rect x="58" y="12" width="6" height="40" fill="#4a535e"/>
-  <path d="M58 46h-26v5h26z" fill="#c9a227"/><path d="M58 30h-20v5h20z" fill="#c9a227"/>
-  <rect x="62" y="18" width="40" height="30" rx="4" fill="#e0a500" stroke="#7a5a05" stroke-width="2"/>
-  <rect x="68" y="4" width="28" height="16" rx="3" fill="#2f3944" stroke="#1b2129" stroke-width="2"/>
-  <circle class="wheel" cx="74" cy="52" r="9" fill="#2b333d" stroke="#171c23" stroke-width="3"/>
-  <circle class="wheel" cx="98" cy="52" r="9" fill="#2b333d" stroke="#171c23" stroke-width="3"/></svg>`;
+  <rect x="54" y="12" width="6" height="40" fill="#4a535e"/>
+  <path d="M60 46h26v5H60z" fill="#c9a227"/><path d="M60 30h20v5H60z" fill="#c9a227"/>
+  <rect x="16" y="18" width="40" height="30" rx="4" fill="#e0a500" stroke="#7a5a05" stroke-width="2"/>
+  <rect x="22" y="4" width="28" height="16" rx="3" fill="#2f3944" stroke="#1b2129" stroke-width="2"/>
+  <circle class="wheel" cx="44" cy="52" r="9" fill="#2b333d" stroke="#171c23" stroke-width="3"/>
+  <circle class="wheel" cx="20" cy="52" r="9" fill="#2b333d" stroke="#171c23" stroke-width="3"/></svg>`;
 // The shop floor itself: a gantry of lamps up in the roof, machines standing
 // on the floor at the bottom, and a welder throwing sparks in the corner. The
 // machines sit low so they read as a room the dashboard is standing in, rather
@@ -16789,12 +16858,14 @@ function xmasHouse() {
     <rect x="516" y="520" width="90" height="130" rx="3" fill="#7d4a2e"/>
     <circle cx="561" cy="556" r="20" fill="none" stroke="#2f7a44" stroke-width="9"/>
     <circle cx="561" cy="556" r="20" fill="none" stroke="#c62f2f" stroke-width="3" stroke-dasharray="4 9"/>
-    ${win(270, 250, 84, 70)}
-    ${win(420, 232, 84, 70)}
-    ${win(620, 232, 84, 70)}
-    ${win(770, 250, 84, 70)}
+    <!-- attic windows, inside the gable and clear of the chimney -->
+    ${win(420, 286, 84, 64)}
+    ${win(660, 286, 84, 64)}
+    <!-- and the ground floor, on the wall either side of the porch -->
     ${win(270, 470, 96, 92)}
     ${win(690, 470, 96, 92)}
+    ${win(390, 486, 70, 76)}
+    ${win(806, 486, 70, 76)}
     <!-- and now the lights: roof, eaves, corners, chimney, garage, porch -->
     ${xhLights([[170, 400], [560, 150], [950, 400]], 27, 5)}
     ${xhLights([[210, 404], [910, 404]], 27, 4.6)}
