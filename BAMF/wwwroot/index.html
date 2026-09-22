@@ -15236,7 +15236,7 @@ function buildWoodlands(root) {
   const HB = Math.round(document.querySelector("header")?.getBoundingClientRect().bottom || 60);
   const NX = W * .70, NY = HB + 34 * S;          // the eagles' nest
   const OX = W * .885, OY = HB + 58 * S;         // the owl on its branch
-  const BX = W * .80, BY = HB + 76 * S;          // the owls' nest: a laundry basket
+  const BX = W * .80, BY = HB + 76 * S;          // the owls' nest: a plastic laundry hamper
   const SX = W * .56 + 70 * S, SY = HB + 22 * S; // where the snake hangs over
 
   // ---- Behind the page: the landscape, drawn once ----
@@ -15642,28 +15642,34 @@ function buildWoodlands(root) {
     ctx.fillStyle = "#c9a13a"; ctx.fillRect(-2, -8, 2.5, 4); ctx.fillRect(2, -8, 2.5, 4);
     ctx.restore();
   }
-  // The laundry basket: wicker, with its rolled rim, a handle hole in each
-  // side and a sock left hanging over the edge. Back and front are drawn apart
-  // so the owlets sit inside it.
+  // The laundry hamper: moulded light-blue plastic with a sheen across it,
+  // rows of vent slots, a thick rolled lip and a handle slot at each end, and
+  // a sock left hanging over the edge. Back and front are drawn apart so the
+  // owlets sit inside it.
   function drawBasket(front) {
     ctx.save(); ctx.translate(BX, BY); ctx.rotate(-.06); ctx.scale(S, S);
     if (!front) {
-      ctx.fillStyle = "#6b4e2a"; ctx.beginPath(); ctx.ellipse(0, -23, 23, 4, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#23566f"; ctx.beginPath(); ctx.ellipse(0, -23, 23, 4, 0, 0, TAU); ctx.fill();
       ctx.restore();
       return;
     }
-    ctx.fillStyle = "#c79e62";
-    ctx.beginPath(); ctx.moveTo(-23, -23); ctx.lineTo(23, -23); ctx.lineTo(19, 0); ctx.lineTo(-19, 0); ctx.closePath(); ctx.fill();
-    ctx.save(); ctx.clip();
-    ctx.strokeStyle = "rgba(120, 86, 42, .75)"; ctx.lineWidth = 1;
-    for (let y = -20; y < 0; y += 4) { ctx.beginPath(); ctx.moveTo(-24, y); ctx.lineTo(24, y); ctx.stroke(); }
-    ctx.strokeStyle = "rgba(150, 110, 58, .7)"; ctx.lineWidth = 1.4;
-    for (let x = -22; x < 24; x += 5) { ctx.beginPath(); ctx.moveTo(x, -23); ctx.lineTo(x * .83, 0); ctx.stroke(); }
-    ctx.restore();
-    ctx.fillStyle = "#b48a50"; ctx.fillRect(-24.5, -26, 49, 4.5);
-    ctx.fillStyle = "#3a2a18";
-    ctx.beginPath(); ctx.ellipse(-15, -16, 3.6, 2, 0, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(15, -16, 3.6, 2, 0, 0, TAU); ctx.fill();
+    // The tub, a little wider at the top, its bottom corners rounded.
+    const g = ctx.createLinearGradient(-23, 0, 23, 0);
+    g.addColorStop(0, "#4f9cc3"); g.addColorStop(.3, "#93d3ef"); g.addColorStop(.55, "#72bde2"); g.addColorStop(1, "#3f89ae");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(-23, -23); ctx.lineTo(23, -23); ctx.lineTo(19.6, -3);
+    ctx.quadraticCurveTo(19.2, 0, 16.5, 0); ctx.lineTo(-16.5, 0); ctx.quadraticCurveTo(-19.2, 0, -19.6, -3); ctx.closePath(); ctx.fill();
+    // Vent slots in rows, following the taper, dark where the inside shows.
+    ctx.fillStyle = "#1d4a60";
+    for (const y of [-15, -9.5, -4]) {
+      const half = 23 - (y + 23) * (3.4 / 23) - 3.5;
+      for (let x = -half; x <= half - 2.8; x += 5.4) ctx.fillRect(x, y - 1.7, 2.8, 3.4);
+    }
+    // The rolled lip, lighter, and the two handle slots just under it.
+    ctx.fillStyle = "#b3e3f7"; ctx.fillRect(-24.5, -26.5, 49, 4.8);
+    ctx.fillStyle = "rgba(255, 255, 255, .45)"; ctx.fillRect(-24.5, -26.5, 49, 1.2);
+    ctx.fillStyle = "#163b4d";
+    for (const hx of [-17, 11]) { ctx.beginPath(); ctx.ellipse(hx + 3, -19.4, 3.6, 1.5, 0, 0, TAU); ctx.fill(); }
     // The sock, red with a white band, flopped over the rim.
     ctx.fillStyle = "#c8403a";
     ctx.beginPath(); ctx.moveTo(-22, -26); ctx.lineTo(-17, -26); ctx.lineTo(-17.5, -14); ctx.quadraticCurveTo(-18, -10, -22.5, -10.5); ctx.lineTo(-24, -12); ctx.quadraticCurveTo(-22, -13, -22, -16); ctx.closePath(); ctx.fill();
