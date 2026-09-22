@@ -152,6 +152,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:LatencyProbe` | After each scan, ping every online device on the networks it covered and keep the round-trip time (default true). Also in Settings → Behaviour, which wins once changed there. See [Latency and uptime](#latency-and-uptime). |
 | `Bamf:WanWatch` | `true` watches the internet connection: a ping a minute to your router and to `Bamf:WanTarget` (default false). Also in Settings → Behaviour, which wins once changed there. See [Internet watch](#internet-watch). |
 | `Bamf:WanTarget` | Which address the internet watch pings (default `8.8.8.8`). |
+| `Bamf:WanSlow` | What the internet watch calls slow: `auto` (default: four times the usual ping, at least 100 ms more), `off`, or a limit in ms. Also in Settings → Behaviour. |
 | `Bamf:WanIntervalSeconds` | How often it pings, 20 to 3600 (default 60). Also in Settings → Behaviour, which wins once changed there. |
 | `Bamf:HolidaySpirit` | `true` puts every dashboard in a season's theme by date: Halloween through October, Thanksgiving for the week of the holiday, Christmas from December 1st to 25th, and New Year to January 2nd (default false). Also in Settings → Behaviour, which wins once changed there. See [Holiday Spirit](#holiday-spirit). |
 | `Bamf:WebhookUrl` | Optional starting value for the notification webhook — the dashboard's **Tools → Notifications** saves over it. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use the dashboard's Test webhook button to verify. |
@@ -1343,10 +1344,11 @@ scan, or delete a thing.
 | POST | `/api/hosts/{id}/blink` | Body `{"seconds": 30}` (optional, 5–60) — "Find port": send the device bursts of UDP traffic, one second on and one second off, so its switch-port light pulses. Private addresses only; replaces any blink already running. Returns `until` |
 | POST | `/api/map/positions` | Body `{"subnet": "192.168.1.0/24", "positions": {"s:1": [120, 140], "h:7": null}}` — save where nodes sit on the topology Map for one network. Keys are `h:<host id>`, `s:<switch id>`, `gw`, `self`, `net` and `box`. A null position forgets that node, so it goes back to the automatic layout. `GET /api/hosts` returns them all as `mapPositions` |
 | DELETE | `/api/map/positions?subnet=…` | "Auto-arrange": forget every saved position on one network |
-| GET | `/api/wan` | The internet watch: `{"state", "samples", "outages"}` — the last reading, a day of one-a-minute readings, and the outages of the last month |
+| GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow"}` — the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
 | POST | `/api/settings/wanwatch` | Body `{"enabled": true}` — switch the internet watch on or off |
 | POST | `/api/settings/wantarget` | Body `{"target": "8.8.8.8"}` — which address it pings |
 | POST | `/api/settings/waninterval` | Body `{"seconds": 60}` — how often it pings, 20 to 3600 |
+| POST | `/api/settings/wanslow` | Body `{"mode": "auto"}`, `{"mode": "off"}` or `{"mode": "fixed", "ms": 200}` — what counts as slow |
 | GET | `/api/floors` | `{"floors": [{"id", "name", "width", "height", "updated"}], "places": [{"hostId", "floorId", "x", "y"}]}`. `x` and `y` are shares of the image, 0 to 1 |
 | GET | `/api/floors/{id}/image` | That floor's image |
 | POST | `/api/floors?name=…&width=…&height=…` | Body: the image itself (PNG, JPEG or WebP, up to 12 MB), with its size in pixels in the query. Adds a floor and returns `{"id"}`, or 400 with `{"error": "…"}` |
@@ -2099,7 +2101,7 @@ BAMF sends a summary to the same webhook the alerts use:
 - in the monthly report, **how the internet held up**: how many outages, how
   many minutes in total and the longest one, from the outage log the
   [internet watch](#internet-watch) keeps. Outages that took your router down
-  too are counted separately.
+  too are counted separately, and slow spells get a line of their own.
 
 On Discord it's an embed with a field per item; on ntfy, Gotify and generic
 webhooks it's text. **Preview** shows what would go out, and **Send now** sends
@@ -2241,11 +2243,19 @@ What you get for it:
 - **Which side of the wall the problem is on.** If your router answered while
   the outside address didn't, it's your provider, the modem or the cable to it.
   If your router went quiet too, it's something in here.
+- **An alert when the line is slow**: up, but taking far longer than usual to
+  answer. It's called after five slow readings in a row and over after three
+  normal ones, and both alerts say how slow, against what's usual, and whether
+  your router was slow to answer as well (then the delay is in here: something
+  filling the connection, or the router struggling). A lost ping counts as a
+  slow reading, since losing some is part of a bad line; three lost in a row is
+  still an outage.
 - **An Internet card on Activity**: what it is now, a bar per few minutes over
   the last day, and the outage log underneath — when each one started, when it
-  ended and how long it lasted. Amber means your router was down too; grey on
-  the bar means BAMF wasn't watching. An outage in progress is listed first,
-  as "still down". **All N outages** opens the full list.
+  ended and how long it lasted. Slow spells are listed with them, with the
+  worst reading of each. On the bar, red is down, full-height amber is down
+  with your router too, shorter amber is slow and grey is BAMF not watching.
+  Anything still going is listed first, as "still down" or "still slow".
 
 **How often** it checks is **Settings → Behaviour → Check the internet every**,
 from 20 seconds to an hour, a minute by default (`Bamf:WanIntervalSeconds`
@@ -2253,9 +2263,17 @@ sets the same thing). An outage is called after three misses in a row, so the
 setting decides how quickly you hear: about three minutes at a minute apart,
 about one at twenty seconds.
 
+**What counts as slow** is **Settings → Behaviour → Call the internet slow**.
+**Automatic**, the default, is four times your usual ping and at least 100 ms
+more than it, where the usual is the middle of the last day's readings; it
+starts once there are half an hour or so of them. You can set your own limit in
+ms instead (`Bamf:WanSlow` takes `auto`, `off` or a number), or switch it off.
+This times the ping the watch already sends. It doesn't test your download
+speed, but a line that's slow to answer is what makes pages and calls lag.
+
 The minute-by-minute readings are pruned with your history retention, but
-**each outage is written down when it ends and kept**, so the history of what
-your connection has done doesn't disappear with them.
+**each outage and slow spell is written down when it ends and kept**, so the
+history of what your connection has done doesn't disappear with them.
 
 ### Certificate watch
 

@@ -158,6 +158,18 @@ public sealed class ReportService : BackgroundService
                 sb.AppendLine($"Internet: {t}");
                 fields.Add(("Internet", t));
             }
+            var slow = _store.GetWanSlowLog(200)
+                .Where(o => DateTime.TryParse(o.Start, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var st) && st >= since)
+                .ToList();
+            if (slow.Count > 0)
+            {
+                var mins = slow.Sum(o => o.Minutes);
+                var worst = slow.OrderByDescending(o => o.Minutes).First();
+                var t = $"{slow.Count} slow spell{(slow.Count == 1 ? "" : "s")}, {mins} minute{(mins == 1 ? "" : "s")} in total; " +
+                    $"the longest {worst.Minutes} minute{(worst.Minutes == 1 ? "" : "s")}, at worst {worst.WorstMs} ms";
+                sb.AppendLine($"Slow internet: {t}");
+                fields.Add(("Slow internet", t));
+            }
         }
 
         var flaps = _store.OfflineCounts(since);

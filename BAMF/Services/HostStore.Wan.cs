@@ -12,6 +12,8 @@ public partial class HostStore
 {
     public sealed record WanSample(string At, int Gateway, int Internet);
     public sealed record WanOutage(string Start, string End, int Minutes, bool Local);
+    /// <summary>A stretch when the line was up but slow: its worst reading, and what was usual before it.</summary>
+    public sealed record WanSlowSpell(string Start, string End, int Minutes, int WorstMs, int UsualMs, bool Local);
 
     private static void InitWan(SqliteConnection conn)
     {
@@ -26,6 +28,14 @@ public partial class HostStore
                 start   TEXT PRIMARY KEY,
                 ended   TEXT NOT NULL,
                 minutes INTEGER NOT NULL,
+                local   INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS wan_slow (
+                start   TEXT PRIMARY KEY,
+                ended   TEXT NOT NULL,
+                minutes INTEGER NOT NULL,
+                worst   INTEGER NOT NULL,
+                usual   INTEGER NOT NULL,
                 local   INTEGER NOT NULL
             );
             """;
@@ -78,6 +88,40 @@ public partial class HostStore
             var list = new List<WanOutage>();
             using var r = cmd.ExecuteReader();
             while (r.Read()) list.Add(new WanOutage(r.GetString(0), r.GetString(1), r.GetInt32(2), r.GetInt32(3) != 0));
+            return list;
+        }
+    }
+
+    /// <summary>Writes a slow spell down when it ends, like an outage, so it outlives the pruned readings.</summary>
+    public void AddWanSlow(DateTime start, DateTime ended, int worstMs, int usualMs, bool local)
+    {
+        lock (_lock)
+        {
+            using var conn = Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "INSERT OR REPLACE INTO wan_slow (start, ended, minutes, worst, usual, local) VALUES ($s, $e, $m, $w, $u, $l)";
+            cmd.Parameters.AddWithValue("$s", start.ToString("o"));
+            cmd.Parameters.AddWithValue("$e", ended.ToString("o"));
+            cmd.Parameters.AddWithValue("$m", Math.Max(1, (int)Math.Round((ended - start).TotalMinutes)));
+            cmd.Parameters.AddWithValue("$w", worstMs);
+            cmd.Parameters.AddWithValue("$u", usualMs);
+            cmd.Parameters.AddWithValue("$l", local ? 1 : 0);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Slow spells as they were written down, newest first.</summary>
+    public List<WanSlowSpell> GetWanSlowLog(int limit = 50)
+    {
+        lock (_lock)
+        {
+            using var conn = Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT start, ended, minutes, worst, usual, local FROM wan_slow ORDER BY start DESC LIMIT $n";
+            cmd.Parameters.AddWithValue("$n", Math.Clamp(limit, 1, 500));
+            var list = new List<WanSlowSpell>();
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) list.Add(new WanSlowSpell(r.GetString(0), r.GetString(1), r.GetInt32(2), r.GetInt32(3), r.GetInt32(4), r.GetInt32(5) != 0));
             return list;
         }
     }
