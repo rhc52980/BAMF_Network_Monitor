@@ -203,7 +203,8 @@ app.MapGet("/api/hosts", (HttpContext ctx, HostStore store, ScannerService scann
     var latency = store.LatestLatency();
     var uptimes = store.Uptimes();
     var tags = store.GetTags();
-    var counters = scanner.Traffic.Counters();
+    // A device with extra network cards combined into it counts all of them.
+    var counters = TrafficMonitor.Combine(scanner.Traffic.Counters(), store.CardOwners()).ToDictionary(kv => kv.Key, kv => kv.Value.Counter, StringComparer.OrdinalIgnoreCase);
     var dnsByDevice = scanner.Traffic.DnsByDevice();
     var openPorts = store.OpenPorts();
     var routerNames = store.GetRouterNames();
@@ -701,15 +702,18 @@ app.MapGet("/api/traffic", (HostStore store, ScannerService scanner) =>
     var t = scanner.Traffic;
     var hosts = store.GetAll().Where(h => !h.Forgotten).ToDictionary(h => h.Mac, h => h, StringComparer.OrdinalIgnoreCase);
     string Name(string mac) => hosts.TryGetValue(mac, out var h) ? (h.CustomName != "" ? h.CustomName : h.Hostname != "" ? h.Hostname : h.Ip) : mac;
-    var top = t.Counters()
-        .Where(kv => hosts.ContainsKey(kv.Key) || kv.Value.RxTotal + kv.Value.TxTotal > 0)
-        .OrderByDescending(kv => kv.Value.RxTotal + kv.Value.TxTotal)
+    // One line per device: a machine with several network cards combined into
+    // one device is counted once, with all its cards' traffic added up.
+    var top = TrafficMonitor.Combine(t.Counters(), store.CardOwners())
+        .Where(kv => hosts.ContainsKey(kv.Key) || kv.Value.Counter.RxTotal + kv.Value.Counter.TxTotal > 0)
+        .OrderByDescending(kv => kv.Value.Counter.RxTotal + kv.Value.Counter.TxTotal)
         .Take(12)
         .Select(kv => new
         {
             mac = kv.Key, hostId = hosts.TryGetValue(kv.Key, out var h) ? h.Id : 0, name = Name(kv.Key),
             ip = hosts.TryGetValue(kv.Key, out var h2) ? h2.Ip : "",
-            rxTotal = kv.Value.RxTotal, txTotal = kv.Value.TxTotal, rx = Math.Round(kv.Value.Rx), tx = Math.Round(kv.Value.Tx), strip = kv.Value.Strip,
+            cards = kv.Value.Cards,
+            rxTotal = kv.Value.Counter.RxTotal, txTotal = kv.Value.Counter.TxTotal, rx = Math.Round(kv.Value.Counter.Rx), tx = Math.Round(kv.Value.Counter.Tx), strip = kv.Value.Counter.Strip,
         });
     return Results.Json(new
     {

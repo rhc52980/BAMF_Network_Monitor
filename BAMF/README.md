@@ -2724,6 +2724,10 @@ cards…** in a device's ⋯ menu combines them into one device:
 - The combined device answers on every card's addresses, with the card's MAC
   shown beside each address that isn't its own. It's online if any card is. It
   has one row in the device list.
+- Its **traffic is every card's added together**: in the Traffic column, in
+  **Top talkers** on Activity (one line, marked "2 cards"), in the History
+  panel's week of traffic, and in the scheduled report's top talkers. The
+  Prometheus `/metrics` endpoint still reports each MAC on its own.
 - On the **Map** it's drawn once. For BAMF that means once, under the switch
   it's plugged into, on every network's map.
 - Where the card was plugged in and what it was declared the gateway of pass to

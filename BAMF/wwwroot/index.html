@@ -5414,7 +5414,7 @@ function renderTrafficCards() {
     const row = document.createElement("div");
     row.className = "talker";
     const smax = Math.max(1, ...x.strip);
-    row.innerHTML = `<span class="nm" title="${esc(x.mac)}">${esc(x.name)}<small>${esc(x.ip || x.mac)}</small></span>` +
+    row.innerHTML = `<span class="nm" title="${esc(x.mac)}${x.cards > 1 ? ` and ${x.cards - 1} more network card${x.cards > 2 ? "s" : ""}, added together` : ""}">${esc(x.name)}<small>${esc(x.ip || x.mac)}${x.cards > 1 ? ` \u00b7 ${x.cards} cards` : ""}</small></span>` +
       `<span class="amt" title="In ${fmtBytes(x.rxTotal)} · out ${fmtBytes(x.txTotal)}"><b>${fmtBytes(x.rxTotal + x.txTotal)}</b><br>${fmtRate(x.rx + x.tx)}</span>` +
       `<span class="strip" title="Bytes per ten seconds over the last five minutes">${x.strip.map(v => `<i style="height:${Math.max(4, Math.round(100 * v / smax))}%"></i>`).join("")}</span>`;
     if (x.hostId) { row.style.cursor = "pointer"; row.onclick = () => jumpToHost(x.hostId); }

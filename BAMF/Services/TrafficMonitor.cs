@@ -387,6 +387,25 @@ public sealed class TrafficMonitor : IDisposable
         }
     }
 
+    /// <summary>
+    /// Counters with each device's extra network cards added into its main
+    /// card, keyed by the main card's MAC. Cards is how many were added up.
+    /// </summary>
+    public static Dictionary<string, (Counter Counter, int Cards)> Combine(Dictionary<string, Counter> counters, Dictionary<string, string> owners)
+    {
+        var map = new Dictionary<string, (Counter Counter, int Cards)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (mac, c) in counters)
+        {
+            var key = owners.TryGetValue(mac, out var main) ? main : mac;
+            if (!map.TryGetValue(key, out var have)) { map[key] = (c, 1); continue; }
+            var a = have.Counter;
+            var strip = new long[Math.Max(a.Strip.Count, c.Strip.Count)];
+            for (var i = 0; i < strip.Length; i++) strip[i] = (i < a.Strip.Count ? a.Strip[i] : 0) + (i < c.Strip.Count ? c.Strip[i] : 0);
+            map[key] = (new Counter(a.RxTotal + c.RxTotal, a.TxTotal + c.TxTotal, a.Rx + c.Rx, a.Tx + c.Tx, strip), have.Cards + 1);
+        }
+        return map;
+    }
+
     public List<DhcpServer> DhcpServers()
     {
         lock (_lock) return _dhcp.Select(kv => new DhcpServer(kv.Key, kv.Value.Mac, kv.Value.Last.ToString("o"), kv.Value.Offers)).OrderBy(s => s.Ip).ToList();

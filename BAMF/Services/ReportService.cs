@@ -208,9 +208,14 @@ public sealed class ReportService : BackgroundService
         }
         {
             var byMac = all.ToDictionary(h => h.Mac, h => h, StringComparer.OrdinalIgnoreCase);
-            var top = _store.TrafficTotals(since).Where(kv => byMac.ContainsKey(kv.Key))
-                .OrderByDescending(kv => kv.Value.Rx + kv.Value.Tx).Take(3)
-                .Select(kv => $"{Name(byMac[kv.Key])} ({Bytes(kv.Value.Rx + kv.Value.Tx)})").ToList();
+            // A machine's extra network cards add into its main one, so it's one line.
+            var owners = _store.CardOwners();
+            var top = _store.TrafficTotals(since)
+                .GroupBy(kv => owners.TryGetValue(kv.Key, out var main) ? main : kv.Key, StringComparer.OrdinalIgnoreCase)
+                .Where(g => byMac.ContainsKey(g.Key))
+                .Select(g => (Mac: g.Key, Bytes: g.Sum(kv => kv.Value.Rx + kv.Value.Tx)))
+                .OrderByDescending(x => x.Bytes).Take(3)
+                .Select(x => $"{Name(byMac[x.Mac])} ({Bytes(x.Bytes)})").ToList();
             if (top.Count > 0)
             {
                 sb.AppendLine("Top talkers: " + string.Join("; ", top));

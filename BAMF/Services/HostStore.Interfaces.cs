@@ -24,6 +24,29 @@ public partial class HostStore
         cmd.ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// MAC -> the MAC of the device it counts as, for the extra network cards
+    /// only: each maps to its main card's MAC. Anything not in the map counts
+    /// as itself. Traffic is counted per MAC, so this is what adds a machine's
+    /// cards up into one device.
+    /// </summary>
+    public Dictionary<string, string> CardOwners()
+    {
+        var parents = GetInterfaces();
+        var owners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (parents.Count == 0) return owners;
+        var byId = GetAll().ToDictionary(h => h.Id);
+        foreach (var (child, first) in parents)
+        {
+            // Combining is one level deep, but follow a chain a few steps in case.
+            var root = first;
+            for (var i = 0; i < 5 && parents.TryGetValue(root, out var up) && up != child; i++) root = up;
+            if (byId.TryGetValue(child, out var c) && byId.TryGetValue(root, out var r) && c.Mac != "" && r.Mac != "")
+                owners[c.Mac] = r.Mac;
+        }
+        return owners;
+    }
+
     /// <summary>host id -> the device it's an extra network card of.</summary>
     public Dictionary<long, long> GetInterfaces()
     {
