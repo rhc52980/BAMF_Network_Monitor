@@ -1387,6 +1387,17 @@
   .snooze-chip { margin-left: 6px; font-size: 11px; color: var(--text-dim); white-space: nowrap; cursor: pointer; }
   .snooze-chip:hover { color: var(--text); }
   .snooze-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin: 12px 0 4px; }
+  .snmp-grid { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; align-items: center; margin: 12px 0; }
+  .snmp-grid label { font-size: 13px; color: var(--text-dim); }
+  .snmp-result { font-size: 13px; margin: 6px 0 2px; }
+  .snmp-result.bad { color: var(--danger); }
+  .snmp-wrap { max-height: 280px; overflow-y: auto; margin-top: 6px; }
+  .snmp-ports { width: 100%; min-width: 0; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+  .snmp-ports col.n { width: 34%; }
+  .snmp-ports td { padding: 3px 6px; border-top: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; white-space: normal; }
+  .snmp-ports td.n { font-family: "IBM Plex Mono", monospace; color: var(--text-dim); white-space: nowrap; }
+  .snmp-ports tr.counted td.who { color: var(--text); font-weight: 600; }
+  .snmp-ports td.why { color: var(--text-dim); }
   .note-box { margin-top: 14px; }
   .note-box label {
     display: block; font-family: "IBM Plex Mono", monospace; font-size: 11px;
@@ -3594,7 +3605,8 @@
       How your network is cabled, for the Map. BAMF can't find this out itself: ARP shows which
       devices are on a network, not which port they're plugged into, and budget smart switches
       don't share their MAC table. So this is your own record, and nothing here connects to a
-      switch. Changes apply straight away. To say where a device is plugged in, use
+      switch unless you switch on its <strong>Counters</strong>, which read a managed switch's
+      traffic per port. Changes apply straight away. To say where a device is plugged in, use
       <strong>Plugged into…</strong> in its ⋯ menu.
     </p>
     <table class="set-table" id="swTable"></table>
@@ -4080,6 +4092,33 @@
     </div>
   </div>
 </div>
+<div class="modal-backdrop" id="snmpModal" hidden>
+  <div class="modal">
+    <div class="modal-title" id="snmpTitle">Traffic counters</div>
+    <p class="modal-help">
+      A managed switch counts every byte through every port, and will tell BAMF over SNMP.
+      Once a minute BAMF reads those counts and gives each port's traffic to the device you
+      recorded on it, so you see what each device really uses, not just what reaches this
+      machine, with no mirror port needed. A port with more than one device on it, or another
+      switch plugged in, can't be split between them and is left out. Needs SNMP v2c switched
+      on in the switch's own settings; BAMF only reads.
+    </p>
+    <div class="snmp-grid">
+      <label for="snmpOn">Read counters</label>
+      <span><input type="checkbox" id="snmpOn"> <span class="modal-note" style="display:inline">once a minute</span></span>
+      <label for="snmpAddr">Address</label>
+      <input class="modal-input" id="snmpAddr" placeholder="the switch's address" inputmode="decimal">
+      <label for="snmpComm">Community</label>
+      <input class="modal-input" id="snmpComm" type="password" autocomplete="off" placeholder="public">
+    </div>
+    <div class="snmp-result" id="snmpResult"></div>
+    <div class="snmp-wrap"><table class="snmp-ports"><colgroup><col class="n"><col></colgroup><tbody id="snmpPorts"></tbody></table></div>
+    <div class="modal-actions">
+      <button class="toggle" id="snmpCancel">Close</button>
+      <button class="export-btn" id="snmpSave">Save and test</button>
+    </div>
+  </div>
+</div>
 <div class="modal-backdrop" id="noteModal" hidden>
   <div class="modal">
     <div class="modal-title" id="noteTitle">Note</div>
@@ -4507,6 +4546,12 @@ function buildSpark(host) {
   return wrap;
 }
 
+// Where a device's traffic figure comes from, for its tooltip.
+function trafficSince(t) {
+  if (t && t.source === "switch") return `counted by ${t.where || "the switch"} since BAMF started reading it`;
+  if (t && t.source === "router") return `counted by ${t.where || "the router"} since BAMF started reading it`;
+  return "since the monitor started";
+}
 async function loadTraffic() {
   const r = await fetch("/api/traffic");
   if (!r.ok) throw new Error("API " + r.status);
@@ -5405,10 +5450,13 @@ function renderTrafficCards() {
   const talkers = $("talkers");
   talkers.innerHTML = "";
   const top = (t.top || []).filter(x => x.rxTotal + x.txTotal > 0);
-  $("talkersSub").textContent = !st.available ? "Needs the Npcap driver, which isn't installed."
+  const counting = (t.sources || []).filter(s => s.ok);
+  const also = counting.length ? `Counted by ${counting.map(s => s.name + (s.kind === "switch" ? " (switch)" : " (router)")).join(", ")}` : "";
+  $("talkersSub").textContent = (counting.length && (!st.available || !st.enabled || !st.running)) ? also + "."
+    : !st.available ? "Needs the Npcap driver, which isn't installed."
     : !st.enabled ? "Off. Turn on the traffic monitor in Settings → Behaviour."
     : !st.running ? "Not running" + (st.error ? ": " + st.error : ".")
-    : `Since ${fmtAgo(st.since).replace(" ago", "")} ago on ${(st.interfaces || []).join(", ")} · ${Number(st.frames || 0).toLocaleString()} frames`;
+    : `Since ${fmtAgo(st.since).replace(" ago", "")} ago on ${(st.interfaces || []).join(", ")} · ${Number(st.frames || 0).toLocaleString()} frames` + (also ? " \u00b7 " + also : "");
   const max = Math.max(1, ...top.map(x => x.rxTotal + x.txTotal));
   for (const x of top) {
     const row = document.createElement("div");
@@ -5416,13 +5464,15 @@ function renderTrafficCards() {
     const smax = Math.max(1, ...x.strip);
     row.innerHTML = `<span class="nm" title="${esc(x.mac)}${x.cards > 1 ? ` and ${x.cards - 1} more network card${x.cards > 2 ? "s" : ""}, added together` : ""}">${esc(x.name)}<small>${esc(x.ip || x.mac)}${x.cards > 1 ? ` \u00b7 ${x.cards} cards` : ""}</small></span>` +
       `<span class="amt" title="In ${fmtBytes(x.rxTotal)} · out ${fmtBytes(x.txTotal)}"><b>${fmtBytes(x.rxTotal + x.txTotal)}</b><br>${fmtRate(x.rx + x.tx)}</span>` +
-      `<span class="strip" title="Bytes per ten seconds over the last five minutes">${x.strip.map(v => `<i style="height:${Math.max(4, Math.round(100 * v / smax))}%"></i>`).join("")}</span>`;
+      `<span class="strip" title="${x.source && x.source !== "capture" ? `Bytes per minute over the last half hour, from ${esc(x.where || x.source)}` : "Bytes per ten seconds over the last five minutes"}">${x.strip.map(v => `<i style="height:${Math.max(4, Math.round(100 * v / smax))}%"></i>`).join("")}</span>`;
     if (x.hostId) { row.style.cursor = "pointer"; row.onclick = () => jumpToHost(x.hostId); }
     talkers.appendChild(row);
   }
-  if (st.running && !top.length) talkers.innerHTML = `<div class="watch-note">Nothing counted yet.</div>`;
-  $("talkersNote").textContent = st.running
-    ? "What this machine can see. On a switched network: its own traffic, plus broadcast and multicast, so the DHCP and DNS watch covers this machine and broadcast offers. On a mirrored (SPAN) switch port: everything, every device included."
+  if ((st.running || counting.length) && !top.length) talkers.innerHTML = `<div class="watch-note">Nothing counted yet.</div>`;
+  $("talkersNote").textContent = counting.length
+    ? "Devices a switch or the router counts show everything they send and get. The rest are what this machine can see: on a switched network, its own traffic plus broadcast."
+    : st.running
+    ? "What this machine can see. On a switched network: its own traffic, plus broadcast and multicast, so the DHCP and DNS watch covers this machine and broadcast offers. On a mirrored (SPAN) switch port: everything, every device included. A managed switch's Counters (Settings → Switches and routers) count every device without one."
     : "";
   const body = $("watchBody");
   const trust = (kind, ip, trusted) => `<button type="button" class="toggle" data-kind="${kind}" data-ip="${esc(ip)}" data-trusted="${trusted ? 0 : 1}" title="${trusted ? "Forget this server, so it alerts if seen again" : "Trust this server, so it never alerts"}">${trusted ? "Forget" : "Trust"}</button>`;
@@ -7755,7 +7805,7 @@ function render() {
       <td class="seen" data-label="First seen" title="${esc(fmtExact(h.firstSeen))}">${fmtAgo(h.firstSeen)}</td>
       <td class="seen" data-label="Last seen" title="${esc(fmtExact(h.lastSeen))}">${fmtAgo(h.lastSeen)}</td>
       <td class="spark-cell" data-label="24h"></td>
-      <td class="traf traffic-col${h.traffic && (h.traffic.rx || h.traffic.tx) ? "" : " quiet"}" data-label="Traffic" title="${h.traffic ? `In ${fmtBytes(h.traffic.rxTotal)} · out ${fmtBytes(h.traffic.txTotal)} since the monitor started` : "Nothing seen from this device yet"}">${h.traffic ? `↓<b>${fmtRate(h.traffic.rx)}</b> ↑<b>${fmtRate(h.traffic.tx)}</b>` : "—"}</td>
+      <td class="traf traffic-col${h.traffic && (h.traffic.rx || h.traffic.tx) ? "" : " quiet"}" data-label="Traffic" title="${h.traffic ? `In ${fmtBytes(h.traffic.rxTotal)} · out ${fmtBytes(h.traffic.txTotal)} ${trafficSince(h.traffic)}` : "Nothing seen from this device yet"}">${h.traffic ? `↓<b>${fmtRate(h.traffic.rx)}</b> ↑<b>${fmtRate(h.traffic.tx)}</b>` : "—"}</td>
       <td class="lat ${h.latencyMs == null ? "none" : h.latencyMs < 20 ? "fast" : h.latencyMs < 100 ? "" : h.latencyMs < 300 ? "slow" : "bad"}" data-label="Latency" title="${h.latencyMs == null ? (h.online ? "No reply to the last echo" : "Offline") : "Round-trip time of the last echo"}">${h.latencyMs == null ? (h.online ? "no reply" : "—") : h.latencyMs + " ms"}</td>
       <td class="status-cell"><span class="badge ${h.known ? "known" : "unknown"}">${h.known ? "known" : "unknown"}</span></td>
       <td class="actions-cell"></td>`;
@@ -7875,6 +7925,7 @@ function render() {
       if (ownSwitch) {
         if (ownSwitch.kind === "ap") addItem("Add a wireless SSID…", () => openSwitchDialog(null, null, null, { kind: "ssid", runsOn: ownSwitch.id }));
         else addItem(ownSwitch.kind === "virtual" ? "VMs…" : ownSwitch.kind === "vpn" ? "Clients…" : "Ports…", () => openPortsDialog(ownSwitch));
+        if (ownSwitch.kind === "switch" || ownSwitch.kind === "router") addItem("Traffic counters…", () => openSnmpDialog(ownSwitch));
         addItem(`Edit ${kindNoun(ownSwitch.kind)}…`, () => openSwitchDialog(ownSwitch));
       } else {
         addItem(h.switchId ? "Change plugged into…" : "Plugged into…", () => openPlugDialog(h));
@@ -7969,7 +8020,7 @@ function render() {
       inner += buildLatencyChart(latencyCache[h.id] || []);
       if (h.traffic) {
         const tt = (trafficCache && trafficCache.top || []).find(x => x.hostId === h.id);
-        inner += `<div class="lat-sum">Traffic: <b>${fmtBytes(h.traffic.rxTotal)}</b> in · <b>${fmtBytes(h.traffic.txTotal)}</b> out since the monitor started` +
+        inner += `<div class="lat-sum">Traffic: <b>${fmtBytes(h.traffic.rxTotal)}</b> in · <b>${fmtBytes(h.traffic.txTotal)}</b> out ${esc(trafficSince(h.traffic))}` +
           ` · now ↓${fmtRate(h.traffic.rx)} ↑${fmtRate(h.traffic.tx)}</div>`;
         if (tt) { const smax = Math.max(1, ...tt.strip); inner += `<div class="traf-strip" title="Bytes per ten seconds over the last five minutes">${tt.strip.map(v => `<i style="height:${Math.max(4, Math.round(100 * v / smax))}%"></i>`).join("")}</div>`; }
       }
@@ -9212,16 +9263,86 @@ async function saveVmDialog(sw) {
   }
 }
 
+// ---- switch traffic counters (SNMP) ----
+let snmpCache = null, snmpSwitch = null, snmpLoading = false;
+function loadSnmp() {
+  if (snmpLoading) return;
+  snmpLoading = true;
+  fetch("/api/switches/snmp").then(r => r.ok ? r.json() : null).then(d => {
+    snmpLoading = false;
+    if (d) { snmpCache = d; renderSwitchList(); }
+  }).catch(() => { snmpLoading = false; });
+}
+function openSnmpDialog(sw) {
+  snmpSwitch = sw;
+  const st = (snmpCache || []).find(x => x.switchId === sw.id);
+  const host = sw.hostId ? hosts.find(h => h.id === sw.hostId) : null;
+  $("snmpTitle").textContent = "Traffic counters \u2014 " + sw.name;
+  $("snmpOn").checked = st ? st.enabled : true;
+  // The address field holds only an address typed in; the switch's own device's is the placeholder.
+  $("snmpAddr").value = st && st.address && (!host || st.address !== host.ip) ? st.address : "";
+  $("snmpAddr").placeholder = host ? host.ip + " (its device)" : "the switch's address";
+  $("snmpComm").value = "";
+  $("snmpComm").placeholder = st && st.hasCommunity ? "saved (leave blank to keep)" : "public";
+  renderSnmpResult(st && st.lastPoll ? st : null);
+  $("snmpModal").hidden = false;
+}
+function renderSnmpResult(st) {
+  const res = $("snmpResult"), table = $("snmpPorts");
+  table.innerHTML = "";
+  res.className = "snmp-result";
+  if (!st) { res.textContent = ""; return; }
+  if (!st.enabled) { res.textContent = "Off: BAMF isn't reading this switch."; return; }
+  if (st.error) { res.classList.add("bad"); res.textContent = st.error; return; }
+  res.textContent = `Read ${st.portsRead} port${st.portsRead === 1 ? "" : "s"} (${st.mapping}) ${fmtAgo(st.lastPoll)}. ` +
+    (st.counted ? `Counting ${st.counted} device${st.counted === 1 ? "" : "s"}.` : "No port has exactly one device recorded on it yet, so nothing is counted.");
+  for (const p of st.ports || []) {
+    const tr = document.createElement("tr");
+    if (p.hostId) tr.className = "counted";
+    tr.innerHTML = `<td class="n"></td><td class="${p.hostId ? "who" : "why"}"></td>`;
+    tr.children[0].textContent = `${p.port}${p.name ? " \u00b7 " + p.name : ""}`;
+    tr.children[1].textContent = p.hostId ? p.device : p.note;
+    table.appendChild(tr);
+  }
+}
+async function saveSnmp() {
+  const sw = snmpSwitch;
+  if (!sw) return;
+  const btn = $("snmpSave");
+  btn.disabled = true;
+  $("snmpResult").className = "snmp-result";
+  $("snmpResult").textContent = $("snmpOn").checked ? "Asking the switch\u2026" : "";
+  try {
+    const comm = $("snmpComm").value.trim();
+    const r = await fetch(`/api/switches/${sw.id}/snmp`, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: $("snmpOn").checked, address: $("snmpAddr").value.trim(), community: comm || null }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { $("snmpResult").className = "snmp-result bad"; $("snmpResult").textContent = d.error || "Couldn't save (HTTP " + r.status + ")."; return; }
+    $("snmpComm").value = "";
+    if (d.hasCommunity) $("snmpComm").placeholder = "saved (leave blank to keep)";
+    renderSnmpResult(d);
+    loadSnmp();
+  } catch (e) { console.error(e); $("snmpResult").className = "snmp-result bad"; $("snmpResult").textContent = "Couldn't reach BAMF."; }
+  finally { btn.disabled = false; }
+}
+function closeSnmpDialog() { $("snmpModal").hidden = true; snmpSwitch = null; }
+$("snmpSave").onclick = saveSnmp;
+$("snmpCancel").onclick = closeSnmpDialog;
+$("snmpModal").onclick = e => { if (e.target.id === "snmpModal") closeSnmpDialog(); };
+
 function renderSwitchList() {
   const table = $("swTable");
   if (!table) return;
+  if (snmpCache === null) loadSnmp();
   table.innerHTML = "";
   $("swEmpty").hidden = switches.length > 0;
   for (const sw of switches) {
     const host = sw.hostId ? hosts.find(h => h.id === sw.hostId) : null;
     const n = hosts.filter(h => h.switchId === sw.id && !h.forgotten).length;
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td class="sw-name"></td><td class="set-eff"></td><td><button class="toggle sw-ports-btn">Ports</button> <button class="toggle sw-edit-btn">Edit</button></td>`;
+    const snmpOn = (snmpCache || []).some(x => x.switchId === sw.id && x.enabled);
+    tr.innerHTML = `<td class="sw-name"></td><td class="set-eff"></td><td style="white-space:nowrap"><button class="toggle sw-ports-btn">Ports</button> <button class="toggle sw-edit-btn">Edit</button>` +
+      (sw.kind === "switch" || sw.kind === "router" ? ` <button class="toggle sw-snmp-btn" title="Read this switch's traffic per port over SNMP">${snmpOn ? "Counters \u2713" : "Counters"}</button>` : "") + `</td>`;
     tr.children[0].textContent = sw.name;
     const ssids = sw.kind === "ap" ? switches.filter(x => x.kind === "ssid" && x.runsOn === sw.id) : [];
     tr.children[1].textContent = [
@@ -9239,6 +9360,8 @@ function renderSwitchList() {
     if (sw.kind === "ap") pb.textContent = "Add SSID";
     pb.onclick = () => sw.kind === "ap" ? openSwitchDialog(null, null, null, { kind: "ssid", runsOn: sw.id }) : openPortsDialog(sw);
     tr.querySelector(".sw-edit-btn").onclick = () => openSwitchDialog(sw);
+    const cb = tr.querySelector(".sw-snmp-btn");
+    if (cb) cb.onclick = () => openSnmpDialog(sw);
     table.appendChild(tr);
   }
 }
@@ -18029,6 +18152,7 @@ document.addEventListener("keydown", e => {
   if (!$("cardsModal").hidden) { closeCardsDialog(); return; }
   if (!$("gwModal").hidden) { closeGatewayDialog(); return; }
   if (!$("snoozeModal").hidden) { closeSnoozeDialog(); return; }
+  if (!$("snmpModal").hidden) { closeSnmpDialog(); return; }
   if (!$("noteModal").hidden) { closeNoteDialog(); return; }
   if (!$("swModal").hidden) { closeSwitchDialog(); return; }
   if (!$("plugModal").hidden) { closePlugDialog(); return; }

@@ -168,6 +168,7 @@ public partial class HostStore
         InitIpv6(conn);
         InitFloors(conn);
         InitWan(conn);
+        InitSnmp(conn);
     }
 
     /// <summary>Every address a host has been seen at, oldest first, with when each began.</summary>

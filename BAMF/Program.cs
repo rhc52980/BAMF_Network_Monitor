@@ -55,6 +55,9 @@ builder.Services.AddSingleton(sp => new UpdateChecker(
     version));
 builder.Services.AddSingleton<MdnsListener>();
 builder.Services.AddSingleton<TrafficMonitor>();
+builder.Services.AddSingleton<MeasuredTraffic>();
+builder.Services.AddSingleton<SwitchCounters>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SwitchCounters>());
 builder.Services.AddSingleton<PortBlinker>();
 builder.Services.AddSingleton<ScannerService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ScannerService>());
@@ -75,6 +78,8 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<MqttPublisher>());
 builder.Services.AddHttpClient();
 
 var app = builder.Build();
+// Devices a switch or the router counts keep their history from there, not the capture.
+app.Services.GetRequiredService<TrafficMonitor>().CountedElsewhere = app.Services.GetRequiredService<MeasuredTraffic>().Covers;
 
 // First line in the Event Log / journal, so "what's actually running?" is answerable.
 app.Logger.LogInformation("BAMF {Version} (built {BuildDate} UTC) starting", version, buildDate);
@@ -193,7 +198,7 @@ app.MapGet("/themes/{id}/{file}", (string id, string file, HttpContext ctx) =>
 
 // ---------- API ----------
 
-app.MapGet("/api/hosts", (HttpContext ctx, HostStore store, ScannerService scanner, UpdateChecker updates, PortBlinker blinker, RemoteService remotesSvc) =>
+app.MapGet("/api/hosts", (HttpContext ctx, HostStore store, ScannerService scanner, UpdateChecker updates, PortBlinker blinker, RemoteService remotesSvc, MeasuredTraffic measured) =>
 {
     var linkTemplate = app.Configuration["Bamf:DeviceLinkTemplate"];
     var placements = store.GetPlacements();
@@ -204,7 +209,9 @@ app.MapGet("/api/hosts", (HttpContext ctx, HostStore store, ScannerService scann
     var uptimes = store.Uptimes();
     var tags = store.GetTags();
     // A device with extra network cards combined into it counts all of them.
-    var counters = TrafficMonitor.Combine(scanner.Traffic.Counters(), store.CardOwners()).ToDictionary(kv => kv.Key, kv => kv.Value.Counter, StringComparer.OrdinalIgnoreCase);
+    // What a switch or the router counts replaces what the capture saw.
+    var fresh = measured.Fresh();
+    var counters = TrafficMonitor.Combine(measured.Overlay(scanner.Traffic.Counters()), store.CardOwners()).ToDictionary(kv => kv.Key, kv => kv.Value.Counter, StringComparer.OrdinalIgnoreCase);
     var dnsByDevice = scanner.Traffic.DnsByDevice();
     var openPorts = store.OpenPorts();
     var routerNames = store.GetRouterNames();
@@ -252,7 +259,9 @@ app.MapGet("/api/hosts", (HttpContext ctx, HostStore store, ScannerService scann
         tags = tags.TryGetValue(h.Id, out var tg) ? tg : new List<string>(),
         // Bytes per second in and out over the last ten seconds, and totals since the
         // traffic monitor started, as seen from this machine. Null when it isn't running.
-        traffic = counters.TryGetValue(h.Mac, out var tc) ? new { rx = Math.Round(tc.Rx), tx = Math.Round(tc.Tx), rxTotal = tc.RxTotal, txTotal = tc.TxTotal } : null,
+        // Source is "switch" or "router" when one of them counted it, with where: "Office switch, port 5".
+        traffic = counters.TryGetValue(h.Mac, out var tc) ? new { rx = Math.Round(tc.Rx), tx = Math.Round(tc.Tx), rxTotal = tc.RxTotal, txTotal = tc.TxTotal,
+            source = fresh.TryGetValue(h.Mac, out var fr) ? fr.Source : "capture", where = fr?.Where } : null,
         // The DNS servers this device asks, most used first.
         dns = dnsByDevice.TryGetValue(h.Mac, out var dl) ? dl : new List<string>(),
         // Ports found open the last time it was scanned, if ever.
@@ -697,14 +706,15 @@ app.MapPost("/api/hosts/{id:long}/tags", (long id, TagsRequest body, HostStore s
 
 // Everything the Activity tab's traffic cards show: top talkers with their
 // five-minute strips, the DHCP and DNS servers seen, and the watch alerts.
-app.MapGet("/api/traffic", (HostStore store, ScannerService scanner) =>
+app.MapGet("/api/traffic", (HostStore store, ScannerService scanner, MeasuredTraffic measured, SwitchCounters switchCounters, RouterImport import) =>
 {
     var t = scanner.Traffic;
     var hosts = store.GetAll().Where(h => !h.Forgotten).ToDictionary(h => h.Mac, h => h, StringComparer.OrdinalIgnoreCase);
     string Name(string mac) => hosts.TryGetValue(mac, out var h) ? (h.CustomName != "" ? h.CustomName : h.Hostname != "" ? h.Hostname : h.Ip) : mac;
     // One line per device: a machine with several network cards combined into
     // one device is counted once, with all its cards' traffic added up.
-    var top = TrafficMonitor.Combine(t.Counters(), store.CardOwners())
+    var fresh = measured.Fresh();
+    var top = TrafficMonitor.Combine(measured.Overlay(t.Counters()), store.CardOwners())
         .Where(kv => hosts.ContainsKey(kv.Key) || kv.Value.Counter.RxTotal + kv.Value.Counter.TxTotal > 0)
         .OrderByDescending(kv => kv.Value.Counter.RxTotal + kv.Value.Counter.TxTotal)
         .Take(12)
@@ -713,11 +723,19 @@ app.MapGet("/api/traffic", (HostStore store, ScannerService scanner) =>
             mac = kv.Key, hostId = hosts.TryGetValue(kv.Key, out var h) ? h.Id : 0, name = Name(kv.Key),
             ip = hosts.TryGetValue(kv.Key, out var h2) ? h2.Ip : "",
             cards = kv.Value.Cards,
+            source = fresh.TryGetValue(kv.Key, out var fr) ? fr.Source : "capture", where = fr?.Where,
             rxTotal = kv.Value.Counter.RxTotal, txTotal = kv.Value.Counter.TxTotal, rx = Math.Round(kv.Value.Counter.Rx), tx = Math.Round(kv.Value.Counter.Tx), strip = kv.Value.Counter.Strip,
         });
+    // What else is counting, for the card's subtitle.
+    var sources = switchCounters.Statuses().Where(s => s.Enabled)
+        .Select(s => new { kind = "switch", name = s.Name, ok = s.Error is null && s.LastPoll is not null, error = s.Error, devices = s.Counted })
+        .ToList();
+    var ri = import.Current;
+    if (ri.Traffic) sources.Add(new { kind = "router", name = "UniFi", ok = ri.TrafficError is null && ri.TrafficAt is not null, error = ri.TrafficError, devices = ri.TrafficClients });
     return Results.Json(new
     {
         status = TrafficJson(scanner),
+        sources,
         top,
         dhcp = t.DhcpServers().Select(s => new { s.Ip, s.Mac, name = Name(s.Mac), s.LastSeen, s.Offers, trusted = t.KnownDhcp.Contains(s.Ip) }),
         dns = t.DnsServers().Select(s => new { s.Ip, s.LastSeen, s.Clients, s.Queries, trusted = t.KnownDns.Contains(s.Ip),
@@ -1465,7 +1483,29 @@ app.MapPost("/api/switches/{id:long}", (long id, SwitchInput body, HostStore sto
 });
 
 app.MapDelete("/api/switches/{id:long}", (long id, HostStore store) =>
-    store.DeleteSwitch(id) ? Results.Ok() : Results.NotFound());
+{
+    if (!store.DeleteSwitch(id)) return Results.NotFound();
+    store.DeleteSnmpConfig(id);
+    return Results.Ok();
+});
+
+// Traffic counters from managed switches over SNMP: each switch's settings
+// and what it last said. The community is never sent back, only whether one's saved.
+app.MapGet("/api/switches/snmp", (SwitchCounters counters) => Results.Json(counters.Statuses()));
+app.MapPost("/api/switches/{id:long}/snmp", async (long id, SnmpRequest body, HostStore store, SwitchCounters counters, CancellationToken ct) =>
+{
+    var sw = store.GetSwitches().FirstOrDefault(s => s.Id == id);
+    if (sw is null) return Results.NotFound();
+    if (sw.Kind is not ("switch" or "router")) return Results.BadRequest(new { error = "Only a switch or router has ports to read." });
+    var address = (body.Address ?? "").Trim();
+    if (address != "" && !System.Net.IPEndPoint.TryParse(address, out _)) return Results.BadRequest(new { error = "That isn't an IP address (add :port for one that isn't 161)." });
+    var community = body.Community is null ? null : body.Community.Trim();
+    if (community is { Length: > 64 }) return Results.BadRequest(new { error = "That community is too long." });
+    store.SaveSnmpConfig(id, body.Enabled, address, community == "" ? null : community);
+    // Read it straight away, so the dialog can say whether it worked.
+    var status = body.Enabled ? await counters.PollOne(id, ct) : counters.Statuses().FirstOrDefault(s => s.SwitchId == id);
+    return Results.Json(status);
+});
 
 // Everything on one switch at once, from its Ports dialog: the hosts listed
 // are placed on it (moving off any other switch), the rest come off it.
@@ -1838,6 +1878,7 @@ record LinkRequest(string? Link);
 record PlugRequest(long SwitchId, int Port);
 record GatewayRequest(string? Ip, bool Enabled);
 record CombineRequest(long ParentId);
+record SnmpRequest(bool Enabled, string? Address, string? Community);
 record TagsRequest(List<string>? Tags);
 record TrustRequest(string? Kind, string? Ip, bool Trusted);
 record ReportRequest(string? Schedule, int? Hour, int? Day);
