@@ -393,14 +393,14 @@ survive IP changes.
   automations can fire when someone gets home. See [MQTT](#mqtt-and-home-assistant).
 - **Tags** - group devices as "kids", "IoT", "work" or whatever fits, then
   filter the list and the Map by tag. See [Tags](#tags).
-- **40 themes** - click the theme button for a picker, grouped into colours,
+- **41 themes** - click the theme button for a picker, grouped into colours,
   animated and holidays: Dark, Light, Terminal, Amber CRT, Synthwave, Commodore
   64, Game Boy, Nord, Dracula, Solarized (dark + light), Gruvbox, High Contrast,
   Matrix, Blueprint, Hacker Red, Cotton Candy, Thunderstorm, Hotdog Stand,
   Steampunk, Waterworks, Aquarium, Goat, Goat Night, City Lights,
   Constellation, Claw Machine (dark + dusk), Laser Show, Data Centre, Power
-  Plant, Departures, Factory (day + night shift), Spring, Summer, Winter, Woodlands, New
-  Year and Thanksgiving. See [Theme](#theme).
+  Plant, Departures, Factory (day + night shift), Spring, Summer, Winter,
+  Woodlands, Model Railway, New Year and Thanksgiving. See [Theme](#theme).
   CRT themes get scanlines; each pick triggers a BAMF! splat. Choice persists.
   There are also two seasonal themes you won't find in the list. They unlock the
   way a friendly program would: just tell it its name. (On a phone, the logo is
@@ -434,9 +434,9 @@ CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
 Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
 City Lights, Constellation, Claw Machine, Claw Machine Dusk, Laser Show,
-Data Centre, Power Plant, Departures, Factory, Factory Night Shift, Spring, Summer,
-Winter, Woodlands, New Year and Thanksgiving. Your choice is remembered in
-your browser.
+Data Centre, Power Plant, Departures, Factory, Factory Night Shift, Spring,
+Summer, Winter, Woodlands, Model Railway, New Year and Thanksgiving. Your
+choice is remembered in your browser.
 
 The menu is grouped: **Colours** for the schemes where nothing much moves —
 including Synthwave, Hacker Red and Cotton Candy, which are colour schemes
@@ -709,6 +709,23 @@ Some themes have a little life in them:
   never hides the last rows. Reduced motion holds the wood still, with a deer
   grazing and a rabbit sat up, and the vine still showing how much of the
   network is up.
+- **Model Railway**: a train set run round the edges of the page, in daylight.
+  Along the bottom is a baseboard with the main line on it and **a station for
+  each network**, its nameboard showing the network (`192.168.30.0/24`), with a
+  building, a canopy and a loop beside the platform so a train calling there is
+  off the main line. Along the top runs the line back, where the trains go
+  round smaller on their way to start again. Behind the page is a painted
+  backscene: hills in the haze, a viaduct, a village with its church.
+
+  **Each network has its train**, in its own livery, and **every device that's
+  up on it is a wagon**, lettered with the last part of its address, up to
+  seven with a `+N` on the last. The engines steam as they go. **A watched
+  device going down puts its station's exit signal to red, and the train waits
+  in the platform until it's back**; any device dropping off holds it there
+  for a moment. A finished scan has every train whistle and put on speed, and
+  a new device's wagon lights up. With one network there's a goods train
+  running through as well. The page gets room at the bottom so the baseboard
+  never hides the last rows. Reduced motion stands each train at its station.
 - **New Year**: fireworks over a city at midnight. Rockets climb from behind
   the skyline, burst, and the sparks fall and fade; a finished scan sets one
   off. Reduced motion keeps three bursts hanging over the rooftops.
