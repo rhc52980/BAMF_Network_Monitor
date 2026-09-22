@@ -15058,6 +15058,37 @@ function buildWoodlands(root) {
       g.beginPath(); g.arc(x + dir * rnd(-W * .03, W * .22), rnd(-30, H * .15), rnd(24, 58) * S, 0, TAU); g.fill();
     }
   }
+  // A big tree out in the middle, like the ones at the edges but with its
+  // crown spreading both ways, and kept up behind the header so the band just
+  // below it keeps a little sky.
+  function midTree(g, x, tw, crownLow) {
+    const bark = g.createLinearGradient(x - tw / 2, 0, x + tw / 2, 0);
+    bark.addColorStop(0, "#150f0a"); bark.addColorStop(.4, "#33241a"); bark.addColorStop(1, "#110c08");
+    g.fillStyle = bark;
+    g.beginPath(); g.moveTo(x - tw * .5, H); g.lineTo(x - tw * .36, 0); g.lineTo(x + tw * .36, 0); g.lineTo(x + tw * .5, H); g.closePath(); g.fill();
+    g.strokeStyle = "rgba(0, 0, 0, .35)"; g.lineWidth = 1.4;
+    for (let y = 30; y < H; y += rnd(26, 60)) {
+      g.beginPath(); g.moveTo(x - tw * .3, y); g.quadraticCurveTo(x - tw * .05, y + 10, x + tw * .2, y + rnd(18, 34)); g.stroke();
+    }
+    g.strokeStyle = "#2a1e14"; g.lineCap = "round"; g.lineWidth = 7 * S;
+    for (const d of [-1, 1]) { g.beginPath(); g.moveTo(x, crownLow + 8 * S); g.quadraticCurveTo(x + d * W * .04, crownLow - 14 * S, x + d * W * .08, crownLow - 22 * S); g.stroke(); }
+    for (let k = 0; k < 16; k++) {
+      g.fillStyle = pick(["#1a3822", "#20452a", "#17331f", "#29512f", "#23492a"]);
+      g.beginPath(); g.arc(x + rnd(-W * .1, W * .1), rnd(-40, crownLow - 10 * S), rnd(22, 50) * S, 0, TAU); g.fill();
+    }
+  }
+  // A branch, from a trunk out to its tip, tapering.
+  function limb(g, x0, y0, x1, y1, w0) {
+    g.strokeStyle = "#2c2016"; g.lineCap = "round";
+    const n = 6;
+    for (let i = 0; i < n; i++) {
+      const u0 = i / n, u1 = (i + 1) / n;
+      g.lineWidth = w0 * (1 - u0 * .65);
+      g.beginPath(); g.moveTo(x0 + (x1 - x0) * u0, y0 + (y1 - y0) * u0 + Math.sin(u0 * Math.PI) * 4 * S);
+      g.lineTo(x0 + (x1 - x0) * u1, y0 + (y1 - y0) * u1 + Math.sin(u1 * Math.PI) * 4 * S); g.stroke();
+    }
+    for (let k = 0; k < 5; k++) leaf(g, x0 + (x1 - x0) * rnd(.35, 1), y0 + (y1 - y0) * rnd(.35, 1) + rnd(-6, 6) * S, rnd(5, 8) * S, rnd(-1, 1), pick(["#2f5a2a", "#3d6e32", "#356231"]));
+  }
   // A songbird facing right, feet at the origin.
   function songbird(g, x, y, dir, sc, flap, k, perched, flick) {
     g.save(); g.translate(x, y); g.scale(dir * sc, sc);
@@ -15161,13 +15192,35 @@ function buildWoodlands(root) {
     g.restore();
     g.restore();
   }
-  function hawk(x, y, sc, flap) {
-    ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
-    ctx.fillStyle = "rgba(28, 30, 26, .82)";
-    ctx.beginPath();
-    ctx.moveTo(-18, -2 - flap * 5); ctx.quadraticCurveTo(-8, -4, 0, 0); ctx.quadraticCurveTo(8, -4, 18, -2 - flap * 5);
-    ctx.quadraticCurveTo(8, 2, 0, 3); ctx.quadraticCurveTo(-8, 2, -18, -2 - flap * 5); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(-2, 2); ctx.lineTo(0, 8); ctx.lineTo(2, 2); ctx.closePath(); ctx.fill();
+  // A bald eagle in the air, seen from below: broad dark wings with the
+  // fingered tips, and the white head and tail. Head towards -y.
+  function eagleFlying(x, y, sc, ang, flap) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(ang + Math.PI / 2); ctx.scale(sc, sc);
+    ctx.fillStyle = "#2c1d11";
+    for (const d of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(0, -2);
+      ctx.quadraticCurveTo(d * 14, -7 - flap * 6, d * 34, -3 - flap * 9);
+      ctx.lineTo(d * 37, -flap * 8); ctx.lineTo(d * 33, 1 - flap * 7); ctx.lineTo(d * 35, 3 - flap * 6); ctx.lineTo(d * 30, 3 - flap * 5);
+      ctx.quadraticCurveTo(d * 14, 5 - flap * 2, 0, 4);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.beginPath(); ctx.ellipse(0, 1, 4, 9, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#f4f1e8"; ctx.beginPath(); ctx.arc(0, -8, 3.6, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#f2b632"; ctx.beginPath(); ctx.moveTo(-1.2, -11); ctx.lineTo(1.2, -11); ctx.lineTo(0, -13.5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#f1eee4"; ctx.beginPath(); ctx.moveTo(-3, 9); ctx.lineTo(3, 9); ctx.lineTo(5.5, 16); ctx.lineTo(-5.5, 16); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  // A bald eagle sitting in the nest, facing right: the white head and the
+  // hooked yellow beak over the rim.
+  function eagleSitting(x, y, dir, sc) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(dir * sc, sc);
+    ctx.fillStyle = "#3a2616"; ctx.beginPath(); ctx.ellipse(0, -8, 12, 11, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#f4f1e8"; ctx.beginPath(); ctx.ellipse(5, -22, 8, 7, -.2, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#f2b632";
+    ctx.beginPath(); ctx.moveTo(11, -24.5); ctx.quadraticCurveTo(19.5, -23.5, 18, -18); ctx.lineTo(15.5, -19.8); ctx.lineTo(11, -20.5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#1a1208"; ctx.beginPath(); ctx.arc(8.5, -24, 1.1, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "rgba(0, 0, 0, .35)"; ctx.lineWidth = .8; ctx.beginPath(); ctx.moveTo(6.5, -25.8); ctx.lineTo(10.5, -25.2); ctx.stroke();
     ctx.restore();
   }
   function skyBird(x, y, sc, flap) {
@@ -15177,6 +15230,13 @@ function buildWoodlands(root) {
     ctx.moveTo(x - 8 * sc, y - flap * 4 * sc); ctx.quadraticCurveTo(x - 3 * sc, y - 4 * sc, x, y);
     ctx.quadraticCurveTo(x + 3 * sc, y - 4 * sc, x + 8 * sc, y - flap * 4 * sc); ctx.stroke();
   }
+
+  // The band just under the header is open page, where the back layer shows
+  // through: the nest, the owl and the snake live there.
+  const HB = Math.round(document.querySelector("header")?.getBoundingClientRect().bottom || 60);
+  const NX = W * .70, NY = HB + 34 * S;          // the eagles' nest
+  const OX = W * .885, OY = HB + 58 * S;         // the owl on its branch
+  const SX = W * .56 + 70 * S, SY = HB + 22 * S; // where the snake hangs over
 
   // ---- Behind the page: the landscape, drawn once ----
   const [land, lc] = layer();
@@ -15203,8 +15263,26 @@ function buildWoodlands(root) {
     ridge(HY + H * .1, H * .045, "#1b3028", "#162921", 34 * S, 72 * S, 24 * S, 2.2);
     for (let x = rnd(0, 120); x < W; x += rnd(90, 220)) crown(lc, x, HY + H * .1 - rnd(24, 54) * S, rnd(20, 38) * S, pick(["#1a3326", "#1e3a2a", "#173022"]));
     lc.fillStyle = "#101c16"; lc.fillRect(0, HY + H * .15, W, H);
+    // Three more big trees out across the middle: one holds the nest, one
+    // the snake's branch.
+    midTree(lc, W * .34, 36 * S, HB + 8 * S);
+    midTree(lc, W * .56, 38 * S, HB + 4 * S);
+    midTree(lc, NX, 40 * S, HB + 18 * S);
     bigTree(lc, 0); bigTree(lc, 1);
+    // The snake's branch, reaching out from the middle tree; the owl's, in
+    // from the right-hand edge tree; and the fork the nest sits in.
+    limb(lc, W * .56, SY + 4 * S, SX + 60 * S, SY - 2 * S, 9 * S);
+    limb(lc, W * .955, OY + 10 * S, OX - 40 * S, OY + 2 * S, 10 * S);
+    lc.strokeStyle = "#2c2016"; lc.lineCap = "round"; lc.lineWidth = 6 * S;
+    for (const d of [-1, 1]) { lc.beginPath(); lc.moveTo(NX, NY + 20 * S); lc.lineTo(NX + d * 30 * S, NY - 2 * S); lc.stroke(); }
   }
+  // The nest's sticks, laid once: some along the back rim, behind the eagle,
+  // and the rest across the front of the bowl.
+  const sticks = back => Array.from({ length: back ? 16 : 30 }, () => {
+    const x = rnd(-34, 34), y = back ? rnd(-12, -6) : rnd(-7, 4), a = rnd(-.5, .5), l = rnd(10, 22);
+    return [x - Math.cos(a) * l / 2, y - Math.sin(a) * l / 2, x + Math.cos(a) * l / 2, y + Math.sin(a) * l / 2, pick(["#6b4a2a", "#4a331d", "#7d5a36", "#5a3e22"]), rnd(1.4, 2.6)];
+  });
+  const nestBack = sticks(true), nestFront = sticks(false);
 
   // ---- In front of the page: the vine, the margin trunks and the floor, drawn once ----
   const ANCH = Math.max(3, Math.round(W / 300));
@@ -15260,7 +15338,14 @@ function buildWoodlands(root) {
     spin: rnd(-1.5, 1.5), vy: rnd(16, 38) * S, sway: rnd(12, 34), ph: rnd(0, TAU), col: pick(LEAF) });
   const leaves = Array.from({ length: Math.min(36, Math.round(W / 40)) }, () => mkLeaf(false));
   const flocks = [], startled = [], flyers = [], notes = [], chips = [];
-  let flockAt = 0, hawkBird = null, hawkAt = 0;
+  let flockAt = 0;
+  // The eagle: sitting in the nest, out soaring, or on its way home.
+  const smooth = u => u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
+  const eagle = { mode: "nest", at: 0, x: NX, y: NY - 18 * S, px: NX, py: NY, ang: 0, cx: 0, cy: 0, R: 0, a: 0, t: 0, dur: 0,
+    from: null, dir: -1, turnAt: 0, flap: 0 };
+  // The owl watching over: its head follows the pointer, or looks about.
+  const bigOwl = { yaw: 0, want: 0, blink: 0, blinkAt: 0, wide: 0, lookAt: 0, px: null, pAt: 0 };
+  const snake = { flick: 0, flickAt: 0 };
   let walker = null, walkerAt = 0, bunny = null, bunnyAt = 0, bfly = null, bflyAt = 0;
   const owl = { blink: 0, blinkAt: 0, wide: 0 };
   const wp = { burst: 0, at: 0 };
@@ -15340,14 +15425,49 @@ function buildWoodlands(root) {
       f.x += f.v * dt; f.y += Math.sin(now / 1500 + i) * 3 * dt;
       if (f.x < -320 || f.x > W + 320) flocks.splice(i, 1);
     }
-    if (!hawkBird && now > hawkAt) hawkBird = { cx: rnd(W * .2, W * .8), cy: rnd(H * .08, H * .2), R: rnd(50, 110) * S, a: rnd(0, TAU), drift: rnd(-10, 10), life: rnd(22, 38), flap: 0 };
-    if (hawkBird) {
-      const h = hawkBird;
-      h.a += dt * .45; h.cx += h.drift * dt; h.life -= dt;
-      h.flap = Math.max(0, h.flap - dt);
-      if (Math.random() < dt * .08) h.flap = .8;
-      if (h.life <= 0) { h.cy -= 60 * dt; if (h.cy < -80) { hawkBird = null; hawkAt = now + rnd(80e3, 160e3); } }
+    // The eagle: sits, turns its head now and then, and every minute or so
+    // goes out to soar in wide circles before gliding home.
+    const e = eagle;
+    e.px = e.x; e.py = e.y;
+    e.flap = Math.max(0, e.flap - dt);
+    if (e.mode === "nest") {
+      e.x = NX; e.y = NY - 18 * S;
+      if (now > e.turnAt) { e.dir *= -1; e.turnAt = now + rnd(3e3, 8e3); }
+      if (now > e.at) {
+        e.mode = "out"; e.t = 0; e.dur = rnd(18, 28); e.from = [e.x, e.y]; e.flap = 2;
+        // It circles in the open band under the header, the part of the sky
+        // the page doesn't cover, rather than disappearing behind the cards.
+        e.cx = rnd(W * .55, W * .8); e.cy = HB + 50 * S;
+        e.R = rnd(110, 170) * S; e.a = Math.atan2(NY - e.cy, NX - e.cx);
+      }
+    } else if (e.mode === "out") {
+      e.t += dt; e.a += dt * .5;
+      const cx = e.cx + Math.cos(e.a) * e.R, cy = e.cy + Math.sin(e.a) * e.R * .26;
+      const u = smooth(Math.min(1, e.t / 2.5));
+      e.x = e.from[0] + (cx - e.from[0]) * u; e.y = e.from[1] + (cy - e.from[1]) * u;
+      if (Math.random() < dt * .1) e.flap = .8;
+      if (e.t > e.dur) { e.mode = "back"; e.t = 0; e.from = [e.x, e.y]; }
+    } else {
+      e.t += dt;
+      const u = smooth(Math.min(1, e.t / 4.5));
+      const mx = (e.from[0] + NX) / 2, my = Math.min(e.from[1], NY) - 60 * S;
+      e.x = (1 - u) * (1 - u) * e.from[0] + 2 * (1 - u) * u * mx + u * u * NX;
+      e.y = (1 - u) * (1 - u) * e.from[1] + 2 * (1 - u) * u * my + u * u * (NY - 18 * S);
+      if (u > .8) e.flap = .6;
+      if (u >= 1) { e.mode = "nest"; e.at = now + rnd(45e3, 90e3); }
     }
+    if (e.mode !== "nest") e.ang = Math.atan2(e.y - e.py, e.x - e.px);
+    // The owl: follows the pointer while it moves, and otherwise looks about.
+    const o = bigOwl;
+    if (o.px !== null && now - o.pAt < 4000) o.want = Math.max(-1, Math.min(1, (o.px - OX) / (W * .35)));
+    else if (now > o.lookAt) { o.want = rnd(-1, 1); o.lookAt = now + rnd(3e3, 7e3); }
+    o.yaw += (o.want - o.yaw) * Math.min(1, dt * 3);
+    if (now > o.blinkAt) { o.blink = .16; o.blinkAt = now + rnd(2500, 6500); }
+    o.blink = Math.max(0, o.blink - dt);
+    o.wide = Math.max(0, o.wide - dt);
+    // The snake: a flick of the tongue now and then.
+    if (now > snake.flickAt) { snake.flick = .35; snake.flickAt = now + rnd(2500, 6000); }
+    snake.flick = Math.max(0, snake.flick - dt);
     for (let i = startled.length - 1; i >= 0; i--) {
       const b = startled[i];
       b.x += b.vx * dt; b.y += b.vy * dt; b.vy += 45 * S * dt;
@@ -15453,6 +15573,81 @@ function buildWoodlands(root) {
     }
   }
 
+  function drawNest(front) {
+    ctx.save(); ctx.translate(NX, NY); ctx.scale(S, S); ctx.lineCap = "round";
+    if (front) { ctx.fillStyle = "#3f2b18"; ctx.beginPath(); ctx.ellipse(0, -1, 34, 9, 0, 0, Math.PI); ctx.fill(); }
+    for (const [x0, y0, x1, y1, col, w] of front ? nestFront : nestBack) {
+      ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // The eaglet: a grey fuzzy head that pops up while its parent is away.
+  function drawEaglet(t) {
+    const bob = Math.max(0, Math.sin(t * 1.3)) * 4 * S;
+    ctx.fillStyle = "#b9b4aa"; ctx.beginPath(); ctx.arc(NX - 6 * S, NY - 10 * S - bob, 6 * S, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#3a3026"; ctx.beginPath(); ctx.moveTo(NX - 1 * S, NY - 11 * S - bob); ctx.lineTo(NX + 3.5 * S, NY - 10 * S - bob); ctx.lineTo(NX - 1 * S, NY - 8.5 * S - bob); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(NX - 4 * S, NY - 12 * S - bob, .9 * S, 0, TAU); ctx.fill();
+  }
+  // The great horned owl on its branch, watching.
+  function drawBigOwl() {
+    const o = bigOwl, hx = o.yaw * 3;
+    ctx.save(); ctx.translate(OX, OY); ctx.scale(S, S);
+    ctx.fillStyle = "#c9a13a"; ctx.fillRect(-5, -2, 3, 3); ctx.fillRect(2, -2, 3, 3);
+    ctx.fillStyle = "#7a5634"; ctx.beginPath(); ctx.ellipse(0, -15, 11, 15, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#c7a57a"; ctx.beginPath(); ctx.ellipse(0, -12, 7, 10, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "rgba(90, 60, 30, .55)"; ctx.lineWidth = .8;
+    for (let k = 0; k < 5; k++) { ctx.beginPath(); ctx.moveTo(-5, -18 + k * 3); ctx.lineTo(5, -18 + k * 3); ctx.stroke(); }
+    ctx.fillStyle = "#6a4a2c";
+    ctx.beginPath(); ctx.ellipse(-9, -14, 4, 11, .2, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(9, -14, 4, 11, -.2, 0, TAU); ctx.fill();
+    // Head, turned by the yaw: the face slides the way it's looking.
+    ctx.fillStyle = "#7a5634"; ctx.beginPath(); ctx.ellipse(hx * .4, -33, 10.5, 9, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(hx * .4 - 9, -38); ctx.lineTo(hx * .4 - 10, -47); ctx.lineTo(hx * .4 - 4, -40); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(hx * .4 + 9, -38); ctx.lineTo(hx * .4 + 10, -47); ctx.lineTo(hx * .4 + 4, -40); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#d8b98a"; ctx.beginPath(); ctx.ellipse(hx, -33, 8, 6.5, 0, 0, TAU); ctx.fill();
+    const er = o.wide > 0 ? 3.2 : 2.7;
+    for (const ex of [-3.7, 3.7]) {
+      ctx.fillStyle = "#f7b733"; ctx.beginPath(); ctx.arc(hx + ex, -34, er, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(hx + ex + o.yaw * .9, -34, er * (o.wide > 0 ? .62 : .48), 0, TAU); ctx.fill();
+      if (o.blink > 0) { ctx.fillStyle = "#7a5634"; ctx.beginPath(); ctx.arc(hx + ex, -34, er + .4, 0, TAU); ctx.fill(); }
+    }
+    ctx.fillStyle = "#3a2a1a"; ctx.beginPath(); ctx.moveTo(hx - 1.3, -32); ctx.lineTo(hx + 1.3, -32); ctx.lineTo(hx, -28.5); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  // The snake: wound twice round its branch, the rest of it hanging and
+  // swaying, head at the bottom and tongue flicking.
+  function drawSnake(t) {
+    const seg = 3.2 * S, n = 15, pts = [];
+    for (let i = 0; i <= n; i++) {
+      const u = i / n, sway = calm ? 0 : Math.sin(t * .9 + i * .28) * u * 10 * S;
+      pts.push([SX + sway, SY + i * seg]);
+    }
+    ctx.lineCap = "round"; ctx.lineJoin = "round";
+    // The coils round the branch.
+    for (const dx of [-26, -13]) {
+      ctx.strokeStyle = "#5f9a2e"; ctx.lineWidth = 5 * S;
+      ctx.beginPath(); ctx.ellipse(SX + dx * S, SY - 1 * S, 6 * S, 5 * S, 0, 0, TAU); ctx.stroke();
+    }
+    ctx.strokeStyle = "#5f9a2e"; ctx.lineWidth = 5 * S;
+    ctx.beginPath(); ctx.moveTo(SX - 34 * S, SY - 3 * S); ctx.lineTo(SX - 42 * S, SY - 2 * S); ctx.stroke();
+    // The hanging part, tapering, with a paler belly line and dark bands.
+    for (let i = 0; i < n; i++) {
+      ctx.strokeStyle = "#6aa832"; ctx.lineWidth = (5 - i * .09) * S;
+      ctx.beginPath(); ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[i + 1][0], pts[i + 1][1]); ctx.stroke();
+      if (i % 3 === 1) { ctx.strokeStyle = "#3f6e20"; ctx.lineWidth = (4.4 - i * .08) * S; ctx.beginPath(); ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo((pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2); ctx.stroke(); }
+    }
+    ctx.strokeStyle = "rgba(220, 214, 122, .7)"; ctx.lineWidth = 1.2 * S;
+    ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x + 1.2 * S, y) : ctx.moveTo(x + 1.2 * S, y)); ctx.stroke();
+    const [hx, hy] = pts[n];
+    ctx.fillStyle = "#5f9a2e"; ctx.beginPath(); ctx.ellipse(hx, hy + 4 * S, 3.6 * S, 5 * S, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#f2d64b"; ctx.beginPath(); ctx.arc(hx - 1.6 * S, hy + 3 * S, 1 * S, 0, TAU); ctx.arc(hx + 1.6 * S, hy + 3 * S, 1 * S, 0, TAU); ctx.fill();
+    if (snake.flick > 0) {
+      ctx.strokeStyle = "#d8322a"; ctx.lineWidth = .9 * S;
+      ctx.beginPath(); ctx.moveTo(hx, hy + 9 * S); ctx.lineTo(hx, hy + 13 * S); ctx.lineTo(hx - 1.6 * S, hy + 15 * S);
+      ctx.moveTo(hx, hy + 13 * S); ctx.lineTo(hx + 1.6 * S, hy + 15 * S); ctx.stroke();
+    }
+  }
+
   function drawOwl() {
     const s = TW / 16, r = (2.3 + (owl.wide > 0 ? .9 : 0)) * s;
     fr.fillStyle = "#6b4d33";
@@ -15491,7 +15686,13 @@ function buildWoodlands(root) {
     }
     for (const f of flocks) for (const b of f.birds) skyBird(f.x + b.dx, f.y + b.dy, S * .9, Math.sin(t * 9 + b.ph));
     for (const b of startled) skyBird(b.x, b.y, S, Math.sin(t * 16 + b.ph));
-    if (hawkBird) { const h = hawkBird; hawk(h.cx + Math.cos(h.a) * h.R, h.cy + Math.sin(h.a) * h.R * .35, S * 1.1, h.flap > 0 ? Math.sin(t * 12) : 0); }
+    // The nest and who's in it; the eagle aloft if it's out.
+    drawNest(false);
+    if (eagle.mode === "nest") eagleSitting(NX + 4 * S, NY, eagle.dir, S); else drawEaglet(t);
+    drawNest(true);
+    if (eagle.mode !== "nest") eagleFlying(eagle.x, eagle.y, S * 1.05, eagle.ang, eagle.flap > 0 ? Math.sin(t * 10) : 0);
+    drawSnake(t);
+    drawBigOwl();
     for (const l of leaves) {
       ctx.save(); ctx.translate(l.x + Math.sin(t + l.ph) * l.sway, l.y); ctx.rotate(l.r);
       ctx.fillStyle = l.col; ctx.beginPath(); ctx.ellipse(0, 0, l.sz, l.sz * .5, 0, 0, TAU); ctx.fill();
@@ -15559,11 +15760,23 @@ function buildWoodlands(root) {
     return;
   }
   const t0 = performance.now();
-  flockAt = t0 + rnd(1500, 5000); hawkAt = t0 + rnd(25e3, 55e3); walkerAt = t0 + rnd(8e3, 20e3);
+  flockAt = t0 + rnd(1500, 5000); walkerAt = t0 + rnd(8e3, 20e3);
+  eagle.at = t0 + rnd(15e3, 35e3); eagle.turnAt = t0 + rnd(2e3, 5e3);
+  bigOwl.blinkAt = t0 + rnd(1000, 3000); snake.flickAt = t0 + rnd(1500, 4000);
+  // The owl watches the pointer. Only a note of where it is: the drawing is
+  // done in the frame loop, which stops with the tab.
+  const watch = ev => { bigOwl.px = ev.clientX; bigOwl.pAt = performance.now(); };
+  addEventListener("pointermove", watch, { passive: true });
+  festiveStops.push(() => removeEventListener("pointermove", watch));
   bunnyAt = t0 + rnd(4e3, 12e3); bflyAt = t0 + rnd(8e3, 18e3); wp.at = t0 + rnd(1500, 4000); owl.blinkAt = t0 + rnd(1000, 4000);
   c.start();
   festiveHooks.rendered = retarget;
-  festiveHooks.scanDone = () => { if (!document.hidden) startle(); };
+  festiveHooks.scanDone = () => {
+    if (document.hidden) return;
+    startle();
+    // The owl's eyes go wide and it turns to see what's taken off.
+    bigOwl.wide = 2.6; bigOwl.want = startled.length && startled[0].vx < 0 ? 1 : -1; bigOwl.lookAt = performance.now() + 3000; bigOwl.pAt = 0;
+  };
   // Someone new in the woods: whoever isn't already out comes into the clearing.
   festiveHooks.newDevice = () => {
     if (document.hidden) return;

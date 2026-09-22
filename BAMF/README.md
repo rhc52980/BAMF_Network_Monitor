@@ -691,8 +691,16 @@ Some themes have a little life in them:
   through. Reduced motion leaves the snow settled.
 - **Woodlands**: a forest late in the afternoon. Ridges of pine go back into
   the haze towards a low sun, light comes down through the trees in shafts,
-  mist lies in the valley, leaves come down, and flocks cross high up, with
-  now and then a hawk circling. A vine runs along the top of the screen with
+  mist lies in the valley, leaves come down, and flocks cross high up. Big
+  trees stand across it, their crowns meeting along the top. In the crown of
+  one is **a bald eagles' nest**: the eagle sits with its white head over the
+  rim, turning now and then, and every minute or so goes out to soar in wide
+  circles before gliding home, while its eaglet pokes its head up to watch.
+  On a branch to the right **a great horned owl watches over the page**,
+  turning its head to follow your pointer, looking about when it's still, and
+  staring wide-eyed when a scan sends a flock up. Draped over another branch
+  is **a green tree snake**, its tail hanging and swaying, flicking its tongue.
+  A vine runs along the top of the screen with
   songbirds perched on it - robins, bluebirds, goldfinches, chickadees and
   cardinals - hopping, flicking their tails and now and then singing. A trunk
   stands in each margin, with an owl blinking out of a hollow and a woodpecker
