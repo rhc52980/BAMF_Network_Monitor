@@ -95,6 +95,16 @@ public sealed class RuleService : BackgroundService
         if (_wasQuiet && !quiet) await _scanner.FlushHeldAlerts(ct);
         _wasQuiet = quiet;
 
+        // Snoozes that ran out: a watched device that ended up the other way
+        // round from when it was snoozed gets the alert it missed.
+        foreach (var (id, wasOnline) in _store.DrainExpiredSnoozes())
+        {
+            var h = _store.GetAll().FirstOrDefault(x => x.Id == id);
+            if (h is null) continue;
+            _log.LogInformation("Snooze over for {Name}", NameOf(h));
+            if (h.Watched && !h.Ignored && !h.Forgotten && h.Online != wasOnline) await _scanner.SnoozeEnded(h, ct);
+        }
+
         var rules = Rules.Where(r => r.Enabled).ToList();
         if (rules.Count > 0)
         {
@@ -118,7 +128,7 @@ public sealed class RuleService : BackgroundService
                             if ((now - last).TotalMinutes < rule.Minutes) break;
                             if (_fired.TryGetValue(key, out var f) && f == h.LastSeen) break;   // this outage already alerted
                             _fired[key] = h.LastSeen; changed = true;
-                            await Fire(rule, $"{name} has been offline for {Ago(now - last)}", $"{name} ({h.Ip}) was last seen {Ago(now - last)} ago. Rule: {Describe(rule)}.", ct);
+                            await Fire(rule, h, $"{name} has been offline for {Ago(now - last)}", $"{name} ({h.Ip}) was last seen {Ago(now - last)} ago. Rule: {Describe(rule)}.", ct);
                             break;
                         }
                         case "online":
@@ -126,7 +136,7 @@ public sealed class RuleService : BackgroundService
                             var was = _online.TryGetValue(key, out var w) ? w : (bool?)null;
                             _online[key] = h.Online;
                             if (was == false && h.Online)
-                                await Fire(rule, $"{name} is back online", $"{name} ({h.Ip}) is online again. Rule: {Describe(rule)}.", ct);
+                                await Fire(rule, h, $"{name} is back online", $"{name} ({h.Ip}) is online again. Rule: {Describe(rule)}.", ct);
                             break;
                         }
                         case "wake":
@@ -152,7 +162,7 @@ public sealed class RuleService : BackgroundService
                             var day = local.ToString("yyyy-MM-dd");
                             if (_fired.TryGetValue(key, out var f) && f == day) break;
                             _fired[key] = day; changed = true;
-                            await Fire(rule, $"{name} is online at {local:HH:mm}", $"{name} ({h.Ip}) is online during {rule.From}–{rule.To}. Rule: {Describe(rule)}.", ct);
+                            await Fire(rule, h, $"{name} is online at {local:HH:mm}", $"{name} ({h.Ip}) is online during {rule.From}–{rule.To}. Rule: {Describe(rule)}.", ct);
                             break;
                         }
                     }
@@ -241,9 +251,11 @@ public sealed class RuleService : BackgroundService
         };
     }
 
-    private async Task Fire(Rule rule, string title, string detail, CancellationToken ct)
+    private async Task Fire(Rule rule, HostRecord h, string title, string detail, CancellationToken ct)
     {
         _log.LogWarning("Rule {Name}: {Title}", rule.Name == "" ? rule.Id : rule.Name, title);
+        // A snoozed device's alert is kept on Activity but not sent.
+        if (_store.IsSnoozed(h.Id)) { _store.AddAlert("rule", title, detail + " Not sent: it's snoozed."); return; }
         _store.AddAlert("rule", title, detail);
         await _scanner.SendGenericAlert(title, detail, "rule", ct);
     }
@@ -276,6 +288,7 @@ public sealed class RuleService : BackgroundService
         var title = $"New open port{(newly.Count == 1 ? "" : "s")} on {name}: {list}";
         var detail = $"{name} ({h.Ip}) is now listening on {list}, which it wasn't the last time BAMF scanned it." +
             (closed.Count > 0 ? $" Closed since then: {string.Join(", ", closed)}." : "");
+        if (_store.IsSnoozed(h.Id)) { _store.AddAlert("port", title, detail + " Not sent: it's snoozed."); return newly.Count; }
         _store.AddAlert("port", title, detail);
         await _scanner.SendGenericAlert(title, detail, "port", ct);
         return newly.Count;

@@ -208,6 +208,7 @@ app.MapGet("/api/hosts", (HttpContext ctx, HostStore store, ScannerService scann
     var openPorts = store.OpenPorts();
     var routerNames = store.GetRouterNames();
     var ipv6 = store.GetIpv6(DateTime.UtcNow.AddDays(-7));
+    var snoozes = store.GetSnoozes();
     var hosts = store.GetAll().Select(h => new
     {
         id = h.Id,
@@ -221,6 +222,8 @@ app.MapGet("/api/hosts", (HttpContext ctx, HostStore store, ScannerService scann
         known = h.Known,
         ignored = h.Ignored,
         watched = h.Watched,
+        // When its alerts start going out again, while it's snoozed; null otherwise.
+        snoozedUntil = snoozes.TryGetValue(h.Id, out var sz) ? sz : null,
         forgotten = h.Forgotten,
         note = h.Note,
         osGuess = h.OsGuess,
@@ -1382,6 +1385,18 @@ app.MapPost("/api/settings/scan/reset", (HostStore store) =>
 app.MapPost("/api/hosts/{id:long}/watch", (long id, WatchRequest body, HostStore store) =>
     store.SetWatched(id, body.Watched) ? Results.Ok() : Results.NotFound());
 
+// Snooze a device's alerts for a while; 0 minutes ends the snooze.
+app.MapPost("/api/hosts/{id:long}/snooze", (long id, SnoozeRequest body, HostStore store) =>
+{
+    var h = store.GetAll().FirstOrDefault(x => x.Id == id);
+    if (h is null) return Results.NotFound();
+    if (body.Minutes <= 0) { store.Unsnooze(id); return Results.Json(new { snoozedUntil = (string?)null }); }
+    if (body.Minutes > HostStore.MaxSnoozeMinutes) return Results.BadRequest(new { error = "A week at most." });
+    var until = DateTime.UtcNow.AddMinutes(body.Minutes);
+    store.SnoozeHost(id, until, h.Online);
+    return Results.Json(new { snoozedUntil = store.GetSnoozes().GetValueOrDefault(id) });
+});
+
 app.MapPost("/api/hosts/{id:long}/ignore", (long id, IgnoreRequest body, HostStore store) =>
     store.SetIgnored(id, body.Ignored) ? Results.Ok() : Results.NotFound());
 
@@ -1833,6 +1848,7 @@ record PortLabel(int Port, string? Label);
 record SwitchPortsRequest(List<PortEntry>? Ports, List<PortLabel>? Labels);
 record WebhookRequest(string? Url, string? Format);
 record IgnoreRequest(bool Ignored);
+record SnoozeRequest(int Minutes);
 record WatchRequest(bool Watched);
 record ForgetRequest(bool Forgotten);
 record ActiveArpRequest(bool Enabled);

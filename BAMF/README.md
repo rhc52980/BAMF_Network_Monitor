@@ -1281,6 +1281,7 @@ scan, or delete a thing.
 | POST | `/api/settings/webhook` | Body `{"url": "https://..."}` — save the notification webhook (empty string clears it). Returns a masked form; the full URL is never read back |
 | POST | `/api/settings/update-check` | Body `{"enabled": true}` — toggle the daily GitHub update check. Turning it on checks immediately and returns the result |
 | POST | `/api/hosts/{id}/watch` | Body `{"watched": true}` — watch a host for downtime (star toggle in the UI) |
+| POST | `/api/hosts/{id}/snooze` | Body `{"minutes": 120}` — hold back that device's alerts for a while, up to a week; `0` ends the snooze. Returns `{"snoozedUntil"}`, which `/api/hosts` also carries per device |
 | POST | `/api/hosts/{id}/ignore` | Body `{"ignored": true}` — hide a host from main views and suppress its alerts/history |
 | POST | `/api/hosts/{id}/note` | Body `{"note": "..."}` — save a free-text note (max 500 chars) |
 | POST | `/api/hosts/{id}/link` | Body `{"link": "8006"}` — per-host link override: bare port, `:port/path`, or a full URL with an optional `{ip}`. Empty clears it. Returns the resolved `linkUrl` |
@@ -2007,6 +2008,19 @@ rules, ports, DHCP and DNS) between two times of day, then deliver what was
 held as one summary when the quiet ends: "While it was quiet: 3 alerts". Untick
 the summary if you'd rather they were dropped. Scheduled reports keep their
 own hour. Times are the server's local time.
+
+**Snooze** one device instead, from its ⋯ menu → **Snooze alerts…**: 30
+minutes, an hour, two, eight, a day, or until 8 in the morning. It's for
+"don't tell me about the NAS while I reboot it". While it's snoozed, the alerts
+about that device aren't sent: going offline and coming back, the rules that
+match it, and its port watch. Everything else carries on as normal. The row
+shows 💤 and when the snooze ends; click that to change it or end it early.
+Rule and port alerts still appear under Activity → Alerts, marked as not sent.
+
+When a snooze runs out, a watched device that has ended up the other way round
+from when you snoozed it gets the alert it missed: "went offline, and was still
+offline when its snooze ended". A reboot that never came back isn't lost in the
+snooze, and one that did come back says nothing.
 
 ### Port history and change alerts
 

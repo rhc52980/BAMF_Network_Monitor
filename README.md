@@ -60,6 +60,8 @@ optional daily update check you have to switch on, and your own webhook.
   generic JSON body for anything else
 - Set it up by pasting a URL into the dashboard; no config file, no restart
 - Star only the devices you actually care about
+- Snooze one device's alerts for a while when you're rebooting it; if it hasn't
+  come back when the snooze ends, you're told
 - Auto-ignore phones using MAC randomisation, so they don't cry wolf
 
 **Investigating**

@@ -1384,6 +1384,9 @@
   .session .ongoing { color: var(--led-on); }
   .history-empty { color: var(--text-dim); font-size: 13px; }
   .note-flag { margin-left: 6px; font-size: 11px; opacity: .8; cursor: help; }
+  .snooze-chip { margin-left: 6px; font-size: 11px; color: var(--text-dim); white-space: nowrap; cursor: pointer; }
+  .snooze-chip:hover { color: var(--text); }
+  .snooze-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin: 12px 0 4px; }
   .note-box { margin-top: 14px; }
   .note-box label {
     display: block; font-family: "IBM Plex Mono", monospace; font-size: 11px;
@@ -4059,6 +4062,24 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="snoozeModal" hidden>
+  <div class="modal">
+    <div class="modal-title" id="snoozeTitle">Snooze alerts</div>
+    <div class="modal-note" id="snoozeSub"></div>
+    <div class="snooze-picks" id="snoozePicks"></div>
+    <p class="modal-help">
+      While a device is snoozed, its alerts aren't sent: going offline or coming back,
+      the alert rules that match it, and its port watch. Rule and port alerts still
+      appear under Alerts on Activity, marked as not sent. When the snooze ends, a watched device that ended up the
+      other way round from how it started (offline when it was online) gets the
+      alert it missed, so a reboot that never came back isn't lost.
+    </p>
+    <div class="modal-actions">
+      <button class="toggle" id="snoozeEnd" hidden>End snooze now</button>
+      <button class="toggle" id="snoozeCancel">Cancel</button>
+    </div>
+  </div>
+</div>
 <div class="modal-backdrop" id="noteModal" hidden>
   <div class="modal">
     <div class="modal-title" id="noteTitle">Note</div>
@@ -7719,6 +7740,7 @@ function render() {
       <td class="hostname" title="Click to rename">
         <span class="name-text">${esc(dispName(h))}</span>
         ${h.note ? `<span class="note-flag" title="${esc(h.note)}">\uD83D\uDCDD</span>` : ""}
+        ${h.snoozedUntil ? `<span class="snooze-chip" title="Alerts snoozed until ${esc(fmtExact(h.snoozedUntil))}. Click to change.">\uD83D\uDCA4 ${esc(snoozeClock(h.snoozedUntil))}</span>` : ""}
         ${showDns ? `<span class="dns">${esc(subName)}</span>` : ""}
         ${(h.tags || []).length ? `<span class="tag-row">${h.tags.map(t => `<span class="tag-chip">${esc(t)}</span>`).join("")}</span>` : ""}
       </td>
@@ -7740,6 +7762,8 @@ function render() {
 
     const nameCell = tr.querySelector(".hostname");
     if (h.remote) tr.classList.add("is-remote");
+    const snoozeChip = nameCell.querySelector(".snooze-chip");
+    if (snoozeChip) snoozeChip.onclick = e => { e.stopPropagation(); if (role !== "viewer") openSnoozeDialog(h); };
     nameCell.onclick = () => {
       if (h.remote) { toast(`${esc(dispName(h))} is on ${esc(h.remote)}: open that BAMF to change it`); return; }
       if (role === "viewer") return;
@@ -7843,6 +7867,7 @@ function render() {
       }, { danger: true });
     } else {
       addItem(h.note ? "Edit note…" : "Add note…", () => openNoteDialog(h));
+      addItem(h.snoozedUntil ? `Snoozed until ${snoozeClock(h.snoozedUntil)}…` : "Snooze alerts…", () => openSnoozeDialog(h));
       addItem(h.link ? "Change link…" : "Set link…", () => setHostLink(h));
       addItem("Type / icon…", () => openTypeDialog(h));
       addItem((h.tags || []).length ? `Tags (${h.tags.length})…` : "Tags…", () => openTagsDialog(h));
@@ -8106,6 +8131,55 @@ async function openHistory(host) {
 // guard to stop the ten-second poll discarding half-typed text; a dialog sits
 // outside the table and needs no such thing.
 let noteHost = null;
+// ---- snooze ----
+// Hold back one device's alerts for a while, from its ⋯ menu.
+let snoozeHost = null;
+function snoozeClock(iso) {
+  const d = new Date(iso), now = new Date();
+  const t = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (d.toDateString() === now.toDateString()) return t;
+  const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
+  if (d.toDateString() === tomorrow.toDateString()) return "tomorrow " + t;
+  return d.toLocaleDateString([], { weekday: "short" }) + " " + t;
+}
+function openSnoozeDialog(h) {
+  snoozeHost = h;
+  $("snoozeTitle").textContent = "Snooze alerts \u2014 " + dispName(h);
+  $("snoozeSub").textContent = h.snoozedUntil ? `Snoozed until ${snoozeClock(h.snoozedUntil)}. Pick a new time to change it.` : `${h.ip} \u00b7 alerts about this device only`;
+  // The next 8 am, for "until the morning": tomorrow's, unless it's still before 8 today.
+  const morning = new Date(); if (morning.getHours() >= 8) morning.setDate(morning.getDate() + 1);
+  morning.setHours(8, 0, 0, 0);
+  const picks = [["30 minutes", 30], ["1 hour", 60], ["2 hours", 120], ["8 hours", 480], ["1 day", 1440],
+    ["Until " + snoozeClock(morning.toISOString()), Math.ceil((morning - Date.now()) / 60e3)]];
+  const box = $("snoozePicks");
+  box.innerHTML = "";
+  for (const [label, minutes] of picks) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "toggle"; b.textContent = label;
+    b.onclick = () => saveSnooze(minutes);
+    box.appendChild(b);
+  }
+  $("snoozeEnd").hidden = !h.snoozedUntil;
+  $("snoozeModal").hidden = false;
+  box.firstElementChild.focus();
+}
+function closeSnoozeDialog() { $("snoozeModal").hidden = true; snoozeHost = null; }
+async function saveSnooze(minutes) {
+  const h = snoozeHost;
+  if (!h) return;
+  try {
+    const r = await fetch(`/api/hosts/${h.id}/snooze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ minutes }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't snooze that"); return; }
+    toast(d.snoozedUntil ? `${esc(dispName(h))}'s alerts are snoozed until ${esc(snoozeClock(d.snoozedUntil))}` : `${esc(dispName(h))}'s alerts are back on`);
+    closeSnoozeDialog();
+    await refresh();
+  } catch (e) { console.error(e); toast("Couldn't snooze that - see the server log"); }
+}
+$("snoozeEnd").onclick = () => saveSnooze(0);
+$("snoozeCancel").onclick = closeSnoozeDialog;
+$("snoozeModal").onclick = e => { if (e.target.id === "snoozeModal") closeSnoozeDialog(); };
+
 function openNoteDialog(host) {
   noteHost = host;
   $("noteTitle").textContent = (host.note ? "Edit note — " : "Add note — ") + dispName(host);
@@ -17954,6 +18028,7 @@ document.addEventListener("keydown", e => {
   if (!$("tagsModal").hidden) { closeTagsDialog(); return; }
   if (!$("cardsModal").hidden) { closeCardsDialog(); return; }
   if (!$("gwModal").hidden) { closeGatewayDialog(); return; }
+  if (!$("snoozeModal").hidden) { closeSnoozeDialog(); return; }
   if (!$("noteModal").hidden) { closeNoteDialog(); return; }
   if (!$("swModal").hidden) { closeSwitchDialog(); return; }
   if (!$("plugModal").hidden) { closePlugDialog(); return; }

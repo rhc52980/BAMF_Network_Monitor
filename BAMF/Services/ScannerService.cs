@@ -1076,14 +1076,25 @@ public partial class ScannerService : BackgroundService
         _store.RecordLatency(samples.ToList());
     }
 
-    /// <summary>Alerts for a watched host going down or recovering.</summary>
-    private async Task SendStatusAlert(HostRecord host, bool up, CancellationToken ct)
+    /// <summary>
+    /// A snooze ran out and the device ended up the other way round from when
+    /// it started: the alert it would have had, saying so.
+    /// </summary>
+    public Task SnoozeEnded(HostRecord host, CancellationToken ct) => SendStatusAlert(host, host.Online, ct, snoozeOver: true);
+
+    /// <summary>Alerts for a watched host going down or recovering. Held back while the device is snoozed.</summary>
+    private async Task SendStatusAlert(HostRecord host, bool up, CancellationToken ct, bool snoozeOver = false)
     {
         var url = WebhookUrl;
         if (string.IsNullOrWhiteSpace(url)) return;
 
         var name = host.CustomName != "" ? host.CustomName
                  : (host.Hostname != "" ? host.Hostname : host.Mac);
+        if (!snoozeOver && _store.IsSnoozed(host.Id))
+        {
+            _log.LogInformation("{Name} is snoozed: not sending its {State} alert", name, up ? "back online" : "offline");
+            return;
+        }
 
         // Compute downtime for recovery messages.
         string? downFor = null;
@@ -1114,9 +1125,9 @@ public partial class ScannerService : BackgroundService
                         new
                         {
                             title = up ? $"✅ {name} is back online" : $"🔴 {name} went offline",
-                            description = up
+                            description = (up
                                 ? (downFor is not null ? $"Recovered after {downFor} down." : "Recovered.")
-                                : "A watched host stopped responding.",
+                                : "A watched host stopped responding.") + (snoozeOver ? " Its snooze has just ended." : ""),
                             color = up ? 0x3FDB7F : 0xF2716F,
                             fields = new object[]
                             {
@@ -1133,6 +1144,7 @@ public partial class ScannerService : BackgroundService
             var text = up
                 ? $"BAMF: {name} ({host.Ip}) is back online" + (downFor is not null ? $" after {downFor} down" : "")
                 : $"BAMF: {name} ({host.Ip}) went offline";
+            if (snoozeOver) text += up ? ", seen as its snooze ended" : ", and was still offline when its snooze ended";
             var generic = JsonSerializer.Serialize(new { content = text, message = text, up, mac = host.Mac, ip = host.Ip });
 
             using var req = BuildAlertRequest(url, format,
