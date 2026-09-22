@@ -15236,6 +15236,7 @@ function buildWoodlands(root) {
   const HB = Math.round(document.querySelector("header")?.getBoundingClientRect().bottom || 60);
   const NX = W * .70, NY = HB + 34 * S;          // the eagles' nest
   const OX = W * .885, OY = HB + 58 * S;         // the owl on its branch
+  const BX = W * .80, BY = HB + 76 * S;          // the owls' nest: a laundry basket
   const SX = W * .56 + 70 * S, SY = HB + 22 * S; // where the snake hangs over
 
   // ---- Behind the page: the landscape, drawn once ----
@@ -15273,6 +15274,10 @@ function buildWoodlands(root) {
     // from the right-hand edge tree; and the fork the nest sits in.
     limb(lc, W * .56, SY + 4 * S, SX + 60 * S, SY - 2 * S, 9 * S);
     limb(lc, W * .955, OY + 10 * S, OX - 40 * S, OY + 2 * S, 10 * S);
+    // The fork the laundry basket is wedged in.
+    limb(lc, W * .955, BY + 16 * S, BX - 30 * S, BY + 3 * S, 9 * S);
+    lc.strokeStyle = "#2c2016"; lc.lineCap = "round"; lc.lineWidth = 5 * S;
+    lc.beginPath(); lc.moveTo(BX + 10 * S, BY + 8 * S); lc.lineTo(BX + 26 * S, BY - 6 * S); lc.stroke();
     lc.strokeStyle = "#2c2016"; lc.lineCap = "round"; lc.lineWidth = 6 * S;
     for (const d of [-1, 1]) { lc.beginPath(); lc.moveTo(NX, NY + 20 * S); lc.lineTo(NX + d * 30 * S, NY - 2 * S); lc.stroke(); }
   }
@@ -15344,7 +15349,12 @@ function buildWoodlands(root) {
   const eagle = { mode: "nest", at: 0, x: NX, y: NY - 18 * S, px: NX, py: NY, ang: 0, cx: 0, cy: 0, R: 0, a: 0, t: 0, dur: 0,
     from: null, dir: -1, turnAt: 0, flap: 0 };
   // The owl watching over: its head follows the pointer, or looks about.
-  const bigOwl = { yaw: 0, want: 0, blink: 0, blinkAt: 0, wide: 0, lookAt: 0, px: null, pAt: 0 };
+  const bigOwl = { yaw: 0, want: 0, blink: 0, blinkAt: 0, wide: 0, lookAt: 0, px: null, pAt: 0,
+    // Where it is: on its branch watching, flying to the basket, feeding the
+    // owlets on its rim, or flying back.
+    mode: "perch", at: 0, t: 0, x: OX, y: OY, from: null, to: null };
+  const RIM = [BX + 27 * S, BY - 24 * S];          // where the owl stands on the basket
+  const owlets = [0, 1, 2].map(i => ({ ph: rnd(0, 6.3), blink: 0, blinkAt: 0, dx: (i - 1) * 11 - 3 }));
   const snake = { flick: 0, flickAt: 0 };
   let walker = null, walkerAt = 0, bunny = null, bunnyAt = 0, bfly = null, bflyAt = 0;
   const owl = { blink: 0, blinkAt: 0, wide: 0 };
@@ -15457,11 +15467,37 @@ function buildWoodlands(root) {
       if (u >= 1) { e.mode = "nest"; e.at = now + rnd(45e3, 90e3); }
     }
     if (e.mode !== "nest") e.ang = Math.atan2(e.y - e.py, e.x - e.px);
-    // The owl: follows the pointer while it moves, and otherwise looks about.
+    // The owl: on its branch it follows the pointer while it moves, and
+    // otherwise looks about. Every minute or so it flies to the basket, stays
+    // a while on the rim with the owlets, and flies back.
     const o = bigOwl;
-    if (o.px !== null && now - o.pAt < 4000) o.want = Math.max(-1, Math.min(1, (o.px - OX) / (W * .35)));
-    else if (now > o.lookAt) { o.want = rnd(-1, 1); o.lookAt = now + rnd(3e3, 7e3); }
+    if (o.mode === "perch") {
+      o.x = OX; o.y = OY;
+      if (o.px !== null && now - o.pAt < 4000) o.want = Math.max(-1, Math.min(1, (o.px - OX) / (W * .35)));
+      else if (now > o.lookAt) { o.want = rnd(-1, 1); o.lookAt = now + rnd(3e3, 7e3); }
+      if (now > o.at) { o.mode = "toNest"; o.t = 0; o.from = [OX, OY]; o.to = RIM; }
+    } else if (o.mode === "nest") {
+      o.x = RIM[0]; o.y = RIM[1];
+      o.want = -.6;                         // looking down and in, at the owlets
+      o.t += dt;
+      if (o.t > o.stay) { o.mode = "toPerch"; o.t = 0; o.from = RIM; o.to = [OX, OY]; }
+    } else {
+      // A short flight either way: up over an arc and down onto the spot.
+      o.t += dt;
+      const u = Math.min(1, o.t / 2.2), e = u * u * (3 - 2 * u);
+      o.x = o.from[0] + (o.to[0] - o.from[0]) * e;
+      o.y = o.from[1] + (o.to[1] - o.from[1]) * e - Math.sin(Math.PI * u) * 34 * S;
+      o.want = o.to[0] < o.from[0] ? -1 : 1;
+      if (u >= 1) {
+        if (o.mode === "toNest") { o.mode = "nest"; o.t = 0; o.stay = rnd(7, 11); }
+        else { o.mode = "perch"; o.at = now + rnd(35e3, 70e3); }
+      }
+    }
     o.yaw += (o.want - o.yaw) * Math.min(1, dt * 3);
+    for (const b of owlets) {
+      if (now > b.blinkAt) { b.blink = .14; b.blinkAt = now + rnd(2e3, 6e3); }
+      b.blink = Math.max(0, b.blink - dt);
+    }
     if (now > o.blinkAt) { o.blink = .16; o.blinkAt = now + rnd(2500, 6500); }
     o.blink = Math.max(0, o.blink - dt);
     o.wide = Math.max(0, o.wide - dt);
@@ -15589,9 +15625,74 @@ function buildWoodlands(root) {
     ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(NX - 4 * S, NY - 12 * S - bob, .9 * S, 0, TAU); ctx.fill();
   }
   // The great horned owl on its branch, watching.
-  function drawBigOwl() {
+  // The owl in flight, from the side: broad rounded wings, the tufted head.
+  function drawOwlFlying(x, y, dir, flap) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(dir * S, S);
+    ctx.fillStyle = "#6a4a2c";
+    ctx.beginPath(); ctx.moveTo(-4, -14); ctx.quadraticCurveTo(-10, -34 - flap * 10, -26, -30 - flap * 14); ctx.quadraticCurveTo(-14, -20, -2, -12); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#7a5634"; ctx.beginPath(); ctx.ellipse(0, -14, 13, 8, -.15, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#c7a57a"; ctx.beginPath(); ctx.ellipse(2, -12, 8, 5, -.15, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#6a4a2c";
+    ctx.beginPath(); ctx.moveTo(2, -14); ctx.quadraticCurveTo(8, -32 - flap * 12, 26, -30 - flap * 14); ctx.quadraticCurveTo(16, -18, 4, -10); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#7a5634"; ctx.beginPath(); ctx.ellipse(13, -19, 7.5, 7, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(10, -24); ctx.lineTo(9, -31); ctx.lineTo(14, -25); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#d8b98a"; ctx.beginPath(); ctx.ellipse(16, -19, 4.5, 5, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#f7b733"; ctx.beginPath(); ctx.arc(17.5, -20, 2, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(18.2, -20, 1, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#c9a13a"; ctx.fillRect(-2, -8, 2.5, 4); ctx.fillRect(2, -8, 2.5, 4);
+    ctx.restore();
+  }
+  // The laundry basket: wicker, with its rolled rim, a handle hole in each
+  // side and a sock left hanging over the edge. Back and front are drawn apart
+  // so the owlets sit inside it.
+  function drawBasket(front) {
+    ctx.save(); ctx.translate(BX, BY); ctx.rotate(-.06); ctx.scale(S, S);
+    if (!front) {
+      ctx.fillStyle = "#6b4e2a"; ctx.beginPath(); ctx.ellipse(0, -23, 23, 4, 0, 0, TAU); ctx.fill();
+      ctx.restore();
+      return;
+    }
+    ctx.fillStyle = "#c79e62";
+    ctx.beginPath(); ctx.moveTo(-23, -23); ctx.lineTo(23, -23); ctx.lineTo(19, 0); ctx.lineTo(-19, 0); ctx.closePath(); ctx.fill();
+    ctx.save(); ctx.clip();
+    ctx.strokeStyle = "rgba(120, 86, 42, .75)"; ctx.lineWidth = 1;
+    for (let y = -20; y < 0; y += 4) { ctx.beginPath(); ctx.moveTo(-24, y); ctx.lineTo(24, y); ctx.stroke(); }
+    ctx.strokeStyle = "rgba(150, 110, 58, .7)"; ctx.lineWidth = 1.4;
+    for (let x = -22; x < 24; x += 5) { ctx.beginPath(); ctx.moveTo(x, -23); ctx.lineTo(x * .83, 0); ctx.stroke(); }
+    ctx.restore();
+    ctx.fillStyle = "#b48a50"; ctx.fillRect(-24.5, -26, 49, 4.5);
+    ctx.fillStyle = "#3a2a18";
+    ctx.beginPath(); ctx.ellipse(-15, -16, 3.6, 2, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(15, -16, 3.6, 2, 0, 0, TAU); ctx.fill();
+    // The sock, red with a white band, flopped over the rim.
+    ctx.fillStyle = "#c8403a";
+    ctx.beginPath(); ctx.moveTo(-22, -26); ctx.lineTo(-17, -26); ctx.lineTo(-17.5, -14); ctx.quadraticCurveTo(-18, -10, -22.5, -10.5); ctx.lineTo(-24, -12); ctx.quadraticCurveTo(-22, -13, -22, -16); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#f2ece0"; ctx.fillRect(-22, -22, 5, 2);
+    ctx.restore();
+  }
+  // Three owlets, white fluff and big dark eyes, peeking over the rim. They
+  // bob, and when the parent's there they bob faster with their beaks open.
+  function drawOwlets(t, fed) {
+    ctx.save(); ctx.translate(BX, BY); ctx.rotate(-.06); ctx.scale(S, S);
+    for (const b of owlets) {
+      const bob = calm ? 0 : Math.sin(t * (fed ? 7 : 1.6) + b.ph) * (fed ? 2.6 : 1.4);
+      const x = b.dx, y = -28 + bob;
+      ctx.fillStyle = "#ece6da"; ctx.beginPath(); ctx.ellipse(x, y, 6.2, 6.8, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = "rgba(255, 255, 255, .8)";
+      for (const [fx, fy] of [[-3, -4], [2, -5], [4, -1], [-4, 1]]) { ctx.beginPath(); ctx.arc(x + fx, y + fy, 1.1, 0, TAU); ctx.fill(); }
+      for (const ex of [-2.4, 2.4]) {
+        ctx.fillStyle = "#1a140e"; ctx.beginPath(); ctx.arc(x + ex, y - .6, 1.9, 0, TAU); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(x + ex + .5, y - 1.2, .5, 0, TAU); ctx.fill();
+        if (b.blink > 0) { ctx.fillStyle = "#ece6da"; ctx.beginPath(); ctx.arc(x + ex, y - .6, 2.2, 0, TAU); ctx.fill(); }
+      }
+      ctx.fillStyle = fed ? "#e86a5a" : "#6b5a44";
+      ctx.beginPath(); ctx.moveTo(x - 1.2, y + 1.6); ctx.lineTo(x + 1.2, y + 1.6); ctx.lineTo(x, y + (fed ? 4.4 : 3.4)); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+  function drawBigOwl(atX, atY) {
     const o = bigOwl, hx = o.yaw * 3;
-    ctx.save(); ctx.translate(OX, OY); ctx.scale(S, S);
+    ctx.save(); ctx.translate(atX, atY); ctx.scale(S, S);
     ctx.fillStyle = "#c9a13a"; ctx.fillRect(-5, -2, 3, 3); ctx.fillRect(2, -2, 3, 3);
     ctx.fillStyle = "#7a5634"; ctx.beginPath(); ctx.ellipse(0, -15, 11, 15, 0, 0, TAU); ctx.fill();
     ctx.fillStyle = "#c7a57a"; ctx.beginPath(); ctx.ellipse(0, -12, 7, 10, 0, 0, TAU); ctx.fill();
@@ -15692,7 +15793,12 @@ function buildWoodlands(root) {
     drawNest(true);
     if (eagle.mode !== "nest") eagleFlying(eagle.x, eagle.y, S * 1.05, eagle.ang, eagle.flap > 0 ? Math.sin(t * 10) : 0);
     drawSnake(t);
-    drawBigOwl();
+    // The laundry basket with its owlets, and the owl wherever it is.
+    drawBasket(false);
+    drawOwlets(t, bigOwl.mode === "nest");
+    drawBasket(true);
+    if (bigOwl.mode === "perch" || bigOwl.mode === "nest") drawBigOwl(bigOwl.x, bigOwl.y);
+    else drawOwlFlying(bigOwl.x, bigOwl.y, bigOwl.to[0] < bigOwl.from[0] ? -1 : 1, calm ? 0 : Math.sin(t * 13));
     for (const l of leaves) {
       ctx.save(); ctx.translate(l.x + Math.sin(t + l.ph) * l.sway, l.y); ctx.rotate(l.r);
       ctx.fillStyle = l.col; ctx.beginPath(); ctx.ellipse(0, 0, l.sz, l.sz * .5, 0, 0, TAU); ctx.fill();
@@ -15763,6 +15869,7 @@ function buildWoodlands(root) {
   flockAt = t0 + rnd(1500, 5000); walkerAt = t0 + rnd(8e3, 20e3);
   eagle.at = t0 + rnd(15e3, 35e3); eagle.turnAt = t0 + rnd(2e3, 5e3);
   bigOwl.blinkAt = t0 + rnd(1000, 3000); snake.flickAt = t0 + rnd(1500, 4000);
+  bigOwl.at = t0 + rnd(12e3, 25e3);
   // The owl watches the pointer. Only a note of where it is: the drawing is
   // done in the frame loop, which stops with the tab.
   const watch = ev => { bigOwl.px = ev.clientX; bigOwl.pAt = performance.now(); };

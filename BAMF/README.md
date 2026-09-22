@@ -698,7 +698,11 @@ Some themes have a little life in them:
   circles before gliding home, while its eaglet pokes its head up to watch.
   On a branch to the right **a great horned owl watches over the page**,
   turning its head to follow your pointer, looking about when it's still, and
-  staring wide-eyed when a scan sends a flock up. Draped over another branch
+  staring wide-eyed when a scan sends a flock up. Its nest is **a wicker
+  laundry basket** wedged in a fork of the tree, a sock still hanging over the
+  rim, with three fluffy owlets peeking out of it. Every minute or so the owl
+  flies over and lands on the rim, and the owlets bob with their beaks open
+  until it flies back to its branch. Draped over another branch
   is **a green tree snake**, its tail hanging and swaying, flicking its tongue.
   A vine runs along the top of the screen with
   songbirds perched on it - robins, bluebirds, goldfinches, chickadees and
