@@ -1333,7 +1333,13 @@
   }
   .watch-star:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
   .toggle.del.confirming { color: var(--bg); background: var(--danger); border-color: var(--danger); }
-  .actions { display: flex; gap: 6px; }
+  /* The row's last cell: the watch camera, History and the menu. It stays a
+     table cell, so its bottom line is the row's. As a flex box it was sized
+     to its buttons rather than the row, and drew its line a few pixels above
+     the rest of it. The gap comes from margins instead. */
+  .actions { white-space: nowrap; }
+  .actions > * { vertical-align: middle; }
+  .actions > * + * { margin-left: 6px; }
   .empty { text-align: center; color: var(--text-dim); padding: 48px 20px; font-size: 14px; }
   .empty-scan {
     display: inline-block; color: var(--text-dim);
@@ -3203,6 +3209,7 @@
     td.status-cell { padding-top: 8px; }
     td.actions-cell { padding-top: 6px; }
     .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .actions > * + * { margin-left: 0; }
     .tools-menu { right: auto; left: 0; }
     /* home board: 2 per row on phones */
     .home-grid { grid-template-columns: 1fr 1fr; }
