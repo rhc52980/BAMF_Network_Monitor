@@ -97,7 +97,7 @@ optional daily update check you have to switch on, and your own webhook.
 - Scheduled nightly backups keeping 30 snapshots, safe to sync to cloud storage
 - Optional password (HTTP Basic), with a second view-only password for a wall
   display or the rest of the house, and optional HTTPS
-- 39 themes (and a couple more, if you know how to ask, or drop your own in), grouped into colours, animated and holidays, a mobile card layout, and a
+- 40 themes (and a couple more, if you know how to ask, or drop your own in), grouped into colours, animated and holidays, a mobile card layout, and a
   comic-book splat when you switch them
 
 **For scripts and AI agents**

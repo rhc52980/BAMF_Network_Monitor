@@ -393,13 +393,13 @@ survive IP changes.
   automations can fire when someone gets home. See [MQTT](#mqtt-and-home-assistant).
 - **Tags** - group devices as "kids", "IoT", "work" or whatever fits, then
   filter the list and the Map by tag. See [Tags](#tags).
-- **39 themes** - click the theme button for a picker, grouped into colours,
+- **40 themes** - click the theme button for a picker, grouped into colours,
   animated and holidays: Dark, Light, Terminal, Amber CRT, Synthwave, Commodore
   64, Game Boy, Nord, Dracula, Solarized (dark + light), Gruvbox, High Contrast,
   Matrix, Blueprint, Hacker Red, Cotton Candy, Thunderstorm, Hotdog Stand,
   Steampunk, Waterworks, Aquarium, Goat, Goat Night, City Lights,
   Constellation, Claw Machine (dark + dusk), Laser Show, Data Centre, Power
-  Plant, Factory (day + night shift), Spring, Summer, Winter, Woodlands, New
+  Plant, Departures, Factory (day + night shift), Spring, Summer, Winter, Woodlands, New
   Year and Thanksgiving. See [Theme](#theme).
   CRT themes get scanlines; each pick triggers a BAMF! splat. Choice persists.
   There are also two seasonal themes you won't find in the list. They unlock the
@@ -434,7 +434,7 @@ CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
 Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
 City Lights, Constellation, Claw Machine, Claw Machine Dusk, Laser Show,
-Data Centre, Power Plant, Factory, Factory Night Shift, Spring, Summer,
+Data Centre, Power Plant, Departures, Factory, Factory Night Shift, Spring, Summer,
 Winter, Woodlands, New Year and Thanksgiving. Your choice is remembered in
 your browser.
 
@@ -630,6 +630,21 @@ Some themes have a little life in them:
   machines and lights **FEEDER TRIP**. With sound on there's the hum of the
   hall, the clunk of a breaker closing or opening, and the two-tone klaxon on a
   trip; it stops in a background tab.
+- **Departures**: the dashboard as an airport departures board. **Every
+  device is a flight** - the vendor for the airline and the last part of its
+  address for the number, so a Ubiquiti access point at `.1` is **UB 001** -
+  and its status is spelled out on split-flap letters: **ON TIME** while it's
+  up, **BOARDING** while it's up but not yet known, **DELAYED** when it has
+  just gone quiet, and **CANCELLED** once it's been gone half an hour,
+  blinking for a watched device. When a status changes, its tiles clatter
+  round to the new word, left to right, the way a real board settles. A board
+  in the header keeps the time on split-flap digits, with the totals on a wide
+  screen. Behind the page the sun is down over the airfield: runway lights,
+  approach lights running towards the threshold, the tower's beacon, the
+  terminal lit, and every so often a plane rolling out and climbing away. A
+  finished scan clacks every row on screen and sends a plane off; a new
+  device flips onto the board from blank. Reduced motion changes the words
+  without the clatter, with a plane waiting at the start of the runway.
 - **Factory**: the dashboard as a shop floor. Lamps hang from a gantry across
   the roof, machines turn against the back wall, a welder throws sparks in the
   corner, and a conveyor runs along the bottom of the screen with crates on it,
