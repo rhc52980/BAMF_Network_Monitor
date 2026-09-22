@@ -1020,7 +1020,30 @@ app.MapGet("/api/wan", (WanWatch wan, HostStore store) =>
         state = wan.Now(),
         samples = store.GetWanSamples(24).Select(s => new { at = s.At, gateway = s.Gateway, internet = s.Internet }),
         outages = logged,
+        slow = SlowSpells(),
     });
+
+    // Slow spells the same way: the kept ones, and one still running on top.
+    IEnumerable<object> SlowSpells()
+    {
+        var kept = store.GetWanSlowLog(50).Select(o => (object)new { start = o.Start, end = o.End, minutes = o.Minutes, worst = o.WorstMs, usual = o.UsualMs, local = o.Local, running = false });
+        if (wan.CurrentSlow is not { } now) return kept;
+        return new[] { (object)new { start = now.Since.ToString("o"), end = DateTime.UtcNow.ToString("o"),
+            minutes = Math.Max(1, (int)Math.Round((DateTime.UtcNow - now.Since).TotalMinutes)), worst = now.Worst, usual = now.Usual, local = now.Local, running = true } }.Concat(kept);
+    }
+});
+app.MapPost("/api/settings/wanslow", (WanSlowRequest body, HostStore store, WanWatch wan) =>
+{
+    var mode = (body.Mode ?? "").Trim().ToLowerInvariant();
+    if (mode == "fixed")
+    {
+        if (body.Ms is not (>= 20 and <= 5000)) return Results.BadRequest(new { error = "Between 20 and 5000 ms." });
+        mode = body.Ms.Value.ToString();
+    }
+    else if (mode is not ("auto" or "off")) return Results.BadRequest(new { error = "Automatic, a set limit, or off." });
+    store.SetSetting("wanSlow", mode);
+    wan.ResetUsual();
+    return Results.Json(new { state = wan.Now() });
 });
 app.MapPost("/api/settings/waninterval", (WanIntervalRequest body, HostStore store, WanWatch wan) =>
 {
@@ -1817,6 +1840,7 @@ record RouterNamesApply(bool Overwrite);
 record FloorPlaceRequest(long HostId, double X, double Y);
 record WanTargetRequest(string? Target);
 record WanIntervalRequest(int Seconds);
+record WanSlowRequest(string? Mode, int? Ms);
 // A plan as it travels: walls, doors and windows as two points each, labels as
 // a point and a word, plus the grid that gives them their real-world size.
 record PlanItem(string? K, double[]? A, double[]? B, double[]? P, string? T);

@@ -143,9 +143,11 @@ windows and room names. Type an exact length for a wall and it takes it.
 
 Switch on **Watch the internet connection** and BAMF pings your router and one
 address out on the internet every minute, so it can tell you when the line
-dropped, for how long, and whether the fault was inside the house or out. It's
-off until you ask for it, because that outside ping is the one thing BAMF sends
-on a timer.
+dropped, for how long, and whether the fault was inside the house or out. It
+also says when the line is **up but slow**: when the ping takes several times
+longer than usual for five readings running, and again when it's back to
+normal. It's off until you ask for it, because that outside ping is the one
+thing BAMF sends on a timer.
 
 ### Tune it without touching the server
 
