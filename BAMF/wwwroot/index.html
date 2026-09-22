@@ -2656,6 +2656,12 @@
   /* ---- livelier everyday themes ---- */
   /* A layer behind the whole page: the Matrix rain, the Synthwave sunset. */
   .theme-bg { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none; }
+  /* A canvas with no size of its own shows at its pixel size, and the themes
+     draw theirs at the window's size times the screen's pixel ratio. On a 1x
+     screen that happens to fit; on a phone, a Retina screen or a Windows
+     laptop at 125% it showed the scene blown up by that ratio, with the top
+     left of it filling the window and the rest off the edge. */
+  .theme-bg > canvas { display: block; width: 100%; height: 100%; }
 
   /* Matrix: panels let the rain show through faintly; the table gets a backing so rows stay readable. */
   [data-theme="matrix"] { --panel: rgba(0, 18, 0, .86); --panel-2: rgba(0, 34, 0, .92); }
