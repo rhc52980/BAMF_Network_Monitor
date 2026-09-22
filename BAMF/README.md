@@ -2044,7 +2044,8 @@ BAMF sends a summary to the same webhook the alerts use:
 - devices that **went away**: went offline in the period and are still off;
 - the **flakiest** device, the one that dropped most often;
 - the **longest offline** known device, and for how long;
-- the **least reliable**, by 7-day uptime;
+- the **least reliable**, by 7-day uptime, or 30-day uptime in the monthly
+  report;
 - devices that **moved address**, and ports that **opened**;
 - any **security** or **certificate** alerts;
 - any DHCP or DNS **watch alerts**;
