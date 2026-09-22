@@ -171,12 +171,18 @@ public sealed class ReportService : BackgroundService
         sb.AppendLine($"Longest offline: {longestText}");
         fields.Add(("Longest offline", longestText));
 
+        // Ranked over the report's own span where BAMF keeps one: a month's
+        // report by 30-day uptime, anything shorter by the week. A device that
+        // was down for a fortnight three weeks ago is the least reliable of the
+        // month, even if its last seven days were clean.
         var uptimes = _store.Uptimes();
-        var least = all.Where(h => h.Known && uptimes.TryGetValue(h.Id, out var u) && u.Week is not null && u.Week < 100)
-            .OrderBy(h => uptimes[h.Id].Week).FirstOrDefault();
+        var monthly = period.TotalDays >= 28;
+        double? Up(long id) => uptimes.TryGetValue(id, out var u) ? (monthly ? u.Month : u.Week) : null;
+        var least = all.Where(h => h.Known && Up(h.Id) is { } v && v < 100)
+            .OrderBy(h => Up(h.Id)).FirstOrDefault();
         if (least is not null)
         {
-            var t = $"{Name(least)} at {uptimes[least.Id].Week}% uptime over 7 days";
+            var t = $"{Name(least)} at {Up(least.Id)}% uptime over {(monthly ? "30" : "7")} days";
             sb.AppendLine($"Least reliable: {t}");
             fields.Add(("Least reliable", t));
         }
