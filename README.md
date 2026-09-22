@@ -148,7 +148,7 @@ No plan of your home? **✎ Draw a plan** gives you walls that straighten
 themselves and snap together, measured against a scale you set, with doors,
 windows and room names. Type an exact length for a wall and it takes it.
 
-![The Internet card on Activity: a green dot and “The internet is up” with the round trip to 8.8.8.8, a bar for every few minutes of the last day with two red marks where it dropped, and the outage log underneath — each with the time it started, the time it came back and how many minutes it lasted, one of them noting the router was down too](docs/internet.png)
+![The Internet card on Activity: a green dot and “The internet is up” with the round trip to 8.8.8.8, a bar for every few minutes of the last day with two red marks where it dropped and shorter amber ones where it was slow, and the log underneath — each outage and slow spell with the time it started, the time it ended and how many minutes it lasted, one noting the router was down too and the slow one its worst reading, 240 ms](docs/internet.png)
 
 Switch on **Watch the internet connection** and BAMF pings your router and one
 address out on the internet every minute, so it can tell you when the line
@@ -160,7 +160,7 @@ thing BAMF sends on a timer.
 
 ### Tune it without touching the server
 
-![The Settings tab: scan interval, probe concurrency, history retention, an on/off switch and scan interval per network, the recorded switches, access point and SSIDs with layout export and import, the instant toggles for active ARP, randomised MACs, the traffic monitor, latency measuring, the ARP watch, IPv6 neighbours, the certificate watch, the GreyNoise check of your public address, the internet watch with the address it pings and how often, Holiday Spirit, Night mode with its hours and theme, and update checks, then alert rules including a scheduled wake, quiet hours and the daily port watch, then the notification settings: the webhook with a button for setting alerts up on your phone without Discord, and the scheduled report, which can be never, daily, weekly or monthly. Near the end, a card with buttons to download a backup of the whole database and to restore one](docs/settings.png)
+![The Settings tab: scan interval, probe concurrency, history retention, an on/off switch and scan interval per network, the recorded switches, access point and SSIDs with layout export and import and a Counters button for reading a managed switch's traffic, the Map icons chosen for whole device types, the instant toggles for active ARP, randomised MACs, the traffic monitor, latency measuring, the ARP watch, IPv6 neighbours, the certificate watch, the GreyNoise check of your public address, the internet watch with the address it pings, how often, and what counts as slow, Holiday Spirit, Night mode with its hours and theme, and update checks, then alert rules including a scheduled wake, quiet hours and the daily port watch, then the notification settings: the webhook with a button for setting alerts up on your phone without Discord, and the scheduled report, which can be never, daily, weekly or monthly. Near the end, a card with buttons to download a backup of the whole database and to restore one](docs/settings.png)
 
 Scan cadence, probe concurrency and history retention are editable from the
 dashboard and applied on the next scan — no restart, no editing a file over SSH.
