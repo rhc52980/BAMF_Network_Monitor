@@ -960,6 +960,9 @@
   .link-flag { font-size: 10px; opacity: 0.7; margin-left: 3px; }
   .modal-help { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin: 0 0 12px; }
   .modal-note { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim); margin: 6px 0 0; word-break: break-all; }
+  /* The backup card's notes are sentences, not URLs: wrap them at words, and
+     break only a long file name that won't fit. */
+  #backupCard .modal-note { word-break: normal; overflow-wrap: anywhere; }
   .update-badge {
     display: inline-flex; align-items: center; height: 20px; padding: 0 8px;
     font-family: "IBM Plex Mono", monospace; font-size: 11px; line-height: 1;
@@ -3796,12 +3799,15 @@
     </p>
     <div class="modal-actions" style="justify-content:flex-start">
       <button class="export-btn" id="backupDownload">Download a backup</button>
+      <button class="toggle" id="backupRestore">Restore from a backup…</button>
+      <input type="file" id="backupFile" accept=".db,application/vnd.sqlite3,application/x-sqlite3" hidden>
     </div>
     <div class="modal-note" id="backupResult"></div>
     <div class="modal-note">
-      To restore one: stop BAMF, put the file in place of <span class="mono">bamf.db</span>, and
-      start it again. The Windows and Linux updaters also keep their own copy from before each
-      update, in <span class="mono">backups</span> beside the database.
+      Restoring replaces everything here with what's in the file. BAMF checks it's a sound BAMF
+      backup first, and keeps the database it replaces in <span class="mono">backups</span> beside
+      it, so a restore can be undone. The Windows and Linux updaters keep a copy from before each
+      update there too.
     </div>
   </div>
 
@@ -16705,6 +16711,23 @@ $("backupDownload").onclick = async () => {
     out.textContent = `Saved ${name} \u00b7 ${mb >= 1 ? mb.toFixed(1) + " MB" : Math.max(1, Math.round(blob.size / 1024)) + " kB"}`;
   } catch { out.textContent = "Couldn't reach BAMF."; }
   finally { b.disabled = false; }
+};
+
+$("backupRestore").onclick = () => $("backupFile").click();
+$("backupFile").onchange = async () => {
+  const f = $("backupFile").files[0];
+  $("backupFile").value = "";
+  if (!f) return;
+  if (!confirm(`Replace everything BAMF knows with ${f.name}?\n\nEvery device and its history, the names, notes and tags, the Map, the floor plans, alert rules and the settings saved here become what's in the backup. The database it replaces is kept on the server first, in backups beside it.`)) return;
+  const out = $("backupResult");
+  out.textContent = "Restoring\u2026";
+  try {
+    const r = await fetch("/api/backup/restore", { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: f });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { out.textContent = d.error || `Couldn't restore it (HTTP ${r.status}).`; return; }
+    out.textContent = `Restored. The database it replaced is kept as ${d.kept}. Reloading\u2026`;
+    setTimeout(() => location.reload(), 1500);
+  } catch { out.textContent = "Couldn't reach BAMF."; }
 };
 
 $("layoutImport").onclick = () => $("layoutFile").click();
