@@ -77,6 +77,11 @@ public sealed class TrafficMonitor : IDisposable
 
     /// <summary>Set by the scanner: delivers an alert wherever alerts go.</summary>
     public Func<Alert, Task>? OnAlert { get; set; }
+    /// <summary>
+    /// True for a device a switch or the router is counting. Its hourly history
+    /// comes from them, so what the capture saw of it isn't also written down.
+    /// </summary>
+    public Func<string, bool>? CountedElsewhere { get; set; }
     /// <summary>Every ARP frame's sender address and MAC, for the ARP watch.</summary>
     public Action<string, string>? OnArp { get; set; }
     /// <summary>Every IPv6 neighbour-discovery frame's sender MAC and address, for the IPv6 watch.</summary>
@@ -259,9 +264,11 @@ public sealed class TrafficMonitor : IDisposable
         var rows = new List<(string, string, long, long)>();
         lock (_lock)
         {
+            var elsewhere = CountedElsewhere;
             foreach (var (mac, b) in _byMac)
             {
                 if (b.RxHour == 0 && b.TxHour == 0) continue;
+                if (elsewhere?.Invoke(mac) == true) { b.RxHour = 0; b.TxHour = 0; continue; }
                 rows.Add((mac, hour, b.RxHour, b.TxHour));
                 b.RxHour = 0; b.TxHour = 0;
             }

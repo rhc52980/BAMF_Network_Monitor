@@ -53,6 +53,13 @@ optional daily update check you have to switch on, and your own webhook.
   `Windows (TTL 128, SMB)`
 - Custom names and free-text notes, bound to the MAC so they survive IP changes
 
+**Traffic**
+- Real bytes per device from a managed switch's port counters (SNMP) or a UniFi
+  controller, using the switch ports you've already recorded. No mirror port
+  needed
+- Top talkers, a week of traffic per device, and the busiest devices in the
+  scheduled report
+
 **Alerting**
 - Discord webhooks with rich embeds — amber for a new unknown device, red when
   a watched device goes offline, green when it returns with how long it was down

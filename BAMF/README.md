@@ -1314,7 +1314,7 @@ scan, or delete a thing.
 | GET | `/api/ipv6` | The IPv6 watch: `enabled`, `lastRead`, `error`, and `onlyIpv6`, MACs seen over IPv6 this week that never answered the IPv4 scan. Devices' own IPv6 addresses are `ipv6` in `/api/hosts` |
 | POST | `/api/settings/ipv6-watch` | Body `{"enabled": false}` — turn the IPv6 watch off or on. On by default |
 | GET | `/api/free-ips?days=90` | For each IPv4 network: `size`, `used`, `free`, the longest `runs` of free addresses and a `suggestion`. Used means seen in the last `days` (default 90), plus every device's current address, the gateway and this machine |
-| GET | `/api/router-import` | Router import status: `kind`, `host`, `enabled`, `lastRun`, `count`, `error` |
+| GET | `/api/router-import` | Router import status: `kind`, `host`, `enabled`, `lastRun`, `count`, `error`, and for UniFi's traffic counts `traffic`, `trafficAt`, `trafficClients`, `trafficError` |
 | POST | `/api/router-import/run` | Read the router's list now; `502` with the status if it failed |
 | POST | `/api/router-import/apply` | Body `{"overwrite": false}` — copy router names into BAMF's own names, only for devices without one unless `overwrite`. Returns `{ "named": 3 }` |
 | GET | `/api/greynoise` | The GreyNoise check: `enabled`, and the last `result` (`ip`, `noise`, `riot`, `classification`, `lastSeen`, `message`, `error`, `checkedAt`) |
@@ -1331,7 +1331,7 @@ scan, or delete a thing.
 | POST | `/api/settings/report` | Body `{"schedule": "daily", "hour": 8, "day": 1}` — the scheduled report: `off`, `daily`, `weekly` or `monthly`, the hour (0–23, the server's local time) and, for weekly, the day (0 Sunday to 6 Saturday). Monthly goes out on the 1st |
 | POST | `/api/reports/send` | Send the report now, whatever the schedule; returns what was sent |
 | GET | `/api/reports/preview` | The report as it would be sent |
-| GET | `/api/traffic` | The traffic monitor's status, the top talkers with their five-minute strips, the DHCP and DNS servers seen, and the watch alerts. `GET /api/hosts` carries each host's `traffic` (`rx`, `tx` bytes per second; `rxTotal`, `txTotal`) and `dns` (the servers it asks) |
+| GET | `/api/traffic` | The traffic monitor's status, the switches and router counting traffic (`sources`), the top talkers with their strips and `source`, the DHCP and DNS servers seen, and the watch alerts. `GET /api/hosts` carries each host's `traffic` (`rx`, `tx` bytes per second; `rxTotal`, `txTotal`; `source`: `capture`, `switch` or `router`, with `where`) and `dns` (the servers it asks) |
 | POST | `/api/traffic/trust` | Body `{"kind": "dhcp", "ip": "192.168.1.1", "trusted": true}` — trust a DHCP or DNS server so it never alerts, or forget it so it counts as new again |
 | GET | `/api/hosts/{id}/latency` | One host's latency samples over the last 24 hours (`?hours=` for more): `[{"at", "ms"}]`, `ms` null where the echo went unanswered. `GET /api/hosts` carries each host's latest as `latencyMs`, and its uptime over 7 and 30 days as `uptime7` and `uptime30` (percent) |
 | POST | `/api/hosts/{id}/tags` | Body `{"tags": ["kids", "IoT"]}` — replace a device's tags (up to 20, each up to 24 characters, no commas). `GET /api/hosts` lists each host's `tags` |
@@ -1341,6 +1341,8 @@ scan, or delete a thing.
 | POST | `/api/switches` | Body `{"kind": "switch", "name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch, router or access point to the recorded layout. `kind` is `switch` (the default), `router`, `ap`, `virtual`, `ssid` or `vpn`; a virtual switch takes `runsOn` (the id of the machine it runs on) instead of a device, uplink or port count, and a wireless SSID takes `runsOn` as the id of its access point (a switch record of kind `ap`), with an optional `subnet` for its own network. Devices on a virtual switch, SSID or VPN are recorded with port 0. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
 | POST | `/api/switches/{id}` | Same body — update a switch. Refuses loops and ports that would strand recorded devices |
 | DELETE | `/api/switches/{id}` | Delete a switch. Devices recorded on it go back to unrecorded; switches plugged into it lose that uplink |
+| GET | `/api/switches/snmp` | Each switch and router's traffic counters: `enabled`, `address`, `hasCommunity`, `lastPoll`, `error`, `portsRead`, `mapping`, `counted`, and `ports` — every port's number, the switch's `name` for it, the `device` it counts or a `note` saying why not |
+| POST | `/api/switches/{id}/snmp` | Body `{"enabled": true, "address": "192.168.1.2", "community": "…"}` — switch a switch's counters on or off. `address` blank uses its linked device's; `community` null or blank keeps the saved one. Reads the switch straight away and returns its status as above |
 | POST | `/api/switches/{id}/ports` | Body `{"ports": [{"hostId": 3, "port": 1}, {"hostId": 4, "port": 2}], "labels": [{"port": 1, "label": "Living Room"}]}` — set everything on one switch at once. Hosts listed are placed on it (moving off any other switch; `port` 0 = not recorded), and hosts on it that aren't listed come off it. `labels`, when given, replaces the ports' locations (up to 40 characters; blank clears one); leave it out to keep them. Each switch in `GET /api/hosts` carries them as `portLabels` |
 | POST | `/api/hosts/{id}/blink` | Body `{"seconds": 30}` (optional, 5–60) — "Find port": send the device bursts of UDP traffic, one second on and one second off, so its switch-port light pulses. Private addresses only; replaces any blink already running. Returns `until` |
 | POST | `/api/map/positions` | Body `{"subnet": "192.168.1.0/24", "positions": {"s:1": [120, 140], "h:7": null}}` — save where nodes sit on the topology Map for one network. Keys are `h:<host id>`, `s:<switch id>`, `gw`, `self`, `net` and `box`. A null position forgets that node, so it goes back to the automatic layout. `GET /api/hosts` returns them all as `mapPositions` |
@@ -2430,7 +2432,8 @@ router's credentials:
   "ApiSecret": "",                 // OPNsense
   "Site": "default",               // UniFi
   "IntervalMinutes": 60,
-  "VerifyCertificate": false       // routers usually have a self-signed certificate
+  "VerifyCertificate": false,      // routers usually have a self-signed certificate
+  "Traffic": true                  // UniFi: each client's bytes, once a minute
 }
 ```
 
@@ -2439,7 +2442,7 @@ router's credentials:
 | **OpenWrt** | A user that can call `luci-rpc` over ubus (the `rpcd-mod-luci` package, which LuCI installs). `root` works. BAMF reads `getDHCPLeases`. |
 | **OPNsense** | An API key and secret (System → Access → Users → API keys) for a user allowed the DHCP lease pages. Works with the ISC DHCP server and with Kea. A description you set on a lease wins over the device's hostname. |
 | **pfSense** | The pfSense REST API package, and an API key. |
-| **UniFi** | A local account on a UniFi OS console (UDM, UDR, Cloud Key Gen2 and later) or a classic Network controller. A name you gave a client in UniFi wins over its hostname. |
+| **UniFi** | A local account on a UniFi OS console (UDM, UDR, Cloud Key Gen2 and later) or a classic Network controller. A name you gave a client in UniFi wins over its hostname. It also gives every client's traffic: see [Traffic, DHCP and DNS](#traffic-dhcp-and-dns). |
 
 **Import now** reads the list straight away and says how many names it got,
 or why it couldn't. Names without a real name behind them (`*`, `unknown`) are
@@ -2555,6 +2558,58 @@ server into a **mirrored (SPAN) port** on a managed switch, or an old hub,
 and it sees everything. The card says so. The same goes for the DHCP and DNS
 watch below: on a switched network it covers this machine and any broadcast
 DHCP offers; on a mirrored port it covers every device.
+
+Two things see every device's traffic without a mirrored port, and where
+either counts a device, its figure replaces what the capture saw (they work
+without Npcap, too):
+
+- **A managed switch**, over SNMP. See [Traffic from your switches](#traffic-from-your-switches).
+- **A UniFi controller**, which counts every client's bytes, wired and
+  wireless. With [names from your router](#names-from-your-router) set up for
+  UniFi, BAMF reads those counts once a minute (`"Traffic": false` in
+  `RouterImport` turns it off). OpenWrt, OPNsense and pfSense don't keep a
+  count per device in the APIs BAMF uses, so from them it's names only.
+
+The Traffic column's tooltip and the History panel say who counted each device
+("counted by Rack switch, port 4"), and **Top talkers** says which switches
+and router are counting. When both a switch and UniFi count a device, the
+switch wins: it's the wire itself. The hourly history comes from whichever
+counted it, never both, so nothing is counted twice.
+
+### Traffic from your switches
+
+A managed switch counts every byte in and out of every port, and will tell
+BAMF over SNMP. You've already recorded which port each device is plugged
+into, for the Map, so BAMF can read those counts once a minute and give each
+port's traffic to the device on it: real usage for every device, with no mirror
+port. Basic unmanaged switches have no SNMP, so this is for managed and most
+"smart" ones.
+
+1. In the switch's own settings, switch on **SNMP v2c**, read-only. Its
+   community is its password: `public` unless you change it, which you should.
+2. In BAMF, **Settings → Switches and routers → Counters** beside the switch
+   (or **Traffic counters…** in the switch's own ⋯ menu). Tick **Read
+   counters**, give the community, and the address if the switch isn't linked
+   to its device (add `:port` for an agent that isn't on 161).
+3. **Save and test** reads it straight away and lists every port: which device
+   it counts, or why not.
+
+A port counts only when exactly one device is recorded on it. A port with
+several, or with another recorded switch or access point plugged in, carries
+more than one device's traffic that BAMF can't split, so it's left out and the
+dialog says so. Recording what's behind it as a switch of its own, with its own
+counters, covers those too.
+
+Which counter is which port: most switches name their ports with the number
+at the end (`gi1/0/5`, `Port 5`), and BAMF uses that; otherwise the physical
+ports in the switch's own order are 1, 2, 3 and so on. The dialog shows the
+switch's name beside each port so you can check. The 64-bit counters are used
+where the switch has them; the older 32-bit ones roll over every few minutes at
+gigabit speeds, and a minute's reading still counts one rollover correctly.
+
+BAMF only ever reads: it sends SNMP GetBulk requests for the interface table
+and nothing else, once a minute per switch you switch on. The community is kept
+in the database and never shown again, not even to the dashboard.
 
 **DHCP servers.** Every DHCP offer or acknowledgement names the server that
 sent it. The **Network watch** card on the Activity tab lists every DHCP

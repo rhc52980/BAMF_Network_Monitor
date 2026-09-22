@@ -21,39 +21,143 @@ namespace LanWatch.Services;
 ///   unifi     a UniFi OS console or a classic controller, with a username and password
 /// Routers usually have a self-signed certificate, so certificate errors are
 /// ignored unless VerifyCertificate is true.
+///
+/// A UniFi controller also counts every client's bytes, wired and wireless,
+/// which is the whole network's traffic per device without a mirror port. With
+/// Traffic left on (the default) BAMF reads those counts once a minute and uses
+/// them in place of what its own capture sees. OpenWrt, OPNsense and pfSense
+/// don't keep a per-device count in the APIs used here, so they give names only.
 /// </summary>
 public sealed class RouterImport : BackgroundService
 {
     public sealed record Lease(string Mac, string Name, string Ip);
-    public sealed record Status(string Kind, string Host, bool Enabled, string? LastRun, int Count, string? Error);
+    public sealed record Status(string Kind, string Host, bool Enabled, string? LastRun, int Count, string? Error,
+        bool Traffic, string? TrafficAt, int TrafficClients, string? TrafficError);
 
     private readonly HostStore _store;
     private readonly IConfiguration _config;
     private readonly ILogger<RouterImport> _log;
+    private readonly MeasuredTraffic _measured;
     private readonly SemaphoreSlim _busy = new(1, 1);
     private string? _lastRun, _lastError;
     private int _lastCount;
 
-    public RouterImport(HostStore store, IConfiguration config, ILogger<RouterImport> log)
+    // The traffic poll keeps its UniFi session between minutes rather than
+    // logging in sixty times an hour.
+    private HttpClient? _uni;
+    private string _uniPrefix = "";
+    private readonly Dictionary<string, (long Rx, long Tx, DateTime At)> _uniLast = new(StringComparer.OrdinalIgnoreCase);
+    private string? _trafficAt, _trafficError;
+    private int _trafficClients;
+
+    public RouterImport(HostStore store, IConfiguration config, ILogger<RouterImport> log, MeasuredTraffic measured)
     {
-        _store = store; _config = config; _log = log;
+        _store = store; _config = config; _log = log; _measured = measured;
     }
+
+    /// <summary>Per-client byte counts, from a UniFi controller only. On unless Bamf:RouterImport:Traffic is false.</summary>
+    public bool TrafficEnabled => Enabled && Kind == "unifi" && Cfg.GetValue("Traffic", true);
 
     private IConfigurationSection Cfg => _config.GetSection("Bamf:RouterImport");
     public string Kind => (Cfg["Kind"] ?? "").Trim().ToLowerInvariant();
     public bool Enabled => Kind is "openwrt" or "opnsense" or "pfsense" or "unifi" && !string.IsNullOrWhiteSpace(Cfg["Url"]);
 
     public Status Current => new(Kind, Uri.TryCreate(Cfg["Url"] ?? "", UriKind.Absolute, out var u) ? u.Host : "", Enabled,
-        _lastRun, _lastCount, _lastError);
+        _lastRun, _lastCount, _lastError, TrafficEnabled, _trafficAt, _trafficClients, _trafficError);
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
+        var traffic = TrafficLoop(ct);
         try { await Task.Delay(TimeSpan.FromSeconds(20), ct); } catch (OperationCanceledException) { return; }
         while (!ct.IsCancellationRequested)
         {
             if (Enabled) await Run(ct);
             var minutes = Math.Clamp(Cfg.GetValue("IntervalMinutes", 60), 5, 24 * 60);
             try { await Task.Delay(TimeSpan.FromMinutes(minutes), ct); } catch (OperationCanceledException) { break; }
+        }
+        await traffic;
+    }
+
+    private async Task TrafficLoop(CancellationToken ct)
+    {
+        try { await Task.Delay(TimeSpan.FromSeconds(40), ct); } catch (OperationCanceledException) { return; }
+        while (!ct.IsCancellationRequested)
+        {
+            if (TrafficEnabled)
+            {
+                try { await PollTraffic(ct); _trafficError = null; }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
+                catch (Exception ex)
+                {
+                    _trafficError = ex.GetBaseException().Message;
+                    _uni?.Dispose(); _uni = null;
+                    _log.LogInformation("UniFi traffic read failed: {Error}", _trafficError);
+                }
+            }
+            try { await Task.Delay(TimeSpan.FromSeconds(60), ct); } catch (OperationCanceledException) { break; }
+        }
+    }
+
+    /// <summary>
+    /// Every connected client's byte counts, turned into what each sent and got
+    /// since the last minute. UniFi counts from its own side, the access point
+    /// or switch port: its tx_bytes is what it sent to the client, so the
+    /// client's download. A wired client's figures are its wired-* ones.
+    /// </summary>
+    private async Task PollTraffic(CancellationToken ct)
+    {
+        var site = Cfg["Site"] is { Length: > 0 } s ? s : "default";
+        for (var attempt = 0; ; attempt++)
+        {
+            if (_uni is null)
+            {
+                var http = Client(new CookieContainer());
+                try { _uniPrefix = await UniFiLogin(http, ct); _uni = http; }
+                catch { http.Dispose(); throw; }
+            }
+            using var resp = await _uni.GetAsync(Url + _uniPrefix + $"/api/s/{site}/stat/sta", ct);
+            if (resp.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden && attempt == 0)
+            {
+                // The session ran out: log in again, once.
+                _uni.Dispose(); _uni = null;
+                continue;
+            }
+            resp.EnsureSuccessStatusCode();
+            var node = JsonNode.Parse(await resp.Content.ReadAsStringAsync(ct));
+            var now = DateTime.UtcNow;
+            var seen = 0;
+            foreach (var c in node?["data"]?.AsArray() ?? new JsonArray())
+            {
+                var mac = NormMac(Str(c, "mac"));
+                if (mac == "") continue;
+                var wired = c?["is_wired"]?.GetValueKind() == JsonValueKind.True;
+                long? toClient = Num(c, wired ? "wired-tx_bytes" : "tx_bytes") ?? Num(c, "tx_bytes");
+                long? fromClient = Num(c, wired ? "wired-rx_bytes" : "rx_bytes") ?? Num(c, "rx_bytes");
+                if (toClient is not { } rx || fromClient is not { } tx) continue;
+                seen++;
+                if (_uniLast.TryGetValue(mac, out var prev))
+                {
+                    // Counts start again from zero when a client reconnects, so a
+                    // count that went down is all new since then.
+                    var dRx = rx >= prev.Rx ? rx - prev.Rx : rx;
+                    var dTx = tx >= prev.Tx ? tx - prev.Tx : tx;
+                    var secs = (now - prev.At).TotalSeconds;
+                    if (secs > 1) _measured.Report(mac, "router", "UniFi" + (wired ? ", wired" : ", wireless"), dRx, dTx, secs);
+                }
+                _uniLast[mac] = (rx, tx, now);
+            }
+            _trafficClients = seen;
+            _trafficAt = now.ToString("o");
+            return;
+        }
+    }
+
+    private static long? Num(JsonNode? n, string key)
+    {
+        try { return n?[key]?.GetValue<long>(); }
+        catch (Exception ex) when (ex is InvalidOperationException or FormatException)
+        {
+            return long.TryParse(n?[key]?.ToString(), out var v) ? v : null;
         }
     }
 
@@ -189,24 +293,7 @@ public sealed class RouterImport : BackgroundService
         var cookies = new CookieContainer();
         using var http = Client(cookies);
         var site = Cfg["Site"] is { Length: > 0 } s ? s : "default";
-        var creds = JsonSerializer.Serialize(new { username = Cfg["Username"] ?? "", password = Cfg["Password"] ?? "" });
-
-        // A UniFi OS console (UDM, Cloud Key Gen2+) first, then a classic controller.
-        string prefix;
-        using (var os = await http.PostAsync(Url + "/api/auth/login", new StringContent(creds, Encoding.UTF8, "application/json"), ct))
-        {
-            if (os.IsSuccessStatusCode)
-            {
-                prefix = "/proxy/network";
-                if (os.Headers.TryGetValues("X-CSRF-Token", out var csrf)) http.DefaultRequestHeaders.Add("X-CSRF-Token", csrf.First());
-            }
-            else
-            {
-                using var classic = await http.PostAsync(Url + "/api/login", new StringContent(creds, Encoding.UTF8, "application/json"), ct);
-                classic.EnsureSuccessStatusCode();
-                prefix = "";
-            }
-        }
+        var prefix = await UniFiLogin(http, ct);
         var byMac = new Dictionary<string, Lease>(StringComparer.OrdinalIgnoreCase);
         // Every known client, named or not, then the connected ones for fresh addresses.
         foreach (var path in new[] { $"/api/s/{site}/rest/user", $"/api/s/{site}/stat/sta" })
@@ -225,6 +312,23 @@ public sealed class RouterImport : BackgroundService
             }
         }
         return byMac.Values.ToList();
+    }
+
+    /// <summary>Logs in to a UniFi OS console (UDM, Cloud Key Gen2+), else a classic controller. Returns the API prefix.</summary>
+    private async Task<string> UniFiLogin(HttpClient http, CancellationToken ct)
+    {
+        var creds = JsonSerializer.Serialize(new { username = Cfg["Username"] ?? "", password = Cfg["Password"] ?? "" });
+        using (var os = await http.PostAsync(Url + "/api/auth/login", new StringContent(creds, Encoding.UTF8, "application/json"), ct))
+        {
+            if (os.IsSuccessStatusCode)
+            {
+                if (os.Headers.TryGetValues("X-CSRF-Token", out var csrf)) http.DefaultRequestHeaders.Add("X-CSRF-Token", csrf.First());
+                return "/proxy/network";
+            }
+        }
+        using var classic = await http.PostAsync(Url + "/api/login", new StringContent(creds, Encoding.UTF8, "application/json"), ct);
+        classic.EnsureSuccessStatusCode();
+        return "";
     }
 
     // ------------------------------------------------------------ helpers
