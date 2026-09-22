@@ -1363,7 +1363,8 @@ scan, or delete a thing.
 | POST | `/api/floors/{id}/places` | Body `{"hostId": 7, "x": 0.4, "y": 0.62}`: puts a device on that floor, or moves it there |
 | DELETE | `/api/floors/places/{hostId}` | Takes a device off its floor |
 | DELETE | `/api/blink` | Stop a running Find port blink. While one runs, `GET /api/hosts` reports it as `blink` (`hostId`, `started`, `until`) with the server's `serverTime`; bursts are on for [2k, 2k+1) seconds after `started` |
-| POST | `/api/hosts/{id}/type` | Body `{"type": "nas"}` — set a device's type, overriding the guess for its icon and type chip. Types: `router`, `switch`, `ap`, `camera`, `printer`, `tv`, `speaker`, `phone`, `tablet`, `laptop`, `desktop`, `server`, `nas`, `vm`, `game`, `iot`, `light`, `plug`, `device`. Empty goes back to the guess. `GET /api/hosts` returns it as `deviceType` |
+| POST | `/api/hosts/{id}/typename` | Body `{"type": "Kids' tablet"}` — set the device type in your own words, up to 40 characters; empty goes back to BAMF's guess. It's what the list shows and the type chips group by. `GET /api/hosts` returns it as `typeName` |
+| POST | `/api/hosts/{id}/type` | Body `{"type": "nas"}` — set a device's Map icon, overriding the automatic one. Types: `router`, `switch`, `ap`, `camera`, `printer`, `tv`, `speaker`, `phone`, `tablet`, `laptop`, `desktop`, `server`, `nas`, `vm`, `game`, `iot`, `light`, `plug`, `device`. Empty goes back to the automatic icon. `GET /api/hosts` returns it as `deviceType` |
 | POST | `/api/settings/type-icons` | Body `{"icons": {"Linux": "server"}}` — the icon for every device of a guessed type; an empty icon clears it. Returned in `GET /api/hosts` as `typeIcons` |
 | POST | `/api/hosts/{id}/combine` | Body `{"parentId": 12}` — combine the device into another as one of its network cards; `parentId` 0 separates it again. `GET /api/hosts` gives each host's `interfaceOf` (0 for a device of its own). Returns 400 with `{"error": "…"}` for a device combined with itself, or one that's a switch's own device |
 | POST | `/api/hosts/{id}/gateway` | Body `{"ip": "192.168.1.1", "enabled": true}` — declare the device the gateway of the network that address is on (one of its own addresses), or stop declaring it. One gateway per network. `GET /api/hosts` lists them as `gateways`: `[{"subnet", "hostId", "ip"}]`. Returns 400 with `{"error": "…"}` for an address the device doesn't have, or a VPN's device |
@@ -1890,32 +1891,47 @@ accepted for an upload, since an SVG can carry script, and images are capped at
 stays editable, and BAMF writes back only the pieces it recognises. With the
 view-only password, the floor plan is visible but can't be changed or drawn.
 
-## Setting a device's type and icon
+## Setting a device's type and its Map icon
 
-BAMF's device type is a guess, and so is the icon the Map draws from it. To
-overrule it, click the device's **icon** on the topology Map (clicking its name
-still opens Plugged into; with the device focused, **T** does the same), or use
-**Type / icon…** in its ⋯ menu. Pick from Router, Switch, Access point, Camera,
+BAMF guesses what each device is, and draws a Map icon from that guess. Two
+options in a device's ⋯ menu overrule it, and each changes one thing:
+
+**Device type…** is what the device *is*, in your own words: "NAS", "Kids'
+tablet", "Doorbell", up to 40 characters. Click the grey line under the vendor
+in the device list for the same thing. It suggests the types you've already
+used. A device type:
+- shows in the device list in place of BAMF's guess, as "NAS · your type";
+- decides which **Device type** chip it's counted under;
+- is found by search;
+- shows in `/api/hosts.txt` and the CSV export;
+- gives the device a Map icon when it names one ("Printer", "NAS", "Camera"),
+  unless you've picked an icon yourself.
+
+**Back to BAMF's guess** in the same dialog clears it.
+
+**Map icon…** is only the picture the device gets on the Map; it changes
+nothing in the device list. Click the device's **icon** on the topology Map for
+the same picker (clicking its name still opens Plugged into; with the device
+focused, **T** does the same). Pick from Router, Switch, Access point, Camera,
 Printer, TV / media, Speaker, Phone, Tablet, Laptop, Desktop, Server, NAS,
 Virtual machine, Game console, Smart home, Light, Smart plug or Other.
-**Automatic** goes back to the guess.
+**Automatic** uses the icon your device type names, else BAMF's guess.
 
-A type you set:
-- decides the device's icon on the Map;
-- decides which **Device type** chip it's counted under;
-- shows in the device list as "NAS · your type";
-- is found by search;
-- shows in `/api/hosts.txt` and the CSV export.
+Before these were two options, the icon was the device type as well. On the
+first start of the version that split them, every icon you'd picked also
+becomes the device's type ("NAS"), so the device list looks just as it did.
 
 **One icon for a whole guessed type.** Tick "use this icon for every *Linux*
-device" in the same picker, and every device BAMF guesses as Linux gets that
-icon. **Settings → Device icons** lists these choices, with **Change** and
-**Reset**. A type set on one device always wins over them.
+device" in the Map icon picker, and every device BAMF guesses as Linux gets
+that icon. **Settings → Map icons** lists these choices, with **Change** and
+**Reset**. An icon picked for one device, or one its device type names, wins
+over them.
 
 ## Filtering by device type
 
-Under the status tabs, a **Device type** row lists the guesses actually
-present in what you're looking at, each with a count: `Apple device 4`,
+Under the status tabs, a **Device type** row lists the types actually
+present in what you're looking at (your own device type where you've set one,
+else BAMF's guess), each with a count: `Apple device 4`,
 `Printer 2`, `no guess 26`. Click one to show only those, click it again (or
 press `Esc`) to clear. The counts come from the network and status filters
 already applied, so they don't collapse as you move between chips.

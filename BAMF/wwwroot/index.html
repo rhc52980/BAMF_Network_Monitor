@@ -1861,7 +1861,9 @@
   /* A virtual switch lives inside its machine: dashed tile, dashed link to it. */
   .map-svg .node.virtual .t-tile { stroke-dasharray: 3 2; }
   .map-svg path.spoke.vlink { stroke: var(--text-dim); stroke-dasharray: 4 3; }
-  /* The Type / icon picker. */
+  /* The Map icon picker. */
+  .os-guess.type-set { cursor: pointer; }
+  .os-guess.type-set:hover { color: var(--text); text-decoration: underline dotted; }
   .type-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; margin: 10px 0 12px; }
   .type-opt {
     display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 9px 4px 7px;
@@ -3623,11 +3625,11 @@
   </div>
 
   <div class="set-card" id="typeIconCard">
-    <div class="set-card-title">Device icons</div>
+    <div class="set-card-title">Map icons</div>
     <p class="modal-help">
-      Icons you've chosen for a whole type BAMF guesses: every <em>Linux</em> device as a server,
-      say. Set one from any device's <strong>Type / icon…</strong> with "use this for every …
-      device" ticked. A type you set on one device always wins over these.
+      Map icons you've chosen for a whole type BAMF guesses: every <em>Linux</em> device drawn as a
+      server, say. Set one from any device's <strong>Map icon…</strong> with "use this for every …
+      device" ticked. An icon picked for one device, or one its device type names, wins over these.
     </p>
     <table class="set-table" id="typeIconTable"></table>
     <div class="modal-note" id="typeIconEmpty">None yet: the Map picks each icon from the device's guess and names.</div>
@@ -4160,7 +4162,7 @@
     <div class="set-result" id="plugErr"></div>
     <div class="modal-actions">
       <button class="toggle" id="plugNewSwitch">Add a switch…</button>
-      <button class="toggle" id="plugType">Type / icon…</button>
+      <button class="toggle" id="plugType">Map icon…</button>
       <button class="toggle" id="plugFind">Find in list</button>
       <button class="toggle" id="plugCancel">Cancel</button>
       <button class="export-btn" id="plugSave">Save</button>
@@ -4205,15 +4207,39 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="kindModal" hidden>
+  <div class="modal">
+    <div class="modal-title" id="kindTitle">Device type</div>
+    <div class="modal-note" id="kindSub"></div>
+    <div class="note-box">
+      <label for="kindText">What is it?</label>
+      <input class="modal-input" id="kindText" list="kindList" maxlength="40" autocomplete="off" style="width:100%;box-sizing:border-box">
+      <datalist id="kindList"></datalist>
+    </div>
+    <p class="modal-help">
+      In your own words, up to 40 characters: "NAS", "Kids' tablet", "Doorbell". It shows in the
+      device list in place of BAMF's guess, it's what the <strong>Device type</strong> chips group
+      by, and search finds it. It doesn't change the Map icon unless it names one ("Printer",
+      "NAS"); to pick the icon yourself, use <strong>Map icon…</strong>.
+    </p>
+    <div class="set-result" id="kindErr"></div>
+    <div class="modal-actions">
+      <button class="toggle" id="kindClear">Back to BAMF's guess</button>
+      <button class="toggle" id="kindCancel">Cancel</button>
+      <button class="export-btn" id="kindSave">Save</button>
+    </div>
+  </div>
+</div>
 <div class="modal-backdrop" id="typeModal" hidden>
   <div class="modal">
-    <div class="modal-title" id="typeTitle">Type</div>
+    <div class="modal-title" id="typeTitle">Map icon</div>
     <div class="modal-note" id="typeSub"></div>
     <div class="type-grid" id="typeGrid"></div>
     <label class="type-all" id="typeAllRow"><input type="checkbox" id="typeAll"> <span id="typeAllText"></span></label>
     <p class="modal-help" id="typeHelp">
-      The type sets the device's icon on the Map and which Device type chip it's under. Automatic
-      goes back to BAMF's guess. Click one to save.
+      Only the picture this device gets on the Map. It doesn't change what the device list calls it:
+      that's <strong>Device type…</strong> in its ⋯ menu. Automatic uses the icon your device type
+      names (a device typed "NAS" gets the NAS icon), else BAMF's guess. Click one to save.
     </p>
     <div class="set-result" id="typeErr"></div>
     <div class="modal-actions">
@@ -5750,8 +5776,8 @@ const TYPE_DEFS = [
   ["iot", "Smart home"], ["light", "Light"], ["plug", "Smart plug"], ["device", "Other"],
 ];
 function typeLabel(key) { const d = TYPE_DEFS.find(([k]) => k === key); return d ? d[1] : key; }
-// A device's type family for the type chips: the one the user set, or the guess.
-function typeFamily(h) { return h.deviceType ? typeLabel(h.deviceType) : guessFamily(h.osGuess); }
+// A device's type family for the type chips: the device type the user wrote, or the guess.
+function typeFamily(h) { return h.typeName || guessFamily(h.osGuess); }
 
 function guessFamily(osGuess) {
   if (!osGuess) return null;
@@ -5788,7 +5814,7 @@ function visible(opts) {
 function matchesQuery(h, query) {
   if (!query) return true;
   const fields = [h.customName, h.hostname, h.mdnsName, h.routerName, h.mdnsServices, h.ip, h.mac, h.vendor, h.note, h.osGuess, ...(h.tags || []),
-    h.deviceType ? typeLabel(h.deviceType) : "", ...(h.addresses || []).map(a => a.ip), ...(h.ipv6 || [])].filter(Boolean);
+    h.typeName, ...(h.addresses || []).map(a => a.ip), ...(h.ipv6 || [])].filter(Boolean);
   if (/[*?]/.test(query)) {
     let rx;
     try {
@@ -6225,7 +6251,7 @@ function mapTitle(h, role) {
   if (others.length) lines.push("Also at " + others.join(", "));
   if (h.interfaces) lines.push(`${h.interfaces.length + 1} network cards: ${macsOf(h).join(", ")}`);
   if (h.vendor) lines.push(h.vendor);
-  lines.push(h.deviceType ? "Type: " + typeLabel(h.deviceType) + " (yours)" : h.osGuess ? "Guess: " + h.osGuess : "No guess yet");
+  lines.push(h.typeName ? "Type: " + h.typeName + " (yours)" : h.osGuess ? "Guess: " + h.osGuess : "No guess yet");
   const sw = h.switchId ? switches.find(s => s.id === h.switchId) : null;
   if (sw) lines.push(`Plugged into ${sw.name}` + (h.switchPort ? `, ${portText(sw, h.switchPort)}` : "") + " (your record)");
   if (role === "gw" || gwNetsOf(h).length) {
@@ -6633,9 +6659,14 @@ function deviceKind(h) {
   if (h.deviceType && TOPO_ICONS[h.deviceType]) return h.deviceType;
   return autoKind(h);
 }
-// What the icon would be without a type set on the device itself.
+// What the icon would be without a Map icon picked for the device itself:
+// the icon its device type names ("NAS", "Printer"), then its guessed type's.
 function autoKind(h) {
   if (!h || h.synthetic) return "device";
+  if (h.typeName) {
+    const named = TYPE_DEFS.find(([k, label]) => label.toLowerCase() === h.typeName.toLowerCase() || k === h.typeName.toLowerCase());
+    if (named && TOPO_ICONS[named[0]]) return named[0];
+  }
   const fam = guessFamily(h.osGuess);
   if (fam && typeIcons[fam] && TOPO_ICONS[typeIcons[fam]]) return typeIcons[fam];
   return topoKind(h);
@@ -7215,7 +7246,7 @@ function topoNodeEl(m, key, n) {
 
 // What a click on a node does: the same dialogs as everywhere else.
 // Where a click lands on a device decides what opens: its icon tile opens
-// the Type / icon picker, anywhere else (its name) opens Plugged into.
+// the Map icon picker, anywhere else (its name) opens Plugged into.
 // .t-deco-icon: anything a drop-in theme adds that should count as the icon.
 const TOPO_ICON_PARTS = ".t-tile, .t-icon, .t-ghost, .t-gift, .t-hat, .t-pk, .t-watch, .blink-ring, .t-mustard, .t-hd, .t-deco-icon";
 const TOPO_DEV_HINT = "Click the icon to change its type · click the name to record where it's plugged in";
@@ -7798,9 +7829,9 @@ function render() {
         ? `<span class="more-wrap"><button class="ip-more" title="Also answers on ${esc(alsoAt(h).map(a => a.ip).join(", "))}">+${alsoAt(h).length}</button><div class="row-menu addr-menu">${addrMenuHtml(h)}</div></span>` : ""}${(h.ipv6 || []).length
         ? `<span class="v6-chip" title="IPv6: ${esc(h.ipv6.join(", "))}">v6</span>` : ""}</td>
       <td class="mac" data-label="MAC"><span class="mac-text">${esc(h.mac)}</span></td>
-      <td class="vendor" data-label="Vendor">${esc(h.vendor)}${h.deviceType
-        ? `<span class="os-guess" title="Type you set${h.osGuess ? " — BAMF guessed " + esc(h.osGuess) : ""}">${esc(typeLabel(h.deviceType))} · your type</span>`
-        : h.osGuess ? `<span class="os-guess" title="Device guess — heuristic, from ${esc(h.osGuess)}">${esc(h.osGuess)}</span>` : ""}</td>
+      <td class="vendor" data-label="Vendor">${esc(h.vendor)}${h.typeName
+        ? `<span class="os-guess type-set" title="Device type you set${h.osGuess ? " — BAMF guessed " + esc(h.osGuess) : ""}. Click to change.">${esc(h.typeName)} · your type</span>`
+        : h.osGuess ? `<span class="os-guess type-set" title="BAMF's guess, from ${esc(h.osGuess)}. Click to set the device type yourself.">${esc(h.osGuess)}</span>` : ""}</td>
       <td class="ip" data-label="Network">${esc(h.subnet || "—")}</td>
       <td class="seen" data-label="First seen" title="${esc(fmtExact(h.firstSeen))}">${fmtAgo(h.firstSeen)}</td>
       <td class="seen" data-label="Last seen" title="${esc(fmtExact(h.lastSeen))}">${fmtAgo(h.lastSeen)}</td>
@@ -7810,6 +7841,8 @@ function render() {
       <td class="status-cell"><span class="badge ${h.known ? "known" : "unknown"}">${h.known ? "known" : "unknown"}</span></td>
       <td class="actions-cell"></td>`;
 
+    const typeLine = tr.querySelector(".type-set");
+    if (typeLine && !h.remote && role !== "viewer") typeLine.onclick = () => openKindDialog(h);
     const nameCell = tr.querySelector(".hostname");
     if (h.remote) tr.classList.add("is-remote");
     const snoozeChip = nameCell.querySelector(".snooze-chip");
@@ -7919,7 +7952,8 @@ function render() {
       addItem(h.note ? "Edit note…" : "Add note…", () => openNoteDialog(h));
       addItem(h.snoozedUntil ? `Snoozed until ${snoozeClock(h.snoozedUntil)}…` : "Snooze alerts…", () => openSnoozeDialog(h));
       addItem(h.link ? "Change link…" : "Set link…", () => setHostLink(h));
-      addItem("Type / icon…", () => openTypeDialog(h));
+      addItem(h.typeName ? `Device type: ${h.typeName}…` : "Device type…", () => openKindDialog(h));
+      addItem("Map icon…", () => openTypeDialog(h));
       addItem((h.tags || []).length ? `Tags (${h.tags.length})…` : "Tags…", () => openTagsDialog(h));
       const ownSwitch = switches.find(s => s.hostId === h.id);
       if (ownSwitch) {
@@ -8751,7 +8785,48 @@ async function saveGatewayDialog() {
   }
 }
 
-// ---- Type / icon ----
+// ---- Device type ----
+// What the device is, in the user's words. Shown in the list, grouped by the
+// Device type chips, found by search. The Map icon is separate.
+let kindHost = null;
+function openKindDialog(h) {
+  kindHost = h;
+  $("kindTitle").textContent = "Device type \u2014 " + nameOrIp(h);
+  $("kindSub").textContent = h.osGuess ? "BAMF's guess: " + h.osGuess : "BAMF has no guess for this one";
+  const input = $("kindText");
+  input.value = h.typeName || "";
+  input.placeholder = guessFamily(h.osGuess) || "e.g. NAS, Printer, Kids' tablet";
+  // Suggestions: types already in use first, then the Map icons' names.
+  const used = [...new Set(hosts.map(x => x.typeName).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const list = $("kindList");
+  list.innerHTML = "";
+  [...used, ...TYPE_DEFS.map(d => d[1]).filter(l => !used.some(u => u.toLowerCase() === l.toLowerCase()))].forEach(v => {
+    const o = document.createElement("option"); o.value = v; list.appendChild(o);
+  });
+  $("kindClear").style.display = h.typeName ? "" : "none";
+  showErr("kindErr", "");
+  $("kindModal").hidden = false;
+  input.focus(); input.select();
+}
+function closeKindDialog() { $("kindModal").hidden = true; kindHost = null; }
+async function saveKind(text) {
+  const h = kindHost;
+  if (!h) return;
+  try {
+    const r = await fetch(`/api/hosts/${h.id}/typename`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: text }) });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); showErr("kindErr", d.error || "Couldn't save (HTTP " + r.status + ")."); return; }
+    toast(text.trim() ? `${esc(nameOrIp(h))} is now "${esc(text.trim())}"` : `${esc(nameOrIp(h))} is back to BAMF's guess`);
+    closeKindDialog();
+    await refresh();
+  } catch { showErr("kindErr", "Couldn't reach BAMF."); }
+}
+$("kindSave").onclick = () => saveKind($("kindText").value);
+$("kindClear").onclick = () => saveKind("");
+$("kindCancel").onclick = closeKindDialog;
+$("kindText").onkeydown = e => { if (e.key === "Enter") saveKind($("kindText").value); };
+$("kindModal").onclick = e => { if (e.target.id === "kindModal") closeKindDialog(); };
+
+// ---- Map icon ----
 // One picker for two jobs: a type for one device, or (ticked, or from
 // Settings) the icon for every device of a guessed type.
 let typeHost = null;     // the device being typed, or null in family mode
@@ -8765,8 +8840,8 @@ function openTypeDialog(h, family = null) {
   const fam = h ? guessFamily(h.osGuess) : family;
   const current = h ? (h.deviceType || "") : (typeIcons[family] || "");
   const auto = h ? autoKind({ ...h, deviceType: "" }) : topoKind({ osGuess: family });
-  $("typeTitle").textContent = h ? "Type — " + nameOrIp(h) : `Icon for every "${family}" device`;
-  $("typeSub").textContent = h ? (h.osGuess ? "BAMF's guess: " + h.osGuess : "No guess yet") : "BAMF guesses this type; pick the icon it gets on the Map.";
+  $("typeTitle").textContent = h ? "Map icon \u2014 " + nameOrIp(h) : `Map icon for every "${family}" device`;
+  $("typeSub").textContent = h ? (h.typeName ? "Device type: " + h.typeName : h.osGuess ? "BAMF's guess: " + h.osGuess : "No guess yet") : "BAMF guesses this type; pick the icon it gets on the Map.";
   const grid = $("typeGrid");
   grid.innerHTML = "";
   const opt = (key, label, note) => {
@@ -8779,7 +8854,7 @@ function openTypeDialog(h, family = null) {
     b.onclick = () => saveType(key);
     grid.appendChild(b);
   };
-  opt("", "Automatic", h ? "BAMF's guess" : "the usual icon");
+  opt("", "Automatic", h ? (h.typeName && autoKind({ ...h, deviceType: "" }) !== autoKind({ ...h, deviceType: "", typeName: "" }) ? "from its device type" : "BAMF's guess") : "the usual icon");
   TYPE_DEFS.forEach(([k, label]) => opt(k, label));
   // In device mode, offer the same icon for all its guessed type at once.
   $("typeAllRow").style.display = h && fam ? "" : "none";
@@ -8810,7 +8885,7 @@ async function saveType(key) {
     }
     toast(everyOfType
       ? (key ? `Every "${esc(fam)}" device now shows as ${esc(typeLabel(key))}` : `"${esc(fam)}" devices are back to their usual icon`)
-      : (key ? `${esc(nameOrIp(h))} is now a ${esc(typeLabel(key).toLowerCase())}` : `${esc(nameOrIp(h))} is back to BAMF's guess`));
+      : (key ? `${esc(nameOrIp(h))} now has the ${esc(typeLabel(key).toLowerCase())} icon on the Map` : `${esc(nameOrIp(h))} is back to its automatic Map icon`));
     closeTypeDialog();
     await refresh();
   } catch {
@@ -18153,6 +18228,7 @@ document.addEventListener("keydown", e => {
   if (!$("gwModal").hidden) { closeGatewayDialog(); return; }
   if (!$("snoozeModal").hidden) { closeSnoozeDialog(); return; }
   if (!$("snmpModal").hidden) { closeSnmpDialog(); return; }
+  if (!$("kindModal").hidden) { closeKindDialog(); return; }
   if (!$("noteModal").hidden) { closeNoteDialog(); return; }
   if (!$("swModal").hidden) { closeSwitchDialog(); return; }
   if (!$("plugModal").hidden) { closePlugDialog(); return; }
@@ -18298,7 +18374,7 @@ $("testWebhook").onclick = async () => {
 
 $("exportCsv").onclick = () => {
   const rows = applySort(visible());
-  const cols = ["name","dnsHostname","ip","mac","vendor","deviceGuess","deviceType","network","online","known","ignored","firstSeen","lastSeen","switch","switchPort","portLocation"];
+  const cols = ["name","dnsHostname","ip","mac","vendor","deviceGuess","deviceType","mapIcon","network","online","known","ignored","firstSeen","lastSeen","switch","switchPort","portLocation"];
   const cell = v => {
     v = String(v ?? "");
     return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
@@ -18307,7 +18383,7 @@ $("exportCsv").onclick = () => {
   for (const h of rows) {
     lines.push([
       dispName(h), h.hostname === "\u2014" ? "" : h.hostname, h.ip, h.mac, h.vendor,
-      h.osGuess || "", h.deviceType ? typeLabel(h.deviceType) : "", h.subnet, h.online, h.known, h.ignored, h.firstSeen, h.lastSeen,
+      h.osGuess || "", h.typeName || "", h.deviceType ? typeLabel(h.deviceType) : "", h.subnet, h.online, h.known, h.ignored, h.firstSeen, h.lastSeen,
       switches.find(s => s.id === h.switchId)?.name || "", h.switchId && h.switchPort ? h.switchPort : "",
       h.switchId && h.switchPort ? portLabel(switches.find(s => s.id === h.switchId), h.switchPort) : ""
     ].map(cell).join(","));
