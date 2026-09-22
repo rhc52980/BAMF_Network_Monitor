@@ -52,6 +52,13 @@ public partial class HostStore
                 using var r = cmd.ExecuteReader();
                 while (r.Read()) types[r.GetInt64(0)] = r.GetString(1);
             }
+            var typeNames = new Dictionary<long, string>();
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT host_id, name FROM device_kinds";
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) typeNames[r.GetInt64(0)] = r.GetString(1);
+            }
             var tags = GetTagsInternal(conn);
             var positions = new JsonObject();
             using (var cmd = conn.CreateCommand())
@@ -83,7 +90,8 @@ public partial class HostStore
                     ["name"] = h.CustomName, ["note"] = h.Note, ["link"] = h.Link,
                     ["known"] = h.Known, ["watched"] = h.Watched, ["ignored"] = h.Ignored,
                 };
-                if (types.TryGetValue(h.Id, out var t)) d["type"] = t;
+                if (types.TryGetValue(h.Id, out var t)) d["type"] = t;              // the Map icon
+                if (typeNames.TryGetValue(h.Id, out var tn)) d["typeName"] = tn;    // the device type, in the user's words
                 if (tags.TryGetValue(h.Id, out var tg)) d["tags"] = new JsonArray(tg.Select(x => (JsonNode)x).ToArray());
                 if (interfaces.TryGetValue(h.Id, out var parent) && macOf.TryGetValue(parent, out var pm)) d["cardOf"] = pm;
                 if (placements.TryGetValue(h.Id, out var pl) && index.TryGetValue(pl.Item1, out var si))
@@ -176,7 +184,7 @@ public partial class HostStore
                 foreach (var (k, v) in ps) c.Parameters.AddWithValue(k, v);
                 c.ExecuteNonQuery();
             }
-            Exec("DELETE FROM placements; DELETE FROM port_labels; DELETE FROM switches; DELETE FROM gateways; DELETE FROM host_interfaces; DELETE FROM map_positions; DELETE FROM device_types; DELETE FROM host_tags;");
+            Exec("DELETE FROM placements; DELETE FROM port_labels; DELETE FROM switches; DELETE FROM gateways; DELETE FROM host_interfaces; DELETE FROM map_positions; DELETE FROM device_types; DELETE FROM device_kinds; DELETE FROM host_tags;");
 
             // Switches first, then the references between them.
             var switchId = new Dictionary<int, long>();
@@ -243,6 +251,9 @@ public partial class HostStore
                         ("$k", B("known") ? 1 : 0), ("$w", B("watched") ? 1 : 0), ("$i", B("ignored") ? 1 : 0), ("$id", id.Value));
                     var type = Mac(d, "type");
                     if (type is not null && DeviceTypeKeys.Contains(type)) Exec("INSERT OR REPLACE INTO device_types (host_id, type) VALUES ($h, $t)", ("$h", id.Value), ("$t", type));
+                    // A file from before the two were separate has only the icon, which was the type too.
+                    var typeName = (Mac(d, "typeName") ?? (type is not null && IconNames.TryGetValue(type, out var iconName) ? iconName : "")).Trim();
+                    if (typeName.Length is > 0 and <= MaxTypeName) Exec("INSERT OR REPLACE INTO device_kinds (host_id, name) VALUES ($h, $n)", ("$h", id.Value), ("$n", typeName));
                     if (d.TryGetProperty("tags", out var te) && te.ValueKind == JsonValueKind.Array)
                         foreach (var t in te.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => (x.GetString() ?? "").Trim()).Where(x => x.Length is > 0 and <= MaxTagLength).Distinct(StringComparer.OrdinalIgnoreCase).Take(MaxTagsPerHost))
                             Exec("INSERT OR IGNORE INTO host_tags (host_id, tag) VALUES ($h, $t)", ("$h", id.Value), ("$t", t));

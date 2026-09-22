@@ -203,6 +203,7 @@ app.MapGet("/api/hosts", (HttpContext ctx, HostStore store, ScannerService scann
     var linkTemplate = app.Configuration["Bamf:DeviceLinkTemplate"];
     var placements = store.GetPlacements();
     var deviceTypes = store.GetDeviceTypes();
+    var typeNames = store.GetTypeNames();
     var addresses = store.GetAddresses();
     var interfaces = store.GetInterfaces();
     var latency = store.LatestLatency();
@@ -249,6 +250,8 @@ app.MapGet("/api/hosts", (HttpContext ctx, HostStore store, ScannerService scann
         switchPort = placements.TryGetValue(h.Id, out var pp) ? pp.Port : 0,
         // The type the user set, overriding the guess for its icon and type chip; "" = BAMF's guess.
         deviceType = deviceTypes.TryGetValue(h.Id, out var dt) ? dt : "",
+        // What the device is, in the user's own words; "" = BAMF's guess stands.
+        typeName = typeNames.TryGetValue(h.Id, out var tn) ? tn : "",
         // Another network card of this device, combined into it; 0 = its own device.
         interfaceOf = interfaces.TryGetValue(h.Id, out var io) ? io : 0,
         // Round-trip time of the last echo, ms; null when it didn't answer or hasn't been probed.
@@ -361,7 +364,7 @@ app.MapGet("/api/hosts.txt", (HostStore store, ScannerService scanner) =>
     var switchNames = store.GetSwitches().ToDictionary(s => s.Id, s => s.Name);
     var placements = store.GetPlacements();
     var portLabels = store.GetPortLabels();
-    var deviceTypes = store.GetDeviceTypes();
+    var typeNames = store.GetTypeNames();
     var addresses = store.GetAddresses();
     string IpCell(HostRecord h)
     {
@@ -385,7 +388,7 @@ app.MapGet("/api/hosts.txt", (HostStore store, ScannerService scanner) =>
         h.Subnet == "" ? "-" : h.Subnet,
         h.Online ? "online" : "offline",
         string.Concat(h.Known ? "K" : "-", h.Ignored ? "I" : "-", h.Watched ? "W" : "-", h.Forgotten ? "F" : "-"),
-        deviceTypes.TryGetValue(h.Id, out var dt) ? $"{dt} (your type)" : h.OsGuess == "" ? "-" : h.OsGuess,
+        typeNames.TryGetValue(h.Id, out var tn) ? $"{tn} (your type)" : h.OsGuess == "" ? "-" : h.OsGuess,
         h.LastSeen,
         PluggedInto(h.Id),
         h.Note == "" ? "-" : h.Note,
@@ -1558,6 +1561,13 @@ app.MapDelete("/api/map/positions", (string? subnet, HostStore store) =>
 
 // A device's type, overriding BAMF's guess for its icon and type chip. Empty
 // goes back to the guess.
+// The device type, in the user's words: shown in the list, grouped by the type chips.
+app.MapPost("/api/hosts/{id:long}/typename", (long id, DeviceTypeRequest body, HostStore store) =>
+{
+    var error = store.SetTypeName(id, body.Type);
+    return error is null ? Results.Ok() : Results.BadRequest(new { error });
+});
+// The Map icon (named "type" from when it was both).
 app.MapPost("/api/hosts/{id:long}/type", (long id, DeviceTypeRequest body, HostStore store) =>
 {
     var error = store.SetDeviceType(id, body.Type);
