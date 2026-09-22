@@ -11,6 +11,7 @@ public record HostRecord(
 public partial class HostStore
 {
     private readonly string _connString;
+    private readonly string _dbPath;
     private readonly object _lock = new();
     private readonly int _retentionDays;
     private readonly List<long> _recoveredThisCycle = new();
@@ -40,6 +41,7 @@ public partial class HostStore
         if (!Path.IsPathRooted(dbPath))
             dbPath = Path.Combine(AppContext.BaseDirectory, dbPath);
 
+        _dbPath = dbPath;
         _connString = $"Data Source={dbPath}";
         Init();
     }

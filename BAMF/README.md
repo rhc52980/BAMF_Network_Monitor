@@ -387,7 +387,8 @@ survive IP changes.
   keyed by MAC, for backup or a move to a new server. See
   [Export and import the layout](#export-and-import-the-layout).
 - **Back up the database** - the whole thing as one file, from Settings, while
-  BAMF keeps running. See [Back up the database](#back-up-the-database).
+  BAMF keeps running, and put one back the same way. See
+  [Back up the database](#back-up-the-database).
 - **Home Assistant** - presence per device over MQTT, with discovery, so
   automations can fire when someone gets home. See [MQTT](#mqtt-and-home-assistant).
 - **Tags** - group devices as "kids", "IoT", "work" or whatever fits, then
@@ -1280,6 +1281,7 @@ scan, or delete a thing.
 | GET | `/api/hosts/{id}/traffic` | Bytes per hour for a device over the last 7 days (`?days=` for more): `[{"hour", "rx", "tx"}]` |
 | GET | `/api/backup` | The whole database as one SQLite file, named `bamf-YYYYMMDD-HHMM.db`, taken while BAMF runs. Refused with the view-only password, since it carries the saved webhook URL |
 | POST | `/api/settings/alertnudge` | Body `{"off": true}` — hide the dashboard's "Alerts are off" banner; `false` brings it back |
+| POST | `/api/backup/restore` | The body is a backup file. Checked, then swapped in for the database; the one it replaces is kept in `backups`. Answers `{"ok": true, "kept": "bamf-before-restore-….db"}`, or `400` with the reason it was turned down |
 | POST | `/api/settings/report` | Body `{"schedule": "daily", "hour": 8, "day": 1}` — the scheduled report: `off`, `daily`, `weekly` or `monthly`, the hour (0–23, the server's local time) and, for weekly, the day (0 Sunday to 6 Saturday). Monthly goes out on the 1st |
 | POST | `/api/reports/send` | Send the report now, whatever the schedule; returns what was sent |
 | GET | `/api/reports/preview` | The report as it would be sent |
@@ -2532,8 +2534,17 @@ compacted copy from one read transaction, so the file is whole even if a scan
 lands halfway through - which copying a live database byte for byte can't
 promise.
 
-To restore one, stop BAMF, put the file in place of `bamf.db` (in `/data` for
-Docker and the Home Assistant add-on), and start it again.
+**Restore from a backup…**, beside it, puts one back while BAMF keeps running.
+BAMF checks the file first: it has to be a database, pass SQLite's integrity
+check, and have BAMF's own tables, and anything else is turned down with the
+reason. The database it replaces is kept in `backups` beside it, as
+`bamf-before-restore-YYYYMMDD-HHMMSS.db`, so a restore can be undone by
+restoring that. A backup from an older BAMF is brought up to date as it goes
+back in. The page reloads onto the restored data; nothing needs restarting.
+
+By hand, it's the same as it always was: stop BAMF, put the file in place of
+`bamf.db` (in `/data` for Docker and the Home Assistant add-on), and start it
+again.
 
 The file carries your saved webhook URL, and that URL is the credential for a
 Discord channel or an ntfy topic, so keep backups somewhere private. For the
@@ -2541,7 +2552,8 @@ same reason the view-only password can't download one. The Windows and Linux
 updaters keep their own copy from before each update as well, in `backups`
 beside the database; this is for a copy you keep somewhere else.
 
-`GET /api/backup` does the same from a script.
+`GET /api/backup` and `POST /api/backup/restore` (the file as the request
+body) do the same from a script.
 
 ### Export and import the layout
 

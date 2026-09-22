@@ -759,6 +759,31 @@ app.MapPost("/api/settings/alertnudge", (NudgeRequest body, HostStore store) =>
     return Results.Json(new { off = body.Off });
 });
 
+// Puts a backup back. The upload goes to a temp file, is checked, and only
+// then replaces the database; the one it replaces is kept in backups first.
+// A database can be bigger than the 30 MB Kestrel allows a request by
+// default, so this one route is allowed up to a gigabyte.
+app.MapPost("/api/backup/restore", async (HttpRequest req, HostStore store, CancellationToken ct) =>
+{
+    var size = req.HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
+    if (size is { IsReadOnly: false }) size.MaxRequestBodySize = 1L << 30;
+    var dir = Path.Combine(Path.GetTempPath(), "bamf-backup");
+    Directory.CreateDirectory(dir);
+    var tmp = Path.Combine(dir, $"restore-{Guid.NewGuid():N}.db");
+    try
+    {
+        await using (var fs = File.Create(tmp)) await req.Body.CopyToAsync(fs, ct);
+        var (kept, error) = store.RestoreFrom(tmp);
+        return error is null ? Results.Json(new { ok = true, kept }) : Results.BadRequest(new { error });
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+    {
+        app.Logger.LogWarning(ex, "Restoring a backup failed");
+        return Results.Json(new { error = $"Couldn't restore it: {ex.Message} The database is as it was." }, statusCode: 500);
+    }
+    finally { try { File.Delete(tmp); } catch { } }
+});
+
 // Scheduled reports: off, daily, weekly or monthly at an hour of the server's local day.
 app.MapPost("/api/settings/report", (ReportRequest body, HostStore store, ReportService reports) =>
 {
