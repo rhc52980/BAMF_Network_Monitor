@@ -2621,8 +2621,19 @@ A managed switch counts every byte in and out of every port, and will tell
 BAMF over SNMP. You've already recorded which port each device is plugged
 into, for the Map, so BAMF can read those counts once a minute and give each
 port's traffic to the device on it: real usage for every device, with no mirror
-port. Basic unmanaged switches have no SNMP, so this is for managed and most
-"smart" ones.
+port.
+
+**It needs a switch with SNMP**, which means a managed one. Unmanaged switches
+have none, and nor do some of the cheaper "smart" ranges, which are configured
+from a web page or an app and stop there: **TP-Link Easy Smart** (TL-SG105E,
+TL-SG108E, TL-SG116E, TL-SG1016DE and the like) and **Netgear Plus**
+(GS105E, GS108E, GS116E and the like) have no SNMP to switch on, so
+**Save and test** can only say "No SNMP answer". TP-Link's JetStream and
+Omada switches, Netgear's Smart Pro and managed lines, and most business
+switches from Cisco, HP/Aruba, Ubiquiti, MikroTik and others do have it. If
+the switch's settings have an SNMP page, it'll work. If yours has no SNMP but
+can mirror a port, mirroring every port to the one BAMF's server is plugged
+into gets the same result through the traffic monitor instead (see above).
 
 1. In the switch's own settings, switch on **SNMP v2c**, read-only. Its
    community is its password: `public` unless you change it, which you should.
