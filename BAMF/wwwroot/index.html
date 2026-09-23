@@ -625,6 +625,115 @@
     .pp-spin, .pp-steam, .pp-line, .pp-glow, .pp-freq.trip i, .pp-ann span.bad { animation:none !important; }
   }
 
+  /* ---- RGB: the dashboard as a gaming rig with every light on ---- */
+  /* The colours of the lights. Lines and borders use the saturated set; text
+     uses the bright set, every stop of which clears AA on the dark panels.
+     Online, unknown and offline keep their own colours: the lights dress the
+     page, they never change what a colour means. */
+  @property --rgb-a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+  [data-theme="rgb"] {
+    --bg:#05050a; --panel:rgba(11,11,18,.94); --panel-2:rgba(19,19,30,.96); --line:#262640;
+    --text:#f4f4ff; --text-dim:#9d9dbc; --led-on:#3dff8b; --led-warn:#ffd23f;
+    --led-off:#34344c; --danger:#ff3a64; --focus:#ff3df0; --radius:10px;
+    --rgb-line: #ff0040, #ff8a00, #ffe600, #2bff5a, #00e5ff, #3d5cff, #c43dff, #ff0040;
+    --rgb-text: #ff5d7d, #ffb347, #fff15a, #5dff8a, #4de8ff, #8a9cff, #d98aff, #ff5d7d;
+  }
+  [data-theme="rgb"] body { background:#05050a; }
+  [data-theme="rgb"] header { background:rgba(6,6,11,.92); border-bottom:0; position:relative; }
+  /* The strip under the header: the whole rainbow, flowing left to right. */
+  [data-theme="rgb"] header::after {
+    content:""; position:absolute; left:0; right:0; top:100%; height:3px; z-index:5; pointer-events:none;
+    background:linear-gradient(90deg, var(--rgb-line)) 0 0 / 50% 100% repeat-x;
+    animation:rgb-flow 3s linear infinite; box-shadow:0 0 12px rgba(255,61,240,.35);
+  }
+  @keyframes rgb-flow { to { background-position:100% 0; } }
+  [data-theme="rgb"] .brand h1 {
+    background:linear-gradient(90deg, var(--rgb-text)) 0 0 / 200% 100%; -webkit-background-clip:text; background-clip:text;
+    color:transparent; animation:rgb-flow 4s linear infinite; letter-spacing:.04em;
+  }
+  [data-theme="rgb"] .brand .mark { animation:rgb-hue 5s linear infinite; filter:drop-shadow(0 0 6px rgba(63,219,127,.6)); }
+  @keyframes rgb-hue { to { filter:hue-rotate(360deg) drop-shadow(0 0 6px rgba(63,219,127,.6)); } }
+  /* The stats cards: a rainbow border turning round each one, and the
+     numbers in rainbow, each card starting at a different colour. */
+  [data-theme="rgb"] .stat {
+    border:2px solid transparent;
+    background:linear-gradient(var(--panel), var(--panel)) padding-box, conic-gradient(from var(--rgb-a), var(--rgb-line)) border-box;
+    animation:rgb-spin 4s linear infinite; box-shadow:0 0 18px rgba(120,60,255,.18);
+  }
+  [data-theme="rgb"] .stat:nth-child(2) { animation-delay:-1s; }
+  [data-theme="rgb"] .stat:nth-child(3) { animation-delay:-2s; }
+  [data-theme="rgb"] .stat:nth-child(4) { animation-delay:-3s; }
+  @keyframes rgb-spin { to { --rgb-a:360deg; } }
+  [data-theme="rgb"] .stat .num {
+    background:linear-gradient(90deg, var(--rgb-text)) 0 0 / 300% 100%; -webkit-background-clip:text; background-clip:text;
+    color:transparent; animation:rgb-flow 6s linear infinite;
+  }
+  [data-theme="rgb"] .stat:nth-child(2) .num { animation-delay:-1.5s; }
+  [data-theme="rgb"] .stat:nth-child(3) .num { animation-delay:-3s; }
+  [data-theme="rgb"] .stat:nth-child(4) .num { animation-delay:-4.5s; }
+  /* The active view and filter: a flowing underline and a rainbow edge. */
+  [data-theme="rgb"] .view-btn.active { border-bottom-color:transparent; position:relative; }
+  [data-theme="rgb"] .view-btn.active::after {
+    content:""; position:absolute; left:0; right:0; bottom:-2px; height:3px; border-radius:2px;
+    background:linear-gradient(90deg, var(--rgb-line)) 0 0 / 200% 100%; animation:rgb-flow 2.5s linear infinite;
+  }
+  [data-theme="rgb"] .tabs { border-color:#3a3a5c; }
+  [data-theme="rgb"] .tab.active { background:linear-gradient(180deg, rgba(255,61,240,.14), rgba(0,229,255,.1)); box-shadow:inset 0 -2px 0 #ff3df0; }
+  [data-theme="rgb"] .chip-btn.active, [data-theme="rgb"] .settings-btn.active {
+    border:1px solid transparent;
+    background:linear-gradient(var(--panel-2), var(--panel-2)) padding-box, linear-gradient(90deg, var(--rgb-line)) border-box;
+  }
+  [data-theme="rgb"] :is(.toggle, .export-btn, .chip-btn, .search):hover { border-color:#ff3df0; box-shadow:0 0 0 1px rgba(0,229,255,.35), 0 0 14px rgba(255,61,240,.35); }
+  [data-theme="rgb"] :focus-visible { outline-color:#00e5ff !important; }
+  /* The scan bar: the rainbow, running. */
+  [data-theme="rgb"] .scan-fill { background:linear-gradient(90deg, var(--rgb-line)) 0 0 / 200% 100%; animation:rgb-flow 1.6s linear infinite; box-shadow:0 0 8px rgba(0,229,255,.6); }
+  /* Every card and the table get a rainbow edge along the top. */
+  [data-theme="rgb"] :is(.act-card, .set-card, .portstrip, .table-wrap table, .feed) {
+    background:linear-gradient(90deg, var(--rgb-line)) top / 100% 2px no-repeat, var(--panel);
+  }
+  [data-theme="rgb"] tbody tr:hover td { background:rgba(255,61,240,.06); }
+  [data-theme="rgb"] tbody tr:hover td:first-child { box-shadow:inset 3px 0 0 #00e5ff; }
+  [data-theme="rgb"] .led.on { animation:rgb-breathe 2.4s ease-in-out infinite; }
+  @keyframes rgb-breathe { 50% { box-shadow:0 0 12px 2px rgba(61,255,139,.75); } }
+  /* The hosts-on-segment strip is a keyboard with a wave rolling across it:
+     each key brightens in its own colour, so online stays green. */
+  [data-theme="rgb"] .portstrip .port { animation:rgb-key 2.8s ease-in-out infinite; animation-delay:calc(var(--rgb-i, 0) * 70ms); }
+  @keyframes rgb-key { 0%, 60%, 100% { filter:none; } 20% { filter:brightness(1.35) drop-shadow(0 0 4px currentColor); } }
+  [data-theme="rgb"] ::selection { background:#ff3df0; color:#05050a; }
+  [data-theme="rgb"] ::-webkit-scrollbar { width:11px; height:11px; }
+  [data-theme="rgb"] ::-webkit-scrollbar-track { background:#08080f; }
+  [data-theme="rgb"] ::-webkit-scrollbar-thumb { border-radius:6px; border:2px solid #08080f; background:linear-gradient(180deg, var(--rgb-line)); }
+  /* The frame round the window: a strip on each edge, the light chasing
+     round them clockwise, with a softer glow inside. */
+  .rgb-edge { position:absolute; pointer-events:none; }
+  .rgb-edge.t, .rgb-edge.b { left:0; right:0; height:3px; background:linear-gradient(90deg, var(--rgb-line)) 0 0 / 50% 100% repeat-x; }
+  .rgb-edge.l, .rgb-edge.r { top:0; bottom:0; width:3px; background:linear-gradient(180deg, var(--rgb-line)) 0 0 / 100% 50% repeat-y; }
+  .rgb-edge.t { top:0; animation:rgb-run-x 4s linear infinite; }
+  .rgb-edge.r { right:0; animation:rgb-run-y 4s linear infinite; }
+  .rgb-edge.b { bottom:0; animation:rgb-run-x 4s linear infinite reverse; }
+  .rgb-edge.l { left:0; animation:rgb-run-y 4s linear infinite reverse; }
+  .rgb-edge.glow { opacity:.28; }
+  .rgb-edge.glow.t, .rgb-edge.glow.b { height:14px; -webkit-mask:linear-gradient(var(--rgb-dir, 180deg), #000, transparent); mask:linear-gradient(var(--rgb-dir, 180deg), #000, transparent); }
+  .rgb-edge.glow.l, .rgb-edge.glow.r { width:14px; -webkit-mask:linear-gradient(var(--rgb-dir, 90deg), #000, transparent); mask:linear-gradient(var(--rgb-dir, 90deg), #000, transparent); }
+  .rgb-edge.glow.b { --rgb-dir:0deg; } .rgb-edge.glow.r { --rgb-dir:270deg; }
+  @keyframes rgb-run-x { to { background-position:100% 0; } }
+  @keyframes rgb-run-y { to { background-position:0 100%; } }
+  /* A scan runs the rig flat out for a moment; a new device flashes it
+     white, a device coming back green, one going red. While a watched
+     device is down, the frame breathes red instead of cycling. */
+  .rgb-rig.surge .rgb-edge { animation-duration:.7s; }
+  .rgb-rig.flash-white .rgb-edge { background:#fff !important; animation:rgb-flash .9s ease-out 1 !important; }
+  .rgb-rig.flash-green .rgb-edge { background:#3dff8b !important; animation:rgb-flash 1.1s ease-out 1 !important; }
+  .rgb-rig.flash-red .rgb-edge { background:#ff1f4b !important; animation:rgb-flash 1.1s ease-out 1 !important; }
+  @keyframes rgb-flash { from { opacity:1; filter:brightness(1.6); } to { opacity:.6; } }
+  .rgb-rig.alarm .rgb-edge { background:#ff1f4b; animation:rgb-alarm 1.8s ease-in-out infinite; }
+  @keyframes rgb-alarm { 0%, 100% { opacity:.35; } 50% { opacity:1; } }
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme="rgb"] header::after, [data-theme="rgb"] .brand h1, [data-theme="rgb"] .brand .mark, [data-theme="rgb"] .stat,
+    [data-theme="rgb"] .stat .num, [data-theme="rgb"] .view-btn.active::after, [data-theme="rgb"] .scan-fill,
+    [data-theme="rgb"] .led.on, [data-theme="rgb"] .portstrip .port, .rgb-edge, .rgb-rig .rgb-edge { animation:none !important; }
+  }
+
   /* ---- Departures: the dashboard as an airport departures board ---- */
   [data-theme="departures"] {
     --bg:#08090c; --panel:rgba(15,16,20,.96); --panel-2:rgba(21,22,27,.97); --line:#262830;
@@ -9774,6 +9883,7 @@ const THEMES = [
   { id: "clawdusk",    name: "Claw Machine Dusk", sw: ["#15171c", "#b8788a", "#7fb0ae"] },
   // Hidden until unlocked: type BAMF anywhere, or tap the logo five times.
   { id: "laser",       name: "Laser Show",   sw: ["#05060a", "#00e5ff", "#ff2fd1"] },
+  { id: "rgb",         name: "RGB",          sw: ["#05050a", "#ff0040", "#00e5ff"] },
   { id: "datacentre",  name: "Data Centre",  sw: ["#0a0f16", "#35e08a", "#35c8e0"] },
   { id: "powerplant",  name: "Power Plant",  sw: ["#161a1d", "#ffd36b", "#48c5ff"] },
   { id: "departures",  name: "Departures",   sw: ["#08090c", "#ffc933", "#ff5a47"] },
@@ -10082,7 +10192,7 @@ const THEME_FX = { christmas: (r, sw) => buildChristmas(r, sw), halloween: (r, s
   goatnight: (r, sw) => buildGoat(r, sw, true), nightstreet: buildNightStreet,
   constellation: buildConstellation, claw: buildClaw, clawdusk: (r, sw) => buildClaw(r, sw, true),
   newyear: buildNewYear, thanksgiving: buildThanksgiving,
-  spring: buildSpring, summer: buildSummer, winter: buildWinter, woodlands: buildWoodlands, railway: buildRailway, laser: buildLaser,
+  spring: buildSpring, summer: buildSummer, winter: buildWinter, woodlands: buildWoodlands, railway: buildRailway, laser: buildLaser, rgb: buildRgb,
   factory: (r, sw) => buildFactory(r, sw, false), factorynight: (r, sw) => buildFactory(r, sw, true),
   datacentre: buildDataCentre, powerplant: buildPowerPlant, departures: buildDepartures };
 const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
@@ -11783,6 +11893,105 @@ function buildAquarium(root) {
     g.appendChild(s);
   };
   festiveHooks.rendered();
+}
+
+// ---- RGB ----
+// The dashboard as a gaming rig with every light on. Most of it is CSS: the
+// frame round the window, the flowing strips, the spinning card borders, the
+// rainbow text. This adds the frame's strips, the room behind the page (dark,
+// with slow colour drifting through it and a lit floor grid), and the lights'
+// response to the network: a scan runs the rig flat out, a new device flashes
+// it white, a device coming back flashes it green, one dropping off red, and
+// while a watched device is down the frame breathes red rather than cycling.
+function buildRgb(root) {
+  const calm = calmMotion();
+  const rig = document.createElement("div");
+  rig.className = "rgb-rig";
+  rig.style.cssText = "position:absolute;inset:0;pointer-events:none";
+  rig.innerHTML = ["t", "r", "b", "l"].map(e => `<i class="rgb-edge ${e}"></i><i class="rgb-edge glow ${e}"></i>`).join("");
+  root.appendChild(rig);
+  // One mood at a time on the frame; a flash or a surge, then back.
+  const briefly = (cls, ms) => {
+    if (document.hidden) return;
+    rig.classList.remove("surge", "flash-white", "flash-green", "flash-red");
+    void rig.offsetWidth;   // restart the animation if it's the same one again
+    rig.classList.add(cls);
+    festiveTimers.push(setTimeout(() => rig.classList.remove(cls), ms));
+  };
+
+  // The room behind the page.
+  const HUES = [340, 30, 55, 135, 190, 230, 280];
+  let t = 0, wave = -1, alarm = false;
+  const blobs = Array.from({ length: 4 }, (_, i) => ({ x: Math.random(), y: .2 + Math.random() * .6, r: .35 + Math.random() * .25, h: HUES[i * 2 % HUES.length], sx: rnd(-.02, .02), sy: rnd(-.015, .015) }));
+  let room = null;
+  const draw = () => {
+    const { ctx, W, H } = room;
+    ctx.fillStyle = "#05050a";
+    ctx.fillRect(0, 0, W, H);
+    // Colour drifting through the dark, redder while something's down.
+    for (const b of blobs) {
+      const g = ctx.createRadialGradient(b.x * W, b.y * H, 0, b.x * W, b.y * H, b.r * Math.max(W, H));
+      const hue = alarm ? 350 : (b.h + t * 12) % 360;
+      g.addColorStop(0, `hsla(${hue.toFixed(0)}, 100%, 55%, .11)`);
+      g.addColorStop(1, "hsla(0, 0%, 0%, 0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+    // A lit floor grid running away from you, its lines cycling through the
+    // rainbow; a scan sends a bright wave down it.
+    const horizon = H * .72, vx = W / 2;
+    ctx.lineWidth = 1;
+    for (let i = -14; i <= 14; i++) {
+      const hue = alarm ? 350 : (i * 18 + t * 40 + 720) % 360;
+      ctx.strokeStyle = `hsla(${hue.toFixed(0)}, 100%, 60%, .16)`;
+      ctx.beginPath(); ctx.moveTo(vx + i * 14, horizon); ctx.lineTo(vx + i * W / 9, H); ctx.stroke();
+    }
+    for (let k = 0; k < 9; k++) {
+      const f = ((k + (calm ? 0 : t * .6)) % 9) / 9, y = horizon + (H - horizon) * f * f;
+      const lit = wave >= 0 ? Math.max(0, 1 - Math.abs(f - wave) * 6) : 0;
+      const hue = alarm ? 350 : (k * 40 + t * 40) % 360;
+      ctx.strokeStyle = `hsla(${hue.toFixed(0)}, 100%, ${60 + lit * 25}%, ${(.1 + f * .12 + lit * .5).toFixed(2)})`;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+  };
+  const step = dt => {
+    t += dt;
+    for (const b of blobs) {
+      b.x += b.sx * dt; b.y += b.sy * dt;
+      if (b.x < -.1 || b.x > 1.1) b.sx *= -1;
+      if (b.y < .05 || b.y > .95) b.sy *= -1;
+    }
+    if (wave >= 0) { wave += dt * .9; if (wave > 1.3) wave = -1; }
+  };
+  room = seasonCanvas(draw, step);
+  // Reduced motion: one still frame of the room, and nothing moves after it.
+  if (calm) draw(); else room.start();
+
+  // The frame breathes red while a watched device is down - one that dropped
+  // in the last hour. Something that's been off for days is in the table
+  // already; it shouldn't keep the whole rig red for good.
+  const setAlarm = () => {
+    const hourAgo = Date.now() - 3600e3;
+    const down = hosts.some(h => h.watched && !h.online && !h.ignored && !h.forgotten && Date.parse(h.lastSeen) > hourAgo);
+    alarm = down;
+    rig.classList.toggle("alarm", down);
+  };
+  // Number the keys for the wave across the hosts-on-segment strip.
+  const keys = () => {
+    document.querySelectorAll(".portstrip .port").forEach((p, i) => p.style.setProperty("--rgb-i", String(i % 40)));
+  };
+  festiveStops.push(() => document.querySelectorAll(".portstrip .port").forEach(p => p.style.removeProperty("--rgb-i")));
+  festiveHooks.rendered = () => { setAlarm(); keys(); };
+  festiveHooks.rendered();
+  if (calm) return;
+
+  festiveHooks.scanDone = () => { briefly("surge", 1600); wave = 0; };
+  festiveHooks.newDevice = () => briefly("flash-white", 900);
+  festiveHooks.netChange = (off, back) => {
+    if (off.length) briefly("flash-red", 1100);
+    else if (back.length) briefly("flash-green", 1100);
+    setAlarm();
+  };
 }
 
 // ---- Goat ----
