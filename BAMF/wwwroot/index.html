@@ -681,28 +681,43 @@
   [data-theme="rgb"] .tab.active { background:linear-gradient(180deg, rgba(255,61,240,.14), rgba(0,229,255,.1)); box-shadow:inset 0 -2px 0 #ff3df0; }
   [data-theme="rgb"] .chip-btn.active, [data-theme="rgb"] .settings-btn.active {
     border:1px solid transparent;
-    background:linear-gradient(var(--panel-2), var(--panel-2)) padding-box, linear-gradient(90deg, var(--rgb-line)) border-box;
+    background:linear-gradient(var(--panel-2), var(--panel-2)) padding-box, conic-gradient(from var(--rgb-a), var(--rgb-line)) border-box;
+    animation:rgb-spin 3s linear infinite;
   }
   [data-theme="rgb"] :is(.toggle, .export-btn, .chip-btn, .search):hover { border-color:#ff3df0; box-shadow:0 0 0 1px rgba(0,229,255,.35), 0 0 14px rgba(255,61,240,.35); }
   [data-theme="rgb"] :focus-visible { outline-color:#00e5ff !important; }
   /* The scan bar: the rainbow, running. */
   [data-theme="rgb"] .scan-fill { background:linear-gradient(90deg, var(--rgb-line)) 0 0 / 200% 100%; animation:rgb-flow 1.6s linear infinite; box-shadow:0 0 8px rgba(0,229,255,.6); }
-  /* Every card and the table get a rainbow edge along the top. */
-  [data-theme="rgb"] :is(.act-card, .set-card, .portstrip, .table-wrap table, .feed) {
-    background:linear-gradient(90deg, var(--rgb-line)) top / 100% 2px no-repeat, var(--panel);
+  /* Every card and the table get a rainbow edge along the top, flowing. Each
+     is a strip of its own, so only the strip repaints, never the panel. */
+  [data-theme="rgb"] :is(.act-card, .set-card, .portstrip, .feed, .table-wrap) { position:relative; }
+  [data-theme="rgb"] :is(.act-card, .set-card, .portstrip, .feed, .table-wrap)::before {
+    content:""; position:absolute; top:-1px; left:10px; right:10px; height:2px; border-radius:2px; pointer-events:none; z-index:1;
+    background:linear-gradient(90deg, var(--rgb-line)) 0 0 / 50% 100% repeat-x; animation:rgb-flow 3s linear infinite;
   }
+  [data-theme="rgb"] :is(.act-card, .set-card):nth-child(2n)::before { animation-direction:reverse; }
+  [data-theme="rgb"] :is(.act-card, .set-card):nth-child(3n)::before { animation-duration:4.2s; }
+  [data-theme="rgb"] .table-wrap::before { top:0; left:24px; right:24px; }
+  [data-theme="rgb"] .table-wrap.bare::before { top:14px; }
+  @media (max-width: 700px) { [data-theme="rgb"] .table-wrap::before { left:16px; right:16px; } }
   [data-theme="rgb"] tbody tr:hover td { background:rgba(255,61,240,.06); }
-  [data-theme="rgb"] tbody tr:hover td:first-child { box-shadow:inset 3px 0 0 #00e5ff; }
+  [data-theme="rgb"] tbody tr:hover td:first-child { box-shadow:inset 3px 0 0 #00e5ff; animation:rgb-rowedge 2.4s linear infinite; }
+  @keyframes rgb-rowedge {
+    0%, 100% { box-shadow:inset 3px 0 0 #ff0040; } 16% { box-shadow:inset 3px 0 0 #ff8a00; } 33% { box-shadow:inset 3px 0 0 #ffe600; }
+    50% { box-shadow:inset 3px 0 0 #2bff5a; } 66% { box-shadow:inset 3px 0 0 #00e5ff; } 83% { box-shadow:inset 3px 0 0 #c43dff; } }
   [data-theme="rgb"] .led.on { animation:rgb-breathe 2.4s ease-in-out infinite; }
   @keyframes rgb-breathe { 50% { box-shadow:0 0 12px 2px rgba(61,255,139,.75); } }
   /* The hosts-on-segment strip is a keyboard with a wave rolling across it:
      each key brightens in its own colour, so online stays green. */
   [data-theme="rgb"] .portstrip .port { animation:rgb-key 2.8s ease-in-out infinite; animation-delay:calc(var(--rgb-i, 0) * 70ms); }
   @keyframes rgb-key { 0%, 60%, 100% { filter:none; } 20% { filter:brightness(1.35) drop-shadow(0 0 4px currentColor); } }
-  [data-theme="rgb"] ::selection { background:#ff3df0; color:#05050a; }
   [data-theme="rgb"] ::-webkit-scrollbar { width:11px; height:11px; }
   [data-theme="rgb"] ::-webkit-scrollbar-track { background:#08080f; }
+  /* The scrollbar and the selection stay a still rainbow: a browser won't
+     animate them, and turning them from script means re-styling the whole
+     page several times a second. */
   [data-theme="rgb"] ::-webkit-scrollbar-thumb { border-radius:6px; border:2px solid #08080f; background:linear-gradient(180deg, var(--rgb-line)); }
+  [data-theme="rgb"] ::selection { background:#ff3df0; color:#05050a; }
   /* The frame round the window: a strip on each edge, the light chasing
      round them clockwise, with a softer glow inside. */
   .rgb-edge { position:absolute; pointer-events:none; }
@@ -731,7 +746,9 @@
   @media (prefers-reduced-motion: reduce) {
     [data-theme="rgb"] header::after, [data-theme="rgb"] .brand h1, [data-theme="rgb"] .brand .mark, [data-theme="rgb"] .stat,
     [data-theme="rgb"] .stat .num, [data-theme="rgb"] .view-btn.active::after, [data-theme="rgb"] .scan-fill,
-    [data-theme="rgb"] .led.on, [data-theme="rgb"] .portstrip .port, .rgb-edge, .rgb-rig .rgb-edge { animation:none !important; }
+    [data-theme="rgb"] .led.on, [data-theme="rgb"] .portstrip .port, .rgb-edge, .rgb-rig .rgb-edge,
+    [data-theme="rgb"] :is(.act-card, .set-card, .portstrip, .feed, .table-wrap)::before, [data-theme="rgb"] .chip-btn.active,
+    [data-theme="rgb"] .settings-btn.active, [data-theme="rgb"] tbody tr:hover td:first-child { animation:none !important; }
   }
 
   /* ---- Departures: the dashboard as an airport departures board ---- */
