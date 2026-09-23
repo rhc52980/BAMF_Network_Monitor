@@ -179,12 +179,9 @@ public partial class ScannerService : BackgroundService
         url.Contains("discord.com/api/webhooks", StringComparison.OrdinalIgnoreCase) ||
         url.Contains("discordapp.com/api/webhooks", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>The concrete format to use for this URL once "auto" is resolved.</summary>
-    private string ResolveFormat(string url)
-    {
-        var f = WebhookFormat;
-        return f == "auto" ? (IsDiscordUrl(url) ? "discord" : "json") : f;
-    }
+    /// <summary>The concrete format to use for a URL once "auto" is resolved.</summary>
+    private static string ResolveFormat(string url, string format) =>
+        format == "auto" ? (IsDiscordUrl(url) ? "discord" : "json") : format;
 
     /// <summary>
     /// One alert as an HTTP request in the resolved format. ntfy carries the
@@ -1085,8 +1082,7 @@ public partial class ScannerService : BackgroundService
     /// <summary>Alerts for a watched host going down or recovering. Held back while the device is snoozed.</summary>
     private async Task SendStatusAlert(HostRecord host, bool up, CancellationToken ct, bool snoozeOver = false)
     {
-        var url = WebhookUrl;
-        if (string.IsNullOrWhiteSpace(url)) return;
+        if (!Takes("status")) return;
 
         var name = host.CustomName != "" ? host.CustomName
                  : (host.Hostname != "" ? host.Hostname : host.Mac);
@@ -1108,14 +1104,16 @@ public partial class ScannerService : BackgroundService
             }
         }
 
-        try
-        {
-            var client = _httpFactory.CreateClient();
-            var format = ResolveFormat(url);
-            var isDiscord = format == "discord";
+        var title = up ? $"{name} is back online" : $"{name} went offline";
+        var text = up
+            ? $"BAMF: {name} ({host.Ip}) is back online" + (downFor is not null ? $" after {downFor} down" : "")
+            : $"BAMF: {name} ({host.Ip}) went offline";
+        if (snoozeOver) text += up ? ", seen as its snooze ended" : ", and was still offline when its snooze ended";
 
+        HttpRequestMessage Build(string url, string format)
+        {
             var payload = "";
-            if (isDiscord)
+            if (format == "discord")
             {
                 payload = JsonSerializer.Serialize(new
                 {
@@ -1141,26 +1139,14 @@ public partial class ScannerService : BackgroundService
                     }
                 });
             }
-            var text = up
-                ? $"BAMF: {name} ({host.Ip}) is back online" + (downFor is not null ? $" after {downFor} down" : "")
-                : $"BAMF: {name} ({host.Ip}) went offline";
-            if (snoozeOver) text += up ? ", seen as its snooze ended" : ", and was still offline when its snooze ended";
             var generic = JsonSerializer.Serialize(new { content = text, message = text, up, mac = host.Mac, ip = host.Ip });
-
-            using var req = BuildAlertRequest(url, format,
-                title: up ? $"{name} is back online" : $"{name} went offline",
-                message: text,
-                priority: up ? 3 : 4,
-                tags: up ? "green_circle" : "red_circle",
+            return BuildAlertRequest(url, format, title: title, message: text,
+                priority: up ? 3 : 4, tags: up ? "green_circle" : "red_circle",
                 discordPayload: payload, genericPayload: generic);
-            using var resp = await SendOrHold(client, req, up ? $"{name} is back online" : $"{name} went offline", text, ct);
-            if (resp is not null) _log.LogInformation("Watch alert ({State}) for {Name} via {Format}: {Status}",
-                up ? "up" : "down", name, format, (int)resp.StatusCode);
         }
-        catch (Exception ex)
-        {
-            _log.LogWarning(ex, "Watch alert failed for {Name}", name);
-        }
+
+        try { await Deliver("status", title, text, Build, ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { _log.LogWarning(ex, "Watch alert failed for {Name}", name); }
     }
 
     // ---------------- quiet hours ----------------
@@ -1178,47 +1164,44 @@ public partial class ScannerService : BackgroundService
     }
 
     private readonly object _heldLock = new();
-    private List<(string At, string Title, string Text)>? _held;
-    private List<(string At, string Title, string Text)> Held
+    private List<HeldAlert>? _held;
+    // Kind is which kind of alert it was, so the digest goes to each destination
+    // with just its own kinds. Alerts held before destinations had kinds have
+    // none, and go to every destination.
+    private sealed record HeldAlert(string At, string Title, string Text, string? Kind = null);
+    private List<HeldAlert> Held
     {
         get
         {
             if (_held is null)
             {
-                try { _held = JsonSerializer.Deserialize<List<HeldAlert>>(_store.GetSetting("heldAlerts") ?? "[]")?.Select(h => (h.At, h.Title, h.Text)).ToList() ?? new(); }
+                try { _held = JsonSerializer.Deserialize<List<HeldAlert>>(_store.GetSetting("heldAlerts") ?? "[]") ?? new(); }
                 catch { _held = new(); }
             }
             return _held;
         }
     }
-    private sealed record HeldAlert(string At, string Title, string Text);
     public int HeldCount { get { lock (_heldLock) return Held.Count; } }
 
-    /// <summary>
-    /// Sends an alert, unless it's quiet hours, in which case it's held for the
-    /// digest and null comes back. Reports go through SendAsync directly: their
-    /// hour is the user's own choice.
-    /// </summary>
-    private async Task<HttpResponseMessage?> SendOrHold(HttpClient client, HttpRequestMessage req, string title, string text, CancellationToken ct)
+    /// <summary>Keeps an alert for the digest at the end of quiet hours.</summary>
+    private void Hold(string kind, string title, string text)
     {
-        if (IsQuietNow())
+        lock (_heldLock)
         {
-            lock (_heldLock)
-            {
-                Held.Add((DateTime.UtcNow.ToString("o"), title, text));
-                if (Held.Count > 100) Held.RemoveAt(0);
-                _store.SetSetting("heldAlerts", JsonSerializer.Serialize(Held.Select(h => new HeldAlert(h.At, h.Title, h.Text))));
-            }
-            _log.LogInformation("Quiet hours: held \"{Title}\"", title);
-            return null;
+            Held.Add(new HeldAlert(DateTime.UtcNow.ToString("o"), title, text, kind));
+            if (Held.Count > 100) Held.RemoveAt(0);
+            _store.SetSetting("heldAlerts", JsonSerializer.Serialize(Held));
         }
-        return await client.SendAsync(req, ct);
+        _log.LogInformation("Quiet hours: held \"{Title}\"", title);
     }
 
-    /// <summary>What was held during quiet hours, as one message, once they end.</summary>
+    /// <summary>
+    /// What was held during quiet hours, as one message, once they end: to each
+    /// destination, with the held alerts of the kinds it takes.
+    /// </summary>
     public async Task<int> FlushHeldAlerts(CancellationToken ct)
     {
-        List<(string At, string Title, string Text)> items;
+        List<HeldAlert> items;
         lock (_heldLock)
         {
             items = Held.ToList();
@@ -1226,10 +1209,15 @@ public partial class ScannerService : BackgroundService
             _store.SetSetting("heldAlerts", "[]");
         }
         if (items.Count == 0 || !QuietDigest) return items.Count;
-        var fields = items.Take(15).Select(i => (TimeZoneInfo.ConvertTimeFromUtc(DateTime.Parse(i.At, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal), TimeZoneInfo.Local).ToString("HH:mm") + " " + i.Title, i.Text)).ToList();
-        if (items.Count > 15) fields.Add(("And more", $"{items.Count - 15} more alert(s) were held."));
-        var text = string.Join("\n", items.Select(i => "- " + i.Title));
-        await SendReport($"While it was quiet: {items.Count} alert{(items.Count == 1 ? "" : "s")}", text, fields, ct);
+        foreach (var d in Destinations())
+        {
+            var mine = items.Where(i => i.Kind is null || d.Kinds.Contains(i.Kind)).ToList();
+            if (mine.Count == 0) continue;
+            var fields = mine.Take(15).Select(i => (TimeZoneInfo.ConvertTimeFromUtc(DateTime.Parse(i.At, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal), TimeZoneInfo.Local).ToString("HH:mm") + " " + i.Title, i.Text)).ToList();
+            if (mine.Count > 15) fields.Add(("And more", $"{mine.Count - 15} more alert(s) were held."));
+            var text = string.Join("\n", mine.Select(i => "- " + i.Title));
+            await SendReport($"While it was quiet: {mine.Count} alert{(mine.Count == 1 ? "" : "s")}", text, fields, ct, only: d.Id);
+        }
         return items.Count;
     }
 
@@ -1238,51 +1226,50 @@ public partial class ScannerService : BackgroundService
     {
         "port" => ("\U0001F513 ", 0xE0A040, "BAMF port watch", "unlock", 4),
         "security" => ("\U0001F6E1 ", 0xE8483B, "BAMF security watch", "shield", 5),
+        "internet" => ("\U0001F310 ", 0x4FB3D9, "BAMF internet watch", "globe_with_meridians", 4),
         "cert" => ("\U0001F510 ", 0xE0A040, "BAMF certificate watch", "lock", 4),
-        _ => ("\u23F0 ", 0xB58AF0, "BAMF alert rule", "alarm_clock", 4),
+        _ => ("⏰ ", 0xB58AF0, "BAMF alert rule", "alarm_clock", 4),
     };
 
-    /// <summary>A rule, port, security or certificate alert: title and detail, through the quiet-hours gate.</summary>
+    /// <summary>Which kind of alert, for choosing destinations, each style of alert is.</summary>
+    private static string KindOf(string style) => style switch
+    {
+        "rule" => "status",
+        "internet" => "internet",
+        _ => "security",   // security, port, cert
+    };
+
+    /// <summary>A rule, port, security, certificate or internet alert: title and detail, through the quiet-hours gate.</summary>
     public async Task SendGenericAlert(string title, string detail, string kind, CancellationToken ct)
     {
-        var url = WebhookUrl;
-        if (string.IsNullOrWhiteSpace(url)) return;
-        try
+        var style = AlertStyle(kind);
+        var text = $"BAMF: {title}. {detail}";
+        HttpRequestMessage Build(string url, string format)
         {
-            var client = _httpFactory.CreateClient();
-            var format = ResolveFormat(url);
-            var style = AlertStyle(kind);
             var payload = format == "discord" ? JsonSerializer.Serialize(new
             {
                 username = "BAMF",
                 embeds = new[] { new { title = style.Icon + title, description = detail, color = style.Color,
                     timestamp = DateTime.UtcNow.ToString("o"), footer = new { text = style.Footer } } },
             }) : "";
-            var text = $"BAMF: {title}. {detail}";
             var generic = JsonSerializer.Serialize(new { content = text, message = text, kind, title, detail });
-            using var req = BuildAlertRequest(url, format, title: title, message: detail, priority: style.Priority, tags: style.Tag,
+            return BuildAlertRequest(url, format, title: title, message: detail, priority: style.Priority, tags: style.Tag,
                 discordPayload: payload, genericPayload: generic);
-            using var resp = await SendOrHold(client, req, title, text, ct);
-            if (resp is not null) _log.LogInformation("Alert ({Kind}) via {Format}: {Status}", kind, format, (int)resp.StatusCode);
         }
-        catch (Exception ex)
-        {
-            _log.LogWarning(ex, "Alert failed");
-        }
+        try { await Deliver(KindOf(kind), title, text, Build, ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { _log.LogWarning(ex, "Alert failed"); }
     }
 
     /// <summary>
     /// A scheduled report: a titled block of text, as an embed with fields on
-    /// Discord and as text elsewhere. True when the endpoint accepted it.
+    /// Discord and as text elsewhere, to every destination that takes reports
+    /// (or just the one named). True when one of them accepted it. A report's
+    /// hour is the user's own choice, so quiet hours don't hold it.
     /// </summary>
-    public async Task<bool> SendReport(string title, string text, IReadOnlyList<(string Name, string Value)> fields, CancellationToken ct)
+    public async Task<bool> SendReport(string title, string text, IReadOnlyList<(string Name, string Value)> fields, CancellationToken ct, string? only = null)
     {
-        var url = WebhookUrl;
-        if (string.IsNullOrWhiteSpace(url)) return false;
-        try
+        HttpRequestMessage Build(string url, string format)
         {
-            var client = _httpFactory.CreateClient();
-            var format = ResolveFormat(url);
             var payload = format == "discord" ? JsonSerializer.Serialize(new
             {
                 username = "BAMF",
@@ -1290,45 +1277,31 @@ public partial class ScannerService : BackgroundService
                     timestamp = DateTime.UtcNow.ToString("o"), footer = new { text = "BAMF scheduled report" } } },
             }) : "";
             var generic = JsonSerializer.Serialize(new { content = title + "\n" + text, message = text, title, fields = fields.Select(f => new { name = f.Name, value = f.Value }) });
-            using var req = BuildAlertRequest(url, format, title: title, message: text, priority: 3, tags: "clipboard",
+            return BuildAlertRequest(url, format, title: title, message: text, priority: 3, tags: "clipboard",
                 discordPayload: payload, genericPayload: generic);
-            using var resp = await client.SendAsync(req, ct);
-            _log.LogInformation("Report via {Format}: {Status}", format, (int)resp.StatusCode);
-            return resp.IsSuccessStatusCode;
         }
-        catch (Exception ex)
-        {
-            _log.LogWarning(ex, "Report failed");
-            return false;
-        }
+        try { return await Deliver("reports", title, text, Build, ct, holdable: false, only: only); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { _log.LogWarning(ex, "Report failed"); return false; }
     }
 
-    /// <summary>A DHCP or DNS watch alert, to the same webhook as everything else.</summary>
+    /// <summary>A DHCP or DNS watch alert, to every destination that takes security alerts.</summary>
     private async Task SendWatchAlert(TrafficMonitor.Alert a, CancellationToken ct)
     {
-        var url = WebhookUrl;
-        if (string.IsNullOrWhiteSpace(url)) return;
-        try
+        var text = $"BAMF: {a.Title}. {a.Detail}";
+        HttpRequestMessage Build(string url, string format)
         {
-            var client = _httpFactory.CreateClient();
-            var format = ResolveFormat(url);
             var payload = format == "discord" ? JsonSerializer.Serialize(new
             {
                 username = "BAMF",
                 embeds = new[] { new { title = "🚨 " + a.Title, description = a.Detail, color = 0xF2716F,
                     timestamp = DateTime.UtcNow.ToString("o"), footer = new { text = "BAMF network watch" } } },
             }) : "";
-            var text = $"BAMF: {a.Title}. {a.Detail}";
             var generic = JsonSerializer.Serialize(new { content = text, message = text, kind = a.Kind, title = a.Title, detail = a.Detail });
-            using var req = BuildAlertRequest(url, format, title: a.Title, message: a.Detail, priority: 5, tags: "rotating_light",
+            return BuildAlertRequest(url, format, title: a.Title, message: a.Detail, priority: 5, tags: "rotating_light",
                 discordPayload: payload, genericPayload: generic);
-            using var resp = await SendOrHold(client, req, a.Title, text, ct);
-            if (resp is not null) _log.LogInformation("Watch alert ({Kind}) via {Format}: {Status}", a.Kind, format, (int)resp.StatusCode);
         }
-        catch (Exception ex)
-        {
-            _log.LogWarning(ex, "Watch alert failed");
-        }
+        try { await Deliver("security", a.Title, text, Build, ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { _log.LogWarning(ex, "Watch alert failed"); }
     }
 
     private static string FormatSpan(TimeSpan s)
@@ -1344,17 +1317,20 @@ public partial class ScannerService : BackgroundService
     private async Task Notify(string mac, string ip, string hostname, string vendor, string subnet, CancellationToken ct)
         => await SendWebhook(mac, ip, hostname, vendor, subnet, test: false, ct);
 
-    /// <summary>Sends a test notification. Returns null on success, else an error description.</summary>
-    public async Task<string?> SendTestNotification(CancellationToken ct)
+    /// <summary>
+    /// Sends a test notification to one destination ("main" for the main
+    /// webhook, else an extra's id), whatever kinds it takes. Returns null on
+    /// success, else an error description.
+    /// </summary>
+    public async Task<string?> SendTestNotification(CancellationToken ct, string destination = "main")
     {
-        var url = WebhookUrl;
-        if (string.IsNullOrWhiteSpace(url))
-            return "No webhook URL saved. Add one under Tools → Notifications.";
+        if (!Destinations().Any(d => d.Id == destination))
+            return destination == "main" ? "No webhook URL saved. Add one under Tools → Notifications." : "That destination isn't saved.";
         try
         {
             var ok = await SendWebhook("AA:BB:CC:DD:EE:FF", "192.0.2.123", "test-device",
-                "BAMF Test", SubnetLabels.FirstOrDefault() ?? "192.0.2.0/24", test: true, ct);
-            return ok ? null : "The webhook endpoint returned a non-success status. Check the URL.";
+                "BAMF Test", SubnetLabels.FirstOrDefault() ?? "192.0.2.0/24", test: true, ct, destination);
+            return ok ? null : _lastDeliveryError ?? "The webhook endpoint returned a non-success status. Check the URL.";
         }
         catch (Exception ex)
         {
@@ -1363,20 +1339,15 @@ public partial class ScannerService : BackgroundService
     }
 
     private async Task<bool> SendWebhook(string mac, string ip, string hostname, string vendor, string subnet,
-        bool test, CancellationToken ct)
+        bool test, CancellationToken ct, string? only = null)
     {
-        var url = WebhookUrl;
-        if (string.IsNullOrWhiteSpace(url)) return false;
+        var title = test ? "BAMF webhook test" : "New host detected";
+        var text = $"BAMF: {(test ? "webhook test - " : "")}new host {mac} at {ip} on {subnet}" +
+                   (hostname != "" ? $" ({hostname})" : "") +
+                   (vendor != "" ? $" [{vendor}]" : "");
 
-        try
+        HttpRequestMessage Build(string url, string format)
         {
-            var client = _httpFactory.CreateClient();
-            var title = test ? "BAMF webhook test" : "New host detected";
-            var text = $"BAMF: {(test ? "webhook test - " : "")}new host {mac} at {ip} on {subnet}" +
-                       (hostname != "" ? $" ({hostname})" : "") +
-                       (vendor != "" ? $" [{vendor}]" : "");
-
-            var format = ResolveFormat(url);
             var payload = "";
             if (format == "discord")
             {
@@ -1414,19 +1385,16 @@ public partial class ScannerService : BackgroundService
                 message = text,
                 mac, ip, hostname, vendor, subnet, test,
             });
-
-            using var req = BuildAlertRequest(url, format,
+            return BuildAlertRequest(url, format,
                 title: title,
                 message: text,
                 priority: test ? 3 : 4,
                 tags: test ? "test_tube" : "warning",
                 discordPayload: payload, genericPayload: generic);
-            using var resp = test ? await client.SendAsync(req, ct) : await SendOrHold(client, req, title, text, ct);
-            if (resp is null) return true;
-            _log.LogInformation("Webhook ({Format}) responded {Status}", format, (int)resp.StatusCode);
-            return resp.IsSuccessStatusCode;
         }
-        catch (Exception ex)
+
+        try { return await Deliver("devices", title, text, Build, ct, holdable: !test, only: only); }
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _log.LogWarning(ex, "Webhook notification failed");
             if (test) throw;

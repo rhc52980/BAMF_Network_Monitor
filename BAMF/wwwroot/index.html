@@ -1335,6 +1335,15 @@
   .chip-btn .chip-cnt { color: var(--text-dim); font-size: 11px; }
   .chip-btn.active .chip-cnt { color: var(--focus); }
   .chip-btn.none { font-style: italic; }
+  /* Where alerts go: the kinds each destination takes, and the list of them. */
+  .dest-kinds { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 10px 0 4px; }
+  .dest-kinds label { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
+  .dest-kinds-lbl { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim); letter-spacing: .08em; text-transform: uppercase; }
+  .dest-row { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px solid var(--line); }
+  .dest-row .what { flex: 1; min-width: 0; }
+  .dest-row .what small { display: block; color: var(--text-dim); font-size: 12px; margin-top: 2px; overflow-wrap: anywhere; }
+  .dest-row .none { color: var(--led-warn); }
+  .dest-form { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 10px 0; background: var(--panel-2); }
   .chip-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   .search {
     margin-left: auto; background: var(--panel);
@@ -3972,8 +3981,9 @@
   <div class="set-card">
     <div class="set-card-title">Notifications</div>
     <p class="modal-help">
-      Get an alert when a new device appears, and when a ⭐ watched device goes
-      offline or comes back. Discord: <em>Server Settings → Integrations →
+      Get an alert when a new device appears, when a ⭐ watched device goes offline or comes
+      back, and for security and internet trouble: choose which with <strong>Sends</strong>, and
+      add more places to send them under <strong>More destinations</strong>. Discord: <em>Server Settings → Integrations →
       Webhooks → New Webhook → Copy Webhook URL</em>. ntfy: paste your topic URL,
       e.g. <span class="mono">https://ntfy.sh/bamf-alerts</span>. Gotify: your
       server's <span class="mono">/message?token=…</span> URL.
@@ -4019,9 +4029,40 @@
       <button class="export-btn" id="notifySave">Save &amp; test</button>
     </div>
     <div class="modal-result" id="notifyResult"></div>
+    <div class="dest-kinds" id="mainKindsRow" hidden><span class="dest-kinds-lbl">Sends</span><span class="dest-kinds" id="mainKinds" style="margin:0"></span></div>
+    <div class="set-card-title" style="margin-top:18px">More destinations</div>
+    <p class="modal-help">
+      Send alerts to more than one place: your phone and Discord both, or security alerts to one
+      and comings and goings to another. Each has its own format and its own choice of what it
+      gets. Quiet hours hold them all, and the summary when they end goes to each with just its own.
+    </p>
+    <div id="destList"></div>
+    <div class="dest-form" id="destForm" hidden>
+      <label class="modal-row">Name
+        <input id="destName" class="modal-input" maxlength="40" placeholder="e.g. Phone, or Discord #security" autocomplete="off">
+      </label>
+      <label class="modal-row">URL
+        <input id="destUrl" class="modal-input" placeholder="https://ntfy.sh/topic or a Discord webhook URL" autocomplete="off" spellcheck="false">
+      </label>
+      <label class="modal-row">Format
+        <select id="destFormat">
+        <option value="auto">Auto — Discord embed, or generic JSON</option>
+        <option value="ntfy">ntfy</option>
+        <option value="gotify">Gotify</option>
+        <option value="json">Generic JSON</option>
+        </select>
+      </label>
+      <div class="dest-kinds"><span class="dest-kinds-lbl">Sends</span><span class="dest-kinds" id="destKinds" style="margin:0"></span></div>
+      <div class="modal-actions">
+        <button class="toggle" id="destCancel">Cancel</button>
+        <button class="export-btn" id="destSave">Save &amp; test</button>
+      </div>
+    </div>
+    <div class="modal-actions" style="justify-content:flex-start"><button class="toggle" id="destAdd">Add a destination</button></div>
+    <div class="modal-result" id="destResult"></div>
     <div class="set-card-title" style="margin-top:18px">Scheduled report</div>
     <p class="modal-help">
-      A summary to the same webhook: how many devices are up, what's new, what went away, the
+      A summary to every destination that gets Reports: how many devices are up, what's new, what went away, the
       flakiest device, the longest offline, the least reliable, any watch alerts, and the top
       talkers. Daily covers the last 24 hours, weekly the last 7 days, and monthly the last 30
       &mdash; which also totals up any internet outages, if the internet watch is on.
@@ -4619,6 +4660,7 @@ try { holidaySpirit = localStorage.getItem("bamf-holiday-spirit") === "1"; } cat
 let nightMode = { enabled: false, from: "21:00", to: "06:00", theme: "nightstreet" };
 try { const n = JSON.parse(localStorage.getItem("bamf-night") || "null"); if (n && typeof n === "object") nightMode = { ...nightMode, ...n }; } catch {}
 let webhookConfigured = false;
+let alertsConfigured = false;   // any destination, the main webhook or another, takes any alerts
 let alertsNudgeOff = false;     // "Don't remind me" on the alerts-off banner
 let webhookMasked = null;   // masked form only; the server never sends the full URL
 let webhookFormat = "auto"; // auto | ntfy | gotify | json
@@ -9697,6 +9739,7 @@ async function refresh() {
     }
     buildDate = data.buildDate || buildDate;
     webhookConfigured = !!data.webhookConfigured;
+    alertsConfigured = data.alertsConfigured ?? webhookConfigured;
     alertsNudgeOff = !!data.alertsNudgeOff;
     renderAlertsOff();
     webhookMasked = data.webhookMasked || null;
@@ -18388,12 +18431,136 @@ $("scanGo").onclick = async () => {
 // fills the card from what the last /api/hosts poll reported; the URL field is
 // left empty on purpose, since the server only ever hands back a masked form.
 function fillNotify() {
+  // Settings carries the webhook's details too. Opening Settings straight after
+  // the page loads used to beat the device list to them, and the card said no
+  // webhook was saved when one was.
+  const se = settingsData && settingsData.editable;
+  if (se && se.webhookConfigured !== undefined) {
+    webhookConfigured = !!se.webhookConfigured;
+    webhookMasked = se.webhookMasked || null;
+    webhookFormat = se.webhookFormat || webhookFormat;
+  }
   $("notifyFormat").value = webhookFormat;
   $("notifyCurrent").textContent = webhookMasked
     ? "Currently saved: " + webhookMasked
     : "No webhook saved — alerts are off.";
   $("notifyClear").style.display = webhookConfigured ? "" : "none";
+  renderDestinations();
 }
+
+// ---- Where alerts go ----
+// The main webhook takes every kind of alert unless some are unticked; more
+// destinations each take the kinds ticked on them. URLs come back masked, so
+// editing a saved one leaves its URL box empty, and empty keeps it.
+const ALERT_KINDS = [
+  ["devices", "New devices", "A device BAMF hasn't seen before"],
+  ["status", "Offline and back", "Watched devices going offline and coming back, alert rules, and a snooze ending"],
+  ["security", "Security", "ARP spoofing and IP conflicts, new DHCP or DNS servers, newly open ports, certificates, GreyNoise"],
+  ["internet", "Internet", "The internet watch: down, back, slow and back to normal"],
+  ["reports", "Reports", "The scheduled report"],
+];
+const kindLabel = k => (ALERT_KINDS.find(d => d[0] === k) || [k, k])[1];
+function kindBoxes(box, selected, onChange) {
+  box.innerHTML = "";
+  for (const [k, label, hint] of ALERT_KINDS) {
+    const l = document.createElement("label");
+    l.title = hint;
+    l.innerHTML = `<input type="checkbox" value="${k}"${selected.includes(k) ? " checked" : ""}> <span></span>`;
+    l.querySelector("span").textContent = label;
+    if (onChange) l.querySelector("input").onchange = onChange;
+    box.appendChild(l);
+  }
+}
+const checkedKinds = box => [...box.querySelectorAll("input:checked")].map(i => i.value);
+let destEditing = null;   // the destination being edited, or {} for a new one
+function destData() { return (settingsData && settingsData.editable && settingsData.editable.destinations) || []; }
+function renderDestinations() {
+  const e = settingsData && settingsData.editable;
+  if (!e) return;
+  // The main webhook's kinds, once there is one.
+  $("mainKindsRow").hidden = !webhookConfigured;
+  kindBoxes($("mainKinds"), e.webhookKinds || ALERT_KINDS.map(k => k[0]), async () => {
+    const kinds = checkedKinds($("mainKinds"));
+    try {
+      const r = await fetch("/api/settings/webhookkinds", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kinds }) });
+      const d = await r.json();
+      e.webhookKinds = d.kinds;
+      toast(d.kinds.length ? "The main webhook gets: " + d.kinds.map(kindLabel).join(", ") : "The main webhook gets nothing now");
+    } catch { toast("Couldn't save that - see the server log"); }
+  });
+  const list = $("destList");
+  list.innerHTML = "";
+  for (const d of destData()) {
+    const row = document.createElement("div");
+    row.className = "dest-row";
+    row.innerHTML = `<div class="what"><b></b><small></small></div>
+      <button class="toggle" data-a="test">Test</button><button class="toggle" data-a="edit">Edit</button><button class="toggle del" data-a="del">Remove</button>`;
+    row.querySelector("b").textContent = d.name;
+    const sm = row.querySelector("small");
+    sm.textContent = `${d.masked || ""} · ${d.format === "auto" ? "auto" : d.format} · `;
+    const k = document.createElement("span");
+    if (d.kinds.length) k.textContent = d.kinds.map(kindLabel).join(", ");
+    else { k.textContent = "gets nothing: tick something under Edit"; k.className = "none"; }
+    sm.appendChild(k);
+    row.querySelector('[data-a="test"]').onclick = () => testDestination(d.id, d.name);
+    row.querySelector('[data-a="edit"]').onclick = () => openDestForm(d);
+    row.querySelector('[data-a="del"]').onclick = async () => {
+      if (!confirm(`Stop sending alerts to ${d.name}?`)) return;
+      await saveDestinations(destData().filter(x => x.id !== d.id).map(x => ({ id: x.id, name: x.name, format: x.format, kinds: x.kinds })));
+      toast(`${esc(d.name)} removed`);
+    };
+    list.appendChild(row);
+  }
+  if (!destData().length) list.innerHTML = `<div class="modal-note">None yet: everything goes to the webhook above.</div>`;
+}
+function openDestForm(d) {
+  destEditing = d || {};
+  $("destName").value = d ? d.name : "";
+  $("destUrl").value = "";
+  $("destUrl").placeholder = d ? `Saved: ${d.masked || "(saved)"} - leave empty to keep it` : "https://ntfy.sh/topic or a Discord webhook URL";
+  $("destFormat").value = d ? d.format : "auto";
+  kindBoxes($("destKinds"), d ? d.kinds : ALERT_KINDS.map(k => k[0]));
+  $("destForm").hidden = false;
+  $("destAdd").hidden = true;
+  $("destResult").innerHTML = "";
+  $("destName").focus();
+}
+function closeDestForm() { destEditing = null; $("destForm").hidden = true; $("destAdd").hidden = false; }
+async function saveDestinations(list) {
+  const r = await fetch("/api/settings/destinations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ destinations: list }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "HTTP " + r.status);
+  settingsData.editable.destinations = d.destinations;
+  renderDestinations();
+  refresh();   // the alerts-off banner may change
+  return d.destinations;
+}
+// A line under the list, the way the webhook above reports: plain, or amber for trouble.
+const destSay = (text, bad) => { $("destResult").innerHTML = `<span class="${bad ? "none" : "scan-progress"}">${esc(text)}</span>`; };
+async function testDestination(id, name) {
+  destSay(`Sending a test to ${name}…`);
+  try {
+    const r = await fetch(`/api/destinations/${encodeURIComponent(id)}/test`, { method: "POST" });
+    const d = await r.json();
+    destSay(d.ok ? `Test sent to ${name}. Check it arrived.` : `${name}: ${d.error || "the test didn't go through."}`, !d.ok);
+  } catch { destSay("Couldn't reach BAMF.", true); }
+}
+$("destAdd").onclick = () => openDestForm(null);
+$("destCancel").onclick = closeDestForm;
+$("destSave").onclick = async () => {
+  const d = destEditing || {};
+  const entry = { id: d.id || "", name: $("destName").value.trim(), url: $("destUrl").value.trim(), format: $("destFormat").value, kinds: checkedKinds($("destKinds")) };
+  if (!d.id && !entry.url) { destSay("Paste the URL alerts should go to.", true); return; }
+  const before = new Set(destData().map(x => x.id));
+  const others = destData().filter(x => x.id !== d.id).map(x => ({ id: x.id, name: x.name, format: x.format, kinds: x.kinds }));
+  const list = d.id ? destData().map(x => x.id === d.id ? entry : { id: x.id, name: x.name, format: x.format, kinds: x.kinds }) : [...others, entry];
+  try {
+    const saved = await saveDestinations(list);
+    closeDestForm();
+    const mine = d.id ? saved.find(x => x.id === d.id) : saved.find(x => !before.has(x.id));
+    if (mine) await testDestination(mine.id, mine.name);
+  } catch (e) { destSay(e.message, true); }
+};
 // ---- Alert rules, quiet hours, port watch ----
 function ruleTargets() {
   const out = [["any", "any device"], ["watched", "watched devices"]];
@@ -18624,7 +18791,7 @@ $("layoutFile").onchange = async () => {
 // sign was a line inside Settings. A viewer can't save a webhook, so they
 // aren't told about something they can't fix.
 function renderAlertsOff() {
-  $("alertsOff").hidden = webhookConfigured || alertsNudgeOff || role === "viewer";
+  $("alertsOff").hidden = alertsConfigured || alertsNudgeOff || role === "viewer";
 }
 $("alertsOffSetup").onclick = () => {
   showView("settings");
