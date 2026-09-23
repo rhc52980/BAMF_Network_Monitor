@@ -120,15 +120,15 @@ public partial class ScannerService
         return null;
     }
 
+    // Why the last delivery failed, for the Test button to say.
+    private string? _lastDeliveryError;
+
     /// <summary>
     /// Sends one alert of one kind to every destination that takes that kind,
     /// or during quiet hours holds it once for the digest. The build function
     /// makes the request for one destination's URL and resolved format. Returns
     /// true if at least one destination accepted it (or it was held).
     /// </summary>
-    // Why the last delivery failed, for the Test button to say.
-    private string? _lastDeliveryError;
-
     private async Task<bool> Deliver(string kind, string title, string text, Func<string, string, HttpRequestMessage> build,
         CancellationToken ct, bool holdable = true, string? only = null)
     {
