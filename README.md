@@ -178,6 +178,30 @@ sit below the scan settings rather than scattered across the header and a menu.
 Which networks BAMF may touch stays in `appsettings.json`, shown read-only here
 on purpose: it is the boundary the wildcard port-scan guard relies on.
 
+### Dress it up
+
+Forty-two themes, from plain colour schemes to whole scenes behind the page.
+The animated ones aren't just wallpaper: they answer the network, so a scan,
+a new device or one dropping off shows up in the scene. A few of them:
+
+<table>
+<tr>
+<td width="50%" valign="top"><img src="docs/theme-rgb.png" alt="The RGB theme: the device list on near-black, a rainbow frame round the whole window, rainbow borders round the four stats cards with the numbers in rainbow, rainbow edges along the top of the hosts strip and the table, and a lit floor grid glowing through behind the rows"><br><b>RGB</b>: every light on. A scan runs the rig flat out, and the frame breathes red while a watched device is down.</td>
+<td width="50%" valign="top"><img src="docs/theme-powerplant.png" alt="The Power Plant theme: two hyperbolic cooling towers, a stack and lattice pylons seen through the window band under the header, the frequency meter in the header reading 59.78 Hz, and along the bottom the control desk with a load gauge, an output gauge, a breaker for every device and the annunciator tiles"><br><b>Power Plant</b>: a breaker for every device on the busbar, and the grid frequency sags as devices drop off.</td>
+</tr>
+<tr>
+<td width="50%" valign="top"><img src="docs/theme-aquarium.png" alt="The Aquarium theme: the device list under water, with light rays, fish and bubbles, and along the bottom the seabed: an anchor on its chain, a treasure chest open with gold showing, coral and anemones, a crab, a sea star, a sunken pirate ship with its flag and a clam"><br><b>Aquarium</b>: a scan opens the treasure chest, and a device dropping off brings the eel out of the wreck.</td>
+<td width="50%" valign="top"><img src="docs/theme-woodlands.png" alt="The Woodlands theme: the device list in a forest at dusk, tall trunks behind the page, songbirds on the vines along the top, an eagles' nest and a great horned owl beside a plastic laundry hamper full of owlets, and ferns and mushrooms along the floor"><br><b>Woodlands</b>: the more of the network is online, the more birds on the vines; a scan sends the flock up.</td>
+</tr>
+<tr>
+<td width="50%" valign="top"><img src="docs/theme-laser.png" alt="The Laser Show theme: the device list in a dark club, cyan and magenta laser fans from the top corners, a green beam sweeping across the page, and droids dug in behind barricades along the floor"><br><b>Laser Show</b>: a scan starts a firefight between the droids along the floor.</td>
+<td width="50%" valign="top"><img src="docs/theme-departures.png" alt="The Departures theme: the device list as an airport board at sunset, a split-flap clock in the header, a flight number beside each device, and each status on flap tiles reading ON TIME, BOARDING or CANCELLED"><br><b>Departures</b>: every device is a flight; offline ones are CANCELLED on the flaps.</td>
+</tr>
+</table>
+
+Reduced motion holds every scene still, nothing runs in a background tab, and
+sound is off unless you ask for it.
+
 ## Install
 
 Download a release — **no .NET SDK needed, the runtime is bundled**:
