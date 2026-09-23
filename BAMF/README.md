@@ -506,11 +506,18 @@ Some themes have a little life in them:
   light rays drifting through, and now and then a shark cruising past. An
   octopus drifts through the tank with its arms curling, a crab sidles along
   the bottom of the screen with its claws working, and a scuba diver swims
-  slowly across, finning, breathing out a few bubbles as he goes. The crab and
-  the diver pass in front of the page, since the gravel is under the table and
-  a crab back there would never be seen. A new device swims in as a fish carrying its
-  name, a finished scan sends up a column of bubbles, and a device going
-  offline sinks for a moment. Watched devices have a pet fish that swims
+  slowly across, finning, breathing out a few bubbles as he goes. A sea turtle
+  glides past now and then, and jellyfish drift up through the water, pulsing.
+  Along the bottom is **the seabed**: an anchor on its chain, a treasure
+  chest, coral and anemones, a sea star, a clam, and **a sunken pirate ship**
+  settled in the sand, its colours still flying and a moray eel living in one
+  of its portholes. The seabed is solid and the page gets that much more room
+  at the bottom, so the last rows scroll clear of it; the crab walks along it
+  and the diver swims in front of the page. A new device swims in as a fish
+  carrying its name, a finished scan sends up a column of bubbles and **pops
+  the treasure chest open**, gold and all, a device going offline sinks for a
+  moment and **brings the eel out of the wreck** to look, and one coming back
+  **opens the clam** to show its pearl. Watched devices have a pet fish that swims
   beside their name and floats still when they're down. On the Map, bubbles
   drift up the pipes and a shell marks unknown devices. With sound on, the
   bubbles burble as they rise, a new device arrives in a flurry of them, and
