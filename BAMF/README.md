@@ -394,12 +394,12 @@ survive IP changes.
   automations can fire when someone gets home. See [MQTT](#mqtt-and-home-assistant).
 - **Tags** - group devices as "kids", "IoT", "work" or whatever fits, then
   filter the list and the Map by tag. See [Tags](#tags).
-- **41 themes** - click the theme button for a picker, grouped into colours,
+- **42 themes** - click the theme button for a picker, grouped into colours,
   animated and holidays: Dark, Light, Terminal, Amber CRT, Synthwave, Commodore
   64, Game Boy, Nord, Dracula, Solarized (dark + light), Gruvbox, High Contrast,
   Matrix, Blueprint, Hacker Red, Cotton Candy, Thunderstorm, Hotdog Stand,
   Steampunk, Waterworks, Aquarium, Goat, Goat Night, City Lights,
-  Constellation, Claw Machine (dark + dusk), Laser Show, Data Centre, Power
+  Constellation, Claw Machine (dark + dusk), Laser Show, RGB, Data Centre, Power
   Plant, Departures, Factory (day + night shift), Spring, Summer, Winter,
   Woodlands, Model Railway, New Year and Thanksgiving. See [Theme](#theme).
   CRT themes get scanlines; each pick triggers a BAMF! splat. Choice persists.
@@ -434,7 +434,7 @@ The ◑ button in the header opens the theme menu: Dark, Light, Terminal, Amber
 CRT, Synthwave, Commodore 64, Game Boy, Nord, Dracula, Solarized, Solar Light,
 Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
 Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
-City Lights, Constellation, Claw Machine, Claw Machine Dusk, Laser Show,
+City Lights, Constellation, Claw Machine, Claw Machine Dusk, Laser Show, RGB,
 Data Centre, Power Plant, Departures, Factory, Factory Night Shift, Spring,
 Summer, Winter, Woodlands, Model Railway, New Year and Thanksgiving. Your
 choice is remembered in your browser.
@@ -686,6 +686,20 @@ Some themes have a little life in them:
   standing. The page gets room at the bottom so the floor never hides the last
   rows. Reduced motion lights the rig and holds it still, with the fight a
   still of itself: droids up and bolts caught mid-air.
+- **RGB**: the dashboard as a gaming rig with every light on. A lit frame runs
+  round the whole window with the light chasing round its edges; the stats
+  cards have rainbow borders turning round them and rainbow numbers; a rainbow
+  flows along under the header, under the active tab and through the scan bar;
+  every card and the table have a rainbow edge; the hosts-on-segment strip is
+  a keyboard with a wave rolling across it; and behind the page, colour drifts
+  through the dark over a lit floor grid. Online, unknown and offline keep
+  their own colours, so the lights never change what a colour means, and the
+  text stays white. The lights answer the network the way RGB software does:
+  **a scan runs the rig flat out** for a moment, **a new device flashes it
+  white**, a device coming back flashes it green, one dropping off red, and
+  **while a watched device is down the frame breathes red** (for an hour,
+  after which it's in the table and the rainbow comes back). Reduced motion
+  lights it all and holds it still.
 - **Spring**: blossom drifting down over a pale green morning, with a border of
   grass, tulips and daffodils nodding along the bottom of the screen, a bee
   wandering across, a butterfly flitting through and birds crossing high up. A
