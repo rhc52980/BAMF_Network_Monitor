@@ -315,6 +315,8 @@ app.MapGet("/api/hosts", (HttpContext ctx, HostStore store, ScannerService scann
             checkedUtc = updates.LastCheckedUtc?.ToString("o"),
         },
         webhookConfigured = !string.IsNullOrWhiteSpace(scanner.WebhookUrl),
+        // True when any destination, the main webhook or another, takes any alerts.
+        alertsConfigured = scanner.AnyDestination,
         // Whether "Don't remind me" was pressed on the alerts-off banner.
         alertsNudgeOff = store.GetSetting("alertsNudgeOff") == "true",
         // Masked, never the full URL: anyone who can load the dashboard could
@@ -825,7 +827,9 @@ app.MapPost("/api/settings/report", (ReportRequest body, HostStore store, Report
 // Sends the report now, whatever the schedule, and returns what was sent.
 app.MapPost("/api/reports/send", async (ReportService reports, ScannerService scanner, CancellationToken ct) =>
 {
-    if (string.IsNullOrWhiteSpace(scanner.WebhookUrl)) return Results.BadRequest(new { error = "No webhook saved. Add one above first." });
+    if (!scanner.Takes("reports")) return Results.BadRequest(new { error = scanner.AnyDestination
+        ? "No destination is set to get reports. Tick Reports on one above."
+        : "No webhook saved. Add one above first." });
     var schedule = reports.Schedule is "weekly" or "monthly" ? reports.Schedule : "daily";
     var (title, text, _) = reports.Compose(ReportService.PeriodFor(schedule));
     var ok = await reports.SendAsync(schedule, ct);
@@ -1183,6 +1187,27 @@ app.MapPost("/api/webhook/test", async (ScannerService scanner, CancellationToke
     return error is null ? Results.Ok(new { ok = true }) : Results.Json(new { ok = false, error });
 });
 
+// Which kinds of alert the main webhook gets: devices, status, security,
+// internet, reports. Every kind unless some are unticked.
+app.MapPost("/api/settings/webhookkinds", (KindsRequest body, ScannerService scanner) =>
+{
+    scanner.SetMainKinds(body.Kinds ?? new());
+    return Results.Json(new { kinds = scanner.MainKinds });
+});
+// The destinations besides the main webhook, replaced as a list. A saved one
+// sent back with a blank URL keeps the URL it has.
+app.MapPost("/api/settings/destinations", (DestinationsRequest body, ScannerService scanner) =>
+{
+    var error = scanner.SaveExtraDestinations(body.Destinations ?? new());
+    return error is null ? Results.Json(new { destinations = DestinationsJson(scanner) }) : Results.BadRequest(new { error });
+});
+// A test to one destination: "main" for the main webhook, or an extra's id.
+app.MapPost("/api/destinations/{id}/test", async (string id, ScannerService scanner, CancellationToken ct) =>
+{
+    var error = await scanner.SendTestNotification(ct, id);
+    return error is null ? Results.Ok(new { ok = true }) : Results.Json(new { ok = false, error });
+});
+
 app.MapPost("/api/settings/active-arp", (ActiveArpRequest body, HostStore store) =>
 {
     store.SetSetting("activeArpScan", body.Enabled ? "true" : "false");
@@ -1291,6 +1316,8 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             webhookConfigured = !string.IsNullOrWhiteSpace(scanner.WebhookUrl),
             webhookMasked = MaskWebhook(scanner.WebhookUrl),
         webhookFormat = scanner.WebhookFormat,
+            webhookKinds = scanner.MainKinds,
+            destinations = DestinationsJson(scanner),
         },
         readOnly = new
         {
@@ -1706,6 +1733,10 @@ static List<object> SwitchesJson(HostStore store)
     return store.GetSwitches().Select(s => SwitchJson(s, labels)).ToList();
 }
 
+// The destinations besides the main webhook, each URL masked like the main one's.
+static object DestinationsJson(ScannerService scanner) =>
+    scanner.ExtraDestinations.Select(d => new { id = d.Id, name = d.Name, masked = MaskWebhook(d.Url), format = d.Format, kinds = d.Kinds }).ToList();
+
 // Enough of the URL to recognise which webhook is saved, never enough to use it.
 // A Discord URL ends /webhooks/<id>/<token>; the token is the secret.
 static object RulesJson(RuleService rules, ScannerService scanner) => new
@@ -1888,6 +1919,8 @@ record LinkRequest(string? Link);
 record PlugRequest(long SwitchId, int Port);
 record GatewayRequest(string? Ip, bool Enabled);
 record CombineRequest(long ParentId);
+record KindsRequest(List<string>? Kinds);
+record DestinationsRequest(List<ScannerService.DestinationInput>? Destinations);
 record SnmpRequest(bool Enabled, string? Address, string? Community);
 record TagsRequest(List<string>? Tags);
 record TrustRequest(string? Kind, string? Ip, bool Trusted);

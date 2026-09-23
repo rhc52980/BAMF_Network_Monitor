@@ -1299,6 +1299,9 @@ scan, or delete a thing.
 | POST | `/api/hosts/{id}/identify` | On-demand device fingerprint: one ICMP echo for the TTL plus a short fingerprint-port probe. Returns the guess, TTL, and open ports, and saves the guess |
 | POST | `/api/hosts/{id}/known` | Body `{"known": true}` — approve/unapprove a host |
 | POST | `/api/webhook/test` | Send a test notification to `Bamf:WebhookUrl` (the dashboard's Test webhook button). Returns `{ok:true}` or `{ok:false,error:"…"}` |
+| POST | `/api/destinations/{id}/test` | Send a test to one destination: `main` for the main webhook, or another's `id`. Returns `{ok:true}` or `{ok:false,error:"…"}` |
+| POST | `/api/settings/webhookkinds` | Body `{"kinds": ["devices", "status"]}` — which kinds of alert the main webhook gets: `devices`, `status`, `security`, `internet`, `reports`. `GET /api/settings` returns it as `webhookKinds` |
+| POST | `/api/settings/destinations` | Body `{"destinations": [{"id": "…", "name": "Phone", "url": "https://…", "format": "ntfy", "kinds": ["security", "internet"]}]}` — replace the destinations besides the main webhook, up to 8. `id` blank adds one; a saved one sent with `url` empty keeps its URL. `GET /api/settings` returns them as `destinations`, URLs masked |
 | POST | `/api/settings/active-arp` | Body `{"enabled": true}` — toggle active ARP scanning at runtime |
 | POST | `/api/settings/auto-ignore-random` | Body `{"enabled": true}` — toggle auto-ignoring of randomized MACs at runtime |
 | POST | `/api/settings/webhook` | Body `{"url": "https://..."}` — save the notification webhook (empty string clears it). Returns a masked form; the full URL is never read back |
@@ -1984,7 +1987,7 @@ of the network. It respects `Bamf:Password` like every other route.
 you there) — paste a webhook URL, pick a format, hit **Save & test**. No config
 edit, no service restart.
 
-Until a webhook is saved, a banner across the top of the dashboard says
+Until alerts have somewhere to go, a banner across the top of the dashboard says
 **Alerts are off**: BAMF still notices everything, but nothing is being sent
 anywhere. **Set up alerts** goes straight to the phone setup below. **Don't
 remind me** hides it for good, in every browser; it only comes back if you save
@@ -2003,6 +2006,36 @@ Four formats, chosen in the dialog (or with `Bamf:WebhookFormat`):
 Priorities: a new device or an offline alert is high (ntfy 4, Gotify 8); a
 recovery or a test is normal. ntfy alerts carry emoji tags so the notification
 shows a 🔴 for offline and a 🟢 for recovered without any setup on your side.
+
+### More than one destination
+
+The webhook above is the main destination. **More destinations** under it adds
+others alongside it, up to eight: your phone and Discord both, or security
+alerts to one place and comings and goings to another. Each has a name, its own
+URL and format, and its own choice of what it gets. So does the main webhook,
+with the **Sends** tickboxes under it; it gets everything until you untick
+something.
+
+Every alert is one of five kinds:
+
+| Kind | What it covers |
+|---|---|
+| **New devices** | A device BAMF hasn't seen before |
+| **Offline and back** | Watched devices going offline and coming back, alert rules, and a snooze ending with the device the other way round |
+| **Security** | ARP spoofing and IP conflicts, the gateway's MAC changing, new DHCP or DNS servers, newly open ports, certificates, GreyNoise |
+| **Internet** | The internet watch: down, back, slow and back to normal |
+| **Reports** | The scheduled report |
+
+An alert goes to every destination that takes its kind. **Test** beside each
+sends it a test whatever it takes, and **Save & test** does the same when you
+add or change one. URLs are shown masked, like the main webhook's: editing a
+saved destination leaves the URL box empty, and leaving it empty keeps the one
+it has.
+
+Quiet hours hold an alert once, not once per destination, and the summary when
+they end goes to each destination with just the held alerts of its own kinds:
+a phone that only takes Internet gets "the internet is back", and not the
+devices that came and went overnight.
 
 ### Alerts on your phone, without Discord
 

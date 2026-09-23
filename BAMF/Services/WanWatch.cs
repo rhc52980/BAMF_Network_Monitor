@@ -167,7 +167,7 @@ public sealed class WanWatch : BackgroundService
                     ? "Your router answered, so the line out of the house is the part that's down: your provider, the modem, or the cable to it."
                     : "Your router didn't answer either, so whatever's wrong is in here rather than out there.";
                 await _scanner.RaiseSecurity("The internet is down",
-                    $"{Target} has missed three pings in a row. {where} BAMF will say when it comes back.", ct);
+                    $"{Target} has missed three pings in a row. {where} BAMF will say when it comes back.", ct, "internet");
             }
         }
         else
@@ -182,7 +182,7 @@ public sealed class WanWatch : BackgroundService
                 var local = _downLocal ? " Your router was down too, so it was something in here." : "";
                 await _scanner.RaiseSecurity("The internet is back",
                     $"{Target} is answering again. It was down about {mins} minute{(mins == 1 ? "" : "s")}, " +
-                    $"from {_downSince.ToLocalTime():HH:mm} to {ended.ToLocalTime():HH:mm}.{local}", ct);
+                    $"from {_downSince.ToLocalTime():HH:mm} to {ended.ToLocalTime():HH:mm}.{local}", ct, "internet");
             }
             _wasDown = false;
             _misses = 0;
@@ -234,7 +234,7 @@ public sealed class WanWatch : BackgroundService
                 ? " Your router is slow to answer too (" + (gwMid < 0 ? "it's missing pings" : gwMid + " ms") + "), so the delay is in here: something may be filling the connection, or the router is struggling."
                 : " Your router answers in " + (gwMid == 0 ? "under a millisecond" : gwMid + " ms") + $", so the delay is beyond it: the line, the modem or your provider.";
             await _scanner.RaiseSecurity("The internet is slow",
-                $"{Target} has been taking about {mid} ms to answer{usual}.{lossText}{where} BAMF will say when it's back to normal.", ct);
+                $"{Target} has been taking about {mid} ms to answer{usual}.{lossText}{where} BAMF will say when it's back to normal.", ct, "internet");
             return;
         }
 
@@ -249,7 +249,7 @@ public sealed class WanWatch : BackgroundService
         var mins = Math.Max(1, (int)Math.Round((ended - since).TotalMinutes));
         await _scanner.RaiseSecurity("The internet is back to normal",
             $"{Target} is answering in {netMs} ms again. It was slow for about {mins} minute{(mins == 1 ? "" : "s")}, " +
-            $"from {since.ToLocalTime():HH:mm} to {ended.ToLocalTime():HH:mm}, at worst {worst} ms.", ct);
+            $"from {since.ToLocalTime():HH:mm} to {ended.ToLocalTime():HH:mm}, at worst {worst} ms.", ct, "internet");
     }
 
     /// <summary>Writes the spell down and forgets it. Written before any alert, so the history is there regardless.</summary>

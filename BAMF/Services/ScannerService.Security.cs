@@ -94,11 +94,13 @@ public partial class ScannerService
         }
     }
 
-    public async Task RaiseSecurity(string title, string detail, CancellationToken ct)
+    public async Task RaiseSecurity(string title, string detail, CancellationToken ct, string style = "security")
     {
         _log.LogWarning("Security: {Title}. {Detail}", title, detail);
         _store.AddAlert("security", title, detail);
-        await SendGenericAlert(title, detail, "security", ct);
+        // The internet watch's alerts are listed with the security ones on
+        // Activity, but go to the destinations that take internet alerts.
+        await SendGenericAlert(title, detail, style, ct);
     }
 
     /// <summary>Looks over one network's scan for two devices on one address, and for the gateway's MAC changing.</summary>
