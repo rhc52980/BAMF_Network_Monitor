@@ -616,12 +616,19 @@ Some themes have a little life in them:
   their drive bays, switches with banks of link lights, patch panels with their
   ports — under a cable tray with coloured bundles dropping into the rows, with
   fibre running between them that light chases along, a cooling unit whose fans
-  turn, and a crash cart still logged in. Along the bottom is a **patch panel
-  with a port for every device**, lit green when it's answering, amber when it's
-  unknown and red when it's down; the header carries a **link panel** counting
-  how many are up. A finished scan lights the whole room for a moment and sends
-  the fibre running; a new device slides in as a blade with its name on the
-  faceplate; one that drops turns its port red and says its name. With sound on
+  turn, and a crash cart still logged in. Under the header a **hologram of your
+  network** turns over its projector: a wireframe globe with a point for every
+  device, packets arcing between them, and a HUD beside it counting the links
+  over a trace of the core uplink. Light runs both ways along the cable tray,
+  and a maintenance shuttle patrols the rail. Along the bottom is a **patch
+  panel with a port for every device**, lit green when it's answering, amber
+  when it's unknown and red when it's down, between an inlet temperature and
+  power readout and a traffic scope; the header carries a **link panel**
+  counting how many are up, with a light running along its edge. A finished scan
+  lights the whole room for a moment, sends the fibre running and has the
+  shuttle stop and sweep the racks with its laser; a new device slides in as a
+  blade with its name on the faceplate; one that drops turns its port red and
+  says its name, and the header's light and the HUD turn red. With sound on
   there's the hum of the room, a chirp as a port comes up and a lower one as it
   goes; it stops in a background tab.
 - **Power Plant**: the dashboard as a generating station. Out of the window
@@ -700,16 +707,22 @@ Some themes have a little life in them:
   **while a watched device is down the frame breathes red** (for an hour,
   after which it's in the table and the rainbow comes back). Reduced motion
   lights it all and holds it still.
-- **Spring**: blossom drifting down over a pale green morning, with a border of
-  grass, tulips and daffodils nodding along the bottom of the screen, a bee
-  wandering across, a butterfly flitting through and birds crossing high up. A
-  finished scan shakes a fresh handful off the branch. Reduced motion leaves
-  the blossom lying where it fell.
-- **Summer**: a high sun with slowly turning rays, clouds crossing, gulls out
-  over the water, and the sea rolling along the bottom of the page. A sailboat
-  leans past on the swell, and a parasol and towel are set out on the sand. A
-  finished scan sends a bigger set of waves through. Reduced motion holds the
-  scene at one moment.
+- **Spring**: a soft morning over rolling hills. A cherry tree in blossom
+  leans in at the top right with a kite flying beside it, clouds and birds
+  cross, and blossom drifts down over everything. Along the bottom, on a meadow
+  of its own that the page scrolls clear of, grass, tulips and daffodils nod
+  in front of a picket fence with a birdhouse, a snail makes its way along,
+  butterflies flit through and now and then a rabbit hops past. A finished scan
+  shakes a fresh handful off the tree and sends the rabbit across; a new device
+  comes up as a flower. Reduced motion leaves the blossom lying where it fell.
+- **Summer**: a hot afternoon at the beach. The sun turns its rays over the top
+  of the page, clouds and gulls cross, and a hot-air balloon drifts over now
+  and then. Along the bottom, on a shore of its own that the page scrolls clear
+  of, a sailboat goes along the sea, and on the sand are a parasol planted
+  beside a towel, a sandcastle flying its flag, a bucket and spade, a starfish,
+  a beach ball, a palm and a crab sidling about. A finished scan sends a bigger
+  set of waves in with a surfer riding one; a new device bounces the ball.
+  Reduced motion holds the scene at one moment.
 - **Winter**: snow falling past frost that reaches in from the edges of the
   screen, settling into a drift along the bottom. A finished scan blows a gust
   through. Reduced motion leaves the snow settled.
