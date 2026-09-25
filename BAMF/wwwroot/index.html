@@ -3402,6 +3402,10 @@
   }
   .row-menu button:hover { background: var(--panel-2); }
   .row-menu button.danger { color: var(--danger); }
+  /* A device's menu is grouped, with a small heading over each group. */
+  .row-menu .rm-h { padding: 7px 10px 2px; font: 600 10.5px "IBM Plex Mono", monospace; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-dim); white-space: nowrap; }
+  .row-menu .rm-h:not(:first-child) { margin-top: 4px; border-top: 1px solid var(--line); padding-top: 9px; }
   /* The "+N" beside a device's IP: its other addresses. */
   .ip-more {
     margin-left: 6px; padding: 0 6px; font: inherit; font-size: 11px; line-height: 1.6;
@@ -8211,32 +8215,54 @@ function render() {
         }
       }, { danger: true });
     } else {
+      // Grouped, so the item you want is found by its heading rather than by
+      // reading down twenty lines: what the device is, how it's wired, looking
+      // closer at it, and what BAMF does about it.
+      const addHead = text => {
+        const d = document.createElement("div");
+        d.className = "rm-h";
+        d.textContent = text;
+        menu.appendChild(d);
+      };
+      addHead("About this device");
       addItem(h.note ? "Edit note…" : "Add note…", () => openNoteDialog(h));
-      addItem(h.snoozedUntil ? `Snoozed until ${snoozeClock(h.snoozedUntil)}…` : "Snooze alerts…", () => openSnoozeDialog(h));
-      addItem(h.link ? "Change link…" : "Set link…", () => setHostLink(h));
+      addItem((h.tags || []).length ? `Tags (${h.tags.length})…` : "Tags…", () => openTagsDialog(h));
       addItem(h.typeName ? `Device type: ${h.typeName}…` : "Device type…", () => openKindDialog(h));
       addItem("Map icon…", () => openTypeDialog(h));
-      addItem((h.tags || []).length ? `Tags (${h.tags.length})…` : "Tags…", () => openTagsDialog(h));
+      addItem(h.link ? "Change link…" : "Set link…", () => setHostLink(h));
+
       const ownSwitch = switches.find(s => s.hostId === h.id);
       if (ownSwitch) {
+        // A device recorded as a switch, router, access point or hypervisor
+        // gets its own group for that, where "Plugged into" would be.
+        addHead("This " + kindNoun(ownSwitch.kind));
         if (ownSwitch.kind === "ap") addItem("Add a wireless SSID…", () => openSwitchDialog(null, null, null, { kind: "ssid", runsOn: ownSwitch.id }));
         else addItem(ownSwitch.kind === "virtual" ? "VMs…" : ownSwitch.kind === "vpn" ? "Clients…" : "Ports…", () => openPortsDialog(ownSwitch));
         if (ownSwitch.kind === "switch" || ownSwitch.kind === "router") addItem("Traffic counters…", () => openSnmpDialog(ownSwitch));
         addItem(`Edit ${kindNoun(ownSwitch.kind)}…`, () => openSwitchDialog(ownSwitch));
-      } else {
+      }
+      addHead("Wiring");
+      if (!ownSwitch) {
         addItem(h.switchId ? "Change plugged into…" : "Plugged into…", () => openPlugDialog(h));
         addItem("Find port…", () => { openPlugDialog(h); startBlink(h, "plugBlink"); });
+      }
+      addItem(h.interfaces ? `Network cards (${h.interfaces.length + 1})…` : "Network cards…", () => openCardsDialog(h));
+      if (!vpnOfHost(h)) addItem(gwNetsOf(h).length ? "Gateway ✓…" : "Gateway…", () => openGatewayDialog(h));
+      if (!ownSwitch) {
         addItem(isGatewayHost(h) ? "Make this a router…" : "Make this a switch or router…", () => openSwitchDialog(null, h));
         if (!vmPlatform(h.mac)) addItem("Add a virtual switch on this…", () => openSwitchDialog(null, null, null, { kind: "virtual", runsOn: h.id }));
       }
-      if (!vpnOfHost(h)) addItem(gwNetsOf(h).length ? "Gateway ✓…" : "Gateway…", () => openGatewayDialog(h));
-      addItem(h.interfaces ? `Network cards (${h.interfaces.length + 1})…` : "Network cards…", () => openCardsDialog(h));
+
+      addHead("Look closer");
       addItem("Identify device", () => identifyHost(h));
       addItem("Scan ports", () => scanPorts(h, more, null));
       addItem("Scan custom ports…", () => {
         const spec = prompt("Ports to scan on " + dispName(h) + " (e.g. 22,80,443,8000-8100):", "");
         if (spec) scanPorts(h, more, spec);
       });
+
+      addHead("Status");
+      addItem(h.snoozedUntil ? `Snoozed until ${snoozeClock(h.snoozedUntil)}…` : "Snooze alerts…", () => openSnoozeDialog(h));
       addItem(h.known ? "Mark unknown" : "Mark known", async () => { await setKnown(h, !h.known); await refresh(); });
       addItem(h.ignored ? "Unignore" : "Ignore", async () => { await setIgnored(h, !h.ignored); await refresh(); });
       if (!h.online) {
