@@ -1798,6 +1798,30 @@
   .wan-outage.local .dur { color: var(--led-warn); }
   .wan-outage.slow .dur { color: var(--led-warn); }
   .wan-outage.running .dur::after { content: " so far"; color: var(--text-dim); }
+  /* The speed test, under the internet watch on the same card. */
+  .spd { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .spd-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .spd-head h4 { margin: 0; font-size: 13px; font-weight: 600; }
+  .spd-now { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+  .spd-now .v { font: 600 22px/1.1 "IBM Plex Mono", monospace; }
+  .spd-now .u { font-size: 12px; color: var(--text-dim); margin-left: 3px; }
+  .spd-now .arrow { color: var(--text-dim); margin-right: 3px; }
+  .spd-meta { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+  .spd-meta .bad { color: var(--led-warn); }
+  .spd-chart { display: block; width: 100%; height: 64px; margin: 10px 0 2px; }
+  .spd-chart .dn { fill: var(--focus); opacity: .75; }
+  .spd-chart .upl { fill: none; stroke: var(--text); stroke-width: 2; opacity: .85; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+  .spd-chart .fail { fill: var(--danger); }
+  .spd-chart .grid { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .spd-key { display: inline-flex; align-items: center; gap: 4px; }
+  .spd-key i { display: inline-block; width: 10px; height: 8px; border-radius: 1px; background: var(--focus); opacity: .75; }
+  .spd-key i.up { height: 2px; background: var(--text); opacity: .85; }
+  .spd-running { font-family: "IBM Plex Mono", monospace; font-size: 13px; }
+  .spd-running::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px;
+    background: var(--focus); animation: spd-pulse 1s ease-in-out infinite alternate; }
+  @keyframes spd-pulse { from { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { .spd-running::before { animation: none; } }
+  body.viewer #spdRun, body.viewer #setSpeedRun { display: none !important; }
   .gn-row { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12.5px; }
   .gn-row a { color: var(--focus); text-decoration: none; }
   .gn-row a:hover { text-decoration: underline; }
@@ -1869,6 +1893,9 @@
      column after them. */
   .set-field .modal-input { width: 110px; min-width: 0; margin-left: 0; }
   .night-fields { width: auto; flex-wrap: wrap; }
+  /* The speed test's schedule, Save and Run now: the schedule reads in full, and the buttons go under it. */
+  .speed-fields { width: 180px; flex-wrap: wrap; }
+  .speed-fields .modal-input { width: 100%; }
   .night-fields input[type="time"] { width: auto; }
   .set-field.night-fields select.modal-input { width: auto; max-width: 200px; }
   .phone-setup { margin: -2px 0 12px; }
@@ -3876,14 +3903,14 @@
     </label>
     <label class="set-row">
       <span class="set-label">Check your public address with GreyNoise
-        <span class="set-hint">Off by default. Once a day, BAMF asks api.ipify.org for this network's public address, then asks GreyNoise's free lookup (api.greynoise.io) whether that address has been seen scanning the internet. If it has, that's a security alert: something behind it may be infected. These are the only calls BAMF makes to the internet besides the optional update check, and what they send is your public address. The link checks whatever network this browser is on, so it's only right from home, not from work or over a VPN. If your internet provider shares one address between many homes (carrier-grade NAT), a neighbour's device can flag you. And clean isn't proof: GreyNoise only knows about scanning, not a device quietly sending your data elsewhere.</span>
+        <span class="set-hint">Off by default. Once a day, BAMF asks api.ipify.org for this network's public address, then asks GreyNoise's free lookup (api.greynoise.io) whether that address has been seen scanning the internet. If it has, that's a security alert: something behind it may be infected. These are the only calls BAMF makes to the internet besides the optional update check, internet watch and speed test, and what they send is your public address. The link checks whatever network this browser is on, so it's only right from home, not from work or over a VPN. If your internet provider shares one address between many homes (carrier-grade NAT), a neighbour's device can flag you. And clean isn't proof: GreyNoise only knows about scanning, not a device quietly sending your data elsewhere.</span>
         <span class="set-hint" id="setGreyNoiseStatus"></span>
       </span>
       <span class="set-field"><button type="button" class="arp-toggle" id="setGreyNoise" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
     </label>
     <label class="set-row">
       <span class="set-label">Watch the internet connection
-        <span class="set-hint">Off by default. Once a minute BAMF pings your router and one address out on the internet, so it can tell you when the line goes down, for how long, and whether your router answered while it was down - the difference between your provider being out and something in here being wrong. <b>This sends a ping out of your house every minute</b>, to the address below; it's an echo request like any other ping, and nothing about your network goes with it. With the update check and the GreyNoise check, that's everything BAMF sends outside.</span>
+        <span class="set-hint">Off by default. Once a minute BAMF pings your router and one address out on the internet, so it can tell you when the line goes down, for how long, and whether your router answered while it was down - the difference between your provider being out and something in here being wrong. <b>This sends a ping out of your house every minute</b>, to the address below; it's an echo request like any other ping, and nothing about your network goes with it. With the update check, the GreyNoise check and the speed test, that's everything BAMF sends outside.</span>
         <span class="set-hint" id="setWanStatus"></span>
       </span>
       <span class="set-field"><button type="button" class="arp-toggle" id="setWan" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
@@ -3903,10 +3930,17 @@
     </label>
     <label class="set-row">
       <span class="set-label">Call the internet slow
-        <span class="set-hint">When the line is up but the ping takes far longer than usual, BAMF tells you, and says whether your router was slow too. It's called after five slow readings in a row and over after three normal ones. <b>Automatic</b> means four times your usual ping and at least 100 ms more, learned from the last day; or set your own limit. This times the ping BAMF already sends; it doesn't test your download speed.</span>
+        <span class="set-hint">When the line is up but the ping takes far longer than usual, BAMF tells you, and says whether your router was slow too. It's called after five slow readings in a row and over after three normal ones. <b>Automatic</b> means four times your usual ping and at least 100 ms more, learned from the last day; or set your own limit. This times the ping BAMF already sends; for your download speed, see the speed test below.</span>
         <span class="set-hint" id="setWanSlowStatus"></span>
       </span>
       <span class="set-field"><select class="modal-input" id="setWanSlowMode"><option value="auto">Automatic</option><option value="fixed">Above a set time</option><option value="off">Don't watch</option></select><input class="modal-input" id="setWanSlowMs" type="number" min="20" max="5000" step="10" value="200" size="5" hidden><span class="set-unit" id="setWanSlowUnit" hidden>ms</span><button type="button" class="export-btn" id="setWanSlowSave">Save</button></span>
+    </label>
+    <label class="set-row">
+      <span class="set-label">Test the internet speed
+        <span class="set-hint">Off by default. BAMF times a download and an upload against Cloudflare's speed test (speed.cloudflare.com) from the machine it runs on, so it measures the line rather than your Wi-Fi, and keeps the results on the Internet card under Activity. <b>Each test uses about 125 MB</b> (100 MB down, 25 MB up, less on a slow line), so once a day comes to about 4 GB a month; mind that if your plan has a cap. Cloudflare sees your public address, as any website you visit does. A scheduled test well under your usual is an Internet alert. <b>Run now</b> tests straight away, whatever the schedule. The internet watch sits out the minute a test takes, so it doesn't call the line slow.</span>
+        <span class="set-hint" id="setSpeedStatus"></span>
+      </span>
+      <span class="set-field speed-fields"><select class="modal-input" id="setSpeedSchedule"><option value="off">Never</option><option value="daily">Every day at 4:10 am</option><option value="6h">Every 6 hours</option></select><button type="button" class="export-btn" id="setSpeedSave">Save</button><button type="button" class="export-btn" id="setSpeedRun">Run now</button></span>
     </label>
     <label class="set-row">
       <span class="set-label">Holiday Spirit
@@ -4168,6 +4202,7 @@
       <h3>Internet</h3>
       <div class="sub" id="wanSub"></div>
       <div id="wanBody"></div>
+      <div class="spd" id="spdBody"></div>
     </div>
     <div class="act-card">
       <h3>Network hygiene</h3>
@@ -7972,6 +8007,7 @@ function render() {
     loadSecurity().then(renderHygiene);
     loadGreyNoise().then(renderHygiene);
     loadWan(true).then(renderWanCard);
+    loadSpeed().then(renderSpeed);
     loadChanges();
     loadIpv6();
     renderFeed();
@@ -18619,6 +18655,116 @@ $("setWanTargetSave").onclick = async () => {
   } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
 };
 
+// ---- The speed test ----
+let speedCache = null, speedPoll = null;
+function loadSpeed() {
+  return fetch("/api/speedtest").then(r => r.ok ? r.json() : null).then(d => (speedCache = d || speedCache)).catch(() => speedCache);
+}
+const spdNum = v => v >= 100 ? Math.round(v) : Math.round(v * 10) / 10;
+const spdWhen = iso => new Date(iso).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" });
+// While a test runs, ask how it's going every second, and draw it; when it's
+// done, one more look for the result.
+function watchSpeed() {
+  if (speedPoll) return;
+  speedPoll = setInterval(async () => {
+    await loadSpeed();
+    renderSpeed();
+    renderSpeedSetting();
+    if (!speedCache || !speedCache.running) {
+      clearInterval(speedPoll); speedPoll = null;
+      const r = speedCache && speedCache.results && speedCache.results[speedCache.results.length - 1];
+      if (r) toast(r.error ? "The speed test didn't finish: " + r.error : `${spdNum(r.down)} Mbps down, ${spdNum(r.up)} Mbps up, ${r.ping} ms`);
+    }
+  }, 1000);
+}
+async function runSpeed() {
+  try {
+    const r = await fetch("/api/speedtest/run", { method: "POST" });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't start the speed test"); return; }
+    await loadSpeed();
+    renderSpeed();
+    renderSpeedSetting();
+    watchSpeed();
+  } catch (e) { console.error(e); toast("Couldn't start the speed test - see the server log"); }
+}
+function renderSpeed() {
+  const box = $("spdBody");
+  if (!box) return;
+  const d = speedCache;
+  if (!d) { box.innerHTML = ""; return; }
+  const results = d.results || [], ok = results.filter(r => !r.error), last = ok[ok.length - 1];
+  const lastAny = results[results.length - 1];
+  const bits = [`<div class="spd-head"><h4>Speed</h4><button type="button" class="export-btn" id="spdRun"${d.running ? " disabled" : ""}>${d.running ? "Testing…" : "Run now"}</button></div>`];
+  if (d.running) {
+    const p = d.progress || {};
+    const phase = p.phase === "download" ? "Testing download" : p.phase === "upload" ? "Testing upload" : "Timing the round trip";
+    bits.push(`<div class="spd-running">${phase}…${p.mbps != null ? " " + spdNum(p.mbps) + " Mbps" : ""}</div>`);
+  } else if (last) {
+    const u = d.usual;
+    const low = (v, usual) => usual && v < usual * .5 ? " bad" : "";
+    bits.push(`<div class="spd-now">` +
+      `<span><span class="arrow">↓</span><span class="v${low(last.down, u && u.down)}">${spdNum(last.down)}</span><span class="u">Mbps down</span></span>` +
+      `<span><span class="arrow">↑</span><span class="v${low(last.up, u && u.up)}">${spdNum(last.up)}</span><span class="u">Mbps up</span></span>` +
+      `<span><span class="v">${last.ping}</span><span class="u">ms${last.jitter ? ", ±" + last.jitter : ""}</span></span></div>`);
+    const meta = [`${esc(spdWhen(last.at))}${last.manual ? " · run by hand" : ""}`, `Cloudflare ${esc(last.server || "")}`.trim(), `${last.mb} MB`];
+    if (u) meta.push(`usually ${spdNum(u.down)} down, ${spdNum(u.up)} up`);
+    bits.push(`<div class="spd-meta">${meta.join(" · ")}</div>`);
+  }
+  if (!d.running && lastAny && lastAny.error)
+    bits.push(`<div class="spd-meta"><span class="bad">The last test didn't finish</span> (${esc(spdWhen(lastAny.at))}): ${esc(lastAny.error)}</div>`);
+  if (!results.length && !d.running) {
+    bits.push(`<div class="sub">No tests yet. <b>Run now</b> tests the line from the machine BAMF runs on, in about half a minute and 125 MB. ` +
+      (d.schedule === "off" ? "To test on a schedule, see “Test the internet speed” under Settings → Behaviour." : "") + `</div>`);
+  }
+  // A month of tests: a bar for each download, a line through the uploads,
+  // and a red tick for any that failed, placed by when they ran.
+  const month = results.filter(r => Date.now() - new Date(r.at) < 30 * 864e5);
+  if (month.filter(r => !r.error).length >= 2) {
+    const W = 300, H = 64, t0 = Date.now() - 30 * 864e5;
+    const top = Math.max(1, ...month.map(r => r.down), ...month.map(r => r.up)) * 1.1;
+    const x = r => (new Date(r.at) - t0) / (30 * 864e5) * (W - 3);
+    const y = v => H - v / top * (H - 2);
+    let svg = `<line class="grid" x1="0" x2="${W}" y1="${H - .5}" y2="${H - .5}"/>`;
+    for (const r of month) {
+      svg += r.error
+        ? `<rect class="fail" x="${x(r).toFixed(1)}" y="${H - 6}" width="2.5" height="6"><title>${esc(spdWhen(r.at))} · failed</title></rect>`
+        : `<rect class="dn" x="${x(r).toFixed(1)}" y="${y(r.down).toFixed(1)}" width="2.5" height="${(H - y(r.down)).toFixed(1)}"><title>${esc(spdWhen(r.at))} · ${spdNum(r.down)} down, ${spdNum(r.up)} up, ${r.ping} ms</title></rect>`;
+    }
+    const ups = month.filter(r => !r.error).map(r => `${(x(r) + 1.25).toFixed(1)},${y(r.up).toFixed(1)}`);
+    svg += `<polyline class="upl" points="${ups.join(" ")}"/>`;
+    bits.push(`<svg class="spd-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Speed tests over the last 30 days">${svg}</svg>`);
+    bits.push(`<div class="wan-scale"><span>30 days ago</span><span><span class="spd-key"><i></i> down</span> · <span class="spd-key"><i class="up"></i> up</span> · top ${spdNum(top / 1.1)} Mbps</span><span>now</span></div>`);
+  }
+  box.innerHTML = bits.join("");
+  const run = $("spdRun");
+  if (run) run.onclick = runSpeed;
+  if (d.running) watchSpeed();
+}
+function renderSpeedSetting() {
+  const sel = $("setSpeedSchedule");
+  if (!sel || !speedCache) return;
+  if (document.activeElement !== sel) sel.value = speedCache.schedule || "off";
+  const ok = (speedCache.results || []).filter(r => !r.error), last = ok[ok.length - 1];
+  const when = { off: "Not on a schedule.", daily: "Every day at 4:10 am.", "6h": "At 12:10 am, 6:10 am, 12:10 pm and 6:10 pm." }[speedCache.schedule] || "";
+  $("setSpeedStatus").textContent = speedCache.running ? "Testing now…"
+    : when + (last ? ` Last: ${spdNum(last.down)} Mbps down, ${spdNum(last.up)} up, ${last.ping} ms (${spdWhen(last.at)}).` : "");
+  $("setSpeedRun").disabled = !!speedCache.running;
+}
+$("setSpeedSave").onclick = async () => {
+  const schedule = $("setSpeedSchedule").value;
+  try {
+    const r = await fetch("/api/settings/speedtest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ schedule }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't save that"); return; }
+    await loadSpeed();
+    renderSpeedSetting();
+    renderSpeed();
+    toast(schedule === "off" ? "No scheduled speed tests" : schedule === "daily" ? "A speed test every day at 4:10 am" : "A speed test every six hours");
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
+};
+$("setSpeedRun").onclick = runSpeed;
+
 function renderGreyNoiseToggle() {
   const t = $("setGreyNoise");
   if (!t) return;
@@ -19666,6 +19812,7 @@ async function loadSettings() {
   renderIpv6WatchToggle();
   loadGreyNoise().then(renderGreyNoiseToggle);
   loadWan(true).then(renderWanToggle);
+  loadSpeed().then(renderSpeedSetting);
   loadRouterImport();
 
   // The instant-apply toggles and the notifications card draw from the last

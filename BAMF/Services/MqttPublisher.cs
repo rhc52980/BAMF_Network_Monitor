@@ -23,6 +23,7 @@ public sealed class MqttPublisher : BackgroundService
     private Stream? _stream;
     private TcpClient? _tcp;
     private readonly Dictionary<string, string> _published = new();   // mac id -> last state/ip/name fingerprint
+    private string? _speedPublished;                                   // the speed test last sent, by its time
 
     public bool Configured => !string.IsNullOrWhiteSpace(_config["Bamf:Mqtt:Server"]);
     public bool Connected { get; private set; }
@@ -49,11 +50,13 @@ public sealed class MqttPublisher : BackgroundService
                 await ConnectAsync(ct);
                 _log.LogInformation("MQTT connected to {Server}; publishing under {Prefix}/", Server, Prefix);
                 _published.Clear();
+                _speedPublished = null;
                 await PublishAsync($"{Prefix}/status", "online", true, ct);
                 var lastPing = DateTime.UtcNow;
                 while (!ct.IsCancellationRequested && Connected)
                 {
                     await PublishDevicesAsync(ct);
+                    await PublishSpeedAsync(ct);
                     await Task.Delay(TimeSpan.FromSeconds(5), ct);
                     if ((DateTime.UtcNow - lastPing).TotalSeconds >= 30)
                     {
@@ -120,6 +123,49 @@ public sealed class MqttPublisher : BackgroundService
             await PublishAsync($"{Prefix}/{id}/attributes", "", true, ct);
             _published.Remove(id);
         }
+    }
+
+    // ------------------------------------------------------------ speed
+
+    /// <summary>
+    /// The latest speed test, if one has run: download, upload and ping as
+    /// three sensors on one BAMF device in Home Assistant, all read from a
+    /// single retained message on {prefix}/speed.
+    /// </summary>
+    private async Task PublishSpeedAsync(CancellationToken ct)
+    {
+        var last = _store.GetSpeedResults(366).LastOrDefault(r => r.Error is null);
+        if (last is null || last.At == _speedPublished) return;
+        if (Discovery && _speedPublished is null)
+        {
+            foreach (var (key, name, unit, cls, icon) in new[]
+            {
+                ("download", "Download speed", "Mbit/s", "data_rate", "mdi:download"),
+                ("upload", "Upload speed", "Mbit/s", "data_rate", "mdi:upload"),
+                ("ping", "Speed test ping", "ms", "duration", "mdi:timer-outline"),
+            })
+            {
+                await PublishAsync($"{DiscoveryPrefix}/sensor/{Prefix}_speed_{key}/config", JsonSerializer.Serialize(new
+                {
+                    name,
+                    unique_id = $"{Prefix}_speed_{key}",
+                    state_topic = $"{Prefix}/speed",
+                    value_template = $"{{{{ value_json.{key} }}}}",
+                    unit_of_measurement = unit,
+                    device_class = cls,
+                    state_class = "measurement",
+                    icon,
+                    availability_topic = $"{Prefix}/status",
+                    device = new { identifiers = new[] { $"{Prefix}_server" }, name = "BAMF", manufacturer = "BAMF", model = "Network monitor" },
+                }), true, ct);
+            }
+        }
+        await PublishAsync($"{Prefix}/speed", JsonSerializer.Serialize(new
+        {
+            download = last.DownMbps, upload = last.UpMbps, ping = last.PingMs, jitter = last.JitterMs,
+            server = last.Server, tested_at = last.At,
+        }), true, ct);
+        _speedPublished = last.At;
     }
 
     // ------------------------------------------------------------ the wire

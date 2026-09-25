@@ -233,6 +233,7 @@ Everything BAMF initiates on its own, and how it's protected:
 | GitHub update check (`api.github.com`) | **HTTPS** | Daily, only if you enable the update check |
 | Your public address (`api.ipify.org`, or `checkip.amazonaws.com`) and GreyNoise (`api.greynoise.io`) | **HTTPS** | Daily, only if you switch on the GreyNoise check. What they learn is your public address |
 | One address on the internet (`8.8.8.8` by default) | **an echo request, nothing else** | A ping a minute, only if you switch on the internet watch. Nothing about your network goes with it |
+| Cloudflare's speed test (`speed.cloudflare.com`) | **HTTPS** | Only when you press Run now, or on the schedule you choose: daily or every six hours. About 125 MB of test data each time. Cloudflare sees your public address, as any website does |
 | Your webhook | **whatever scheme your URL uses** | When a new host appears, a watched host changes state, or an alert fires |
 
 **On your own network:**
@@ -1391,6 +1392,9 @@ scan, or delete a thing.
 | POST | `/api/settings/wantarget` | Body `{"target": "8.8.8.8"}` — which address it pings |
 | POST | `/api/settings/waninterval` | Body `{"seconds": 60}` — how often it pings, 20 to 3600 |
 | POST | `/api/settings/wanslow` | Body `{"mode": "auto"}`, `{"mode": "off"}` or `{"mode": "fixed", "ms": 200}` — what counts as slow |
+| GET | `/api/speedtest` | The speed test: `schedule` (`off`, `daily` or `6h`), whether one is `running` and its `progress` (`phase`: `ping`, `download` or `upload`, and the `mbps` so far), the `usual` `down` and `up`, and the last 90 days of `results`, oldest first (`at`, `down`, `up`, `ping`, `jitter`, `server`, `mb`, `manual`, and `error` for one that didn't finish) |
+| POST | `/api/speedtest/run` | Start a test now, whatever the schedule. Returns `{started:true}`, or 409 if one is already running. Watch `/api/speedtest` for how it goes |
+| POST | `/api/settings/speedtest` | Body `{"schedule": "daily"}` — `off`, `daily` (4:10 am) or `6h` |
 | GET | `/api/floors` | `{"floors": [{"id", "name", "width", "height", "updated"}], "places": [{"hostId", "floorId", "x", "y"}]}`. `x` and `y` are shares of the image, 0 to 1 |
 | GET | `/api/floors/{id}/image` | That floor's image |
 | POST | `/api/floors?name=…&width=…&height=…` | Body: the image itself (PNG, JPEG or WebP, up to 12 MB), with its size in pixels in the query. Adds a floor and returns `{"id"}`, or 400 with `{"error": "…"}` |
@@ -2036,7 +2040,7 @@ Every alert is one of five kinds:
 | **New devices** | A device BAMF hasn't seen before |
 | **Offline and back** | Watched devices going offline and coming back, alert rules, and a snooze ending with the device the other way round |
 | **Security** | ARP spoofing and IP conflicts, the gateway's MAC changing, new DHCP or DNS servers, newly open ports, certificates, GreyNoise |
-| **Internet** | The internet watch: down, back, slow and back to normal |
+| **Internet** | The internet watch: down, back, slow and back to normal. A scheduled speed test well under the usual |
 | **Reports** | The scheduled report |
 
 An alert goes to every destination that takes its kind. **Test** beside each
@@ -2202,7 +2206,9 @@ BAMF sends a summary to the same webhook the alerts use:
 - in the monthly report, **how the internet held up**: how many outages, how
   many minutes in total and the longest one, from the outage log the
   [internet watch](#internet-watch) keeps. Outages that took your router down
-  too are counted separately, and slow spells get a line of their own.
+  too are counted separately, and slow spells get a line of their own;
+- the [speed test](#speed-test), if it ran: the result for a daily report, or
+  the average and the slowest test for a weekly or monthly one.
 
 On Discord it's an embed with a field per item; on ntfy, Gotify and generic
 webhooks it's text. **Preview** shows what would go out, and **Send now** sends
@@ -2334,7 +2340,8 @@ one of Google's public DNS servers.
 That second ping is a packet leaving your house every minute. It's an echo
 request like any other ping, and nothing about your network goes with it, but
 it's outbound traffic on a timer, so it's off until you ask for it. With the
-update check and the GreyNoise check, that's everything BAMF sends outside.
+update check, the GreyNoise check and the [speed test](#speed-test), that's
+everything BAMF sends outside.
 
 What you get for it:
 
@@ -2370,11 +2377,58 @@ more than it, where the usual is the middle of the last day's readings; it
 starts once there are half an hour or so of them. You can set your own limit in
 ms instead (`Bamf:WanSlow` takes `auto`, `off` or a number), or switch it off.
 This times the ping the watch already sends. It doesn't test your download
-speed, but a line that's slow to answer is what makes pages and calls lag.
+speed (the [speed test](#speed-test) does), but a line that's slow to answer is
+what makes pages and calls lag.
 
 The minute-by-minute readings are pruned with your history retention, but
 **each outage and slow spell is written down when it ends and kept**, so the
 history of what your connection has done doesn't disappear with them.
+
+### Speed test
+
+How fast is the line, and are you getting what you pay for? The Internet card
+on Activity has a **Speed** section with a **Run now** button: BAMF times a
+download and an upload against Cloudflare's speed test (`speed.cloudflare.com`)
+and shows the result as it goes. It runs from the machine BAMF is on, not from
+your browser, so a server on a cable measures the connection itself rather than
+the Wi-Fi of whatever you're holding.
+
+- **Download and upload** are four transfers at once, the way speed test sites
+  do it, timed from once they've got going to when the first finishes, so a
+  slow start doesn't drag the number down.
+- **Ping** is the round trip to Cloudflare as Cloudflare measures it on the
+  connection (its TCP round-trip time), which is the line and nothing else, with
+  its jitter beside it.
+- **It's capped at about 125 MB**: 100 MB down and 25 MB up, and 15 seconds a
+  direction. A fast line finishes early instead of pouring gigabytes through;
+  a slow one stops at the time limit and uses less.
+
+To test on a schedule, set **Settings → Behaviour → Test the internet speed**
+to **every day at 4:10 am** or **every 6 hours** (12:10 and 6:10, am and pm).
+`Bamf:SpeedTest` in `appsettings.json` sets the same thing (`off`, `daily` or
+`6h`). A slot missed by more than an hour, with BAMF switched off, is skipped
+rather than run late in the day. Once a day is about 4 GB a month; mind that if
+your plan has a data cap. Off by default.
+
+What you get for it:
+
+- **The latest result**: download, upload, ping and jitter, which Cloudflare
+  site answered, how much data it took, and what's usual for you: the middle of
+  your last ten tests.
+- **A month of tests as a chart**: a bar for each download, a line through the
+  uploads, and a red mark for any test that didn't finish, with why.
+- **An alert** when a scheduled test comes in at under half your usual download
+  or upload, saying both against the usual. It's an **Internet** alert, so it
+  goes to the destinations that take those. A test you ran yourself doesn't
+  alert; you're looking at it.
+- **A line in the scheduled report**: the test for a daily report, or the
+  average and the slowest for a weekly or monthly one.
+- **Home Assistant sensors** over MQTT, if you've set that up: download,
+  upload and ping.
+
+While a test runs the line is full on purpose, so the [internet
+watch](#internet-watch) sits that minute out rather than calling the line slow.
+Results are kept for a year.
 
 ### Certificate watch
 
@@ -2833,6 +2887,10 @@ password has no business in the dashboard), then restart:
   you'd rather write your own.
 - Presence is published within a few seconds of a scan, and only when it
   changed. A device you ignore, forget or delete is taken back off the broker.
+- The latest [speed test](#speed-test), if one has run, is a retained JSON
+  message on `bamf/speed` (`download` and `upload` in Mbps, `ping` and `jitter`
+  in ms, `server`, `tested_at`), and with Discovery on it's three sensors,
+  Download speed, Upload speed and Speed test ping, on a device called BAMF.
 - `Tls: true` for a broker on 8883. The **Set in appsettings.json** card on the
   Settings tab shows whether BAMF is connected and how much it has published.
 
