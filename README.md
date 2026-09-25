@@ -13,7 +13,7 @@ serves a dashboard on port 8840.
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
 
-![The BAMF dashboard: every device on two networks, with vendor, device guess, 24-hour history and latency, a row of device-type filters, a v6 chip on devices with IPv6 addresses, and a New tab counting recent arrivals](docs/dashboard.png)
+![The BAMF dashboard: every device on two networks, with vendor, device guess, 24-hour history and latency, a row of device-type filters, a v6 chip on devices with IPv6 addresses, and a New tab counting recent arrivals. In the header, a Scan button beside the countdown to the next scan](docs/dashboard.png)
 
 <sub>Sample data — a demo database, not a real network.</sub>
 
