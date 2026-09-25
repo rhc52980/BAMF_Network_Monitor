@@ -403,14 +403,14 @@ survive IP changes.
   automations can fire when someone gets home. See [MQTT](#mqtt-and-home-assistant).
 - **Tags** - group devices as "kids", "IoT", "work" or whatever fits, then
   filter the list and the Map by tag. See [Tags](#tags).
-- **42 themes** - click the theme button for a picker, grouped into colours,
+- **44 themes** - click the theme button for a picker, grouped into colours,
   animated and holidays: Dark, Light, Terminal, Amber CRT, Synthwave, Commodore
   64, Game Boy, Nord, Dracula, Solarized (dark + light), Gruvbox, High Contrast,
   Matrix, Blueprint, Hacker Red, Cotton Candy, Thunderstorm, Hotdog Stand,
   Steampunk, Waterworks, Aquarium, Goat, Goat Night, City Lights,
   Constellation, Claw Machine (dark + dusk), Laser Show, RGB, Data Centre, Power
   Plant, Departures, Factory (day + night shift), Spring, Summer, Winter,
-  Woodlands, Model Railway, New Year and Thanksgiving. See [Theme](#theme).
+  Woodlands, Harbour, Ant Farm, Model Railway, New Year and Thanksgiving. See [Theme](#theme).
   CRT themes get scanlines; each pick triggers a BAMF! splat. Choice persists.
   There are also two seasonal themes you won't find in the list. They unlock the
   way a friendly program would: just tell it its name. (On a phone, the logo is
@@ -445,8 +445,8 @@ Gruvbox, High Contrast, Matrix, Blueprint, Hacker Red, Cotton Candy,
 Thunderstorm, Hotdog Stand, Steampunk, Waterworks, Aquarium, Goat, Goat Night,
 City Lights, Constellation, Claw Machine, Claw Machine Dusk, Laser Show, RGB,
 Data Centre, Power Plant, Departures, Factory, Factory Night Shift, Spring,
-Summer, Winter, Woodlands, Model Railway, New Year and Thanksgiving. Your
-choice is remembered in your browser.
+Summer, Winter, Woodlands, Harbour, Ant Farm, Model Railway, New Year and
+Thanksgiving. Your choice is remembered in your browser.
 
 The menu is grouped: **Colours** for the schemes where nothing much moves —
 including Synthwave, Hacker Red and Cotton Candy, which are colour schemes
@@ -767,6 +767,37 @@ Some themes have a little life in them:
   never hides the last rows. Reduced motion holds the wood still, with a deer
   grazing and a rabbit sat up, and the vine still showing how much of the
   network is up.
+- **Harbour**: a harbour at dusk. Under the header the sun is going down
+  behind the hills, the town lit along them, sailboats and a ship on the
+  horizon, gulls crossing, and a lighthouse on the breakwater sweeping two
+  beams round, flashing as one swings to face you. Along the bottom is the
+  quay. **Every device is a shipping container** in the stacks, its lamp
+  green while it's online, amber while it's unknown and dark while it's
+  offline; a watched device that drops blinks red. **A new device is brought
+  ashore by the gantry crane**: the trolley runs out over the ship at the
+  berth, lowers, lifts a container off, carries it along the boom and sets it
+  down in its place. Beyond the ship is a marina, sailboats, a launch and a
+  fishing boat at a pontoon under warm lamps, their light shivering in the
+  water, and the tug at its berth. **A scan sends the tug out** across the
+  harbour and back, makes the lighthouse flare, and runs a ripple of lamps
+  along the stacks. With sound on (the speaker beside the theme button) the
+  water laps and gulls call, the ship sounds its horn for a scan, and the
+  harbour bell rings when a watched device drops. Reduced motion holds the
+  scene at one moment.
+- **Ant Farm**: the classic glass ant farm, green frame and all, with the
+  dashboard sitting in the earth behind the glass. On the surface under the
+  header is the little farm on top, a barn, a silo and a windmill turning,
+  and ants carrying crumbs from a sugar cube to their mound and down tunnels
+  beside the page. Along the bottom, in pale sand, is the nest: the queen in
+  the first chamber with her eggs, a store of seeds at the far end, and
+  **a chamber for every device** off the main gallery, with eggs and a green
+  lamp while it's online and known, **honey hanging from the roof while it's
+  online and unknown** (these are honeypot ants), and sand fallen in while
+  it's offline. A watched device that drops flickers red and ants rush to it.
+  **A new device is a chamber being dug**, sand flying, and **a scan sends a
+  stream of ants out through every tunnel**. With sound on there are crickets,
+  the scratch of digging, a patter of feet for a scan and a clicking alarm.
+  Reduced motion holds the colony still, the ants wherever they were.
 - **Model Railway**: a train set run round the edges of the page, in daylight.
   Along the bottom is a baseboard with the main line on it and **a station for
   each network**, its nameboard showing the network (`192.168.30.0/24`), with a

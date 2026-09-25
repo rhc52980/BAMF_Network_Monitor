@@ -108,7 +108,7 @@ optional daily update check you have to switch on, and your own webhook.
 - Scheduled nightly backups keeping 30 snapshots, safe to sync to cloud storage
 - Optional password (HTTP Basic), with a second view-only password for a wall
   display or the rest of the house, and optional HTTPS
-- 42 themes (and a couple more, if you know how to ask, or drop your own in), grouped into colours, animated and holidays, a mobile card layout, and a
+- 44 themes (and a couple more, if you know how to ask, or drop your own in), grouped into colours, animated and holidays, a mobile card layout, and a
   comic-book splat when you switch them
 
 **For scripts and AI agents**
@@ -188,7 +188,7 @@ on purpose: it is the boundary the wildcard port-scan guard relies on.
 
 ### Dress it up
 
-Forty-two themes, from plain colour schemes to whole scenes behind the page.
+Forty-four themes, from plain colour schemes to whole scenes behind the page.
 The animated ones aren't just wallpaper: they answer the network, so a scan,
 a new device or one dropping off shows up in the scene. A few of them:
 
