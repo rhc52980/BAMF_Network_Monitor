@@ -2407,7 +2407,9 @@ To test on a schedule, set **Settings → Behaviour → Test the internet speed*
 to **every day at 4:10 am** or **every 6 hours** (12:10 and 6:10, am and pm).
 `Bamf:SpeedTest` in `appsettings.json` sets the same thing (`off`, `daily` or
 `6h`). A slot missed by more than an hour, with BAMF switched off, is skipped
-rather than run late in the day. Once a day is about 4 GB a month; mind that if
+rather than run late in the day. A scheduled test that fails, say because the
+machine has just woken and its network isn't back yet, is tried twice more,
+five minutes apart, within the same hour. Once a day is about 4 GB a month; mind that if
 your plan has a data cap. Off by default.
 
 What you get for it:

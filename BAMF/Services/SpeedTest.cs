@@ -105,6 +105,11 @@ public sealed class SpeedTest : BackgroundService
     /// was missed by more than an hour (BAMF was off, say) is skipped rather
     /// than run late, since a test at four in the morning is one thing and the
     /// same test in the middle of the afternoon is another.
+    ///
+    /// A test that failed gets two more goes, five minutes apart, inside the
+    /// same hour. A machine waking from sleep runs the slot it slept through
+    /// straight away, before its network is back, and without the retry that
+    /// one failure was the day's test.
     /// </summary>
     private bool Due()
     {
@@ -117,9 +122,14 @@ public sealed class SpeedTest : BackgroundService
         while (slot > now) slot -= step;
         while (slot + step <= now) slot += step;
         if (now - slot > TimeSpan.FromHours(1)) return false;
-        var last = _store.GetSpeedResults(2).LastOrDefault(r => !r.Manual);
-        return last is null || DateTime.Parse(last.At, null, System.Globalization.DateTimeStyles.RoundtripKind).ToLocalTime() < slot;
+        static DateTime Local(string iso) => DateTime.Parse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind).ToLocalTime();
+        var tries = _store.GetSpeedResults(2).Where(r => !r.Manual && Local(r.At) >= slot).ToList();
+        if (tries.Any(r => r.Error is null) || tries.Count >= RetriesPerSlot + 1) return false;
+        return tries.Count == 0 || now - Local(tries[^1].At) >= RetryAfter;
     }
+
+    private const int RetriesPerSlot = 2;
+    private static readonly TimeSpan RetryAfter = TimeSpan.FromMinutes(5);
 
     private async Task RunAsync(bool manual, CancellationToken ct)
     {
