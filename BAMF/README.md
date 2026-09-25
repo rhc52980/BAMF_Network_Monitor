@@ -155,7 +155,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:WanSlow` | What the internet watch calls slow: `auto` (default: four times the usual ping, at least 100 ms more), `off`, or a limit in ms. Also in Settings → Behaviour. |
 | `Bamf:WanIntervalSeconds` | How often it pings, 20 to 3600 (default 60). Also in Settings → Behaviour, which wins once changed there. |
 | `Bamf:HolidaySpirit` | `true` puts every dashboard in a season's theme by date: Halloween through October, Thanksgiving for the week of the holiday, Christmas from December 1st to 25th, and New Year to January 2nd (default false). Also in Settings → Behaviour, which wins once changed there. See [Holiday Spirit](#holiday-spirit). |
-| `Bamf:WebhookUrl` | Optional starting value for the notification webhook — the dashboard's **Tools → Notifications** saves over it. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use the dashboard's Test webhook button to verify. |
+| `Bamf:WebhookUrl` | Optional starting value for the notification webhook — the dashboard's **Settings → Notifications** saves over it. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use **Test** under Settings → Notifications to verify. |
 | `Bamf:Password` | Optional. If set, the UI/API require it via HTTP Basic auth (any username). Over plain HTTP the credential is only base64-encoded — see [What BAMF talks to](#what-bamf-talks-to). |
 | `Bamf:ViewerPassword` | Optional, with `Password` set: a second password that opens the same dashboard to look at but not change. See [A view-only password](#a-view-only-password). |
 | `Bamf:DatabasePath` | SQLite file, relative to the exe. |
@@ -242,8 +242,8 @@ Everything BAMF initiates on its own, and how it's protected:
 |---|---|---|
 | Scanning: ARP, ICMP, UDP probes, NetBIOS (137), Wake-on-LAN (9), port checks | none — these protocols have none | Every scan / on demand |
 | One IPv6 ping to the all-nodes address on each scanned network | none | Every five minutes, with the IPv6 watch on |
-| A UPnP search (SSDP multicast) for an internet gateway | none | Check now, and daily with the port watch |
-| Reading devices' HTTPS certificates | TLS, trusting whatever is shown, because it's reading the certificate rather than relying on it | Daily with the certificate watch, and Check now |
+| A UPnP search (SSDP multicast) for an internet gateway | none | The health check, and daily with the port watch |
+| Reading devices' HTTPS certificates | TLS, trusting whatever is shown, because it's reading the certificate rather than relying on it | Daily with the certificate watch, and the health check |
 | Your router, for device names | **HTTPS** if your `Url` uses it; the router's certificate isn't checked unless `VerifyCertificate` is true, since routers are usually self-signed | Hourly, only if `RouterImport` is set up |
 | Your MQTT broker, and other BAMF servers | whatever you configured | Only if set up |
 
@@ -952,6 +952,25 @@ per network, or `paused`. While a sweep is running it reads **scanning now**.
 `GET /api/hosts` exposes the same as `subnetNextDue`, ISO-8601 UTC per
 network.
 
+### Scan now
+
+Everything you can scan by hand is in the **Scan ▾** menu beside the
+countdown:
+
+- **Sweep for devices**: the scheduled scan, straight away. **Every network
+  now**, or one network on its own when there are several. A paused network,
+  or one this machine has no interface on, is listed but can't be picked. The
+  countdown says **scanning now** while it runs, the table fills in as it
+  goes, and a note says how many are online when it's done.
+- **Scan ports…**: the port scan dialog, for chosen devices, a network or one
+  address.
+- **Health check**: the common ports of every online known device, a UPnP
+  search for your router and every HTTPS certificate, in about a minute. What
+  it finds is on the Network hygiene card under Activity.
+
+A single device's ports are still in its own **⋯** menu. With the view-only
+password the Scan menu isn't shown, since every scan sends packets.
+
 ## Linking to a tab
 
 Each dashboard tab has its own address: `/#settings`, `/#activity`,
@@ -1312,7 +1331,7 @@ scan, or delete a thing.
 | GET | `/api/hosts.txt` | The same devices as a plain-text fixed-width table — no JSON, no markup. For `curl`, a terminal, or pointing a read-only agent at |
 | POST | `/api/hosts/{id}/identify` | On-demand device fingerprint: one ICMP echo for the TTL plus a short fingerprint-port probe. Returns the guess, TTL, and open ports, and saves the guess |
 | POST | `/api/hosts/{id}/known` | Body `{"known": true}` — approve/unapprove a host |
-| POST | `/api/webhook/test` | Send a test notification to `Bamf:WebhookUrl` (the dashboard's Test webhook button). Returns `{ok:true}` or `{ok:false,error:"…"}` |
+| POST | `/api/webhook/test` | Send a test notification to `Bamf:WebhookUrl` (**Test** under Settings → Notifications). Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/destinations/{id}/test` | Send a test to one destination: `main` for the main webhook, or another's `id`. Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/settings/webhookkinds` | Body `{"kinds": ["devices", "status"]}` — which kinds of alert the main webhook gets: `devices`, `status`, `security`, `internet`, `reports`. `GET /api/settings` returns it as `webhookKinds` |
 | POST | `/api/settings/destinations` | Body `{"destinations": [{"id": "…", "name": "Phone", "url": "https://…", "format": "ntfy", "kinds": ["security", "internet"]}]}` — replace the destinations besides the main webhook, up to 8. `id` blank adds one; a saved one sent with `url` empty keeps its URL. `GET /api/settings` returns them as `destinations`, URLs masked |
@@ -1339,6 +1358,7 @@ scan, or delete a thing.
 | GET | `/api/changes?days=7` | What changed over the last `days` (1 to 90): `arrived`, `left`, `moved` (with `detail` "old → new"), `opened` and `closed` ports, and `alerts` counted by kind |
 | GET | `/api/hosts/{id}/timeline` | One device's story, newest first: `[{"at", "kind", "text"}]`, kinds `first`, `online`, `offline`, `address`, `port`, `portclosed` and `alert:<kind>` |
 | GET | `/metrics` | Prometheus text exposition: see [Prometheus metrics](#prometheus-metrics). `/api/prometheus` redirects here |
+| POST | `/api/scan` | A sweep now, of every network or `?subnet=192.168.1.0/24`: the Scan menu's. Returns `{ok, networks}`, or 400 for a network BAMF doesn't scan |
 | POST | `/api/hooks/scan` | Ask for a scan now, of every network or `?subnet=192.168.1.0/24`. See [Inbound webhooks](#inbound-webhooks) |
 | POST | `/api/hooks/wake/{mac}` | Send a Wake-on-LAN packet to a MAC (`AA:BB:…`, `AA-BB-…` or `AABB…`), known to BAMF or not |
 | GET | `/api/remotes` | The other BAMF servers being watched, their status, and their devices |
@@ -1359,9 +1379,9 @@ scan, or delete a thing.
 | POST | `/api/router-import/apply` | Body `{"overwrite": false}` — copy router names into BAMF's own names, only for devices without one unless `overwrite`. Returns `{ "named": 3 }` |
 | GET | `/api/greynoise` | The GreyNoise check: `enabled`, and the last `result` (`ip`, `noise`, `riot`, `classification`, `lastSeen`, `message`, `error`, `checkedAt`) |
 | POST | `/api/settings/greynoise` | Body `{"enabled": true}` — turn the daily GreyNoise check on (it checks straight away) or off. Off by default |
-| POST | `/api/greynoise/check` | Check now; `409` while the check is off |
+| POST | `/api/greynoise/check` | Check GreyNoise now; `409` while the check is off |
 | GET | `/api/security` | What the hygiene card needs beyond `/api/hosts`: `certs` (per device and port: `subject`, `issuer`, `notAfter`, `selfSigned`, `error`), `upnp` (routers that answered a UPnP search), `gatewayMacs` (each network's gateway and the MAC last seen for it), `checkedAt` |
-| POST | `/api/security/check` | Check now: scans every online known device's common ports, searches for UPnP routers and reads every HTTPS certificate. Returns the same as `GET /api/security`; `409` if a check is already running |
+| POST | `/api/security/check` | The health check: scans every online known device's common ports, searches for UPnP routers and reads every HTTPS certificate. Returns the same as `GET /api/security`; `409` if a check is already running |
 | POST | `/api/ports/watch` | Run that scan now; returns how many newly open ports it found |
 | GET | `/api/hosts/{id}/ports` | Every port found open on a device, open now or once: `{"port", "service", "firstSeen", "lastSeen", "open"}`. A port scan (`/api/hosts/{id}/portscan`, which now returns `{"ports", "newlyOpen"}`) records here |
 | GET | `/api/hosts/{id}/traffic` | Bytes per hour for a device over the last 7 days (`?days=` for more): `[{"hour", "rx", "tx"}]` |
@@ -1440,7 +1460,7 @@ Four ways to scan:
 - **Per host, common ports** - click **Ports** on a host row.
 - **Per host, custom ports** - **Shift+click** Ports and enter a spec like
   `22,80,443,8000-8100`.
-- **Network-wide** - the **Scan ports** button above the table opens a dialog:
+- **Network-wide** - **Scan ▾ → Scan ports…** at the top of the page opens a dialog:
   choose all online hosts or one network, common or custom ports.
 - **One specific IP** - in that same dialog pick **Specific IP address…** and
   type an address. It doesn't have to be a host BAMF knows about, which makes
@@ -2000,9 +2020,9 @@ of the network. It respects `Bamf:Password` like every other route.
 
 ## Notifications
 
-**Settings tab → Notifications** (or **Tools ▾ → Notifications…**, which takes
-you there) — paste a webhook URL, pick a format, hit **Save & test**. No config
-edit, no service restart.
+**Settings tab → Notifications** — paste a webhook URL, pick a format, hit
+**Save & test**. No config edit, no service restart. **Test** sends another test
+to the saved webhook, without pasting it again.
 
 Until alerts have somewhere to go, a banner across the top of the dashboard says
 **Alerts are off**: BAMF still notices everything, but nothing is being sent
@@ -2124,8 +2144,9 @@ and to the webhook.
 
 **Watch ports daily** (off by default, since a scan is active rather than
 passive) scans every online known device's common ports at 4 am, so a port
-that opens is noticed without anyone running a scan. **Scan now** runs the
-same scan on demand.
+that opens is noticed without anyone running a scan. **Scan ▾ → Health check**
+at the top of the page runs the same scan on demand, with the UPnP search and
+the certificates.
 
 ### Prometheus metrics
 
@@ -2301,7 +2322,8 @@ a finding to jump to its device.
 
 The card works from what BAMF already knows: the ports any scan has found
 open, the certificates it has read, and the UPnP search. It scans nothing by
-itself. **Check now** does all three in about a minute: it scans every online
+itself. The **health check**, under **Scan ▾** at the top of the page, does
+all three in about a minute: it scans every online
 known device's common ports, sends one UPnP search for an internet gateway on
 each network, and reads every HTTPS certificate it can find.
 
@@ -2314,15 +2336,15 @@ address shows up, something behind it has been probing the internet: often a
 hacked camera, NAS or router in a botnet. It can't say which device, only your
 address as a whole.
 
-- The hygiene card has a link to GreyNoise's check page. Point at it for this
-  explanation, or tap **What's this?** on a phone. It checks whatever network
-  your browser is on, so it's only right from home. BAMF sends nothing for it.
+- The hygiene card has a link to GreyNoise's check page. It checks whatever
+  network your browser is on, so it's only right from home. BAMF sends nothing
+  for it. Under it is what BAMF's own daily check last found.
 - **Check your public address with GreyNoise**, under **Settings →
   Behaviour**, has BAMF check once a day by itself. It's **off by default**,
   because it's a call out to the internet: BAMF asks `api.ipify.org` for your
   public address, then asks GreyNoise's free lookup, which needs no account.
   What they learn is your public address. Switching it on checks straight
-  away, and so does **Check now** while it's on. If your address has been seen
+  away, and so does the health check while it's on. If your address has been seen
   scanning, that's a security alert and a **high** finding on the hygiene card.
 
 Two caveats. If your internet provider shares one address between many homes
