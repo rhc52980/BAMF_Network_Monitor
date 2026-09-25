@@ -331,6 +331,14 @@ a `#tab` in it opens straight on that tab — see [Linking to a tab](#linking-to
 
 ## Notes
 
+Everything else you can do with a device is in its **⋯** menu, in groups:
+**About this device** (note, tags, type, map icon, link), **Wiring** (what it's
+plugged into, finding its port, its network cards, gateway, making it a switch
+or router), **Look closer** (identify it, scan its ports) and **Status** (snooze,
+known or unknown, ignore, and for an offline one, wake and forget). A device
+recorded as a switch, router, access point or hypervisor also gets a group of
+its own, such as **This switch**, with its ports, traffic counters and settings.
+
 Each device row has a **History** button opening a panel with its online/offline
 session timeline. If the device has ever changed address, the panel also lists
 every IP it has held and when each period began and ended — the current one
