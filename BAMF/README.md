@@ -979,6 +979,20 @@ countdown:
 A single device's ports are still in its own **⋯** menu. With the view-only
 password the Scan menu isn't shown, since every scan sends packets.
 
+## What's new
+
+After an update, a strip under the header says **BAMF was updated to 1.50.10**
+with its first change, and **What's new** lists what changed in every version
+since the one that browser last saw. **Got it**, or closing the list, puts it
+away until the next update. Each browser keeps its own place, so the wall
+display and your phone each hear about an update once. A browser opening BAMF
+for the first time starts at the current version, with nothing to show.
+
+The version in the header opens the same list any time, with the last few
+versions. The notes come with BAMF, in `wwwroot/whats-new.json`, so they work
+on a network that never reaches the internet; **Every release ↗** opens the
+full notes on GitHub.
+
 ## Linking to a tab
 
 Each dashboard tab has its own address: `/#settings`, `/#activity`,

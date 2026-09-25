@@ -1,0 +1,47 @@
+{
+  "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
+  "versions": [
+    {
+      "version": "1.50.9",
+      "date": "2026-09-25",
+      "items": [
+        "Settings is in seven sections, picked from a list down the side, with a box to find any setting.",
+        "Each section has its own address, such as /#settings/internet.",
+        "Appearance has a Theme row, beside Holiday Spirit and Night mode.",
+        "A device's ⋯ menu is grouped: About this device, Wiring, Look closer and Status."
+      ]
+    },
+    {
+      "version": "1.50.8",
+      "date": "2026-09-25",
+      "items": [
+        "Scan ▾ in the header: sweep every network or one right now, scan ports, or run the health check.",
+        "Test beside your saved webhook in Settings, in place of Tools → Test webhook.",
+        "The hygiene card's Check now is the Scan menu's Health check."
+      ]
+    },
+    {
+      "version": "1.50.7",
+      "date": "2026-09-25",
+      "items": [
+        "A scheduled speed test that fails, say just after the machine wakes, is tried twice more within the hour."
+      ]
+    },
+    {
+      "version": "1.50.6",
+      "date": "2026-09-25",
+      "items": [
+        "Speed test: download, upload and ping against Cloudflare, from Run now on the Internet card or on a schedule.",
+        "A month of tests is charted, and a scheduled test well under your usual is an Internet alert."
+      ]
+    },
+    {
+      "version": "1.50.5",
+      "date": "2026-09-24",
+      "items": [
+        "Spring and Summer have ground of their own along the bottom, clear of the table, and are a shade softer.",
+        "Data Centre has a hologram of your network, a shuttle with a scan laser, and readouts on the patch panel."
+      ]
+    }
+  ]
+}

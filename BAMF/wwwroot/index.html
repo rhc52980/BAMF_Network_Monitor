@@ -1309,6 +1309,16 @@
   .alerts-off .ao-text b { color: var(--led-warn); margin-right: 4px; }
   .alerts-off .ao-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   @media (max-width: 640px) { .alerts-off { margin: 0 12px 12px; } }
+  /* After an update: the same strip, in the accent colour rather than a warning. */
+  .alerts-off.whats-new { border-left-color: var(--focus); }
+  .alerts-off.whats-new .ao-text b { color: var(--focus); }
+  .chip.ver { cursor: pointer; }
+  .chip.ver:hover, .chip.ver:focus-visible { border-color: var(--focus); color: var(--text); outline: none; }
+  .news-ver { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 4px; font-weight: 600; }
+  .news-ver:first-child { margin-top: 4px; }
+  .news-ver span { font-weight: 400; font-size: 12px; color: var(--text-dim); }
+  .news-list { margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.5; }
+  .news-list li { margin: 2px 0; }
   .stat {
     flex: 1; min-width: 130px;
     background: var(--panel); border: 1px solid var(--line);
@@ -3587,7 +3597,7 @@
     </svg>
     <h1>BAMF</h1>
     <div class="meta">
-      <span class="chip ver" id="version" title="BAMF version"></span>
+      <span class="chip ver" id="version" title="BAMF version" role="button" tabindex="0"></span>
       <span class="chip" id="subnetLabel">—</span>
       <span class="chip viewonly" id="viewOnly" hidden title="You opened BAMF with the view-only password: you can look at everything, but nothing can be changed, and nothing can be scanned or woken.">View only</span>
       <a class="update-badge" id="updateBadge" target="_blank" rel="noopener" hidden></a>
@@ -3645,6 +3655,17 @@
   <div class="ao-actions">
     <button type="button" class="export-btn" id="alertsOffSetup">Set up alerts</button>
     <button type="button" class="toggle" id="alertsOffDismiss" title="Hide this. It comes back if you save a webhook and later remove it.">Don't remind me</button>
+  </div>
+</div>
+
+<div class="alerts-off whats-new" id="newsBar" role="status" hidden>
+  <div class="ao-text">
+    <b>BAMF was updated to <span id="newsVer"></span>.</b>
+    <span id="newsLead"></span>
+  </div>
+  <div class="ao-actions">
+    <button type="button" class="export-btn" id="newsOpen">What's new</button>
+    <button type="button" class="toggle" id="newsDismiss">Got it</button>
   </div>
 </div>
 
@@ -4403,6 +4424,17 @@
     <p class="modal-help">BAMF only knows the devices it has seen. Check your router's DHCP range too: a static
       address should sit outside the range it hands out.</p>
     <div class="modal-actions"><button class="toggle" id="freeClose">Close</button></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="newsModal" hidden>
+  <div class="modal">
+    <div class="modal-title">What's new</div>
+    <div id="newsBody"></div>
+    <div class="modal-actions">
+      <a class="toggle" id="newsAll" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Every release ↗</a>
+      <button class="export-btn" id="newsClose">Close</button>
+    </div>
   </div>
 </div>
 
@@ -9912,7 +9944,8 @@ async function refresh() {
     if (data.version) {
       const el = $("version");
       el.textContent = "v" + data.version + (data.buildDate ? " · " + data.buildDate.slice(0, 10) : "");
-      el.title = "BAMF " + data.version + (data.buildDate ? " — built " + data.buildDate + " UTC" : "");
+      el.title = "BAMF " + data.version + (data.buildDate ? " — built " + data.buildDate + " UTC" : "") + ". Click for what's new.";
+      checkNews();
     }
     $("feedbackLink").href = feedbackHref();
 
@@ -19146,6 +19179,66 @@ $("freeOpen").onclick = () => {
 };
 $("freeDays").onchange = loadFreeIps;
 $("freeClose").onclick = () => { $("freeModal").hidden = true; };
+
+// ---- What's new ----
+// The notes ship with BAMF, in whats-new.json, so they're there on a network
+// that never reaches the internet. Each browser remembers the last version it
+// was shown; when BAMF comes up newer, a strip under the header says so, and
+// its button lists what changed in the versions in between. A browser that has
+// never opened BAMF before starts at the current version with nothing to show.
+// The version chip in the header opens the list any time.
+let newsList = null, newsSince = null, newsChecked = false;
+const verParts = v => String(v).split(/[^0-9.]/)[0].split(".").map(n => parseInt(n, 10) || 0);
+function verCmp(a, b) {
+  const x = verParts(a), y = verParts(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; }
+  return 0;
+}
+function loadNews() {
+  if (newsList) return Promise.resolve(newsList);
+  return fetch("/whats-new.json", { cache: "no-cache" }).then(r => r.ok ? r.json() : null)
+    .then(d => (newsList = (d && d.versions || []).slice().sort((a, b) => verCmp(b.version, a.version))))
+    .catch(() => []);
+}
+function seenVersion() { try { return localStorage.getItem("bamf-seen-version"); } catch { return null; } }
+function markSeen() { try { localStorage.setItem("bamf-seen-version", verParts(appVersion).join(".")); } catch {} }
+async function checkNews() {
+  if (newsChecked || !appVersion) return;
+  newsChecked = true;
+  const seen = seenVersion();
+  if (!seen) { markSeen(); return; }
+  if (verCmp(appVersion, seen) <= 0) return;
+  const since = (await loadNews()).filter(v => verCmp(v.version, seen) > 0 && verCmp(v.version, appVersion) <= 0);
+  if (!since.length) { markSeen(); return; }
+  newsSince = seen;
+  $("newsVer").textContent = verParts(appVersion).join(".");
+  $("newsLead").textContent = since[0].items[0] || "";
+  $("newsBar").hidden = false;
+}
+async function openNews() {
+  const all = await loadNews();
+  // From the strip: every version since the one this browser last saw. From
+  // the chip: the last few, whatever has been seen.
+  const list = newsSince ? all.filter(v => verCmp(v.version, newsSince) > 0 && verCmp(v.version, appVersion) <= 0)
+    : all.filter(v => verCmp(v.version, appVersion) <= 0).slice(0, 5);
+  const when = d => { const t = new Date(d + "T12:00:00"); return isNaN(t) ? "" : t.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }); };
+  $("newsBody").innerHTML = list.length
+    ? list.map(v => `<div class="news-ver">${esc(v.version)}<span>${esc(when(v.date))}</span></div>` +
+        `<ul class="news-list">${(v.items || []).map(i => `<li>${esc(i)}</li>`).join("")}</ul>`).join("")
+    : `<p class="modal-help">No notes for this version.</p>`;
+  $("newsAll").href = (repoUrl || "https://github.com/rhc52980/BAMF_Network_Monitor") + "/releases";
+  $("newsModal").hidden = false;
+}
+function closeNews() {
+  $("newsModal").hidden = true;
+  if (newsSince) { newsSince = null; markSeen(); $("newsBar").hidden = true; }
+}
+$("newsOpen").onclick = openNews;
+$("newsDismiss").onclick = () => { newsSince = null; markSeen(); $("newsBar").hidden = true; };
+$("newsClose").onclick = closeNews;
+$("newsModal").onclick = e => { if (e.target.id === "newsModal") closeNews(); };
+$("version").onclick = openNews;
+$("version").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openNews(); } };
 $("freeModal").onclick = e => { if (e.target.id === "freeModal") $("freeModal").hidden = true; };
 $("scanCancel").onclick = () => { $("scanModal").hidden = true; };
 $("scanModal").onclick = e => { if (e.target.id === "scanModal") $("scanModal").hidden = true; };
@@ -19693,6 +19786,7 @@ document.addEventListener("keydown", e => {
     return;
   }
   if (!$("freeModal").hidden) { $("freeModal").hidden = true; return; }
+  if (!$("newsModal").hidden) { closeNews(); return; }
   if (floorArmed !== null || floorArmedGroup !== null) { floorArmed = null; floorArmedGroup = null; renderFloor(); return; }
   if (!$("tagsModal").hidden) { closeTagsDialog(); return; }
   if (!$("cardsModal").hidden) { closeCardsDialog(); return; }
