@@ -3,7 +3,7 @@
 # ARP sees your LAN. Keep `version` equal to <Version> in BAMF/BAMF.csproj:
 # the release workflow fails if they differ.
 name: BAMF
-version: "1.50.6"
+version: "1.50.7"
 slug: bamf
 description: Watches your network for devices coming and going, and tells you when one appears, drops or misbehaves.
 url: https://github.com/rhc52980/BAMF_Network_Monitor
