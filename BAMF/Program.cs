@@ -527,6 +527,16 @@ app.MapPost("/api/settings/port-watch", (ActiveArpRequest body, HostStore store)
     return Results.Ok();
 });
 // Runs the port watch now.
+// A sweep now, from the dashboard's Scan menu: every network, or one. The
+// inbound hook below does the same for scripts, behind the hook token.
+app.MapPost("/api/scan", (string? subnet, ScannerService scanner) =>
+{
+    if (!string.IsNullOrWhiteSpace(subnet) && !scanner.SubnetLabels.Contains(subnet.Trim(), StringComparer.OrdinalIgnoreCase))
+        return Results.BadRequest(new { error = $"{subnet} isn't a configured network." });
+    scanner.RequestScan(subnet);
+    return Results.Json(new { ok = true, networks = string.IsNullOrWhiteSpace(subnet) ? scanner.SubnetLabels : new[] { subnet.Trim() } });
+});
+
 app.MapPost("/api/ports/watch", async (RuleService rules, CancellationToken ct) =>
     Results.Json(new { newlyOpen = await rules.PortWatch(ct) }));
 
