@@ -1650,8 +1650,9 @@
   body.viewer tr .actions .more-wrap, body.viewer .map-tools .edit-only, body.viewer .scan-wrap, body.viewer #notifyTest,
   body.viewer .hy-actions .hint { display: none !important; }
   body.viewer .watch-star { pointer-events: none; }
-  body.viewer #settingsWrap :is(button, input, select, textarea) { pointer-events: none; opacity: .5; }
+  body.viewer #settingsWrap .set-main :is(button, input, select, textarea) { pointer-events: none; opacity: .5; }
   body.viewer #settingsWrap::before {
+    grid-column: 1 / -1;
     content: "View only: these are BAMF's settings, but the view-only password can't change them.";
     display: block; margin: 0 0 12px; padding: 8px 12px; border-radius: var(--radius); font-size: 13px;
     border: 1px solid var(--focus); color: var(--text);
@@ -1863,7 +1864,29 @@
   tr.is-remote td { opacity: .9; }
   .remote-chip { display: inline-block; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text-dim); font-size: 11px; white-space: nowrap; }
   .nettab .remote-tag { margin-left: 6px; font-size: 10px; color: var(--text-dim); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; }
-  .settings-wrap { padding: 8px 24px 32px; max-width: 820px; }
+  /* Settings: a list of sections down the side, one section showing at a time. */
+  .settings-wrap { padding: 8px 24px 32px; max-width: 1060px; display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 24px; align-items: start; }
+  .settings-wrap[hidden] { display: none; }
+  .set-nav { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 2px; }
+  .set-nav .set-find { width: 100%; min-width: 0; margin: 0 0 8px; box-sizing: border-box; }
+  .set-nav button { text-align: left; background: none; border: 1px solid transparent; border-radius: var(--radius);
+    padding: 8px 12px; color: var(--text-dim); font: inherit; font-size: 14px; cursor: pointer; }
+  .set-nav button:hover { color: var(--text); background: var(--panel); }
+  .set-nav button.active { color: var(--text); background: var(--panel); border-color: var(--line); }
+  .set-sec { display: none; }
+  .set-sec.show { display: block; }
+  .set-sec > .set-actions { margin-bottom: 16px; }
+  .set-sec-title { display: none; margin: 4px 0 8px; font: 600 11px "IBM Plex Mono", monospace; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--text-dim); }
+  .settings-wrap.searching .set-sec-title { display: block; }
+  .settings-wrap .set-miss { display: none !important; }
+  .set-none { color: var(--text-dim); padding: 24px 4px; }
+  @media (max-width: 760px) {
+    .settings-wrap { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .set-nav { position: static; flex-direction: row; flex-wrap: wrap; gap: 6px; }
+    .set-nav .set-find { flex-basis: 100%; margin: 0 0 2px; }
+    .set-nav button { padding: 6px 12px; font-size: 13px; border-color: var(--line); }
+  }
   .set-card {
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
     padding: 16px 18px; margin-bottom: 16px;
@@ -3772,424 +3795,465 @@
 </div>
 
 <div class="settings-wrap" id="settingsWrap" hidden>
-  <div class="set-card">
-    <div class="set-card-title">Scanning</div>
-    <p class="modal-help">
-      Saved here and applied on the next scan — no restart. These override
-      <span class="mono">appsettings.json</span>; Reset below hands control back to the file.
-    </p>
-    <label class="set-row">
-      <span class="set-label">Default scan interval
-        <span class="set-hint">Used by any network without its own value below.</span>
-      </span>
-      <span class="set-field"><input id="setInterval" class="modal-input" type="number" min="5" step="1"> <span class="set-unit">seconds</span></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Probe concurrency
-        <span class="set-hint">How many addresses are probed at once during a sweep.</span>
-      </span>
-      <span class="set-field"><input id="setConcurrency" class="modal-input" type="number" min="1" max="1024" step="1"></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">History retention
-        <span class="set-hint">Online/offline events older than this are pruned daily.</span>
-      </span>
-      <span class="set-field"><input id="setRetention" class="modal-input" type="number" min="1" step="1"> <span class="set-unit">days</span></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Offline after missed scans
-        <span class="set-hint">A device must be missed by this many scans of its network in a row before it's called offline. 1 means the first miss counts; 2 forgives a single hiccup like a laptop waking.</span>
-      </span>
-      <span class="set-field"><input id="setMisses" class="modal-input" type="number" min="1" max="20" step="1"> <span class="set-unit">scans</span></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Listen for mDNS announcements
-        <span class="set-hint">Devices announce their own names and services over multicast — Apple TVs, Chromecasts, Sonos, printers, HomeKit gear. BAMF only listens; it never sends a query. Names learned this way fill in for devices with no hostname.</span>
-        <span class="set-hint" id="setMdnsStatus"></span>
-      </span>
-      <span class="set-field"><button type="button" class="arp-toggle" id="setMdns" aria-pressed="false"><span class="pill"></span></button></span>
-    </label>
-  </div>
-
-  <div class="set-card">
-    <div class="set-card-title">Networks</div>
-    <p class="modal-help">
-      Switch a network off to stop scanning it entirely — its devices keep their
-      last known state and never get a false down-alert. Give a network its own
-      interval to watch it more or less closely than the default above; blank
-      means the default. A device is only judged offline by a scan that actually
-      covered its network.
-    </p>
-    <table class="set-table" id="setNetTable"></table>
-    <div class="modal-note" id="setNetNote"></div>
-  </div>
-
-  <div class="set-actions">
-    <button class="toggle" id="setReset">Reset to file defaults</button>
-    <button class="export-btn" id="setSave">Save</button>
-    <span class="set-result" id="setResult"></span>
-  </div>
-
-  <div class="set-card" id="switchCard">
-    <div class="set-card-title">Switches and routers</div>
-    <p class="modal-help">
-      How your network is cabled, for the Map. BAMF can't find this out itself: ARP shows which
-      devices are on a network, not which port they're plugged into, and budget smart switches
-      don't share their MAC table. So this is your own record, and nothing here connects to a
-      switch unless you switch on its <strong>Counters</strong>, which read a managed switch's
-      traffic per port. Changes apply straight away. To say where a device is plugged in, use
-      <strong>Plugged into…</strong> in its ⋯ menu.
-    </p>
-    <table class="set-table" id="swTable"></table>
-    <div class="modal-note" id="swEmpty">No switches yet.</div>
-    <div class="modal-actions">
-      <button class="export-btn" id="swAdd">Add a switch or router</button>
-    </div>
-    <div class="layout-actions">
-      <button class="toggle" id="layoutExport" title="Download everything you recorded as one JSON file">Export layout</button>
-      <button class="toggle" id="layoutImport" title="Replace the recorded layout with one from a file">Import layout…</button>
-      <input type="file" id="layoutFile" accept=".json,application/json" hidden>
-      <span class="note">Switches, ports, SSIDs, gateways, network cards, names, notes, tags and Map positions, keyed by MAC, so the file works on another server.</span>
-    </div>
-  </div>
-
-  <div class="set-card" id="typeIconCard">
-    <div class="set-card-title">Map icons</div>
-    <p class="modal-help">
-      Map icons you've chosen for a whole type BAMF guesses: every <em>Linux</em> device drawn as a
-      server, say. Set one from any device's <strong>Map icon…</strong> with "use this for every …
-      device" ticked. An icon picked for one device, or one its device type names, wins over these.
-    </p>
-    <table class="set-table" id="typeIconTable"></table>
-    <div class="modal-note" id="typeIconEmpty">None yet: the Map picks each icon from the device's guess and names.</div>
-  </div>
-
-  <div class="set-card">
-    <div class="set-card-title">Behaviour</div>
-    <p class="modal-help">
-      These apply the moment you click them — no Save needed.
-    </p>
-    <label class="set-row">
-      <span class="set-label">Active ARP scanning
-        <span class="set-hint">Send ARP who-has requests directly instead of a ping sweep. Finds devices whose firewalls drop ICMP. Needs the Npcap driver on Windows or libpcap on Linux; without it BAMF falls back to the sweep and says so here.</span>
-        <span class="set-hint" id="arpToggleLbl"></span>
-      </span>
-      <span class="set-field"><button type="button" class="arp-toggle" id="setArp" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Ignore devices with randomised MACs
-        <span class="set-hint">Phones with Wi-Fi privacy on present a new address each time they join. Filed under Ignored automatically so they don't alert as new devices; they are still recorded.</span>
-      </span>
-      <span class="set-field"><button type="button" class="arp-toggle" id="setRand" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Traffic monitor
-        <span class="set-hint">Watch the wire through Npcap, receive-only: bytes in and out per device, and every DHCP and DNS server in use, with an alert when a new DHCP server appears or a device starts asking a DNS server it never used before. On a switched network this machine sees its own traffic plus broadcast and multicast; on a mirrored switch port it sees everything.</span>
-        <span class="set-hint" id="setTrafficStatus"></span>
-      </span>
-      <span class="set-field"><button type="button" class="arp-toggle" id="setTraffic" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Measure latency
-        <span class="set-hint">After each scan, one ping to every online device on the networks it covered, for the Latency column and each device's latency history. One small packet per device per scan.</span>
-      </span>
-      <span class="set-field"><button type="button" class="arp-toggle" id="setLatency" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">ARP watch
-        <span class="set-hint">An alert when two devices answer at one address in the same scan (an IP conflict, or one pretending to be the other), when your gateway's MAC changes, and, with the traffic monitor on, the moment another device claims to be your gateway. Conflicts need active ARP to be seen. Sends nothing: it reads what the scans and the traffic monitor already see.</span>
-      </span>
-      <span class="set-field"><button type="button" class="arp-toggle" id="setArpWatch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Watch IPv6 neighbours
-        <span class="set-hint">Every five minutes, one ping to the all-nodes address on each network BAMF scans, then a read of this machine's IPv6 neighbour table; with the traffic monitor on, neighbour discovery on the wire as it happens. Each device's IPv6 addresses sit beside its IPv4 one, and devices seen only over IPv6 get their own card under Activity.</span>
-      </span>
-      <span class="set-field"><button type="button" class="arp-toggle" id="setIpv6Watch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Certificate watch
-        <span class="set-hint">Every morning at 4:30, reads the certificate on each HTTPS port BAMF has found open, and alerts 14 days and 3 days before one expires, and when it has. Only ports a scan already found open are touched.</span>
-      </span>
-      <span class="set-field"><button type="button" class="arp-toggle" id="setCertWatch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Check your public address with GreyNoise
-        <span class="set-hint">Off by default. Once a day, BAMF asks api.ipify.org for this network's public address, then asks GreyNoise's free lookup (api.greynoise.io) whether that address has been seen scanning the internet. If it has, that's a security alert: something behind it may be infected. These are the only calls BAMF makes to the internet besides the optional update check, internet watch and speed test, and what they send is your public address. The link checks whatever network this browser is on, so it's only right from home, not from work or over a VPN. If your internet provider shares one address between many homes (carrier-grade NAT), a neighbour's device can flag you. And clean isn't proof: GreyNoise only knows about scanning, not a device quietly sending your data elsewhere.</span>
-        <span class="set-hint" id="setGreyNoiseStatus"></span>
-      </span>
-      <span class="set-field"><button type="button" class="arp-toggle" id="setGreyNoise" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Watch the internet connection
-        <span class="set-hint">Off by default. Once a minute BAMF pings your router and one address out on the internet, so it can tell you when the line goes down, for how long, and whether your router answered while it was down - the difference between your provider being out and something in here being wrong. <b>This sends a ping out of your house every minute</b>, to the address below; it's an echo request like any other ping, and nothing about your network goes with it. With the update check, the GreyNoise check and the speed test, that's everything BAMF sends outside.</span>
-        <span class="set-hint" id="setWanStatus"></span>
-      </span>
-      <span class="set-field"><button type="button" class="arp-toggle" id="setWan" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Check the internet every
-        <span class="set-hint">How often the internet watch pings, from 20 seconds to an hour. A minute suits most houses. An outage is called after three misses in a row, so at a minute that's about three minutes before you're told, and at 20 seconds about one - at the cost of three times the pings.</span>
-        <span class="set-hint" id="setWanIntervalStatus"></span>
-      </span>
-      <span class="set-field"><input class="modal-input" id="setWanInterval" type="number" min="20" max="3600" step="10" value="60" size="6"><span class="set-unit">seconds</span><button type="button" class="export-btn" id="setWanIntervalSave">Save</button></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Address to ping
-        <span class="set-hint">Which address the internet watch pings. 8.8.8.8 is one of Google's public DNS servers and answers pings reliably; your provider's DNS or 1.1.1.1 work too. Your router is always pinged as well, and that one never leaves the house.</span>
-      </span>
-      <span class="set-field"><input class="modal-input" id="setWanTarget" value="8.8.8.8" size="14" inputmode="decimal"><button type="button" class="export-btn" id="setWanTargetSave">Save</button></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Call the internet slow
-        <span class="set-hint">When the line is up but the ping takes far longer than usual, BAMF tells you, and says whether your router was slow too. It's called after five slow readings in a row and over after three normal ones. <b>Automatic</b> means four times your usual ping and at least 100 ms more, learned from the last day; or set your own limit. This times the ping BAMF already sends; for your download speed, see the speed test below.</span>
-        <span class="set-hint" id="setWanSlowStatus"></span>
-      </span>
-      <span class="set-field"><select class="modal-input" id="setWanSlowMode"><option value="auto">Automatic</option><option value="fixed">Above a set time</option><option value="off">Don't watch</option></select><input class="modal-input" id="setWanSlowMs" type="number" min="20" max="5000" step="10" value="200" size="5" hidden><span class="set-unit" id="setWanSlowUnit" hidden>ms</span><button type="button" class="export-btn" id="setWanSlowSave">Save</button></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Test the internet speed
-        <span class="set-hint">Off by default. BAMF times a download and an upload against Cloudflare's speed test (speed.cloudflare.com) from the machine it runs on, so it measures the line rather than your Wi-Fi, and keeps the results on the Internet card under Activity. <b>Each test uses about 125 MB</b> (100 MB down, 25 MB up, less on a slow line), so once a day comes to about 4 GB a month; mind that if your plan has a cap. Cloudflare sees your public address, as any website you visit does. A scheduled test well under your usual is an Internet alert. <b>Run now</b> tests straight away, whatever the schedule. The internet watch sits out the minute a test takes, so it doesn't call the line slow.</span>
-        <span class="set-hint" id="setSpeedStatus"></span>
-      </span>
-      <span class="set-field speed-fields"><select class="modal-input" id="setSpeedSchedule"><option value="off">Never</option><option value="daily">Every day at 4:10 am</option><option value="6h">Every 6 hours</option></select><button type="button" class="export-btn" id="setSpeedSave">Save</button><button type="button" class="export-btn" id="setSpeedRun">Run now</button></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Holiday Spirit
-        <span class="set-hint">Every dashboard wears Halloween through October, Thanksgiving for the week of the holiday, Christmas from December 1st to 25th and New Year to January 2nd, then goes back to its own theme. Pick another theme during a season and that browser keeps it until the next one.</span>
-        <span class="set-hint" id="setHolidayStatus"></span>
-      </span>
-      <span class="set-field"><button type="button" class="arp-toggle" id="setHoliday" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Night mode
-        <span class="set-hint">Between these hours, by each screen's own clock, every dashboard wears the night theme, then goes back to its own theme in the morning. Pick another theme during the night and that browser keeps it until the next one. Holiday Spirit's season wins.</span>
-        <span class="set-hint" id="setNightStatus"></span>
-      </span>
-      <span class="set-field"><button type="button" class="arp-toggle" id="setNight" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
-    </label>
-    <div class="set-row" id="nightHours" style="display:none">
-      <span class="set-label">Night hours and theme
-        <span class="set-hint">From dusk to dawn, and which theme the night wears. Night Street, Goat Night and Constellation were made for it.</span>
-      </span>
-      <span class="set-field night-fields">
-        <input type="time" class="modal-input" id="nightFrom" aria-label="Night starts at">
-        <span class="set-hint">to</span>
-        <input type="time" class="modal-input" id="nightTo" aria-label="Night ends at">
-        <select class="modal-input" id="nightTheme" aria-label="Night theme"></select>
-      </span>
-    </div>
-    <label class="set-row">
-      <span class="set-label">Check GitHub daily for a newer release
-        <span class="set-hint">Off by default. Read-only: it only reads the latest release tag and never downloads or installs anything. The only outbound call BAMF makes that you didn't ask for.</span>
-        <span class="set-hint" id="setUpdStatus"></span>
-      </span>
-      <span class="set-field"><button type="button" class="arp-toggle" id="setUpd" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
-    </label>
-  </div>
-
-  <div class="set-card">
-    <div class="set-card-title">Display</div>
-    <p class="modal-help">
-      Kept in this browser, like the theme — not on the server, so each device you open BAMF on can differ.
-    </p>
-    <label class="set-row">
-      <span class="set-label">Compact rows
-        <span class="set-hint">Tighter device rows, about half the height, so a busy network fits on one screen. Nothing is hidden.</span>
-      </span>
-      <span class="set-field"><button type="button" class="arp-toggle" id="setCompact" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
-    </label>
-    <label class="set-row">
-      <span class="set-label">Keyboard
-        <span class="set-hint"><span class="mono">/</span> jumps to the search box. <span class="mono">Esc</span> clears it, or closes whatever is open.</span>
-      </span>
-      <span class="set-field"></span>
-    </label>
-  </div>
-
-  <div class="set-card" id="rulesCard">
-    <div class="set-card-title">Alert rules and quiet hours</div>
-    <p class="modal-help">
-      Alerts of your own: a device or a group offline for longer than you'd like, one coming back,
-      or one online when it shouldn't be. Each fires once per occurrence, to the webhook below.
-      Quiet hours hold every alert and deliver them as one summary when the quiet ends.
-    </p>
-    <div class="rule-list" id="ruleList"></div>
-    <div class="rule-form">
-      <select id="ruleKind"><option value="offline">Offline for more than</option><option value="online">Back online</option><option value="hours">Online between</option><option value="wake">Wake at</option></select>
-      <input id="ruleMinutes" type="number" min="1" max="10080" value="15" title="minutes"> <span id="ruleMinLbl">min</span>
-      <input id="ruleFrom" type="time" value="22:00" hidden><span id="ruleAnd" hidden>and</span><input id="ruleTo" type="time" value="06:00" hidden>
-      <select id="ruleDays" hidden><option value="daily">every day</option><option value="weekdays">on weekdays</option><option value="weekends">at weekends</option></select>
-      <span>for</span>
-      <select id="ruleTarget"></select>
-      <input id="ruleName" class="modal-input" placeholder="name (optional)" maxlength="60" style="width:150px">
-      <button type="button" class="export-btn" id="ruleAdd">Add rule</button>
-    </div>
-    <div class="set-result" id="rulesErr"></div>
-    <div class="set-card-title" style="margin-top:14px">Quiet hours</div>
-    <div class="quiet-row">
-      <label>From <input id="quietFrom" type="time"></label>
-      <label>to <input id="quietTo" type="time"></label>
-      <label><input id="quietDigest" type="checkbox" checked> send what was held as one summary when the quiet ends</label>
-      <button type="button" class="toggle" id="quietClear">Clear</button>
-      <button type="button" class="export-btn" id="quietSave">Save</button>
-    </div>
-    <div class="modal-note" id="quietStatus"></div>
-    <label class="set-row" style="margin-top:10px">
-      <span class="set-label">Watch ports daily
-        <span class="set-hint">Scan every online known device's common ports once a day, at 4 am, and alert when a port is open that wasn't last time. A manual port scan records the same history. Off by default: a scan is active, not passive. To run it now, <b>Scan &#9662; → Health check</b> at the top of the page does this and more.</span>
-      </span>
-      <span class="set-field"><button type="button" class="arp-toggle" id="setPortWatch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
-    </label>
-  </div>
-
-  <div class="set-card">
-    <div class="set-card-title">Notifications</div>
-    <p class="modal-help">
-      Get an alert when a new device appears, when a ⭐ watched device goes offline or comes
-      back, and for security and internet trouble: choose which with <strong>Sends</strong>, and
-      add more places to send them under <strong>More destinations</strong>. Discord: <em>Server Settings → Integrations →
-      Webhooks → New Webhook → Copy Webhook URL</em>. ntfy: paste your topic URL,
-      e.g. <span class="mono">https://ntfy.sh/bamf-alerts</span>. Gotify: your
-      server's <span class="mono">/message?token=…</span> URL.
-    </p>
-    <div class="phone-setup">
-      <button type="button" class="toggle" id="phoneSetup" aria-expanded="false">On your phone, without Discord…</button>
-      <div id="phonePanel" hidden>
-        <ol class="phone-steps">
-          <li>Install <b>ntfy</b> on your phone. It's free and open source, and it's on the App
-            Store and on Google Play. If you already run your own ntfy or a Gotify server, use
-            its URL in the box below instead — the rest of this works the same way.</li>
-          <li>Open the app, tap <b>+</b>, and subscribe to this topic:
-            <div class="phone-topic">
-              <span class="mono" id="phoneTopic"></span>
-              <button type="button" class="toggle" id="phoneCopy">Copy</button>
-              <button type="button" class="toggle" id="phoneNew" title="Pick a different one">Another</button>
-            </div>
-            <div class="note">A topic on the public ntfy.sh is open to anyone who knows its
-              name, so this one is long and random on purpose: don't shorten it, and don't
-              put it anywhere public. Your alerts carry device names, MACs and addresses.</div>
-          </li>
-          <li>Press this, and BAMF fills the box below, saves it, and sends a test straight away.
-            It should land on your phone in a second or two.
-            <div class="phone-go"><button type="button" class="export-btn" id="phoneUse">Use this topic</button></div>
-          </li>
-        </ol>
+  <nav class="set-nav" id="setNav" aria-label="Settings sections">
+    <input class="modal-input set-find" id="setFind" type="search" placeholder="Find a setting" aria-label="Find a setting" autocomplete="off">
+    <button type="button" data-sec="scanning">Scanning</button>
+    <button type="button" data-sec="internet">Internet</button>
+    <button type="button" data-sec="security">Security</button>
+    <button type="button" data-sec="alerts">Alerts</button>
+    <button type="button" data-sec="network">Your network</button>
+    <button type="button" data-sec="appearance">Appearance</button>
+    <button type="button" data-sec="system">System</button>
+  </nav>
+  <div class="set-main">
+    <section class="set-sec" data-sec="scanning" aria-label="Scanning">
+      <h2 class="set-sec-title">Scanning</h2>
+      <div class="set-card">
+        <div class="set-card-title">Scanning</div>
+        <p class="modal-help">
+          Saved here and applied on the next scan — no restart. These override
+          <span class="mono">appsettings.json</span>; Reset below hands control back to the file.
+        </p>
+        <label class="set-row">
+          <span class="set-label">Default scan interval
+            <span class="set-hint">Used by any network without its own value below.</span>
+          </span>
+          <span class="set-field"><input id="setInterval" class="modal-input" type="number" min="5" step="1"> <span class="set-unit">seconds</span></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Probe concurrency
+            <span class="set-hint">How many addresses are probed at once during a sweep.</span>
+          </span>
+          <span class="set-field"><input id="setConcurrency" class="modal-input" type="number" min="1" max="1024" step="1"></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Offline after missed scans
+            <span class="set-hint">A device must be missed by this many scans of its network in a row before it's called offline. 1 means the first miss counts; 2 forgives a single hiccup like a laptop waking.</span>
+          </span>
+          <span class="set-field"><input id="setMisses" class="modal-input" type="number" min="1" max="20" step="1"> <span class="set-unit">scans</span></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Listen for mDNS announcements
+            <span class="set-hint">Devices announce their own names and services over multicast — Apple TVs, Chromecasts, Sonos, printers, HomeKit gear. BAMF only listens; it never sends a query. Names learned this way fill in for devices with no hostname.</span>
+            <span class="set-hint" id="setMdnsStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setMdns" aria-pressed="false"><span class="pill"></span></button></span>
+        </label>
       </div>
-    </div>
-    <label class="modal-row">Webhook URL
-      <input id="notifyUrl" class="modal-input" placeholder="https://discord.com/api/webhooks/… or https://ntfy.sh/topic" autocomplete="off" spellcheck="false">
-    </label>
-    <label class="modal-row">Format
-      <select id="notifyFormat">
-        <option value="auto">Auto — Discord embed, or generic JSON</option>
-        <option value="ntfy">ntfy</option>
-        <option value="gotify">Gotify</option>
-        <option value="json">Generic JSON</option>
-      </select>
-    </label>
-    <div class="modal-note" id="notifyCurrent"></div>
-    <div class="modal-actions">
-      <button class="toggle" id="notifyClear">Remove</button>
-      <button class="toggle" id="notifyTest" title="Send a test to the saved webhook">Test</button>
-      <button class="export-btn" id="notifySave">Save &amp; test</button>
-    </div>
-    <div class="modal-result" id="notifyResult"></div>
-    <div class="dest-kinds" id="mainKindsRow" hidden><span class="dest-kinds-lbl">Sends</span><span class="dest-kinds" id="mainKinds" style="margin:0"></span></div>
-    <div class="set-card-title" style="margin-top:18px">More destinations</div>
-    <p class="modal-help">
-      Send alerts to more than one place: your phone and Discord both, or security alerts to one
-      and comings and goings to another. Each has its own format and its own choice of what it
-      gets. Quiet hours hold them all, and the summary when they end goes to each with just its own.
-    </p>
-    <div id="destList"></div>
-    <div class="dest-form" id="destForm" hidden>
-      <label class="modal-row">Name
-        <input id="destName" class="modal-input" maxlength="40" placeholder="e.g. Phone, or Discord #security" autocomplete="off">
-      </label>
-      <label class="modal-row">URL
-        <input id="destUrl" class="modal-input" placeholder="https://ntfy.sh/topic or a Discord webhook URL" autocomplete="off" spellcheck="false">
-      </label>
-      <label class="modal-row">Format
-        <select id="destFormat">
-        <option value="auto">Auto — Discord embed, or generic JSON</option>
-        <option value="ntfy">ntfy</option>
-        <option value="gotify">Gotify</option>
-        <option value="json">Generic JSON</option>
-        </select>
-      </label>
-      <div class="dest-kinds"><span class="dest-kinds-lbl">Sends</span><span class="dest-kinds" id="destKinds" style="margin:0"></span></div>
-      <div class="modal-actions">
-        <button class="toggle" id="destCancel">Cancel</button>
-        <button class="export-btn" id="destSave">Save &amp; test</button>
+      <div class="set-card">
+        <div class="set-card-title">Networks</div>
+        <p class="modal-help">
+          Switch a network off to stop scanning it entirely — its devices keep their
+          last known state and never get a false down-alert. Give a network its own
+          interval to watch it more or less closely than the default above; blank
+          means the default. A device is only judged offline by a scan that actually
+          covered its network.
+        </p>
+        <table class="set-table" id="setNetTable"></table>
+        <div class="modal-note" id="setNetNote"></div>
       </div>
-    </div>
-    <div class="modal-actions" style="justify-content:flex-start"><button class="toggle" id="destAdd">Add a destination</button></div>
-    <div class="modal-result" id="destResult"></div>
-    <div class="set-card-title" style="margin-top:18px">Scheduled report</div>
-    <p class="modal-help">
-      A summary to every destination that gets Reports: how many devices are up, what's new, what went away, the
-      flakiest device, the longest offline, the least reliable, any watch alerts, and the top
-      talkers. Daily covers the last 24 hours, weekly the last 7 days, and monthly the last 30
-      &mdash; which also totals up any internet outages, if the internet watch is on.
-    </p>
-    <div class="report-row">
-      <label>Send <select id="reportSchedule"><option value="off">never</option><option value="daily">daily</option><option value="weekly">weekly</option><option value="monthly">monthly</option></select></label>
-      <label id="reportMonthWrap">on the 1st</label>
-      <label id="reportDayWrap">on <select id="reportDay"><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option></select></label>
-      <label>at <select id="reportHour"></select></label>
-      <span class="note" id="reportTz"></span>
-    </div>
-    <div class="modal-note" id="reportStatus"></div>
-    <div class="modal-actions">
-      <button class="toggle" id="reportPreview">Preview</button>
-      <button class="toggle" id="reportSend">Send now</button>
-      <button class="export-btn" id="reportSave">Save schedule</button>
-    </div>
-    <div class="modal-result" id="reportResult"></div>
-  </div>
-
-  <div class="set-card" id="routerCard">
-    <div class="set-card-title">Names from your router</div>
-    <p class="modal-help">Your router knows most devices by the name they asked for, or one you gave them in its own pages.
-      With <span class="mono">Bamf:RouterImport</span> set in appsettings.json (OpenWrt, OPNsense, pfSense or UniFi), BAMF
-      reads that list every hour and uses it for any device with no other name.</p>
-    <div class="set-hint" id="routerStatus"></div>
-    <div class="modal-actions" style="justify-content:flex-start">
-      <button type="button" class="toggle" id="routerRun">Import now</button>
-      <button type="button" class="export-btn" id="routerApply" title="Copies router names into BAMF's own names, for devices that don't have one">Use as names for unnamed devices</button>
-    </div>
-  </div>
-
-  <div class="set-card" id="backupCard">
-    <div class="set-card-title">Back up the database</div>
-    <p class="modal-help">
-      Everything BAMF knows, as one file: every device and its history, the names, notes and tags,
-      the Map, the floor plans, alert rules, and the settings saved on this page. It's taken while
-      BAMF keeps running, so there's no need to stop anything first. The file includes your saved
-      webhook URL, so keep it somewhere private.
-    </p>
-    <div class="modal-actions" style="justify-content:flex-start">
-      <button class="export-btn" id="backupDownload">Download a backup</button>
-      <button class="toggle" id="backupRestore">Restore from a backup…</button>
-      <input type="file" id="backupFile" accept=".db,application/vnd.sqlite3,application/x-sqlite3" hidden>
-    </div>
-    <div class="modal-note" id="backupResult"></div>
-    <div class="modal-note">
-      Restoring replaces everything here with what's in the file. BAMF checks it's a sound BAMF
-      backup first, and keeps the database it replaces in <span class="mono">backups</span> beside
-      it, so a restore can be undone. The Windows and Linux updaters keep a copy from before each
-      update there too.
-    </div>
-  </div>
-
-  <div class="set-card">
-    <div class="set-card-title">Set in appsettings.json</div>
-    <p class="modal-help">
-      Read-only here on purpose. Which networks BAMF may touch is the boundary the
-      wildcard port-scan guard relies on, and the rest need a restart to apply.
-    </p>
-    <div class="set-ro" id="setReadOnly"></div>
+      <div class="set-actions">
+        <button class="toggle" id="setReset">Reset to file defaults</button>
+        <button class="export-btn" id="setSave">Save</button>
+        <span class="set-result" id="setResult"></span>
+      </div>
+      <div class="set-card">
+        <div class="set-card-title">How BAMF looks</div>
+        <p class="modal-help">These apply the moment you click them — no Save needed.</p>
+        <label class="set-row">
+          <span class="set-label">Active ARP scanning
+            <span class="set-hint">Send ARP who-has requests directly instead of a ping sweep. Finds devices whose firewalls drop ICMP. Needs the Npcap driver on Windows or libpcap on Linux; without it BAMF falls back to the sweep and says so here.</span>
+            <span class="set-hint" id="arpToggleLbl"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setArp" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Ignore devices with randomised MACs
+            <span class="set-hint">Phones with Wi-Fi privacy on present a new address each time they join. Filed under Ignored automatically so they don't alert as new devices; they are still recorded.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setRand" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Measure latency
+            <span class="set-hint">After each scan, one ping to every online device on the networks it covered, for the Latency column and each device's latency history. One small packet per device per scan.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setLatency" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Watch IPv6 neighbours
+            <span class="set-hint">Every five minutes, one ping to the all-nodes address on each network BAMF scans, then a read of this machine's IPv6 neighbour table; with the traffic monitor on, neighbour discovery on the wire as it happens. Each device's IPv6 addresses sit beside its IPv4 one, and devices seen only over IPv6 get their own card under Activity.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setIpv6Watch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Traffic monitor
+            <span class="set-hint">Watch the wire through Npcap, receive-only: bytes in and out per device, and every DHCP and DNS server in use, with an alert when a new DHCP server appears or a device starts asking a DNS server it never used before. On a switched network this machine sees its own traffic plus broadcast and multicast; on a mirrored switch port it sees everything.</span>
+            <span class="set-hint" id="setTrafficStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setTraffic" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Watch ports daily
+            <span class="set-hint">Scan every online known device's common ports once a day, at 4 am, and alert when a port is open that wasn't last time. A manual port scan records the same history. Off by default: a scan is active, not passive. To run it now, <b>Scan &#9662; → Health check</b> at the top of the page does this and more.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setPortWatch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+      </div>
+    </section>
+    <section class="set-sec" data-sec="internet" aria-label="Internet">
+      <h2 class="set-sec-title">Internet</h2>
+      <div class="set-card">
+        <div class="set-card-title">Internet</div>
+        <p class="modal-help">The switch applies the moment you click it; the others each have their own Save.</p>
+        <label class="set-row">
+          <span class="set-label">Watch the internet connection
+            <span class="set-hint">Off by default. Once a minute BAMF pings your router and one address out on the internet, so it can tell you when the line goes down, for how long, and whether your router answered while it was down - the difference between your provider being out and something in here being wrong. <b>This sends a ping out of your house every minute</b>, to the address below; it's an echo request like any other ping, and nothing about your network goes with it. With the update check, the GreyNoise check and the speed test, that's everything BAMF sends outside.</span>
+            <span class="set-hint" id="setWanStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setWan" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Check the internet every
+            <span class="set-hint">How often the internet watch pings, from 20 seconds to an hour. A minute suits most houses. An outage is called after three misses in a row, so at a minute that's about three minutes before you're told, and at 20 seconds about one - at the cost of three times the pings.</span>
+            <span class="set-hint" id="setWanIntervalStatus"></span>
+          </span>
+          <span class="set-field"><input class="modal-input" id="setWanInterval" type="number" min="20" max="3600" step="10" value="60" size="6"><span class="set-unit">seconds</span><button type="button" class="export-btn" id="setWanIntervalSave">Save</button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Address to ping
+            <span class="set-hint">Which address the internet watch pings. 8.8.8.8 is one of Google's public DNS servers and answers pings reliably; your provider's DNS or 1.1.1.1 work too. Your router is always pinged as well, and that one never leaves the house.</span>
+          </span>
+          <span class="set-field"><input class="modal-input" id="setWanTarget" value="8.8.8.8" size="14" inputmode="decimal"><button type="button" class="export-btn" id="setWanTargetSave">Save</button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Call the internet slow
+            <span class="set-hint">When the line is up but the ping takes far longer than usual, BAMF tells you, and says whether your router was slow too. It's called after five slow readings in a row and over after three normal ones. <b>Automatic</b> means four times your usual ping and at least 100 ms more, learned from the last day; or set your own limit. This times the ping BAMF already sends; for your download speed, see the speed test below.</span>
+            <span class="set-hint" id="setWanSlowStatus"></span>
+          </span>
+          <span class="set-field"><select class="modal-input" id="setWanSlowMode"><option value="auto">Automatic</option><option value="fixed">Above a set time</option><option value="off">Don't watch</option></select><input class="modal-input" id="setWanSlowMs" type="number" min="20" max="5000" step="10" value="200" size="5" hidden><span class="set-unit" id="setWanSlowUnit" hidden>ms</span><button type="button" class="export-btn" id="setWanSlowSave">Save</button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Test the internet speed
+            <span class="set-hint">Off by default. BAMF times a download and an upload against Cloudflare's speed test (speed.cloudflare.com) from the machine it runs on, so it measures the line rather than your Wi-Fi, and keeps the results on the Internet card under Activity. <b>Each test uses about 125 MB</b> (100 MB down, 25 MB up, less on a slow line), so once a day comes to about 4 GB a month; mind that if your plan has a cap. Cloudflare sees your public address, as any website you visit does. A scheduled test well under your usual is an Internet alert. <b>Run now</b> tests straight away, whatever the schedule. The internet watch sits out the minute a test takes, so it doesn't call the line slow.</span>
+            <span class="set-hint" id="setSpeedStatus"></span>
+          </span>
+          <span class="set-field speed-fields"><select class="modal-input" id="setSpeedSchedule"><option value="off">Never</option><option value="daily">Every day at 4:10 am</option><option value="6h">Every 6 hours</option></select><button type="button" class="export-btn" id="setSpeedSave">Save</button><button type="button" class="export-btn" id="setSpeedRun">Run now</button></span>
+        </label>
+      </div>
+    </section>
+    <section class="set-sec" data-sec="security" aria-label="Security">
+      <h2 class="set-sec-title">Security</h2>
+      <div class="set-card">
+        <div class="set-card-title">Security</div>
+        <p class="modal-help">These apply the moment you click them — no Save needed.</p>
+        <label class="set-row">
+          <span class="set-label">ARP watch
+            <span class="set-hint">An alert when two devices answer at one address in the same scan (an IP conflict, or one pretending to be the other), when your gateway's MAC changes, and, with the traffic monitor on, the moment another device claims to be your gateway. Conflicts need active ARP to be seen. Sends nothing: it reads what the scans and the traffic monitor already see.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setArpWatch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Certificate watch
+            <span class="set-hint">Every morning at 4:30, reads the certificate on each HTTPS port BAMF has found open, and alerts 14 days and 3 days before one expires, and when it has. Only ports a scan already found open are touched.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setCertWatch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Check your public address with GreyNoise
+            <span class="set-hint">Off by default. Once a day, BAMF asks api.ipify.org for this network's public address, then asks GreyNoise's free lookup (api.greynoise.io) whether that address has been seen scanning the internet. If it has, that's a security alert: something behind it may be infected. These are the only calls BAMF makes to the internet besides the optional update check, internet watch and speed test, and what they send is your public address. The link checks whatever network this browser is on, so it's only right from home, not from work or over a VPN. If your internet provider shares one address between many homes (carrier-grade NAT), a neighbour's device can flag you. And clean isn't proof: GreyNoise only knows about scanning, not a device quietly sending your data elsewhere.</span>
+            <span class="set-hint" id="setGreyNoiseStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setGreyNoise" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+      </div>
+    </section>
+    <section class="set-sec" data-sec="alerts" aria-label="Alerts">
+      <h2 class="set-sec-title">Alerts</h2>
+      <div class="set-card">
+        <div class="set-card-title">Notifications</div>
+        <p class="modal-help">
+          Get an alert when a new device appears, when a ⭐ watched device goes offline or comes
+          back, and for security and internet trouble: choose which with <strong>Sends</strong>, and
+          add more places to send them under <strong>More destinations</strong>. Discord: <em>Server Settings → Integrations →
+          Webhooks → New Webhook → Copy Webhook URL</em>. ntfy: paste your topic URL,
+          e.g. <span class="mono">https://ntfy.sh/bamf-alerts</span>. Gotify: your
+          server's <span class="mono">/message?token=…</span> URL.
+        </p>
+        <div class="phone-setup">
+          <button type="button" class="toggle" id="phoneSetup" aria-expanded="false">On your phone, without Discord…</button>
+          <div id="phonePanel" hidden>
+            <ol class="phone-steps">
+              <li>Install <b>ntfy</b> on your phone. It's free and open source, and it's on the App
+                Store and on Google Play. If you already run your own ntfy or a Gotify server, use
+                its URL in the box below instead — the rest of this works the same way.</li>
+              <li>Open the app, tap <b>+</b>, and subscribe to this topic:
+                <div class="phone-topic">
+                  <span class="mono" id="phoneTopic"></span>
+                  <button type="button" class="toggle" id="phoneCopy">Copy</button>
+                  <button type="button" class="toggle" id="phoneNew" title="Pick a different one">Another</button>
+                </div>
+                <div class="note">A topic on the public ntfy.sh is open to anyone who knows its
+                  name, so this one is long and random on purpose: don't shorten it, and don't
+                  put it anywhere public. Your alerts carry device names, MACs and addresses.</div>
+              </li>
+              <li>Press this, and BAMF fills the box below, saves it, and sends a test straight away.
+                It should land on your phone in a second or two.
+                <div class="phone-go"><button type="button" class="export-btn" id="phoneUse">Use this topic</button></div>
+              </li>
+            </ol>
+          </div>
+        </div>
+        <label class="modal-row">Webhook URL
+          <input id="notifyUrl" class="modal-input" placeholder="https://discord.com/api/webhooks/… or https://ntfy.sh/topic" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="modal-row">Format
+          <select id="notifyFormat">
+            <option value="auto">Auto — Discord embed, or generic JSON</option>
+            <option value="ntfy">ntfy</option>
+            <option value="gotify">Gotify</option>
+            <option value="json">Generic JSON</option>
+          </select>
+        </label>
+        <div class="modal-note" id="notifyCurrent"></div>
+        <div class="modal-actions">
+          <button class="toggle" id="notifyClear">Remove</button>
+          <button class="toggle" id="notifyTest" title="Send a test to the saved webhook">Test</button>
+          <button class="export-btn" id="notifySave">Save &amp; test</button>
+        </div>
+        <div class="modal-result" id="notifyResult"></div>
+        <div class="dest-kinds" id="mainKindsRow" hidden><span class="dest-kinds-lbl">Sends</span><span class="dest-kinds" id="mainKinds" style="margin:0"></span></div>
+        <div class="set-card-title" style="margin-top:18px">More destinations</div>
+        <p class="modal-help">
+          Send alerts to more than one place: your phone and Discord both, or security alerts to one
+          and comings and goings to another. Each has its own format and its own choice of what it
+          gets. Quiet hours hold them all, and the summary when they end goes to each with just its own.
+        </p>
+        <div id="destList"></div>
+        <div class="dest-form" id="destForm" hidden>
+          <label class="modal-row">Name
+            <input id="destName" class="modal-input" maxlength="40" placeholder="e.g. Phone, or Discord #security" autocomplete="off">
+          </label>
+          <label class="modal-row">URL
+            <input id="destUrl" class="modal-input" placeholder="https://ntfy.sh/topic or a Discord webhook URL" autocomplete="off" spellcheck="false">
+          </label>
+          <label class="modal-row">Format
+            <select id="destFormat">
+            <option value="auto">Auto — Discord embed, or generic JSON</option>
+            <option value="ntfy">ntfy</option>
+            <option value="gotify">Gotify</option>
+            <option value="json">Generic JSON</option>
+            </select>
+          </label>
+          <div class="dest-kinds"><span class="dest-kinds-lbl">Sends</span><span class="dest-kinds" id="destKinds" style="margin:0"></span></div>
+          <div class="modal-actions">
+            <button class="toggle" id="destCancel">Cancel</button>
+            <button class="export-btn" id="destSave">Save &amp; test</button>
+          </div>
+        </div>
+        <div class="modal-actions" style="justify-content:flex-start"><button class="toggle" id="destAdd">Add a destination</button></div>
+        <div class="modal-result" id="destResult"></div>
+        <div class="set-card-title" style="margin-top:18px">Scheduled report</div>
+        <p class="modal-help">
+          A summary to every destination that gets Reports: how many devices are up, what's new, what went away, the
+          flakiest device, the longest offline, the least reliable, any watch alerts, and the top
+          talkers. Daily covers the last 24 hours, weekly the last 7 days, and monthly the last 30
+          &mdash; which also totals up any internet outages, if the internet watch is on.
+        </p>
+        <div class="report-row">
+          <label>Send <select id="reportSchedule"><option value="off">never</option><option value="daily">daily</option><option value="weekly">weekly</option><option value="monthly">monthly</option></select></label>
+          <label id="reportMonthWrap">on the 1st</label>
+          <label id="reportDayWrap">on <select id="reportDay"><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option></select></label>
+          <label>at <select id="reportHour"></select></label>
+          <span class="note" id="reportTz"></span>
+        </div>
+        <div class="modal-note" id="reportStatus"></div>
+        <div class="modal-actions">
+          <button class="toggle" id="reportPreview">Preview</button>
+          <button class="toggle" id="reportSend">Send now</button>
+          <button class="export-btn" id="reportSave">Save schedule</button>
+        </div>
+        <div class="modal-result" id="reportResult"></div>
+      </div>
+      <div class="set-card" id="rulesCard">
+        <div class="set-card-title">Alert rules and quiet hours</div>
+        <p class="modal-help">
+          Alerts of your own: a device or a group offline for longer than you'd like, one coming back,
+          or one online when it shouldn't be. Each fires once per occurrence, to the webhook below.
+          Quiet hours hold every alert and deliver them as one summary when the quiet ends.
+        </p>
+        <div class="rule-list" id="ruleList"></div>
+        <div class="rule-form">
+          <select id="ruleKind"><option value="offline">Offline for more than</option><option value="online">Back online</option><option value="hours">Online between</option><option value="wake">Wake at</option></select>
+          <input id="ruleMinutes" type="number" min="1" max="10080" value="15" title="minutes"> <span id="ruleMinLbl">min</span>
+          <input id="ruleFrom" type="time" value="22:00" hidden><span id="ruleAnd" hidden>and</span><input id="ruleTo" type="time" value="06:00" hidden>
+          <select id="ruleDays" hidden><option value="daily">every day</option><option value="weekdays">on weekdays</option><option value="weekends">at weekends</option></select>
+          <span>for</span>
+          <select id="ruleTarget"></select>
+          <input id="ruleName" class="modal-input" placeholder="name (optional)" maxlength="60" style="width:150px">
+          <button type="button" class="export-btn" id="ruleAdd">Add rule</button>
+        </div>
+        <div class="set-result" id="rulesErr"></div>
+        <div class="set-card-title" style="margin-top:14px">Quiet hours</div>
+        <div class="quiet-row">
+          <label>From <input id="quietFrom" type="time"></label>
+          <label>to <input id="quietTo" type="time"></label>
+          <label><input id="quietDigest" type="checkbox" checked> send what was held as one summary when the quiet ends</label>
+          <button type="button" class="toggle" id="quietClear">Clear</button>
+          <button type="button" class="export-btn" id="quietSave">Save</button>
+        </div>
+        <div class="modal-note" id="quietStatus"></div>
+      </div>
+    </section>
+    <section class="set-sec" data-sec="network" aria-label="Your network">
+      <h2 class="set-sec-title">Your network</h2>
+      <div class="set-card" id="switchCard">
+        <div class="set-card-title">Switches and routers</div>
+        <p class="modal-help">
+          How your network is cabled, for the Map. BAMF can't find this out itself: ARP shows which
+          devices are on a network, not which port they're plugged into, and budget smart switches
+          don't share their MAC table. So this is your own record, and nothing here connects to a
+          switch unless you switch on its <strong>Counters</strong>, which read a managed switch's
+          traffic per port. Changes apply straight away. To say where a device is plugged in, use
+          <strong>Plugged into…</strong> in its ⋯ menu.
+        </p>
+        <table class="set-table" id="swTable"></table>
+        <div class="modal-note" id="swEmpty">No switches yet.</div>
+        <div class="modal-actions">
+          <button class="export-btn" id="swAdd">Add a switch or router</button>
+        </div>
+        <div class="layout-actions">
+          <button class="toggle" id="layoutExport" title="Download everything you recorded as one JSON file">Export layout</button>
+          <button class="toggle" id="layoutImport" title="Replace the recorded layout with one from a file">Import layout…</button>
+          <input type="file" id="layoutFile" accept=".json,application/json" hidden>
+          <span class="note">Switches, ports, SSIDs, gateways, network cards, names, notes, tags and Map positions, keyed by MAC, so the file works on another server.</span>
+        </div>
+      </div>
+      <div class="set-card" id="typeIconCard">
+        <div class="set-card-title">Map icons</div>
+        <p class="modal-help">
+          Map icons you've chosen for a whole type BAMF guesses: every <em>Linux</em> device drawn as a
+          server, say. Set one from any device's <strong>Map icon…</strong> with "use this for every …
+          device" ticked. An icon picked for one device, or one its device type names, wins over these.
+        </p>
+        <table class="set-table" id="typeIconTable"></table>
+        <div class="modal-note" id="typeIconEmpty">None yet: the Map picks each icon from the device's guess and names.</div>
+      </div>
+      <div class="set-card" id="routerCard">
+        <div class="set-card-title">Names from your router</div>
+        <p class="modal-help">Your router knows most devices by the name they asked for, or one you gave them in its own pages.
+          With <span class="mono">Bamf:RouterImport</span> set in appsettings.json (OpenWrt, OPNsense, pfSense or UniFi), BAMF
+          reads that list every hour and uses it for any device with no other name.</p>
+        <div class="set-hint" id="routerStatus"></div>
+        <div class="modal-actions" style="justify-content:flex-start">
+          <button type="button" class="toggle" id="routerRun">Import now</button>
+          <button type="button" class="export-btn" id="routerApply" title="Copies router names into BAMF's own names, for devices that don't have one">Use as names for unnamed devices</button>
+        </div>
+      </div>
+    </section>
+    <section class="set-sec" data-sec="appearance" aria-label="Appearance">
+      <h2 class="set-sec-title">Appearance</h2>
+      <div class="set-card">
+        <div class="set-card-title">Appearance</div>
+        <p class="modal-help">The theme and compact rows are kept in this browser, so each device you open BAMF on can differ. Holiday Spirit and Night mode apply to every dashboard.</p>
+        <div class="set-row">
+          <span class="set-label">Theme
+            <span class="set-hint">Every theme, with its colours. The &#9681; button in the header opens the same list.</span>
+            <span class="set-hint" id="setThemeStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="export-btn" id="setThemeOpen">Choose…</button></span>
+        </div>
+        <label class="set-row">
+          <span class="set-label">Holiday Spirit
+            <span class="set-hint">Every dashboard wears Halloween through October, Thanksgiving for the week of the holiday, Christmas from December 1st to 25th and New Year to January 2nd, then goes back to its own theme. Pick another theme during a season and that browser keeps it until the next one.</span>
+            <span class="set-hint" id="setHolidayStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setHoliday" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Night mode
+            <span class="set-hint">Between these hours, by each screen's own clock, every dashboard wears the night theme, then goes back to its own theme in the morning. Pick another theme during the night and that browser keeps it until the next one. Holiday Spirit's season wins.</span>
+            <span class="set-hint" id="setNightStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setNight" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <div class="set-row" id="nightHours" style="display:none">
+          <span class="set-label">Night hours and theme
+            <span class="set-hint">From dusk to dawn, and which theme the night wears. Night Street, Goat Night and Constellation were made for it.</span>
+          </span>
+          <span class="set-field night-fields">
+            <input type="time" class="modal-input" id="nightFrom" aria-label="Night starts at">
+            <span class="set-hint">to</span>
+            <input type="time" class="modal-input" id="nightTo" aria-label="Night ends at">
+            <select class="modal-input" id="nightTheme" aria-label="Night theme"></select>
+          </span>
+        </div>
+        <label class="set-row">
+          <span class="set-label">Compact rows
+            <span class="set-hint">Tighter device rows, about half the height, so a busy network fits on one screen. Nothing is hidden.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setCompact" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Keyboard
+            <span class="set-hint"><span class="mono">/</span> jumps to the search box. <span class="mono">Esc</span> clears it, or closes whatever is open.</span>
+          </span>
+          <span class="set-field"></span>
+        </label>
+      </div>
+    </section>
+    <section class="set-sec" data-sec="system" aria-label="System">
+      <h2 class="set-sec-title">System</h2>
+      <div class="set-card">
+        <div class="set-card-title">System</div>
+        <label class="set-row">
+          <span class="set-label">History retention
+            <span class="set-hint">Online/offline events older than this are pruned daily.</span>
+          </span>
+          <span class="set-field"><input id="setRetention" class="modal-input" type="number" min="1" step="1"> <span class="set-unit">days</span></span>
+        </label>
+        <div class="set-actions">
+          <button class="export-btn" id="setSaveSys">Save</button>
+          <span class="set-result" id="setResultSys"></span>
+        </div>
+        <label class="set-row">
+          <span class="set-label">Check GitHub daily for a newer release
+            <span class="set-hint">Off by default. Read-only: it only reads the latest release tag and never downloads or installs anything. The only outbound call BAMF makes that you didn't ask for.</span>
+            <span class="set-hint" id="setUpdStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setUpd" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+      </div>
+      <div class="set-card" id="backupCard">
+        <div class="set-card-title">Back up the database</div>
+        <p class="modal-help">
+          Everything BAMF knows, as one file: every device and its history, the names, notes and tags,
+          the Map, the floor plans, alert rules, and the settings saved on this page. It's taken while
+          BAMF keeps running, so there's no need to stop anything first. The file includes your saved
+          webhook URL, so keep it somewhere private.
+        </p>
+        <div class="modal-actions" style="justify-content:flex-start">
+          <button class="export-btn" id="backupDownload">Download a backup</button>
+          <button class="toggle" id="backupRestore">Restore from a backup…</button>
+          <input type="file" id="backupFile" accept=".db,application/vnd.sqlite3,application/x-sqlite3" hidden>
+        </div>
+        <div class="modal-note" id="backupResult"></div>
+        <div class="modal-note">
+          Restoring replaces everything here with what's in the file. BAMF checks it's a sound BAMF
+          backup first, and keeps the database it replaces in <span class="mono">backups</span> beside
+          it, so a restore can be undone. The Windows and Linux updaters keep a copy from before each
+          update there too.
+        </div>
+      </div>
+      <div class="set-card">
+        <div class="set-card-title">Set in appsettings.json</div>
+        <p class="modal-help">
+          Read-only here on purpose. Which networks BAMF may touch is the boundary the
+          wildcard port-scan guard relies on, and the rest need a restart to apply.
+        </p>
+        <div class="set-ro" id="setReadOnly"></div>
+      </div>
+    </section>
+    <div class="set-none" id="setNoMatch" hidden>No setting matches that.</div>
   </div>
 </div>
 
@@ -5666,7 +5730,7 @@ function loadGreyNoise() {
 // One line about the daily GreyNoise check, for the hygiene card and Settings.
 function greyNoiseLine() {
   const g = greynoiseCache;
-  if (!g || !g.enabled) return { text: "The daily check is off: switch it on in Settings → Behaviour to have BAMF look once a day.", bad: false };
+  if (!g || !g.enabled) return { text: "The daily check is off: switch it on in Settings → Security to have BAMF look once a day.", bad: false };
   const r = g.result;
   if (!r) return { text: "Daily GreyNoise check: on, not run yet.", bad: false };
   if (r.error) return { text: `Daily GreyNoise check: ${r.error} (${fmtAgo(r.checkedAt)})`, bad: false };
@@ -5745,7 +5809,7 @@ function renderTrafficCards() {
   const also = counting.length ? `Counted by ${counting.map(s => s.name + (s.kind === "switch" ? " (switch)" : " (router)")).join(", ")}` : "";
   $("talkersSub").textContent = (counting.length && (!st.available || !st.enabled || !st.running)) ? also + "."
     : !st.available ? "Needs the Npcap driver, which isn't installed."
-    : !st.enabled ? "Off. Turn on the traffic monitor in Settings → Behaviour."
+    : !st.enabled ? "Off. Turn on the traffic monitor in Settings → Scanning."
     : !st.running ? "Not running" + (st.error ? ": " + st.error : ".")
     : `Since ${fmtAgo(st.since).replace(" ago", "")} ago on ${(st.interfaces || []).join(", ")} · ${Number(st.frames || 0).toLocaleString()} frames` + (also ? " \u00b7 " + also : "");
   const max = Math.max(1, ...top.map(x => x.rxTotal + x.txTotal));
@@ -5763,7 +5827,7 @@ function renderTrafficCards() {
   $("talkersNote").textContent = counting.length
     ? "Devices a switch or the router counts show everything they send and get. The rest are what this machine can see: on a switched network, its own traffic plus broadcast."
     : st.running
-    ? "What this machine can see. On a switched network: its own traffic, plus broadcast and multicast, so the DHCP and DNS watch covers this machine and broadcast offers. On a mirrored (SPAN) switch port: everything, every device included. A managed switch's Counters (Settings → Switches and routers) count every device without one."
+    ? "What this machine can see. On a switched network: its own traffic, plus broadcast and multicast, so the DHCP and DNS watch covers this machine and broadcast offers. On a mirrored (SPAN) switch port: everything, every device included. A managed switch's Counters (Settings → Your network) count every device without one."
     : "";
   const body = $("watchBody");
   const trust = (kind, ip, trusted) => `<button type="button" class="toggle" data-kind="${kind}" data-ip="${esc(ip)}" data-trusted="${trusted ? 0 : 1}" title="${trusted ? "Forget this server, so it alerts if seen again" : "Trust this server, so it never alerts"}">${trusted ? "Forget" : "Trust"}</button>`;
@@ -5831,7 +5895,7 @@ async function loadLatency(id) {
 // The last 24 hours of round-trip times as a small chart, with a red tick
 // where an echo went unanswered.
 function buildLatencyChart(samples) {
-  if (!samples.length) return latencyProbe ? "" : `<div class="lat-sum">Latency isn't measured: turn on <b>Measure latency</b> in Settings → Behaviour.</div>`;
+  if (!samples.length) return latencyProbe ? "" : `<div class="lat-sum">Latency isn't measured: turn on <b>Measure latency</b> in Settings → Scanning.</div>`;
   const W = 640, H = 56, pad = 4;
   const vals = samples.map(x => x.ms).filter(v => v != null);
   const max = Math.max(10, ...vals), min = vals.length ? Math.min(...vals) : 0;
@@ -7772,7 +7836,7 @@ function buildClusterCard(c) {
     b.onclick = fn;
     tools.appendChild(b);
   };
-  // A shortcut to the same dialog as Settings → Switches and routers, with
+  // A shortcut to the same dialog as Settings → Your network → Switches and routers, with
   // this network already picked.
   btn("+ Switch / router", c.whole ? "Add a switch, router or access point" : "Add a switch, router or access point on this network",
     () => openSwitchDialog(null, null, null, c.whole ? {} : { subnet: c.subnet }));
@@ -10092,18 +10156,24 @@ function buildThemeMenu() {
       menu.appendChild(item);
     }
   }
-  // Under the toggle button, kept inside the screen on a narrow one.
-  const r = $("themeToggle").getBoundingClientRect();
+  // Under the button that opened it, kept inside the screen on a narrow one.
+  const r = (themeAnchor || $("themeToggle")).getBoundingClientRect();
   menu.style.top = (r.bottom + 8) + "px";
   menu.style.right = Math.max(8, window.innerWidth - r.right) + "px";
 }
 
-function openThemeMenu() { loadDropInList(); buildThemeMenu(); $("themeMenu").classList.add("show"); themeMenuOpen = true; }
+let themeAnchor = null;
+function openThemeMenu(anchor) { themeAnchor = anchor || null; loadDropInList(); buildThemeMenu(); $("themeMenu").classList.add("show"); themeMenuOpen = true; }
 function closeThemeMenu() { const m = $("themeMenu"); if (m) m.classList.remove("show"); themeMenuOpen = false; }
 
 $("themeToggle").onclick = (e) => {
   e.stopPropagation();
   themeMenuOpen ? closeThemeMenu() : openThemeMenu();
+};
+// Settings → Appearance → Theme: the same list, under its own button.
+$("setThemeOpen").onclick = (e) => {
+  e.stopPropagation();
+  themeMenuOpen ? closeThemeMenu() : openThemeMenu($("setThemeOpen"));
 };
 document.addEventListener("click", (e) => {
   if (themeMenuOpen && !e.target.closest("#themeMenu") && e.target.id !== "themeToggle")
@@ -10115,6 +10185,7 @@ function applyTheme(theme, { holiday = false } = {}) {
   const t = THEMES.find(x => x.id === theme);
   $("themeIcon").textContent = "\u25d1"; // half-filled circle = "theme"
   $("themeToggle").title = "Theme: " + (t ? t.name : theme) + " — click to change";
+  $("setThemeStatus").textContent = "Now: " + (t ? t.name : theme) + (holiday ? ", for the holiday" : "");
   // localStorage is what actually persists: per browser, across tabs and
   // restarts. window.name only ever survived a reload of the same tab, which
   // is why the theme kept snapping back to dark. Keep writing it as a fallback
@@ -18504,7 +18575,7 @@ function renderWanCard() {
   if (!card) return;
   const d = wanCache, st = d && d.state;
   if (!st || !st.enabled) {
-    $("wanSub").textContent = "Off. Switch on \u201cWatch the internet connection\u201d under Settings \u2192 Behaviour and BAMF will keep an eye on the line out of the house.";
+    $("wanSub").textContent = "Off. Switch on \u201cWatch the internet connection\u201d under Settings \u2192 Internet and BAMF will keep an eye on the line out of the house.";
     $("wanBody").innerHTML = "";
     return;
   }
@@ -18738,7 +18809,7 @@ function renderSpeed() {
     bits.push(`<div class="spd-meta"><span class="bad">The last test didn't finish</span> (${esc(spdWhen(lastAny.at))}): ${esc(lastAny.error)}</div>`);
   if (!results.length && !d.running) {
     bits.push(`<div class="sub">No tests yet. <b>Run now</b> tests the line from the machine BAMF runs on, in about half a minute and 125 MB. ` +
-      (d.schedule === "off" ? "To test on a schedule, see “Test the internet speed” under Settings → Behaviour." : "") + `</div>`);
+      (d.schedule === "off" ? "To test on a schedule, see “Test the internet speed” under Settings → Internet." : "") + `</div>`);
   }
   // A month of tests: a bar for each download, a line through the uploads,
   // and a red tick for any that failed, placed by when they ran.
@@ -19500,7 +19571,7 @@ function renderAlertsOff() {
   $("alertsOff").hidden = alertsConfigured || alertsNudgeOff || role === "viewer";
 }
 $("alertsOffSetup").onclick = () => {
-  showView("settings");
+  showView("settings/alerts");
   setTimeout(() => {
     // Straight to the phone setup: for most people that's the whole answer.
     if ($("phonePanel").hidden) $("phoneSetup").click();
@@ -19752,7 +19823,7 @@ function feedbackHref() {
 }
 $("feedback").onclick = () => window.open(feedbackHref(), "_blank", "noopener");
 
-// Settings → Notifications → Test: the saved main webhook, without pasting it again.
+// Settings → Alerts → Test: the saved main webhook, without pasting it again.
 $("notifyTest").onclick = async () => {
   const btn = $("notifyTest");
   btn.disabled = true;
@@ -19849,9 +19920,11 @@ document.addEventListener("click", (e) => {
 let settingsData = null;
 
 function setMsg(text, kind) {
-  const el = $("setResult");
-  el.textContent = text;
-  el.className = "set-result" + (kind ? " " + kind : "");
+  for (const id of ["setResult", "setResultSys"]) {
+    const el = $(id);
+    el.textContent = text;
+    el.className = "set-result" + (kind ? " " + kind : "");
+  }
 }
 
 async function loadSettings() {
@@ -20052,6 +20125,9 @@ async function saveSettings() {
 }
 
 $("setSave").onclick = saveSettings;
+// History retention sits under System, but it's saved with the scanning
+// settings, so its Save is the same one.
+$("setSaveSys").onclick = saveSettings;
 $("setMdns").onclick = () => {
   const b = $("setMdns");
   const on = !b.classList.contains("on");
@@ -20071,16 +20147,71 @@ $("setReset").onclick = async () => {
   }
 };
 
+// ---- Settings sections ----
+// One section at a time, picked from the list down the side. Each has an
+// address of its own, /#settings/internet and so on, so a link or the alerts
+// banner can open the right one. Typing in "Find a setting" shows every
+// section at once, cut down to the settings that match.
+const SET_SECS = [...document.querySelectorAll("#setNav [data-sec]")].map(b => b.dataset.sec);
+let setSec = SET_SECS[0];
+function showSetSec(sec) {
+  if (!SET_SECS.includes(sec)) sec = SET_SECS[0];
+  setSec = sec;
+  if ($("setFind").value) { $("setFind").value = ""; findSetting(""); }
+  document.querySelectorAll(".set-sec").forEach(x => x.classList.toggle("show", x.dataset.sec === sec));
+  document.querySelectorAll("#setNav [data-sec]").forEach(b => b.classList.toggle("active", b.dataset.sec === sec));
+}
+function findSetting(text) {
+  const q = text.trim().toLowerCase();
+  $("settingsWrap").classList.toggle("searching", !!q);
+  let any = false;
+  document.querySelectorAll(".set-sec").forEach(sec => {
+    let hit = false;
+    sec.querySelectorAll(".set-card").forEach(card => {
+      if (!q) { card.classList.remove("set-miss"); card.querySelectorAll(".set-miss").forEach(r => r.classList.remove("set-miss")); return; }
+      const title = (card.querySelector(".set-card-title")?.textContent || "").toLowerCase().includes(q);
+      const rows = card.querySelectorAll(".set-row");
+      let found = title;
+      if (rows.length) rows.forEach(r => { const m = title || r.textContent.toLowerCase().includes(q); r.classList.toggle("set-miss", !m); found ||= m; });
+      else found = card.textContent.toLowerCase().includes(q);
+      card.classList.toggle("set-miss", !found);
+      hit ||= found;
+    });
+    // The Save and Reset under the networks go with the cards above them, so
+    // they show only while one of those does.
+    sec.querySelectorAll(":scope > .set-actions").forEach(x => {
+      let keep = false;
+      for (let el = x.previousElementSibling; el; el = el.previousElementSibling)
+        if (el.classList.contains("set-card") && !el.classList.contains("set-miss")) keep = true;
+      x.classList.toggle("set-miss", !!q && !keep);
+    });
+    sec.classList.toggle("show", q ? hit : sec.dataset.sec === setSec);
+    any ||= hit;
+  });
+  document.querySelectorAll("#setNav [data-sec]").forEach(b => b.classList.toggle("active", !q && b.dataset.sec === setSec));
+  // System's Save is for history retention, the row just above it.
+  $("setSaveSys").parentElement.classList.toggle("set-miss", !!q && $("setRetention").closest(".set-row").classList.contains("set-miss"));
+  $("setNoMatch").hidden = !q || any;
+}
+document.querySelectorAll("#setNav [data-sec]").forEach(b => b.onclick = () => showView("settings/" + b.dataset.sec));
+$("setFind").oninput = e => findSetting(e.target.value);
+$("setFind").onkeydown = e => { if (e.key === "Escape" && e.target.value) { e.stopPropagation(); e.target.value = ""; findSetting(""); } };
+showSetSec(setSec);
+
 // Views are addressable: /#settings opens the Settings tab, /#activity the
 // feed, and so on, so a tab can be bookmarked or pinned and Back/Forward
 // walk between them. The Devices view is the bare URL, no hash.
 const VIEWS = ["devices", "map", "floor", "home", "activity", "forgotten", "settings"];
 function showView(name, { fromHash = false } = {}) {
+  // Settings takes a section after a slash: settings/internet.
+  let sub = null;
+  if (name && name.includes("/")) [name, sub] = name.split("/", 2);
   if (!VIEWS.includes(name)) name = "devices";
+  if (name === "settings") showSetSec(sub || setSec);
   document.querySelectorAll("[data-view]").forEach(x => x.classList.toggle("active", x.dataset.view === name));
   view = name;
   if (!fromHash) {
-    const want = name === "devices" ? "" : "#" + name;
+    const want = name === "devices" ? "" : "#" + name + (name === "settings" ? "/" + setSec : "");
     if ((location.hash || "") !== want)
       history.pushState(null, "", want || location.pathname + location.search);
   }

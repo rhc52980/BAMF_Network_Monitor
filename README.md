@@ -127,7 +127,7 @@ order with where the cable goes (`6 · Living Room`), and an icon for each kind
 of device. **Whole network** puts every network in one diagram, drawn by the
 cabling, with each device tagged in its network's colour. Cabling isn't
 something ARP can see, so BAMF doesn't guess it. Record your switches under
-**Settings → Switches**, or just drag a device onto a switch on the map, and
+**Settings → Your network**, or just drag a device onto a switch on the map, and
 the map draws it as a cable, or as a lightning bolt for a device on a
 wireless SSID. Anything you haven't recorded, like the two devices in the box
 above, waits in an "On this network" box. Drag anything to arrange it

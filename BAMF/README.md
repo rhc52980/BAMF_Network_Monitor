@@ -148,14 +148,14 @@ git tag v1.9.0 && git push --tags
 | `Bamf:RouterImport` | Read device names from your router every hour: `Kind` (`openwrt`, `opnsense`, `pfsense` or `unifi`), `Url`, and the credentials that router needs. Off while `Kind` is empty. See [Names from your router](#names-from-your-router). |
 | `Bamf:Remotes` | Other BAMF servers to show here, read-only: `[{"Name": "Cabin", "Url": "http://10.0.0.5:8840", "Password": ""}]`. See [Other BAMF servers](#other-bamf-servers). |
 | `Bamf:Mqtt:*` | Presence per device over MQTT: `Server` (set it to turn this on), `Port` (1883), `Tls`, `Username`, `Password`, `ClientId` (bamf), `TopicPrefix` (bamf), `Discovery` (true), `DiscoveryPrefix` (homeassistant). Read at startup only. See [MQTT](#mqtt-and-home-assistant). |
-| `Bamf:TrafficMonitor` | With Npcap, watch the wire receive-only: bytes in and out per device, and every DHCP and DNS server in use, alerting on new ones (default true). Also in Settings → Behaviour. See [Traffic, DHCP and DNS](#traffic-dhcp-and-dns). |
-| `Bamf:LatencyProbe` | After each scan, ping every online device on the networks it covered and keep the round-trip time (default true). Also in Settings → Behaviour, which wins once changed there. See [Latency and uptime](#latency-and-uptime). |
-| `Bamf:WanWatch` | `true` watches the internet connection: a ping a minute to your router and to `Bamf:WanTarget` (default false). Also in Settings → Behaviour, which wins once changed there. See [Internet watch](#internet-watch). |
+| `Bamf:TrafficMonitor` | With Npcap, watch the wire receive-only: bytes in and out per device, and every DHCP and DNS server in use, alerting on new ones (default true). Also in Settings → Scanning. See [Traffic, DHCP and DNS](#traffic-dhcp-and-dns). |
+| `Bamf:LatencyProbe` | After each scan, ping every online device on the networks it covered and keep the round-trip time (default true). Also in Settings → Scanning, which wins once changed there. See [Latency and uptime](#latency-and-uptime). |
+| `Bamf:WanWatch` | `true` watches the internet connection: a ping a minute to your router and to `Bamf:WanTarget` (default false). Also in Settings → Internet, which wins once changed there. See [Internet watch](#internet-watch). |
 | `Bamf:WanTarget` | Which address the internet watch pings (default `8.8.8.8`). |
-| `Bamf:WanSlow` | What the internet watch calls slow: `auto` (default: four times the usual ping, at least 100 ms more), `off`, or a limit in ms. Also in Settings → Behaviour. |
-| `Bamf:WanIntervalSeconds` | How often it pings, 20 to 3600 (default 60). Also in Settings → Behaviour, which wins once changed there. |
-| `Bamf:HolidaySpirit` | `true` puts every dashboard in a season's theme by date: Halloween through October, Thanksgiving for the week of the holiday, Christmas from December 1st to 25th, and New Year to January 2nd (default false). Also in Settings → Behaviour, which wins once changed there. See [Holiday Spirit](#holiday-spirit). |
-| `Bamf:WebhookUrl` | Optional starting value for the notification webhook — the dashboard's **Settings → Notifications** saves over it. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use **Test** under Settings → Notifications to verify. |
+| `Bamf:WanSlow` | What the internet watch calls slow: `auto` (default: four times the usual ping, at least 100 ms more), `off`, or a limit in ms. Also in Settings → Internet. |
+| `Bamf:WanIntervalSeconds` | How often it pings, 20 to 3600 (default 60). Also in Settings → Internet, which wins once changed there. |
+| `Bamf:HolidaySpirit` | `true` puts every dashboard in a season's theme by date: Halloween through October, Thanksgiving for the week of the holiday, Christmas from December 1st to 25th, and New Year to January 2nd (default false). Also in Settings → Appearance, which wins once changed there. See [Holiday Spirit](#holiday-spirit). |
+| `Bamf:WebhookUrl` | Optional starting value for the notification webhook — the dashboard's **Settings → Alerts** saves over it. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use **Test** under Settings → Alerts to verify. |
 | `Bamf:Password` | Optional. If set, the UI/API require it via HTTP Basic auth (any username). Over plain HTTP the credential is only base64-encoded — see [What BAMF talks to](#what-bamf-talks-to). |
 | `Bamf:ViewerPassword` | Optional, with `Password` set: a second password that opens the same dashboard to look at but not change. See [A view-only password](#a-view-only-password). |
 | `Bamf:DatabasePath` | SQLite file, relative to the exe. |
@@ -172,7 +172,7 @@ firewalls drop ICMP. This needs a packet-capture driver:
   sure the service can open raw sockets; the shipped systemd unit grants
   `CAP_NET_RAW`/`CAP_NET_ADMIN`.
 
-There's also a toggle in the Settings tab (**Behaviour → Active ARP
+There's also a toggle in the Settings tab (**Scanning → Active ARP
 scanning**) - flip it anytime and the new mode applies from the next scan
 cycle. The dashboard toggle is stored in the database and overrides the
 `ActiveArpScan` value in appsettings.json.
@@ -194,7 +194,7 @@ BAMF can check GitHub once a day for a newer release and show an **update
 
 It is **off by default and opt-in**, because BAMF often runs on isolated
 networks and this is the only outbound call it would make that you didn't ask
-for. Turn it on in the Settings tab (**Behaviour → Check GitHub daily for a
+for. Turn it on in the Settings tab (**System → Check GitHub daily for a
 newer release**), or with `Bamf:UpdateCheck` in `appsettings.json` — the
 dashboard value is stored in the database and overrides the config value, same
 as the other settings in that tab.
@@ -839,7 +839,7 @@ glyphs instead of rain.
 
 ### Holiday Spirit
 
-Switch on **Holiday Spirit** under **Settings → Behaviour** (or set
+Switch on **Holiday Spirit** under **Settings → Appearance** (or set
 `HolidaySpirit` to `true` in `appsettings.json`) and every dashboard dresses up
 for the holidays:
 
@@ -865,7 +865,7 @@ reduced motion it all holds still, lit.
 
 ### Night mode
 
-Switch on **Night mode** under **Settings → Behaviour** and every dashboard
+Switch on **Night mode** under **Settings → Appearance** and every dashboard
 wears a night theme between two clock times, by each screen's own clock, then
 goes back to its own theme in the morning. The defaults are 9 pm to 6 am and
 **City Lights**; pick any hours and any theme, including a drop-in. City
@@ -934,7 +934,7 @@ with `Bamf:ThemesPath`.
 
 ## Compact rows
 
-**Settings → Display → Compact rows** halves the height of each device row so
+**Settings → Appearance → Compact rows** halves the height of each device row so
 a busy network fits on one screen. Nothing is hidden; the secondary lines just
 get tighter. Like the theme, it's kept in the browser rather than on the
 server, so each device you open BAMF on can choose for itself.
@@ -986,6 +986,26 @@ Each dashboard tab has its own address: `/#settings`, `/#activity`,
 one and it opens straight to that tab; Back and Forward move between tabs
 you've visited. Handy for a phone home-screen shortcut that goes straight to
 **Who's home**, or a pinned Settings page.
+
+### Settings sections
+
+Settings is in seven sections, picked from the list down the side (a row of
+buttons across the top on a phone):
+
+| Section | What's in it |
+|---|---|
+| **Scanning** | The default interval, offline after missed scans, probe concurrency and mDNS, each network's own interval and on/off, with **Save** and **Reset to file defaults**; then how BAMF looks, which applies at once: active ARP, randomised MACs, latency, IPv6 neighbours, the traffic monitor and the daily port watch |
+| **Internet** | The internet watch: on or off, how often, the address it pings and what counts as slow; and the speed test's schedule |
+| **Security** | The ARP watch, the certificate watch and the GreyNoise check |
+| **Alerts** | Where alerts go: the main webhook with **Sends** and **Test**, more destinations and the scheduled report; then alert rules and quiet hours |
+| **Your network** | Switches and routers, map icons and names from your router |
+| **Appearance** | The theme, Holiday Spirit, Night mode, compact rows and the keyboard shortcuts |
+| **System** | History retention, with its own **Save**, the update check, backups, and what's set in `appsettings.json` |
+
+Each section has its own address, such as `/#settings/internet`, so a link or a
+bookmark opens that one; plain `/#settings` opens the last one you looked at.
+**Find a setting**, above the list, shows every setting that matches what you
+type, whichever section it's in.
 
 ## Wall display
 
@@ -1339,7 +1359,7 @@ scan, or delete a thing.
 | GET | `/api/hosts.txt` | The same devices as a plain-text fixed-width table — no JSON, no markup. For `curl`, a terminal, or pointing a read-only agent at |
 | POST | `/api/hosts/{id}/identify` | On-demand device fingerprint: one ICMP echo for the TTL plus a short fingerprint-port probe. Returns the guess, TTL, and open ports, and saves the guess |
 | POST | `/api/hosts/{id}/known` | Body `{"known": true}` — approve/unapprove a host |
-| POST | `/api/webhook/test` | Send a test notification to `Bamf:WebhookUrl` (**Test** under Settings → Notifications). Returns `{ok:true}` or `{ok:false,error:"…"}` |
+| POST | `/api/webhook/test` | Send a test notification to `Bamf:WebhookUrl` (**Test** under Settings → Alerts). Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/destinations/{id}/test` | Send a test to one destination: `main` for the main webhook, or another's `id`. Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/settings/webhookkinds` | Body `{"kinds": ["devices", "status"]}` — which kinds of alert the main webhook gets: `devices`, `status`, `security`, `internet`, `reports`. `GET /api/settings` returns it as `webhookKinds` |
 | POST | `/api/settings/destinations` | Body `{"destinations": [{"id": "…", "name": "Phone", "url": "https://…", "format": "ntfy", "kinds": ["security", "internet"]}]}` — replace the destinations besides the main webhook, up to 8. `id` blank adds one; a saved one sent with `url` empty keeps its URL. `GET /api/settings` returns them as `destinations`, URLs masked |
@@ -1727,7 +1747,7 @@ in `gateways`.
 ### Switches and cabling, as you record them
 
 What BAMF can't discover, you can tell it. Add your switches, and your router
-and access points, under **Settings → Switches and routers**, or with
+and access points, under **Settings → Your network → Switches and routers**, or with
 **+ Switch / router** on a network's card on the map, which picks that network
 for you. Each one has:
 
@@ -1956,7 +1976,7 @@ editor each pin is green, amber or grey for online, unknown and offline.
 device in Devices.
 
 Images and drawings are both stored in BAMF's database. Backups include them,
-but the layout export (Settings → Switches and routers) doesn't. SVG isn't
+but the layout export (Settings → Your network → Switches and routers) doesn't. SVG isn't
 accepted for an upload, since an SVG can carry script, and images are capped at
 12 MB. A drawing is kept as its walls and labels rather than a picture, so it
 stays editable, and BAMF writes back only the pieces it recognises. With the
@@ -1994,7 +2014,7 @@ becomes the device's type ("NAS"), so the device list looks just as it did.
 
 **One icon for a whole guessed type.** Tick "use this icon for every *Linux*
 device" in the Map icon picker, and every device BAMF guesses as Linux gets
-that icon. **Settings → Map icons** lists these choices, with **Change** and
+that icon. **Settings → Your network → Map icons** lists these choices, with **Change** and
 **Reset**. An icon picked for one device, or one its device type names, wins
 over them.
 
@@ -2028,7 +2048,7 @@ of the network. It respects `Bamf:Password` like every other route.
 
 ## Notifications
 
-**Settings tab → Notifications** — paste a webhook URL, pick a format, hit
+**Settings → Alerts → Notifications** — paste a webhook URL, pick a format, hit
 **Save & test**. No config edit, no service restart. **Test** sends another test
 to the saved webhook, without pasting it again.
 
@@ -2215,7 +2235,7 @@ this server's networks only.
 
 ### Scheduled reports
 
-Under **Settings → Notifications → Scheduled report**, pick **daily**,
+Under **Settings → Alerts → Scheduled report**, pick **daily**,
 **weekly** or **monthly**, a day for weekly, and an hour (the server's local
 time). Weekly goes out on the day you pick, monthly on the 1st. At that time
 BAMF sends a summary to the same webhook the alerts use:
@@ -2288,7 +2308,7 @@ and to the webhook, like every other alert, and wait out quiet hours.
 
 ### ARP watch
 
-On by default, under **Settings → Behaviour**. It sends nothing: it reads
+On by default, under **Settings → Security**. It sends nothing: it reads
 what the scans and the traffic monitor already see.
 
 - **IP conflicts.** Two devices answering for one address in the same scan
@@ -2348,7 +2368,7 @@ address as a whole.
   network your browser is on, so it's only right from home. BAMF sends nothing
   for it. Under it is what BAMF's own daily check last found.
 - **Check your public address with GreyNoise**, under **Settings →
-  Behaviour**, has BAMF check once a day by itself. It's **off by default**,
+  Security**, has BAMF check once a day by itself. It's **off by default**,
   because it's a call out to the internet: BAMF asks `api.ipify.org` for your
   public address, then asks GreyNoise's free lookup, which needs no account.
   What they learn is your public address. Switching it on checks straight
@@ -2363,7 +2383,7 @@ data somewhere else.
 ### Internet watch
 
 Off by default. Switch on **Watch the internet connection** under
-**Settings → Behaviour** and once a minute BAMF pings two things: your router,
+**Settings → Internet** and once a minute BAMF pings two things: your router,
 and one address out on the internet — `8.8.8.8` unless you change it, which is
 one of Google's public DNS servers.
 
@@ -2395,13 +2415,13 @@ What you get for it:
   with your router too, shorter amber is slow and grey is BAMF not watching.
   Anything still going is listed first, as "still down" or "still slow".
 
-**How often** it checks is **Settings → Behaviour → Check the internet every**,
+**How often** it checks is **Settings → Internet → Check the internet every**,
 from 20 seconds to an hour, a minute by default (`Bamf:WanIntervalSeconds`
 sets the same thing). An outage is called after three misses in a row, so the
 setting decides how quickly you hear: about three minutes at a minute apart,
 about one at twenty seconds.
 
-**What counts as slow** is **Settings → Behaviour → Call the internet slow**.
+**What counts as slow** is **Settings → Internet → Call the internet slow**.
 **Automatic**, the default, is four times your usual ping and at least 100 ms
 more than it, where the usual is the middle of the last day's readings; it
 starts once there are half an hour or so of them. You can set your own limit in
@@ -2433,7 +2453,7 @@ the Wi-Fi of whatever you're holding.
   direction. A fast line finishes early instead of pouring gigabytes through;
   a slow one stops at the time limit and uses less.
 
-To test on a schedule, set **Settings → Behaviour → Test the internet speed**
+To test on a schedule, set **Settings → Internet → Test the internet speed**
 to **every day at 4:10 am** or **every 6 hours** (12:10 and 6:10, am and pm).
 `Bamf:SpeedTest` in `appsettings.json` sets the same thing (`off`, `daily` or
 `6h`). A slot missed by more than an hour, with BAMF switched off, is skipped
@@ -2464,7 +2484,7 @@ Results are kept for a year.
 
 ### Certificate watch
 
-On by default, under **Settings → Behaviour**. Every morning at 4:30 BAMF
+On by default, under **Settings → Security**. Every morning at 4:30 BAMF
 opens each HTTPS port it has found open on a device and reads the
 certificate: who it's for, who issued it, and when it expires. It warns 14
 days and 3 days before a certificate runs out, and again once it has. It
@@ -2568,7 +2588,7 @@ subnet (magic packets are layer-2 broadcasts and don't route). Give a woken
 device a minute to boot; it'll flip to online on the next scan.
 
 To wake something on a schedule, add a **Wake at** rule under **Settings →
-Alert rules and quiet hours**: see [Alert rules and quiet hours](#alert-rules-and-quiet-hours).
+Alerts → Alert rules and quiet hours**: see [Alert rules and quiet hours](#alert-rules-and-quiet-hours).
 
 ## Find a free address
 
@@ -2587,7 +2607,7 @@ Your router hands out the addresses, and it usually knows each device by the
 name it asked for, or one you gave it in the router's own pages. BAMF can read
 that list every hour. A router's name for a device is shown when BAMF has no
 other name for it: after your own name and the resolved hostname, and before
-an mDNS name. **Settings → Names from your router → Use as names for unnamed
+an mDNS name. **Settings → Your network → Names from your router → Use as names for unnamed
 devices** copies them into BAMF's own names, for devices that don't have one.
 
 It's off until you set it up in `appsettings.json`, since it needs the
@@ -2641,7 +2661,7 @@ scheduled report's top talkers are counted over the report's own period.
 
 After each scan, BAMF pings every online device on the networks the scan
 covered, once, and keeps the round-trip time. It's one small packet per device
-per scan; switch it off under **Settings → Behaviour** (or `Bamf:LatencyProbe`)
+per scan; switch it off under **Settings → Scanning** (or `Bamf:LatencyProbe`)
 if you'd rather it didn't.
 
 - The **Latency** column shows each device's last round-trip time, green under
@@ -2690,7 +2710,7 @@ new open ports and security and certificate alerts too.
 
 BAMF finds devices with ARP, which is IPv4's. Devices have IPv6 addresses
 too, and a few talk mostly or only IPv6. With **Watch IPv6 neighbours** on
-(the default, under **Settings → Behaviour**), every five minutes BAMF sends
+(the default, under **Settings → Scanning**), every five minutes BAMF sends
 one ping to the all-nodes address on each network it scans, which every IPv6
 device answers, and reads this machine's neighbour table: IPv6's version of
 the ARP table. With the traffic monitor running, it also picks up neighbour
@@ -2712,7 +2732,7 @@ On Windows it reads `netsh interface ipv6 show neighbors`; on Linux,
 
 With the Npcap driver installed (the same one active ARP uses), BAMF can watch
 the wire, receive-only, and never sends a packet for it. Switch it under
-**Settings → Behaviour** or with `Bamf:TrafficMonitor`; it's on by default and
+**Settings → Scanning** or with `Bamf:TrafficMonitor`; it's on by default and
 does nothing without Npcap.
 
 **Bytes per device.** Every frame's source and destination are counted, so
@@ -2769,7 +2789,7 @@ into gets the same result through the traffic monitor instead (see above).
 
 1. In the switch's own settings, switch on **SNMP v2c**, read-only. Its
    community is its password: `public` unless you change it, which you should.
-2. In BAMF, **Settings → Switches and routers → Counters** beside the switch
+2. In BAMF, **Settings → Your network → Switches and routers → Counters** beside the switch
    (or **Traffic counters…** in the switch's own ⋯ menu). Tick **Read
    counters**, give the community, and the address if the switch isn't linked
    to its device (add `:port` for an agent that isn't on 161).
@@ -2837,7 +2857,7 @@ to add or remove it. Tags show as small chips under the device's name.
 
 ### Back up the database
 
-**Settings → Back up the database → Download a backup** saves everything BAMF
+**Settings → System → Back up the database → Download a backup** saves everything BAMF
 knows as one file, `bamf-YYYYMMDD-HHMM.db`: every device and its history, the
 names, notes and tags, the Map, the floor plans, alert rules, and the settings
 saved in the dashboard.
@@ -2870,7 +2890,7 @@ body) do the same from a script.
 
 ### Export and import the layout
 
-**Settings → Switches and routers** has **Export layout** and **Import
+**Settings → Your network → Switches and routers** has **Export layout** and **Import
 layout…**. Export downloads one JSON file with everything you recorded:
 
 - switches, routers, access points, SSIDs, VPNs and virtual switches, what
@@ -3002,7 +3022,7 @@ cards…** in a device's ⋯ menu combines them into one device:
   else carries on.
 - Phones with MAC randomization appear as new "(randomized MAC)" hosts each
   time they rejoin. With auto-ignore enabled (default; toggle under
-  **Settings → Behaviour** or via `AutoIgnoreRandomizedMacs`), these are auto-filed
+  **Settings → Scanning** or via `AutoIgnoreRandomizedMacs`), these are auto-filed
   under the Ignored tab and never alert. You can also manually
   Ignore/Unignore any host from the dashboard.
 - In ping-sweep mode, hosts that neither answer ping nor talk on the network
