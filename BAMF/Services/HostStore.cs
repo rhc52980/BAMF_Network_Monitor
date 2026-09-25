@@ -168,6 +168,7 @@ public partial class HostStore
         InitIpv6(conn);
         InitFloors(conn);
         InitWan(conn);
+        InitSpeed(conn);
         InitSnmp(conn);
     }
 

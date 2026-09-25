@@ -160,6 +160,12 @@ longer than usual for five readings running, and again when it's back to
 normal. It's off until you ask for it, because that outside ping is the one
 thing BAMF sends on a timer.
 
+The same card has a **speed test**: download, upload and ping, timed from the
+machine BAMF runs on against Cloudflare's speed test, so it measures the line
+rather than your Wi-Fi. Press **Run now**, or have it test every morning or
+every six hours and chart the last month; a test well under your usual is an
+alert. Each test is capped at about 125 MB, and it's off until you ask for it.
+
 ### Tune it without touching the server
 
 ![The Settings tab: scan interval, probe concurrency, history retention, an on/off switch and scan interval per network, the recorded switches, access point and SSIDs with layout export and import and a Counters button for reading a managed switch's traffic, the Map icons chosen for whole device types, the instant toggles for active ARP, randomised MACs, the traffic monitor, latency measuring, the ARP watch, IPv6 neighbours, the certificate watch, the GreyNoise check of your public address, the internet watch with the address it pings, how often, and what counts as slow, Holiday Spirit, Night mode with its hours and theme, and update checks, then alert rules including a scheduled wake, quiet hours and the daily port watch, then the notification settings: the webhook with a button for setting alerts up on your phone without Discord, and the scheduled report, which can be never, daily, weekly or monthly. Near the end, a card with buttons to download a backup of the whole database and to restore one](docs/settings.png)

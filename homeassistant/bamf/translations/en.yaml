@@ -17,6 +17,9 @@ configuration:
   wan_target:
     name: Address to ping
     description: Which address the internet watch pings. 8.8.8.8 by default; your provider's DNS or 1.1.1.1 work too.
+  speed_test:
+    name: Speed test
+    description: Test download and upload speed against Cloudflare every day at 4:10 am (daily) or every six hours (6h). About 125 MB a test. Off by default; Run now on the Internet card works either way.
   webhook_url:
     name: Webhook
     description: Discord, ntfy, Gotify or any URL that takes a JSON POST, for alerts.

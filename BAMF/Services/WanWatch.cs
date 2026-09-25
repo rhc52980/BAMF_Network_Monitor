@@ -23,6 +23,7 @@ public sealed class WanWatch : BackgroundService
     private readonly ScannerService _scanner;
     private readonly IConfiguration _cfg;
     private readonly ILogger<WanWatch> _log;
+    private readonly SpeedTest _speed;
     private bool _wasDown;
     private bool _downLocal;
     private DateTime _downSince;
@@ -41,9 +42,9 @@ public sealed class WanWatch : BackgroundService
     /// <summary>Readings in a row that must all be slow before it's called, and fast ones before it's over.</summary>
     public const int SlowReadings = 5, FastReadings = 3;
 
-    public WanWatch(HostStore store, ScannerService scanner, IConfiguration cfg, ILogger<WanWatch> log)
+    public WanWatch(HostStore store, ScannerService scanner, SpeedTest speed, IConfiguration cfg, ILogger<WanWatch> log)
     {
-        _store = store; _scanner = scanner; _cfg = cfg; _log = log;
+        _store = store; _scanner = scanner; _speed = speed; _cfg = cfg; _log = log;
     }
 
     /// <summary>Saved in Settings wins; otherwise appsettings.json, which is off by default.</summary>
@@ -146,6 +147,9 @@ public sealed class WanWatch : BackgroundService
 
     private async Task Tick(CancellationToken ct)
     {
+        // A speed test fills the line on purpose. A ping taken then would
+        // count as slow, or as lost, so that minute goes unwatched instead.
+        if (_speed.LineBusy) return;
         var gateway = PortChecker.DefaultGateways().FirstOrDefault();
         var gwMs = gateway is null ? -1 : await PingMs(gateway, ct);
         var netMs = await PingMs(Target, ct);

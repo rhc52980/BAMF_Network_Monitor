@@ -29,6 +29,7 @@ options:
   viewer_password: ""
   wan_watch: false
   wan_target: "8.8.8.8"
+  speed_test: "off"
   webhook_url: ""
   active_arp: true
   traffic_monitor: true
@@ -43,6 +44,7 @@ schema:
   viewer_password: password?
   wan_watch: bool
   wan_target: str?
+  speed_test: list(off|daily|6h)
   webhook_url: url?
   active_arp: bool
   traffic_monitor: bool

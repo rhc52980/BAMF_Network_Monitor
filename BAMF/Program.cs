@@ -68,6 +68,8 @@ builder.Services.AddSingleton<SecurityCheck>();
 builder.Services.AddSingleton<GreyNoiseCheck>();
 builder.Services.AddSingleton<WanWatch>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<WanWatch>());
+builder.Services.AddSingleton<SpeedTest>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SpeedTest>());
 builder.Services.AddSingleton<RouterImport>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RouterImport>());
 builder.Services.AddSingleton<RuleService>();
@@ -1096,6 +1098,33 @@ app.MapPost("/api/settings/wantarget", (WanTargetRequest body, HostStore store, 
     return Results.Json(new { state = wan.Now() });
 });
 
+// The speed test: the results, and the one running now if there is one.
+app.MapGet("/api/speedtest", (SpeedTest speed, HostStore store) =>
+{
+    var usual = speed.Usual();
+    return Results.Json(new
+    {
+        schedule = speed.Schedule,
+        running = speed.Running,
+        progress = speed.Now is { } p ? new { phase = p.Phase, mbps = p.Mbps } : null,
+        usual = usual is { } u ? new { down = u.Down, up = u.Up } : null,
+        results = store.GetSpeedResults(90).Select(r => new
+        {
+            at = r.At, down = r.DownMbps, up = r.UpMbps, ping = r.PingMs, jitter = r.JitterMs,
+            server = r.Server, mb = r.MegabytesUsed, manual = r.Manual, error = r.Error,
+        }),
+    });
+});
+app.MapPost("/api/speedtest/run", (SpeedTest speed) =>
+    speed.RunNow() ? Results.Json(new { started = true }) : Results.Conflict(new { error = "A speed test is already running." }));
+app.MapPost("/api/settings/speedtest", (SpeedTestRequest body, HostStore store, SpeedTest speed) =>
+{
+    var v = (body.Schedule ?? "").Trim().ToLowerInvariant();
+    if (v is not ("off" or "daily" or "6h")) return Results.BadRequest(new { error = "Never, daily or every six hours." });
+    store.SetSetting("speedTest", v);
+    return Results.Json(new { schedule = speed.Schedule });
+});
+
 // GreyNoise: has this network's public address been seen scanning the internet?
 // Off unless switched on; turning it on checks straight away.
 app.MapGet("/api/greynoise", (GreyNoiseCheck greynoise) => Results.Json(new { enabled = greynoise.Enabled, result = greynoise.Last }));
@@ -1945,6 +1974,7 @@ record FloorPlaceRequest(long HostId, double X, double Y);
 record WanTargetRequest(string? Target);
 record WanIntervalRequest(int Seconds);
 record WanSlowRequest(string? Mode, int? Ms);
+record SpeedTestRequest(string? Schedule);
 // A plan as it travels: walls, doors and windows as two points each, labels as
 // a point and a word, plus the grid that gives them their real-world size.
 record PlanItem(string? K, double[]? A, double[]? B, double[]? P, string? T);

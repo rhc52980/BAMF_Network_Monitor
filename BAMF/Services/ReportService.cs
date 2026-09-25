@@ -172,6 +172,23 @@ public sealed class ReportService : BackgroundService
             }
         }
 
+        // The speed tests over the period, if any ran: the one for a day, the
+        // average and the slowest for longer.
+        var speeds = _store.GetSpeedResults((int)Math.Ceiling(period.TotalDays))
+            .Where(r => r.Error is null && When(r.At) >= since).ToList();
+        if (speeds.Count > 0)
+        {
+            string Local(string iso) => When(iso).ToLocalTime().ToString("ddd HH:mm");
+            var latest = speeds[^1];
+            var slowest = speeds.MinBy(r => r.DownMbps)!;
+            var t = speeds.Count == 1
+                ? $"{SpeedTest.Mbps(latest.DownMbps)} down, {SpeedTest.Mbps(latest.UpMbps)} up, {latest.PingMs} ms ({Local(latest.At)})"
+                : $"{speeds.Count} tests averaging {SpeedTest.Mbps(speeds.Average(r => r.DownMbps))} down and {SpeedTest.Mbps(speeds.Average(r => r.UpMbps))} up; " +
+                  $"the slowest {SpeedTest.Mbps(slowest.DownMbps)} down ({Local(slowest.At)})";
+            sb.AppendLine($"Speed: {t}");
+            fields.Add(("Speed", t));
+        }
+
         var flaps = _store.OfflineCounts(since);
         var flaky = all.Where(h => flaps.TryGetValue(h.Id, out var n) && n >= 2).OrderByDescending(h => flaps[h.Id]).FirstOrDefault();
         var flakyText = flaky is null ? "Nothing dropped more than once." : $"{Name(flaky)}: offline {flaps[flaky.Id]} times";
