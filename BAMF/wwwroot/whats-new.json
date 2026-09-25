@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "1.50.10",
+      "date": "2026-09-25",
+      "items": [
+        "Two new themes: Harbour, where every device is a container on the quay, and Ant Farm, where every device has a chamber in the nest.",
+        "This note: after an update, BAMF says what changed. The version in the header shows it any time.",
+        "On a phone, the Activity tab no longer slides sideways."
+      ]
+    },
+    {
       "version": "1.50.9",
       "date": "2026-09-25",
       "items": [
