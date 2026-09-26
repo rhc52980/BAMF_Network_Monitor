@@ -1333,6 +1333,26 @@
   .alerts-off .ao-text b { color: var(--led-warn); margin-right: 4px; }
   .alerts-off .ao-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   @media (max-width: 640px) { .alerts-off { margin: 0 12px 12px; } }
+  /* The screen saver: everything but the scenery fades away, and a card drifts. */
+  body.saver-anim > :not(#themeBg):not(#festive):not(#saver):not(script) { transition: opacity .8s; }
+  body.saving { overflow: hidden; }
+  body.saving > :not(#themeBg):not(#festive):not(#saver):not(script) { opacity: 0; pointer-events: none; }
+  .saver { position: fixed; inset: 0; z-index: 44; cursor: none; }
+  .saver[hidden] { display: none; }
+  .saver-dots { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .saver-card { position: absolute; left: 0; top: 0; min-width: 240px; padding: 16px 20px 18px; box-sizing: border-box;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; color: var(--text);
+    box-shadow: 0 12px 44px rgba(0,0,0,.35); transition: transform 1.2s linear, opacity .8s; }
+  .saver.waking .saver-card { opacity: 0; }
+  .sv-top { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+  .sv-brand { font: 600 12px "IBM Plex Mono", monospace; letter-spacing: .14em; color: var(--focus); }
+  .sv-time { font: 600 16px "IBM Plex Mono", monospace; color: var(--text-dim); }
+  .sv-count { margin-top: 8px; font-size: 15px; color: var(--text-dim); }
+  .sv-count b { font: 600 38px/1 "IBM Plex Mono", monospace; color: var(--led-on); margin-right: 6px; }
+  .sv-sub { margin-top: 6px; font-size: 13px; color: var(--text-dim); }
+  .sv-alert { margin-top: 8px; font-size: 13.5px; color: var(--danger); }
+  .sv-alert:empty { display: none; }
+
   /* After an update: the same strip, in the accent colour rather than a warning. */
   .alerts-off.whats-new { border-left-color: var(--focus); }
   .alerts-off.whats-new .ao-text b { color: var(--focus); }
@@ -3670,6 +3690,16 @@
   <div class="stat"><div class="num mono" id="statLast">—</div><div class="lbl" id="statLastLbl">Last scan</div></div>
 </div>
 
+<div class="saver" id="saver" hidden aria-hidden="true">
+  <canvas class="saver-dots" id="saverDots"></canvas>
+  <div class="saver-card" id="saverCard">
+    <div class="sv-top"><span class="sv-brand">BAMF</span><span class="sv-time" id="svTime"></span></div>
+    <div class="sv-count"><b id="svOn">0</b> of <span id="svAll">0</span> online</div>
+    <div class="sv-sub" id="svSub"></div>
+    <div class="sv-alert" id="svAlert"></div>
+  </div>
+</div>
+
 <div class="alerts-off" id="alertsOff" role="status" hidden>
   <div class="ao-text">
     <b>Alerts are off.</b>
@@ -4198,12 +4228,21 @@
           <button type="button" class="export-btn" id="routerApply" title="Copies router names into BAMF's own names, for devices that don't have one">Use as names for unnamed devices</button>
         </div>
       </div>
+      <div class="set-card">
+        <div class="set-card-title">The New tab</div>
+        <label class="set-row">
+          <span class="set-label">Count a device as new for
+            <span class="set-hint">A device shows under <b>New</b> from when BAMF first sees it until this many days have passed, or until you mark it known, whichever comes first. So New is the list of devices you haven't dealt with yet.</span>
+          </span>
+          <span class="set-field"><input id="setNewDays" class="modal-input" type="number" min="1" max="90" step="1" value="7"> <span class="set-unit">days</span><button type="button" class="export-btn" id="setNewDaysSave">Save</button></span>
+        </label>
+      </div>
     </section>
     <section class="set-sec" data-sec="appearance" aria-label="Appearance">
       <h2 class="set-sec-title">Appearance</h2>
       <div class="set-card">
         <div class="set-card-title">Appearance</div>
-        <p class="modal-help">The theme and compact rows are kept in this browser, so each device you open BAMF on can differ. Holiday Spirit and Night mode apply to every dashboard.</p>
+        <p class="modal-help">The theme, compact rows and the screen saver are kept in this browser, so each device you open BAMF on can differ. Holiday Spirit and Night mode apply to every dashboard.</p>
         <div class="set-row">
           <span class="set-label">Theme
             <span class="set-hint">Every theme, with its colours. The &#9681; button in the header opens the same list.</span>
@@ -4242,6 +4281,13 @@
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="setCompact" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
+        <div class="set-row">
+          <span class="set-label">Screen saver
+            <span class="set-hint">After this long with no mouse or keyboard, this screen fades the dashboard away and leaves the theme's scenery, still answering scans and devices, with a card that drifts slowly and says how many devices are online, and which watched ones are down. A theme without scenery gets your devices as slowly drifting points of light instead. Move the mouse or press a key to come back; the click that wakes it doesn't press anything. It waits while a dialog is open or you're typing, and stops in a background tab.</span>
+            <span class="set-hint" id="setSaverStatus"></span>
+          </span>
+          <span class="set-field speed-fields"><select class="modal-input" id="setSaver" aria-label="Screen saver"><option value="0">Off</option><option value="5">After 5 minutes</option><option value="10">After 10 minutes</option><option value="30">After 30 minutes</option><option value="60">After an hour</option></select><button type="button" class="export-btn" id="setSaverTry">Try it now</button></span>
+        </div>
         <label class="set-row">
           <span class="set-label">Keyboard
             <span class="set-hint"><span class="mono">/</span> jumps to the search box. <span class="mono">Esc</span> clears it, or closes whatever is open.</span>
@@ -4816,8 +4862,9 @@ let rulesData = null;       // { rules, quiet, portWatch } from /api/settings
 let remoteStatus = [];      // other BAMF servers: [{ name, url, ok, error, hosts, ... }]
 const fmtBytes = n => n == null ? "—" : n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + " kB" : n < 1073741824 ? (n / 1048576).toFixed(1) + " MB" : (n / 1073741824).toFixed(2) + " GB";
 const fmtRate = n => n == null ? "—" : n < 1024 ? Math.round(n) + " B/s" : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + " kB/s" : (n / 1048576).toFixed(1) + " MB/s";
-const NEW_DAYS = 7;       // the New tab: devices first seen this recently
-const isNew = h => h.firstSeen && (Date.now() - new Date(h.firstSeen).getTime()) < NEW_DAYS * 864e5;
+let newDays = 7;          // the New tab: devices first seen this recently (Settings → Your network)
+// New means not dealt with yet: first seen lately, and not marked known.
+const isNew = h => !h.known && h.firstSeen && (Date.now() - new Date(h.firstSeen).getTime()) < newDays * 864e5;
 const hasTag = (h, t) => (h.tags || []).some(x => x.toLowerCase() === t.toLowerCase());
 const tagOk = h => tagFilter === null || hasTag(h, tagFilter);
 let view = "devices";     // devices | home | activity | forgotten
@@ -8191,7 +8238,7 @@ function render() {
     else if (view === "forgotten") emptyEl.textContent = "Nothing forgotten. Devices you Forget land here, ready to restore.";
     else if (query) emptyEl.textContent = `No devices match “${query}”.`;
     else if (filter === "unknown") emptyEl.textContent = "No unknown devices — you're all clear. ✓";
-    else if (filter === "new") emptyEl.textContent = `Nothing new: no device was first seen in the last ${NEW_DAYS} days.`;
+    else if (filter === "new") emptyEl.textContent = `Nothing new. A device shows here for ${newDays} day${newDays === 1 ? "" : "s"} after BAMF first sees it, until you mark it known.`;
     else if (filter === "ignored") emptyEl.textContent = "Nothing ignored. Randomized phone MACs and devices you hide show up here.";
     else if (filter === "offline") emptyEl.textContent = "Every known device is online right now.";
     else if (filter === "online") emptyEl.textContent = "No devices online at the moment.";
@@ -9949,6 +9996,7 @@ async function refresh() {
     webhookConfigured = !!data.webhookConfigured;
     alertsConfigured = data.alertsConfigured ?? webhookConfigured;
     alertsNudgeOff = !!data.alertsNudgeOff;
+    if (data.newDays) newDays = data.newDays;
     renderAlertsOff();
     webhookMasked = data.webhookMasked || null;
     webhookFormat = data.webhookFormat || "auto";
@@ -19518,6 +19566,136 @@ function renderDensityToggle() {
   const t = $("setCompact");
   if (t) setToggleState(t, on);
 }
+// ---- The New tab's length ----
+$("setNewDaysSave").onclick = async () => {
+  const days = Math.round(Number($("setNewDays").value));
+  try {
+    const r = await fetch("/api/settings/newdays", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ days }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't save that"); return; }
+    newDays = d.days;
+    render();
+    toast(`A device counts as new for ${d.days} day${d.days === 1 ? "" : "s"}, or until it's marked known`);
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
+};
+
+// ---- The screen saver ----
+// After a while with no mouse or keys, the dashboard fades away and leaves the
+// theme's scenery, which keeps answering the network, with a small card that
+// drifts so nothing burns in. A theme with no scenery gets the devices as
+// points of light. Any input brings the page back, and the click or key that
+// does it goes no further. Kept per browser: a wall screen wants it, a desk
+// doesn't.
+let saverMins = 0, saverOn = false, saverSince = 0, lastInput = Date.now(), saverTimer = null, saverRaf = 0;
+try { saverMins = Number(localStorage.getItem("bamf-saver")) || 0; } catch {}
+function saverStatus() {
+  $("setSaver").value = String(saverMins);
+  $("setSaverStatus").textContent = saverMins ? `On in this browser, after ${saverMins === 60 ? "an hour" : saverMins + " minutes"}.` : "";
+}
+function saverCard() {
+  const shown = hosts.filter(h => !h.ignored && !h.forgotten && !h.remote);
+  const on = shown.filter(h => h.online).length, unknown = shown.filter(h => h.online && !h.known).length;
+  $("svOn").textContent = on; $("svAll").textContent = shown.length;
+  $("svTime").textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  $("svSub").textContent = [unknown ? `${unknown} unknown` : "", lastScan ? `last scan ${fmtAgo(lastScan)}` : ""].filter(Boolean).join(" \u00b7 ");
+  const down = shown.filter(h => h.watched && !h.online).map(h => nameOrIp(h));
+  $("svAlert").textContent = down.length ? (down.length > 2 ? `${down.slice(0, 2).join(", ")} and ${down.length - 2} more watched are offline` : `${down.join(" and ")} ${down.length === 1 ? "is" : "are"} offline`) : "";
+  // Round the screen, slowly, so the card never sits in one place for long.
+  const card = $("saverCard"), W = innerWidth - card.offsetWidth - 40, H = innerHeight - card.offsetHeight - 40;
+  const t = calmMotion() ? 0 : Date.now();
+  const x = 20 + Math.max(0, W) * (.5 + .46 * Math.sin(t / 47000)), y = 20 + Math.max(0, H) * (.5 + .44 * Math.sin(t / 61000 + 1.3));
+  card.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+}
+// Points of light for a theme with no scenery: a device each, coloured as in
+// the table, drifting, with a faint line between those that pass close.
+function saverDots() {
+  const cv = $("saverDots"), dpr = Math.min(devicePixelRatio || 1, 2), W = innerWidth, H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d"); g.scale(dpr, dpr);
+  const css = getComputedStyle(document.documentElement);
+  const col = { up: css.getPropertyValue("--led-on").trim() || "#3fdb7f", un: css.getPropertyValue("--led-warn").trim() || "#ffb454", off: css.getPropertyValue("--led-off").trim() || "#445" };
+  const dots = sceneHosts().map(h => ({ h, x: Math.random() * W, y: Math.random() * H, vx: rnd(-9, 9), vy: rnd(-7, 7), r: rnd(2.5, 4.5), p: rnd(0, 6.3) }));
+  const draw = (now, dt) => {
+    g.clearRect(0, 0, W, H);
+    for (const d of dots) {
+      d.x = (d.x + d.vx * dt + W) % W; d.y = (d.y + d.vy * dt + H) % H;
+    }
+    g.lineWidth = 1;
+    for (let i = 0; i < dots.length; i++) for (let j = i + 1; j < dots.length; j++) {
+      const a = dots[i], b = dots[j], dd = Math.hypot(a.x - b.x, a.y - b.y);
+      if (dd < 160) { g.strokeStyle = `rgba(160,180,210,${.16 * (1 - dd / 160)})`; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
+    }
+    for (const d of dots) {
+      const st = sceneState(d.h), c = col[st], pulse = st === "off" ? .4 : .75 + .25 * Math.sin(now / 900 + d.p);
+      g.globalAlpha = .18 * pulse; g.fillStyle = c; g.beginPath(); g.arc(d.x, d.y, d.r * 4, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = pulse; g.beginPath(); g.arc(d.x, d.y, d.r, 0, Math.PI * 2); g.fill();
+    }
+    g.globalAlpha = 1;
+  };
+  if (calmMotion()) { draw(0, 0); return; }
+  let last = performance.now();
+  const frame = now => {
+    saverRaf = requestAnimationFrame(frame);
+    if (now - last < 33) return;
+    const dt = Math.min(.05, (now - last) / 1000); last = now;
+    if (!document.hidden) draw(now, dt);
+  };
+  saverRaf = requestAnimationFrame(frame);
+}
+function startSaver() {
+  if (saverOn) return;
+  saverOn = true; saverSince = Date.now();
+  document.querySelectorAll(".row-menu.show, .tools-menu.show").forEach(m => m.classList.remove("show"));
+  closeThemeMenu();
+  const s = $("saver");
+  s.classList.remove("waking");
+  s.hidden = false;
+  // Scenery if the theme has any; otherwise the points of light.
+  const scene = !!(document.getElementById("themeBg") || document.querySelector("#festive > *"));
+  $("saverDots").hidden = scene;
+  if (!scene) saverDots();
+  document.body.classList.add("saver-anim");
+  requestAnimationFrame(() => document.body.classList.add("saving"));
+  saverCard();
+  saverTimer = setInterval(saverCard, 1200);
+}
+function stopSaver() {
+  if (!saverOn) return;
+  saverOn = false; lastInput = Date.now();
+  clearInterval(saverTimer); cancelAnimationFrame(saverRaf); saverRaf = 0;
+  document.body.classList.remove("saving");
+  // The overlay stays a moment to catch the rest of the click that woke it.
+  const s = $("saver"); s.classList.add("waking");
+  setTimeout(() => { if (!saverOn) { s.hidden = true; document.body.classList.remove("saver-anim"); } }, 900);
+}
+function noteInput(e) {
+  lastInput = Date.now();
+  if (!saverOn) return;
+  // A settling mouse just after it starts isn't someone coming back.
+  if (e.type === "pointermove" && Date.now() - saverSince < 1500) return;
+  if (e.type === "pointerdown" || e.type === "keydown" || e.type === "touchstart") { e.preventDefault(); e.stopPropagation(); }
+  stopSaver();
+}
+for (const ev of ["pointermove", "pointerdown", "keydown", "wheel", "touchstart"])
+  document.addEventListener(ev, noteInput, { capture: true, passive: false });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) lastInput = Date.now(); });
+setInterval(() => {
+  if (saverOn || !saverMins || document.hidden) return;
+  if (Date.now() - lastInput < saverMins * 60e3) return;
+  if (document.querySelector(".modal-backdrop:not([hidden])")) return;
+  const a = document.activeElement;
+  if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+  startSaver();
+}, 5000);
+$("setSaver").onchange = () => {
+  saverMins = Number($("setSaver").value) || 0;
+  try { localStorage.setItem("bamf-saver", String(saverMins)); } catch {}
+  saverStatus();
+  toast(saverMins ? `This screen's saver starts after ${saverMins === 60 ? "an hour" : saverMins + " minutes"} idle` : "No screen saver on this screen");
+};
+$("setSaverTry").onclick = () => { $("setSaverTry").blur(); setTimeout(startSaver, 250); };
+saverStatus();
+
 $("setCompact").onclick = () => {
   const on = !document.documentElement.classList.contains("compact");
   document.documentElement.classList.toggle("compact", on);
@@ -21130,6 +21308,7 @@ async function loadSettings() {
   loadGreyNoise().then(renderGreyNoiseToggle);
   loadWan(true).then(renderWanToggle);
   loadSpeed().then(renderSpeedSetting);
+  $("setNewDays").value = newDays;
   loadRouterImport();
 
   // The instant-apply toggles and the notifications card draw from the last

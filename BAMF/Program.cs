@@ -321,6 +321,7 @@ app.MapGet("/api/hosts", (HttpContext ctx, HostStore store, ScannerService scann
         alertsConfigured = scanner.AnyDestination,
         // Whether "Don't remind me" was pressed on the alerts-off banner.
         alertsNudgeOff = store.GetSetting("alertsNudgeOff") == "true",
+        newDays = NewDays(store),
         // Masked, never the full URL: anyone who can load the dashboard could
         // read it, and the token in a Discord webhook URL is the credential.
         webhookMasked = MaskWebhook(scanner.WebhookUrl),
@@ -791,6 +792,16 @@ app.MapGet("/api/backup", (HostStore store) =>
     var file = store.SnapshotTo(Path.Combine(Path.GetTempPath(), "bamf-backup"));
     var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.DeleteOnClose);
     return Results.File(stream, "application/vnd.sqlite3", $"bamf-{DateTime.Now:yyyyMMdd-HHmm}.db");
+});
+
+// How long a device stays under the New tab, unless it's marked known first.
+// Saved on the server, so every dashboard agrees on what's new.
+static int NewDays(HostStore store) => int.TryParse(store.GetSetting("newDays"), out var d) && d is >= 1 and <= 90 ? d : 7;
+app.MapPost("/api/settings/newdays", (NewDaysRequest body, HostStore store) =>
+{
+    if (body.Days is < 1 or > 90) return Results.BadRequest(new { error = "Between 1 and 90 days." });
+    store.SetSetting("newDays", body.Days.ToString());
+    return Results.Json(new { days = body.Days });
 });
 
 // The alerts-off banner's "Don't remind me". Saved on the server, so it holds
@@ -1965,6 +1976,7 @@ record TagsRequest(List<string>? Tags);
 record TrustRequest(string? Kind, string? Ip, bool Trusted);
 record ReportRequest(string? Schedule, int? Hour, int? Day);
 record NudgeRequest(bool Off);
+record NewDaysRequest(int Days);
 record QuietRequest(string? From, string? To, bool Digest);
 record PortEntry(long HostId, int Port);
 record BlinkRequest(int? Seconds);

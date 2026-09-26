@@ -366,7 +366,8 @@ survive IP changes.
 - **Latency and uptime** - a Latency column with each device's round-trip time,
   a 24-hour latency chart in its History panel, and its uptime over the last 7
   and 30 days. See [Latency and uptime](#latency-and-uptime).
-- **New tab** - every device first seen in the last 7 days, so a weekly check
+- **New tab** - every device first seen in the last 7 days (or as many as you
+  set) that you haven't marked known yet, so a weekly check
   takes ten seconds.
 - **Bandwidth per device** - with Npcap, bytes in and out per device: a Traffic
   column and a Top talkers card. See [Traffic, DHCP and DNS](#traffic-dhcp-and-dns).
@@ -1023,6 +1024,25 @@ The version in the header opens the same list any time, with the last few
 versions. The notes come with BAMF, in `wwwroot/whats-new.json`, so they work
 on a network that never reaches the internet; **Every release ↗** opens the
 full notes on GitHub.
+
+## Screen saver
+
+**Settings → Appearance → Screen saver** turns it on for that browser: after
+5, 10 or 30 minutes or an hour with no mouse or keyboard, the dashboard fades
+away and leaves the theme's scenery, which keeps answering the network: a scan
+still sends the tug out or the ants running. A small card drifts slowly round
+the screen, so nothing burns in, with the time, how many devices are online
+out of how many, how many are unknown, when the last scan was, and in red any
+watched device that's down. A theme without scenery gets your devices as
+slowly drifting points of light instead, green, amber or dim as in the table.
+
+Move the mouse or press a key to come back; the click or key that wakes it
+goes no further, so it never presses a button by accident. It waits while a
+dialog is open or you're typing, stops in a background tab, and holds still
+with reduced motion. **Try it now** starts it straight away. It's kept per
+browser, like the theme: the screen on the wall can have it while the one on
+your desk doesn't. For a status board that never shows the dashboard at all,
+see the [Wall display](#wall-display).
 
 ## Linking to a tab
 
@@ -2882,9 +2902,13 @@ alert fires at most once a day per server or device.
 ### The New tab
 
 **New**, in the device list's status tabs, shows every device first seen in the
-last 7 days, with a count on the tab while there are any. It's the weekly
-check: anything here that you don't recognise wants a name, a note or a
-closer look.
+last 7 days that you haven't marked known yet, with a count on the tab while
+there are any. It's the list of devices you haven't dealt with: anything here
+that you don't recognise wants a name, a note or a closer look, and marking it
+known takes it off the list. How many days a device counts as new is
+**Settings → Your network → The New tab**, from 1 to 90 (`POST
+/api/settings/newdays` with `{"days": 14}`; `GET /api/hosts` returns it as
+`newDays`).
 
 ### Tags
 
