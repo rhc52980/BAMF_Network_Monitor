@@ -2,6 +2,16 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "1.51.0",
+      "date": "2026-09-26",
+      "items": [
+        "Themes are now folders you can add and remove: Settings, Appearance, Themes shows every one with a picture. Dark, Light and High Contrast are built in.",
+        "A theme someone shares is a .zip: add it there, or drop it into the themes folder and reload.",
+        "The dashboard is about half the size, since a theme loads only when it's picked.",
+        "The watchman's hat now sits properly on his head."
+      ]
+    },
+    {
       "version": "1.50.13",
       "date": "2026-09-26",
       "items": [
