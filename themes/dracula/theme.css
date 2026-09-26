@@ -1,0 +1,8 @@
+/* Dracula: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="dracula"] {
+  --bg:#282a36; --panel:#343746; --panel-2:#414458; --line:#4d5066;
+  --text:#f8f8f2; --text-dim:#9ea0b0; --led-on:#50fa7b; --led-warn:#ffb86c;
+  --led-off:#4d5066; --danger:#ff5555; --focus:#bd93f9; --radius:8px;
+}
+

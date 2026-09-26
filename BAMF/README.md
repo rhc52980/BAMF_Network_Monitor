@@ -137,7 +137,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:Subnets` | List of CIDRs to scan, e.g. `["192.168.1.0/24", "192.168.2.0/24"]`. Empty list = auto-detect every active IPv4 interface. (`Bamf:Subnet` as a single string still works for back-compat.) |
 | `Bamf:DeviceLinkTemplate` | Where a device's IP link points when it has no link of its own. `{ip}` is the device address. Default `http://{ip}`. |
 | `Bamf:HistoryRetentionDays` | Days of online/offline history to keep (default 90, pruned daily). |
-| `Bamf:ThemesPath` | Folder for drop-in themes, relative to the exe (default `themes`). See [Drop-in themes](#drop-in-themes). |
+| `Bamf:ThemesPath` | The themes folder, relative to the exe (default `themes`; `/data/themes` in Docker and the add-on). See [Adding and removing themes](#adding-and-removing-themes). |
 | `Bamf:AutoDownloadOui` | Download the IEEE vendor registry on first run (default true). |
 | `Bamf:UpdateCheck` | Check GitHub daily for a newer release and show a badge (default **false**). Read-only — never downloads or installs. Header toggle overrides this. |
 | `Bamf:UpdateRepo` | Repository the update check reads. Change it if you run a fork. |
@@ -412,6 +412,8 @@ survive IP changes.
   Constellation, Claw Machine (dark + dusk), Laser Show, RGB, Data Centre, Power
   Plant, Departures, Factory (day + night shift), Spring, Summer, Winter,
   Woodlands, Harbour, Ant Farm, Model Railway, New Year and Thanksgiving. See [Theme](#theme).
+  All but Dark, Light and High Contrast are folders you can add and remove, and
+  the [theme gallery](../themes/README.md) shows them all.
   CRT themes get scanlines; each pick triggers a BAMF! splat. Choice persists.
   There are also two seasonal themes you won't find in the list. They unlock the
   way a friendly program would: just tell it its name. (On a phone, the logo is
@@ -452,9 +454,13 @@ Thanksgiving. Your choice is remembered in your browser.
 The menu is grouped: **Colours** for the schemes where nothing much moves —
 including Synthwave, Hacker Red and Cotton Candy, which are colour schemes
 with a flourish rather than scenes — **Animated** for the ones with something
-going on behind the dashboard,
-**Holidays** for the seasonal ones Holiday Spirit uses, **Installed** for
-drop-ins, and **Secret** for anything you've unlocked.
+going on behind the dashboard, **Holidays** for the seasonal ones Holiday
+Spirit uses, and **More** for themes you've added that don't say what kind
+they are.
+
+The menu offers the themes that are installed, and you choose which: see
+[Adding and removing themes](#adding-and-removing-themes). The
+[theme gallery](../themes/README.md) has a picture of every one.
 
 Some themes have a little life in them:
 
@@ -886,7 +892,7 @@ It goes by each browser's date and changes over by itself, even on a dashboard
 left open. Your own theme isn't touched: it comes back when the season ends.
 Pick another theme from the menu during a season and that browser keeps it
 until the next season. Switching Holiday Spirit off puts every dashboard back
-on its own theme.
+on its own theme. A season whose theme isn't installed is skipped.
 
 The **Christmas** theme puts a house behind the dashboard, done up by someone
 who doesn't know when to stop: lights along every eave, gable, window and
@@ -900,7 +906,7 @@ reduced motion it all holds still, lit.
 Switch on **Night mode** under **Settings → Appearance** and every dashboard
 wears a night theme between two clock times, by each screen's own clock, then
 goes back to its own theme in the morning. The defaults are 9 pm to 6 am and
-**City Lights**; pick any hours and any theme, including a drop-in. City
+**City Lights**; pick any hours and any installed theme. City
 Lights, Goat Night and Constellation were made for it, and Dark is the quiet
 choice for a screen in a bedroom.
 
@@ -908,61 +914,49 @@ It works like Holiday Spirit: your own theme isn't touched and comes back at
 dawn, and an open dashboard changes over on its own, checked once a minute.
 Pick another theme from the menu during the night and that browser keeps it
 until the next night; pick the night theme again and Night mode takes over.
-During a Holiday Spirit season the holiday theme wins.
+During a Holiday Spirit season the holiday theme wins. If the night theme
+isn't installed, each screen keeps its own theme and Settings says so.
 
-### Drop-in themes
+### Adding and removing themes
 
-A theme can also be a folder of its own, added without rebuilding BAMF. Put it
-in the `themes` folder of the install (`C:\BAMF\themes\<name>\` on Windows,
-`/opt/bamf/themes/<name>/` on Linux) and reload the dashboard. It appears in the
-theme menu under **Installed**. Delete the folder and it's gone. Updates leave
-`themes` alone.
+Dark, Light and High Contrast are built in. Every other theme is a folder in
+BAMF's `themes` folder, and the theme menu offers what's there, so you choose
+which themes it lists. All of them come with BAMF, and a new install has them
+all.
 
-```
-themes/
-  my-theme/          the folder name is the theme's id: a-z, 0-9 and -, up to 40
-    theme.json       {"name": "My Theme", "swatch": ["#101820", "#f2aa4c", "#ffffff"]}
-    theme.css        optional: its colours and styles
-    theme.js         optional: its animations and reactions
-```
+Open **Settings → Appearance → Themes** to see every theme with its picture.
+**Remove** takes one out of the menu for every dashboard; **Add** puts it back.
+A removed theme stays removed through updates, a theme that's new in an update
+turns up by itself, and each one you haven't changed is brought up to date with
+the version it came with. The [theme gallery](../themes/README.md) on GitHub
+shows the same pictures.
 
-**theme.css** sets the same colour variables the built-in themes use, scoped to
-the theme's id:
+A theme someone shares is a `.zip`. Click **Add a theme from a .zip…** there,
+or drop the `.zip` (or the folder in it) into the themes folder and reload the
+dashboard:
 
-```css
-[data-theme="my-theme"] {
-  --bg:#101820; --panel:#18222e; --panel-2:#1f2b3a; --line:#2c3a4d;
-  --text:#e8eef5; --text-dim:#8a9bb0; --led-on:#4cd98a; --led-warn:#f2aa4c;
-  --led-off:#3a4758; --danger:#ff6b6b; --focus:#f2aa4c; --radius:8px;
-}
-```
+| Install | Themes folder |
+|---|---|
+| Windows | `C:\BAMF\themes` |
+| Linux | `/opt/bamf/themes` |
+| Docker and the Home Assistant add-on | `/data/themes`, on the data volume |
 
-**theme.js** registers the theme and gets a small context to work with.
-Everything it starts through the context stops when someone picks another
-theme:
+The card shows the exact path on yours, and `Bamf:ThemesPath` moves it. A zip
+can hold one theme or a pack of them. Only a theme's own files are taken out
+(`theme.json`, `theme.css`, `theme.js` and a preview picture), and one that
+can't be added says why on the card. Removing a theme you added moves it into
+`themes/.removed` rather than deleting it; a theme that came with BAMF is simply
+removed, since BAMF still has it. If you edit one of BAMF's own themes in the
+folder, updates leave your copy alone.
 
-```js
-BAMF.registerTheme("my-theme", ctx => {
-  // ctx.root: a layer over the page that never takes a click
-  // ctx.background(el): put an element behind the page
-  // ctx.later(fn, ms), ctx.every(fn, ms), ctx.onStop(fn)
-  // ctx.calm: true when reduced motion is on, so hold still
-  // ctx.switched: true if the user just switched to this theme
-  // ctx.hosts(), ctx.view(), ctx.headerBottom(), ctx.wentOffline()
-  // helpers: ctx.svg(tag, attrs), ctx.rnd(a, b), ctx.pick(list), ctx.esc(text), ctx.nameOrIp(host)
-  ctx.on("newDevice", host => { /* a new device appeared */ });
-  ctx.on("scanDone", () => { /* a scan finished */ });
-  ctx.on("rendered", () => { /* the dashboard redrew */ });
-  ctx.on("netChange", (offIds, backIds) => { /* devices went offline or came back */ });
-  ctx.on("decorateNode", (g, node) => { /* add SVG to a Map node as it's drawn */ });
-});
-```
+A theme's script runs in the dashboard, so add themes only from people you
+trust. With a password set, only the full password can add or remove themes;
+the view-only password can't.
 
-A theme can't take a built-in theme's name. BAMF serves only those three files,
-and only from folders with a valid name. A theme's script runs in the
-dashboard, so adding one takes the same access to the server as editing
-`appsettings.json`: it can't be done from the browser. The folder can be moved
-with `Bamf:ThemesPath`.
+The themes that come with BAMF are kept in `theme-library` beside the program,
+which every update replaces; the themes folder is yours. How to make a theme,
+with what `theme.json`, `theme.css` and `theme.js` hold and what a theme's
+script can use, is in the [theme gallery](../themes/README.md#making-a-theme).
 
 ## Compact rows
 
@@ -1098,7 +1092,7 @@ buttons across the top on a phone):
 | **Security** | The ARP watch, the certificate watch and the GreyNoise check |
 | **Alerts** | Where alerts go: the main webhook with **Sends** and **Test**, more destinations and the scheduled report; then alert rules and quiet hours |
 | **Your network** | Switches and routers, map icons and names from your router |
-| **Appearance** | The theme, Holiday Spirit, Night mode, compact rows and the keyboard shortcuts |
+| **Appearance** | The theme, Holiday Spirit, Night mode, compact rows, the screen saver, the keyboard shortcuts, and which themes are installed |
 | **System** | History retention, with its own **Save**, the update check, backups, and what's set in `appsettings.json` |
 
 Each section has its own address, such as `/#settings/internet`, so a link or a
@@ -1366,7 +1360,7 @@ from the repo, edit the subnet, and `docker compose up -d`.
   container, run the same command again.
 - **Capabilities** — `NET_RAW` and `NET_ADMIN` are what the active ARP scan and
   the traffic monitor need; without them BAMF still runs on ping sweeps.
-- **Themes** — drop-in themes go in `/app/themes` (mount a folder there).
+- **Themes** — the themes folder is `/data/themes`, on the same volume, so the themes you add or remove survive a new image.
 - **Tags** — `ghcr.io/rhc52980/bamf:latest` follows the newest release;
   `:1.39.0` pins a version. There's a `Dockerfile` in the repo if you'd rather
   build it yourself: `docker build -t bamf .` from the repo root.

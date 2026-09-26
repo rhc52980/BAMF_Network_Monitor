@@ -1,0 +1,8 @@
+/* Solar Light: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="solar-light"] {
+  --bg:#fdf6e3; --panel:#fbf1d6; --panel-2:#eee8d5; --line:#ddd6c1;
+  --text:#586e75; --text-dim:#93a1a1; --led-on:#859900; --led-warn:#b58900;
+  --led-off:#ddd6c1; --danger:#dc322f; --focus:#268bd2; --radius:8px;
+}
+

@@ -1,0 +1,7 @@
+{
+  "name": "Commodore 64",
+  "swatch": ["#40318d", "#a5a0e0", "#8bc673"],
+  "category": "colours",
+  "description": "The Commodore 64's blue-on-blue start-up screen.",
+  "author": "BAMF"
+}

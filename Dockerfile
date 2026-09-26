@@ -10,13 +10,16 @@
 #
 # Every setting in appsettings.json can be given as an environment variable
 # with __ for the colon (Bamf__ScanIntervalSeconds=30), or mount your own
-# appsettings.json over /app/appsettings.json. The database lives in /data.
+# appsettings.json over /app/appsettings.json. The database lives in /data,
+# and so do the themes, so the ones you've added or removed survive an update.
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY BAMF/BAMF.csproj BAMF/
 RUN dotnet restore BAMF/BAMF.csproj
 COPY BAMF/ BAMF/
+# The themes BAMF comes with; the build installs them as theme-library.
+COPY themes/ themes/
 RUN dotnet publish BAMF/BAMF.csproj -c Release -o /out --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
@@ -31,6 +34,7 @@ RUN mkdir -p /data
 VOLUME /data
 ENV Urls=http://0.0.0.0:8840 \
     Bamf__DatabasePath=/data/bamf.db \
+    Bamf__ThemesPath=/data/themes \
     DOTNET_EnableDiagnostics=0
 EXPOSE 8840
 HEALTHCHECK --interval=60s --timeout=5s --start-period=30s CMD curl -fsS http://127.0.0.1:8840/api/hosts >/dev/null || exit 1

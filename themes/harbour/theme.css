@@ -1,0 +1,20 @@
+/* Harbour: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+/* ---- Harbour: a quay at dusk, a container for every device ---- */
+
+[data-theme="harbour"] {
+  --bg:#0b1a26; --panel:rgba(12, 27, 40, .93); --panel-2:rgba(19, 38, 55, .95); --line:#23405a;
+  --text:#e6eef5; --text-dim:#93aabd; --led-on:#4fe0a0; --led-warn:#ffb347;
+  --led-off:#2d4459; --danger:#ff5d5d; --focus:#ffc163; --radius:8px;
+}
+
+[data-theme="harbour"] .brand h1 { color:#ffd28a; }
+
+[data-theme="harbour"] .brand h1::after { content:" ⚓"; text-shadow:none; }
+
+[data-theme="harbour"] header { background:linear-gradient(rgba(10, 22, 34, .97), rgba(8, 18, 28, .93)); border-bottom:1px solid #23405a; }
+
+[data-theme="harbour"] table, [data-theme="harbour"] .feed { background:rgba(9, 20, 31, .95); }
+
+[data-theme="harbour"] thead th { color:#ffc163; }
+

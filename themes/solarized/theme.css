@@ -1,0 +1,8 @@
+/* Solarized: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="solarized"] {
+  --bg:#002b36; --panel:#073642; --panel-2:#0a4453; --line:#164a56;
+  --text:#93a1a1; --text-dim:#5f7778; --led-on:#859900; --led-warn:#b58900;
+  --led-off:#164a56; --danger:#dc322f; --focus:#268bd2; --radius:8px;
+}
+

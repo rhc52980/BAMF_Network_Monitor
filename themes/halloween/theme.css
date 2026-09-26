@@ -1,0 +1,92 @@
+/* Halloween: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="halloween"] {
+  --bg:#0f0913; --panel:#1a1020; --panel-2:#24162c; --line:#3e2749;
+  --text:#f5e9d8; --text-dim:#b39bbd; --led-on:#8cff4f; --led-warn:#ff8c1a;
+  --led-off:#4a3553; --danger:#ff3b6b; --focus:#ff8c1a; --radius:10px;
+}
+
+[data-theme="halloween"] .brand h1 { color:#ff8c1a; text-shadow:0 0 10px rgba(255,140,26,.6); }
+
+[data-theme="halloween"] .brand h1::after { content:" 🎃"; text-shadow:none; }
+
+/* The spider travels: JS moves it with transitions (drop, climb, crawl along the top). */
+
+.spider-wrap { position: absolute; left: 0; top: -220px; width: 30px; }
+
+.spider-thread { position: absolute; left: 14px; top: 0; width: 1px; height: 220px; background: rgba(255,255,255,.35); }
+
+.pumpkin.flare { transform: scale(1.3); }
+
+.pumpkin.flare .face { animation: none; fill: #fff6b0; filter: drop-shadow(0 0 6px #ffb000) drop-shadow(0 0 14px #ff8c1a); }
+
+.fog { position: absolute; left: -25%; bottom: -4vh; width: 150%; height: 20vh; opacity: .33;
+  background: radial-gradient(ellipse 30% 55% at 20% 70%, #b9a6c9, transparent 70%),
+              radial-gradient(ellipse 28% 50% at 55% 75%, #a894b8, transparent 70%),
+              radial-gradient(ellipse 32% 60% at 85% 70%, #b9a6c9, transparent 70%);
+  animation: fog-drift 38s ease-in-out infinite alternate; }
+
+.fog.fog1 { bottom: -7vh; opacity: .22; animation-duration: 52s; animation-direction: alternate-reverse; }
+
+@keyframes fog-drift { from { transform: translateX(-8%); } to { transform: translateX(8%); } }
+
+.witch { position: absolute; top: 4px; left: 0; width: 64px; animation: witch-fly 7s linear forwards; }
+
+.witch svg { position: static; width: 64px; }
+
+@keyframes witch-fly { 0% { transform: translate(-80px, 10px); } 50% { transform: translate(50vw, 0); } 100% { transform: translate(calc(100vw + 80px), 12px); } }
+
+[data-theme="halloween"] .map-svg .tnode.dev.off .t-icon { display: none; }
+
+[data-theme="halloween"] .map-svg .tnode.dev.off .t-ghost { display: inline; fill: #f4eefa; opacity: .85; animation: ghost-bob 2.4s ease-in-out infinite alternate; }
+
+@keyframes ghost-bob { from { transform: translate(-12px, -12px); } to { transform: translate(-12px, -15px); } }
+
+[data-theme="halloween"] .map-svg .tnode.dev.unknown .t-pk { display: inline; }
+
+[data-theme="halloween"] .map-svg .node.off .dot { fill: #f4eefa; opacity: .55; }
+
+/* ...and in the device list, the offline dot is a ghost and "unknown" wears a pumpkin. */
+
+[data-theme="halloween"] .led:not(.on) { background: none; width: auto; height: auto; }
+
+[data-theme="halloween"] .led:not(.on)::before { content: "👻"; font-size: 11px; }
+
+[data-theme="halloween"] .badge.unknown::before { content: "🎃 "; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="halloween"] .map-svg .t-ghost { animation: none !important; } 
+}
+.pumpkin .face { fill: #ffd23f; animation: pumpkin-flicker 2.4s steps(6) infinite; }
+
+@keyframes pumpkin-flicker { 0%, 100% { opacity: 1; } 30% { opacity: .55; } 50% { opacity: .9; } 70% { opacity: .65; } }
+
+.bat { position: absolute; left: 0; width: 46px; animation: bat-fly var(--d) linear forwards; }
+
+.bat.rtl { animation-name: bat-fly-rtl; }
+
+.bat svg { position: static; width: 46px; animation: bat-flap .22s ease-in-out infinite alternate; }
+
+.bat path { fill: #0a0508; stroke: #ff8c1a; stroke-width: .6; }
+
+@keyframes bat-flap { from { transform: scaleY(1); } to { transform: scaleY(.45); } }
+
+@keyframes bat-fly {
+  0% { transform: translate(-60px, 0); } 25% { transform: translate(25vw, -40px); }
+  50% { transform: translate(50vw, 20px); } 75% { transform: translate(75vw, -30px); } 100% { transform: translate(105vw, 10px); }
+}
+
+@keyframes bat-fly-rtl {
+  0% { transform: translate(105vw, 0) scaleX(-1); } 25% { transform: translate(75vw, -40px) scaleX(-1); }
+  50% { transform: translate(50vw, 20px) scaleX(-1); } 75% { transform: translate(25vw, -30px) scaleX(-1); } 100% { transform: translate(-60px, 10px) scaleX(-1); }
+}
+
+.ghost { position: absolute; bottom: -90px; width: 54px; opacity: 0; animation: ghost-rise 11s ease-in-out forwards; }
+
+.ghost svg { position: static; width: 54px; }
+
+@keyframes ghost-rise {
+  0% { transform: translate(0, 0); opacity: 0; } 15% { opacity: .75; }
+  50% { transform: translate(30px, -45vh); } 85% { opacity: .6; } 100% { transform: translate(-20px, -95vh); opacity: 0; }
+}
+

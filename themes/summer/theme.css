@@ -1,0 +1,18 @@
+/* Summer: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+/* ---- Summer: sun, clouds, and the beach along the bottom ---- */
+
+[data-theme="summer"] {
+  --bg:#dae8f1; --panel:rgba(248,250,251,.95); --panel-2:#d7e6f0; --line:#bcd4e4;
+  --text:#15303f; --text-dim:#4f6576; --led-on:#1aa37a; --led-warn:#e69100;
+  --led-off:#afc6d4; --danger:#e2503f; --focus:#f07a2d; --radius:10px;
+}
+
+[data-theme="summer"] .brand h1 { color:#f07a2d; }
+
+[data-theme="summer"] .brand h1::after { content:" 🌞"; text-shadow:none; }
+
+[data-theme="summer"] header { background:linear-gradient(#f4f8fa, #d6e7f2); border-bottom:1px solid #bcd4e4; }
+
+[data-theme="summer"] table, [data-theme="summer"] .feed { background:rgba(248,250,251,.96); }
+

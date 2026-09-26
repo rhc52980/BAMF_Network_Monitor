@@ -1,0 +1,24 @@
+/* Woodlands: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+/* ---- Woodlands: a forest late in the afternoon ---- */
+
+[data-theme="woodlands"] {
+  --bg:#0f1a14; --panel:rgba(18,30,22,.93); --panel-2:rgba(24,38,28,.95); --line:#2a4131;
+  --text:#e2ecdc; --text-dim:#8ea391; --led-on:#7cd67a; --led-warn:#e9b04c;
+  --led-off:#324638; --danger:#ef6a5a; --focus:#a3d97f; --radius:10px;
+}
+
+[data-theme="woodlands"] .brand h1 { color:#b8e39c; }
+
+[data-theme="woodlands"] .brand h1::after { content:" \1F332"; }
+
+[data-theme="woodlands"] header { background:linear-gradient(rgba(16,30,22,.88), rgba(12,22,16,.8)); border-bottom:1px solid #2a4131; }
+
+[data-theme="woodlands"] table, [data-theme="woodlands"] .feed { background:rgba(13,23,17,.95); }
+
+[data-theme="woodlands"] thead th { color:#a3d97f; }
+
+[data-theme="woodlands"] .tab.active { background:rgba(124,214,122,.14); color:#dff5cf; }
+
+[data-theme="woodlands"] tbody tr:hover td { background:linear-gradient(90deg, rgba(124,214,122,.1), transparent 70%); }
+

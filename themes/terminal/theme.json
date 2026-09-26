@@ -1,0 +1,7 @@
+{
+  "name": "Terminal",
+  "swatch": ["#020a02", "#33ff66", "#ffcc33"],
+  "category": "animated",
+  "description": "A plain green screen with a blinking block cursor, and the odd line of boot text.",
+  "author": "BAMF"
+}

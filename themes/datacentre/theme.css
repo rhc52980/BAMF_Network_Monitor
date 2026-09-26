@@ -1,0 +1,158 @@
+/* Data Centre: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+/* ---- Data Centre: the room your network would live in if it had one ---- */
+
+[data-theme="datacentre"] {
+  --bg:#0a0f16; --panel:rgba(16,23,32,.94); --panel-2:rgba(22,31,43,.96); --line:#22303f;
+  --text:#dbe7f2; --text-dim:#7e8fa3; --led-on:#35e08a; --led-warn:#ffb020;
+  --led-off:#2c3a49; --danger:#ff4d4d; --focus:#35c8e0; --radius:5px;
+}
+
+[data-theme="datacentre"] .brand h1 { color:#8ef0c4; letter-spacing:.06em; text-shadow:0 0 10px rgba(53,224,138,.35); }
+
+[data-theme="datacentre"] .brand h1::after { content:" 🖧"; text-shadow:none; }
+
+[data-theme="datacentre"] header { background:linear-gradient(rgba(14,20,28,.96), rgba(9,13,19,.92)); border-bottom:1px solid #22303f; }
+
+[data-theme="datacentre"] table, [data-theme="datacentre"] .feed { background:rgba(9,14,20,.95); }
+
+[data-theme="datacentre"] thead th { color:#35c8e0; font-family:"IBM Plex Mono", monospace; letter-spacing:.06em; }
+
+[data-theme="datacentre"] .stat .num { text-shadow:0 0 12px rgba(53,200,224,.3); }
+
+[data-theme="datacentre"] .tab.active { background:rgba(53,200,224,.14); color:#bdf0fa; }
+
+[data-theme="datacentre"] tbody tr:hover td { background:linear-gradient(90deg, rgba(53,200,224,.1), transparent 70%); }
+
+/* The link panel in the header: how many devices are up, as port lights. */
+
+.dc-link { display:inline-flex; align-items:center; gap:6px; padding:3px 8px; margin-right:6px;
+  background:#070c12; border:1px solid #22303f; border-radius:4px; font:600 10px "IBM Plex Mono", monospace; color:#7e8fa3; }
+
+.dc-link .ports { display:inline-flex; gap:2px; }
+
+.dc-link .ports i { width:5px; height:9px; border-radius:1px; background:#22303f; display:block; }
+
+.dc-link .ports i.up { background:#35e08a; box-shadow:0 0 5px #35e08a; }
+
+.dc-link .ports i.un { background:#ffb020; box-shadow:0 0 5px #ffb020; }
+
+.dc-link .ports i.down { background:#ff4d4d; box-shadow:0 0 6px #ff4d4d; animation:dc-blink 1.1s steps(2) infinite; }
+
+@keyframes dc-blink { 50% { opacity:.25; } }
+
+/* The room itself. */
+
+.dc-bg { background:radial-gradient(120% 90% at 50% 0%, #131c27 0%, #0b1017 60%, #070b10 100%); }
+
+.dc-bg svg { position:absolute; inset:0; width:100%; height:100%; }
+
+.dc-led { animation:dc-flick 1.6s steps(2) infinite; }
+
+@keyframes dc-flick { 50% { opacity:.25; } }
+
+.dc-fan { transform-box:fill-box; transform-origin:center; animation:dc-spin 1.4s linear infinite; }
+
+.dc-fan.slow { animation-duration:2.6s; }
+
+@keyframes dc-spin { to { transform:rotate(360deg); } }
+
+/* Light running down the fibre: a dash chasing along the path. */
+
+.dc-fibre { fill:none; stroke-linecap:round; stroke-dasharray:14 190; animation:dc-flow 3.4s linear infinite; }
+
+@keyframes dc-flow { to { stroke-dashoffset:-204; } }
+
+/* A scan sweeps the racks: every light on, for a moment. */
+
+.dc-sweep .dc-led { animation:none; opacity:1; filter:drop-shadow(0 0 4px currentColor); }
+
+.dc-sweep .dc-fibre { animation-duration:.9s; }
+
+/* The patch panel along the bottom, in front of the page. */
+
+.dc-panel { position:absolute; left:0; right:0; bottom:0; height:76px; pointer-events:none; }
+
+.dc-panel .bar { position:absolute; left:0; right:0; bottom:0; height:46px;
+  background:linear-gradient(#1a2430, #10171f); border-top:2px solid #2b3a4a; box-shadow:0 -6px 18px rgba(0,0,0,.5); }
+
+/* The rails each side, with their screws, so it reads as a panel in a rack. */
+
+.dc-panel .bar::before, .dc-panel .bar::after { content:""; position:absolute; top:0; bottom:0; width:16px;
+  background:repeating-linear-gradient(#2b3a4a 0 2px, transparent 2px 12px) center / 6px 12px no-repeat,
+    linear-gradient(#222f3d, #172029); border-right:1px solid #0d141b; }
+
+.dc-panel .bar::before { left:0; }
+
+.dc-panel .bar::after { right:0; border-right:0; border-left:1px solid #0d141b; }
+
+.dc-ports { position:absolute; left:0; right:0; bottom:10px; display:flex; gap:7px; padding:0 26px; justify-content:center; }
+
+.dc-port { position:relative; width:26px; height:26px; border-radius:2px; background:#0c131b; border:1px solid #2b3a4a; }
+
+.dc-port::after { content:""; position:absolute; left:5px; right:5px; top:5px; height:10px; background:#141d27; border-radius:1px; }
+
+.dc-port i { position:absolute; left:5px; bottom:4px; width:6px; height:5px; border-radius:1px; background:#22303f; }
+
+.dc-port i.act { left:auto; right:5px; }
+
+.dc-port.up i { background:#35e08a; box-shadow:0 0 5px #35e08a; }
+
+.dc-port.up i.act { background:#35c8e0; animation:dc-blink .7s steps(2) infinite; }
+
+.dc-port.un i { background:#ffb020; box-shadow:0 0 5px #ffb020; }
+
+.dc-port.down i { background:#ff4d4d; box-shadow:0 0 6px #ff4d4d; }
+
+.dc-port .tip { position:absolute; bottom:26px; left:50%; transform:translateX(-50%); white-space:nowrap;
+  font:600 9px "IBM Plex Mono", monospace; color:#9fb3c6; background:rgba(7,12,18,.9); padding:1px 4px; border-radius:3px; opacity:0; }
+
+.dc-port.said .tip { opacity:1; transition:opacity .4s; }
+
+/* A blade sliding into a rack when a device turns up. */
+
+.dc-blade { position:absolute; bottom:44px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:6px;
+  padding:4px 10px; background:linear-gradient(#22303f, #16202b); border:1px solid #35c8e0; border-radius:3px;
+  font:600 11px "IBM Plex Mono", monospace; color:#bdf0fa; animation:dc-slide 6s ease-out forwards; }
+
+.dc-blade b { width:6px; height:6px; border-radius:50%; background:#35e08a; box-shadow:0 0 6px #35e08a; }
+
+@keyframes dc-slide { 0% { transform:translate(-50%, 26px); opacity:0; } 10%, 80% { transform:translate(-50%, 0); opacity:1; } 100% { transform:translate(-50%, -8px); opacity:0; } }
+
+/* The effects layer over the room: the hologram, the tray, the shuttle. */
+
+.dc-fx { position:absolute; inset:0; width:100%; height:100%; }
+
+/* A light running along the bottom edge of the header, like a scanner bar.
+   It moves by transform, so it costs the page nothing to redraw. */
+
+.dc-scanbar { position:fixed; left:0; right:0; height:2px; overflow:hidden; pointer-events:none; }
+
+.dc-scanbar i { position:absolute; top:0; bottom:0; left:0; width:28vw;
+  background:linear-gradient(90deg, transparent, rgba(53,200,224,.15) 30%, #8ef6ff 50%, rgba(53,200,224,.15) 70%, transparent);
+  animation:dc-bar 5.5s ease-in-out infinite alternate; }
+
+.dc-scanbar.alarm i { background:linear-gradient(90deg, transparent, rgba(255,77,77,.2) 30%, #ff8a7a 50%, rgba(255,77,77,.2) 70%, transparent); animation-duration:1.2s; }
+
+@keyframes dc-bar { from { transform:translateX(-28vw); } to { transform:translateX(100vw); } }
+
+/* The readouts either side of the patch panel's ports. */
+
+.dc-lcd { position:absolute; left:26px; bottom:8px; width:188px; height:30px; padding:3px 8px; box-sizing:border-box;
+  background:#04161a; border:1px solid #1d4d55; border-radius:3px; box-shadow:inset 0 0 12px rgba(53,200,224,.18);
+  font:600 10px/12px "IBM Plex Mono", monospace; color:#7fe9f7; text-shadow:0 0 6px rgba(53,200,224,.6); white-space:nowrap; }
+
+.dc-lcd b { color:#35e08a; font-weight:600; }
+
+.dc-lcd .hot { color:#ffb020; }
+
+.dc-scope { position:absolute; right:26px; bottom:8px; width:188px; height:30px;
+  background:#04161a; border:1px solid #1d4d55; border-radius:3px; box-shadow:inset 0 0 12px rgba(53,200,224,.18); }
+
+@media (max-width: 1320px) {
+  .dc-lcd, .dc-scope { display:none; } 
+}
+@media (prefers-reduced-motion: reduce) {
+  .dc-led, .dc-fan, .dc-fibre, .dc-port i.act, .dc-link .ports i.down, .dc-blade, .dc-scanbar i { animation:none !important; }
+
+}

@@ -1,0 +1,23 @@
+/* Cotton Candy: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="cottoncandy"] {
+  --bg:#fdeef7; --panel:#ffffff; --panel-2:#fbe4f2; --line:#f4cbe4;
+  --text:#7a4a68; --text-dim:#c48fb3; --led-on:#7ececa; --led-warn:#f7b955;
+  --led-off:#f4cbe4; --danger:#f47ca0; --focus:#b39ddb; --radius:12px;
+}
+
+/* Cotton Candy: bubbles. */
+
+.cc-bubble {
+  position: absolute; bottom: -70px; border-radius: 50%; opacity: 0;
+  border: 1.5px solid rgba(244, 124, 160, .35);
+  background: radial-gradient(circle at 32% 30%, rgba(255, 255, 255, .95) 0 12%, rgba(179, 157, 219, .18) 40%, rgba(126, 206, 202, .12) 70%, transparent 72%);
+  animation: cc-rise 18s ease-in forwards;
+}
+
+@keyframes cc-rise {
+  0% { transform: translate(0, 0); opacity: 0; } 10% { opacity: .85; }
+  50% { transform: translate(var(--sway), -55vh); } 90% { opacity: .7; }
+  100% { transform: translate(calc(var(--sway) * -.5), -110vh); opacity: 0; }
+}
+

@@ -1,0 +1,23 @@
+/* New Year: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+/* ---- New Year: fireworks over a midnight skyline ---- */
+
+[data-theme="newyear"] {
+  --bg:#060916; --panel:rgba(14,19,40,.94); --panel-2:rgba(22,28,54,.96); --line:#2b3566;
+  --text:#f2f0ff; --text-dim:#9aa2cc; --led-on:#8cff9e; --led-warn:#ffd166;
+  --led-off:#38406b; --danger:#ff7b7b; --focus:#ffd166; --radius:10px;
+}
+
+[data-theme="newyear"] .brand h1 { color:#ffd166; text-shadow:0 0 12px rgba(255,209,102,.6); }
+
+[data-theme="newyear"] .brand h1::after { content:" 🎆"; text-shadow:none; }
+
+[data-theme="newyear"] header { background:linear-gradient(rgba(10,14,34,.94), rgba(7,10,26,.9)); border-bottom:1px solid #2b3566; }
+
+[data-theme="newyear"] .stat .num { text-shadow:0 0 10px rgba(255,209,102,.35); }
+
+/* The table sits on its own backing, so rows stay readable with a city and
+   fireworks behind them. Same for the other themes with a busy sky. */
+
+[data-theme="newyear"] table, [data-theme="newyear"] .feed { background:rgba(8,11,26,.96); }
+

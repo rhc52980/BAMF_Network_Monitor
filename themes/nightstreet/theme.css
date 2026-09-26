@@ -1,0 +1,150 @@
+/* City Lights: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+/* ---- Night Street: a city after dark, under the street lamps ---- */
+
+[data-theme="nightstreet"] body { background: #0b0e16; }
+
+[data-theme="nightstreet"] header { background: linear-gradient(#141926, #0f131d); border-bottom: 1px solid #2c3348; box-shadow: 0 8px 30px rgba(255, 196, 107, .06); }
+
+[data-theme="nightstreet"] .stat .num { color: #ffc46b; text-shadow: 0 0 12px rgba(255, 180, 80, .35); }
+
+[data-theme="nightstreet"] .tab.active { background: rgba(255, 196, 107, .16); color: #ffd99a; }
+
+[data-theme="nightstreet"] thead th { color: #ffc46b; }
+
+[data-theme="nightstreet"] table, [data-theme="nightstreet"] .feed { background: rgba(13, 16, 25, .96); }
+
+/* Walking past a row is walking under a lamp. */
+
+[data-theme="nightstreet"] tbody tr:hover td { background: radial-gradient(ellipse 260px 60px at 90px 50%, rgba(255, 196, 107, .14), transparent 70%); }
+
+[data-theme="nightstreet"] .map-svg .spoke.cable { stroke: #d9a24e; filter: drop-shadow(0 0 3px rgba(255, 180, 80, .55)); }
+
+[data-theme="nightstreet"] .map-svg .t-tile { stroke: #6b5a3a; }
+
+[data-theme="nightstreet"].ns-bright .map-svg .spoke.cable { stroke: #ffd99a; }
+
+.ns-bg { overflow: hidden; background: linear-gradient(#04060c, #0b1020 45%, #161c30); }
+
+.ns-bg > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.ns-bg .ns-star { animation: ns-twinkle ease-in-out infinite alternate; }
+
+@keyframes ns-twinkle { from { opacity: .15; } to { opacity: .9; } }
+
+.ns-bg .ns-win { fill: #1a1f2e; transition: fill 1.2s; }
+
+.ns-bg .ns-win.on { fill: #f7cf7e; }
+
+.ns-bg .ns-win.on.tv { fill: #8fb6ff; animation: ns-tv 1.3s steps(3) infinite; }
+
+@keyframes ns-tv { 33% { fill: #b4a0ff; } 66% { fill: #7fd0ff; } }
+
+/* The tower's own windows: a class of their own, so the on-and-off of the
+   rest of the city leaves them alone. They run a colour wave instead, each
+   floor a beat behind the one below. Their fill attribute is the colour they
+   hold when the animation is off. */
+
+.ns-bg .ns-tw { animation: ns-rgb 9s linear infinite; }
+
+@keyframes ns-rgb {
+  0%   { fill: #ff4d6d; } 17% { fill: #ff9a3d; } 34% { fill: #ffe14a; }
+  50%  { fill: #4dff88; } 67% { fill: #4ad4ff; } 84% { fill: #b07cff; } 100% { fill: #ff4d6d; }
+}
+
+.ns-bg .ns-crown { animation: ns-rgb 9s linear infinite; }
+
+.ns-bg .ns-beacon { animation: ns-beacon 2.6s steps(2) infinite; }
+
+@keyframes ns-beacon { 50% { opacity: .15; } }
+
+.ns-bg .ns-glow { transition: opacity .25s; }
+
+.ns-bg .ns-lamp.out .ns-glow { opacity: 0; }
+
+.ns-bg .ns-lamp.buzz .ns-glow { animation: ns-flicker 5s steps(1) infinite; }
+
+@keyframes ns-flicker { 0%, 7%, 9%, 61%, 63.5%, 66%, 100% { opacity: 1; } 8%, 62%, 65% { opacity: .1; } }
+
+html.ns-bright .ns-bg .ns-glow { opacity: 1; filter: brightness(1.5); }
+
+.ns-road { position: absolute; left: 0; right: 0; bottom: 0; height: 26px; pointer-events: none;
+  background: linear-gradient(90deg, #c9b458 0 26px, transparent 26px 48px) 0 12px / 48px 2px repeat-x, #16181f; border-top: 3px solid #3a3d47; }
+
+.ns-car { position: absolute; left: 0; animation: ns-drive linear forwards; }
+
+.ns-car.lane2 { bottom: 13px; } 
+.ns-car.lane1 { bottom: 1px; }
+
+.ns-car.rtl { animation-name: ns-drive-rtl; }
+
+.ns-car.rtl svg { transform: scaleX(-1); }
+
+.ns-car svg { display: block; overflow: visible; }
+
+@keyframes ns-drive { from { transform: translateX(-160px); } to { transform: translateX(calc(100vw + 40px)); } }
+
+@keyframes ns-drive-rtl { from { transform: translateX(calc(100vw + 40px)); } to { transform: translateX(-160px); } }
+
+.ns-taxi-sign { position: absolute; left: 12px; bottom: 20px; padding: 1px 6px; background: #ffe36b; color: #1a1a1a; border: 1px solid #1a1a1a; border-radius: 3px;
+  font: 700 11px "IBM Plex Mono", monospace; white-space: nowrap; }
+
+.ns-car.rtl .ns-taxi-sign { left: auto; right: 12px; }
+
+/* Something crossing the sky: an airliner high up with its navigation
+   lights, and a helicopter lower down with a searchlight under it. */
+
+.ns-air { position: absolute; left: 0; pointer-events: none; opacity: .92;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .55)); animation: ns-fly linear forwards; }
+
+.ns-air.rtl { animation-name: ns-fly-rtl; }
+
+/* Both are drawn facing left, so the one crossing to the right is the one
+   that gets turned round. */
+
+.ns-air:not(.rtl) > svg { transform: scaleX(-1); }
+
+.ns-air svg { display: block; overflow: visible; position: static; }
+
+.ns-air.ns-plane svg { width: 86px; height: 26px; }
+
+.ns-air.ns-heli svg { width: 150px; height: 150px; }
+
+@keyframes ns-fly { from { transform: translateX(-200px); } to { transform: translateX(calc(100vw + 200px)); } }
+
+@keyframes ns-fly-rtl { from { transform: translateX(calc(100vw + 200px)); } to { transform: translateX(-200px); } }
+
+.ns-nav { filter: drop-shadow(0 0 5px currentColor); }
+
+.ns-nav.red { color: #ff4a4a; animation: ns-navblink 2s steps(2) infinite; }
+
+.ns-nav.green { color: #4aff88; animation: ns-navblink 2s steps(2) infinite; animation-delay: -1s; }
+
+.ns-strobe { filter: drop-shadow(0 0 6px #fff); animation: ns-strobe 1.4s steps(1) infinite; }
+
+@keyframes ns-navblink { 50% { opacity: .15; } }
+
+@keyframes ns-strobe { 0%, 92%, 100% { opacity: .1; } 94% { opacity: 1; } 96% { opacity: .15; } 98% { opacity: 1; } }
+
+.ns-rotor { transform-box: fill-box; transform-origin: center; animation: ns-rotor .12s linear infinite; }
+
+@keyframes ns-rotor { to { transform: rotate(360deg); } }
+
+/* The searchlight: a cone under the helicopter, swinging as it hunts. */
+
+.ns-beam { transform-box: fill-box; transform-origin: top center; animation: ns-sweep 3.4s ease-in-out infinite alternate; }
+
+@keyframes ns-sweep { from { transform: rotate(-26deg); } to { transform: rotate(24deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ns-bg .ns-star, .ns-bg .ns-lamp.buzz .ns-glow, .ns-bg .ns-win.on.tv,
+  .ns-bg .ns-tw, .ns-bg .ns-crown, .ns-bg .ns-beacon,
+  .ns-air, .ns-nav, .ns-strobe, .ns-rotor, .ns-beam { animation: none !important; }
+
+}
+[data-theme="nightstreet"] {
+  --bg:#0b0e16; --panel:rgba(17, 21, 32, .9); --panel-2:rgba(25, 30, 44, .94); --line:#2c3348;
+  --text:#e8e2d4; --text-dim:#8d92a5; --led-on:#6fe39a; --led-warn:#ffb347;
+  --led-off:#3a4052; --danger:#ff5b5b; --focus:#ffc46b; --radius:8px;
+}
+

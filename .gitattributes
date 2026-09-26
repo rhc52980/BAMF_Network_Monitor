@@ -24,3 +24,4 @@
 *.svg       binary
 *.db        binary
 *.zip       binary
+*.webp      binary

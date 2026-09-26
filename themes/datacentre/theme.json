@@ -1,0 +1,7 @@
+{
+  "name": "Data Centre",
+  "swatch": ["#0a0f16", "#35e08a", "#35c8e0"],
+  "category": "animated",
+  "description": "The room your network would live in if it had one: racks, blinking lights and a patch panel.",
+  "author": "BAMF"
+}

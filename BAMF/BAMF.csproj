@@ -35,4 +35,14 @@
     </Content>
   </ItemGroup>
 
+  <!-- The themes BAMF comes with live in the repo's themes folder, so they can be
+       browsed on GitHub, and install as theme-library. At startup they're copied
+       into the themes folder the dashboard reads; see ThemeLibrary. -->
+  <ItemGroup>
+    <Content Include="..\themes\**\theme.json;..\themes\**\theme.css;..\themes\**\theme.js;..\themes\**\preview.webp" LinkBase="theme-library">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

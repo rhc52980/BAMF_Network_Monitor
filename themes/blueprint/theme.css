@@ -1,0 +1,19 @@
+/* Blueprint: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="blueprint"] {
+  --bg:#0d2b52; --panel:#123464; --panel-2:#173d72; --line:#2f5a94;
+  --text:#dbe8ff; --text-dim:#7fa8dd; --led-on:#7fffd4; --led-warn:#ffd479;
+  --led-off:#2f5a94; --danger:#ff8a8a; --focus:#a0d8ff; --radius:2px;
+}
+
+/* Blueprint: drawn on grid paper. */
+
+[data-theme="blueprint"] body {
+  background-color: #0d2b52;
+  background-image:
+    linear-gradient(rgba(160, 216, 255, .08) 1px, transparent 1px), linear-gradient(90deg, rgba(160, 216, 255, .08) 1px, transparent 1px),
+    linear-gradient(rgba(160, 216, 255, .04) 1px, transparent 1px), linear-gradient(90deg, rgba(160, 216, 255, .04) 1px, transparent 1px);
+  background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+  background-attachment: fixed;
+}
+

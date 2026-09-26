@@ -214,6 +214,12 @@ a new device or one dropping off shows up in the scene. A few of them:
 Reduced motion holds every scene still, nothing runs in a background tab, and
 sound is off unless you ask for it.
 
+Every theme but Dark, Light and High Contrast is a folder you can add or
+remove, so the menu offers only the ones you want. See them all in the
+[theme gallery](themes/README.md), and pick under **Settings → Appearance →
+Themes**. A theme someone shares is a `.zip`: add it there, or drop it into the
+themes folder.
+
 ## Install
 
 Download a release — **no .NET SDK needed, the runtime is bundled**:

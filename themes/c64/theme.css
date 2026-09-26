@@ -1,0 +1,10 @@
+/* Commodore 64: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="c64"] {
+  --bg:#40318d; --panel:#4a3a9c; --panel-2:#5443ab; --line:#7869c4;
+  --text:#a5a0e0; --text-dim:#8079c9; --led-on:#8bc673; --led-warn:#c9b458;
+  --led-off:#5443ab; --danger:#b86a6a; --focus:#a5a0e0; --radius:2px;
+}
+
+[data-theme="c64"] *, [data-theme="c64"] { font-family:"IBM Plex Mono",monospace !important; }
+
