@@ -205,6 +205,10 @@ a new device or one dropping off shows up in the scene. A few of them:
 <td width="50%" valign="top"><img src="docs/theme-laser.png" alt="The Laser Show theme: the device list in a dark club, cyan and magenta laser fans from the top corners, a green beam sweeping across the page, and droids dug in behind barricades along the floor"><br><b>Laser Show</b>: a scan starts a firefight between the droids along the floor.</td>
 <td width="50%" valign="top"><img src="docs/theme-departures.png" alt="The Departures theme: the device list as an airport board at sunset, a split-flap clock in the header, a flight number beside each device, and each status on flap tiles reading ON TIME, BOARDING or CANCELLED"><br><b>Departures</b>: every device is a flight; offline ones are CANCELLED on the flaps.</td>
 </tr>
+<tr>
+<td width="50%" valign="top"><img src="docs/theme-harbour.png" alt="The Harbour theme: the device list over a harbour at dusk, the sun setting behind hills and a lit town under the header with a lighthouse on the breakwater, and along the bottom a quay of stacked shipping containers with lamps, a gantry crane lifting a container off a moored ship, and a marina of sailboats and fishing boats under pier lamps"><br><b>Harbour</b>: every device is a container on the quay, and a new one is lifted ashore by the crane.</td>
+<td width="50%" valign="top"><img src="docs/theme-antfarm.png" alt="The Ant Farm theme: the device list in the earth of a glass ant farm with a green frame, grass, a barn, a silo and a windmill on the surface under the header, and along the bottom the nest in pale sand: the queen's chamber, a chamber for each device with eggs or honey, tunnels full of ants, and a store of seeds"><br><b>Ant Farm</b>: every device has a chamber in the nest, and a scan sends the colony running.</td>
+</tr>
 </table>
 
 Reduced motion holds every scene still, nothing runs in a background tab, and
