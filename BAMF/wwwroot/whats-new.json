@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "1.50.13",
+      "date": "2026-09-26",
+      "items": [
+        "On the watchtower, a new device's alert now stays until you mark it known or dismiss it, with buttons under the callout.",
+        "While an alert is up, moving the mouse brings up the pointer for those buttons instead of waking the page.",
+        "Show me an alert, in Settings, Appearance, previews one on one of your devices."
+      ]
+    },
+    {
       "version": "1.50.12",
       "date": "2026-09-26",
       "items": [
