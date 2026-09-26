@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "1.50.11",
+      "date": "2026-09-26",
+      "items": [
+        "A screen saver: after a while idle, the dashboard fades and leaves the theme's scenery, with a small card of how many devices are online. Turn it on in Settings, Appearance.",
+        "The New tab now drops a device once you mark it known, so it's the list of devices you haven't dealt with yet.",
+        "How many days a device counts as new is a setting, under Settings, Your network."
+      ]
+    },
+    {
       "version": "1.50.10",
       "date": "2026-09-25",
       "items": [
