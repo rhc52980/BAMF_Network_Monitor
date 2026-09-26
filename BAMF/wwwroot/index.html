@@ -20127,7 +20127,8 @@ function buildWatchtower(cv, siren, onBox = () => {}) {
   // The watchman, in profile at the rail, backlit by the moon.
   const ink = "#040609";
   const HEAD = new Path2D("M -10 -150 C -12 -160 -8 -168 -1 -170 C 6 -170 10 -166 10 -160 L 13 -151 L 10 -149 L 11 -145 C 9 -142 5 -140 0 -140 C -4 -140 -8 -143 -10 -150 Z");
-  const HAT = new Path2D("M -27 -164 Q -24 -170 -12 -170 L 14 -171 Q 26 -170 31 -163 L 29 -161 Q 22 -166 12 -167 L -12 -166 Q -22 -166 -27 -162 Z M -12 -169 C -13 -178 -10 -184 -3 -184 L 3 -183 C 10 -184 13 -179 12 -169 Z");
+  // Worn down on his head, the brim at his brow and the crown over the top of it.
+  const HAT = new Path2D("M -27 -159 Q -24 -165 -12 -165 L 14 -166 Q 26 -165 31 -158 L 29 -156 Q 22 -161 12 -162 L -12 -161 Q -22 -161 -27 -157 Z M -14 -164 C -15 -174 -11 -180 -3 -180 L 3 -179 C 11 -180 15 -175 14 -164 Z");
   const lerp = (a, b, k) => a + (b - a) * k;
   function watchman(t, alarm) {
     const tail = calm ? 0 : Math.sin(t / 380) * .7 + Math.sin(t / 1170) * .5;
@@ -20159,8 +20160,8 @@ function buildWatchtower(cv, siren, onBox = () => {}) {
     parts();
     // The hat band and the BAMF star on it.
     g.save(); g.translate(0, -140); g.rotate(look); g.translate(0, 140);
-    g.fillStyle = "#132016"; g.beginPath(); g.moveTo(-12, -172); g.lineTo(12, -173); g.lineTo(12, -170); g.lineTo(-12, -169); g.closePath(); g.fill();
-    g.translate(-5, -171);
+    g.fillStyle = "#132016"; g.beginPath(); g.moveTo(-14, -167); g.lineTo(14, -168); g.lineTo(14, -165); g.lineTo(-14, -164); g.closePath(); g.fill();
+    g.translate(-5, -166);
     g.fillStyle = "rgba(63,219,127,.35)"; g.beginPath(); g.arc(0, 0, 4.5, 0, Math.PI * 2); g.fill();
     g.fillStyle = "#3fdb7f"; for (let k = 0; k < 4; k++) { g.rotate(Math.PI / 4); g.fillRect(-2.8, -.6, 5.6, 1.2); }
     g.restore();
