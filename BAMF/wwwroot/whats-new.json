@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "1.50.12",
+      "date": "2026-09-26",
+      "items": [
+        "A new screen saver, the watchtower: a watchman keeps watch over your network from a tower by moonlight, his searchlight sweeping the yard where every device stands.",
+        "A new device sets off a jailbreak: beacons, the night gone red, and the light locked onto it with its details.",
+        "Pick it under Settings, Appearance, Screen saver, with or without the siren."
+      ]
+    },
+    {
       "version": "1.50.11",
       "date": "2026-09-26",
       "items": [
