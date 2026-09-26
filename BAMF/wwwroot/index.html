@@ -1361,6 +1361,14 @@
   .saver.watch .sv-alert { color: #ff6b5c; }
   .saver.watch.alert .saver-card { border-color: rgba(255,77,61,.7); }
   .saver.watch.alert .sv-brand { color: #ff6b5c; }
+  .saver.pointer { cursor: default; }
+  .saver-actions { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 8px; }
+  .saver-actions[hidden] { display: none; }
+  .sv-queue { font: 600 12px "IBM Plex Mono", monospace; color: #ff9d92; margin-right: auto; padding-right: 8px; }
+  .sv-btn { font: 600 13px "Space Grotesk", sans-serif; padding: 8px 14px; border-radius: 4px; cursor: pointer;
+    background: rgba(12,7,9,.92); color: #fff1ee; border: 1px solid rgba(255,77,61,.8); }
+  .sv-btn:hover { background: #ff4d3d; color: #140504; }
+  body.viewer #svKnown { display: none; }
 
   /* After an update: the same strip, in the accent colour rather than a warning. */
   .alerts-off.whats-new { border-left-color: var(--focus); }
@@ -3702,6 +3710,11 @@
 <div class="saver" id="saver" hidden aria-hidden="true">
   <canvas class="saver-dots" id="saverDots"></canvas>
   <canvas class="saver-dots" id="saverWatch" hidden></canvas>
+  <div class="saver-actions" id="saverActions" hidden>
+    <span class="sv-queue" id="svQueue"></span>
+    <button type="button" class="sv-btn" id="svKnown">Mark known</button>
+    <button type="button" class="sv-btn" id="svDismiss">Dismiss</button>
+  </div>
   <div class="saver-card" id="saverCard">
     <div class="sv-top"><span class="sv-brand" id="svBrand">BAMF</span><span class="sv-time" id="svTime"></span></div>
     <div class="sv-count"><b id="svOn">0</b> of <span id="svAll">0</span> online</div>
@@ -4294,10 +4307,10 @@
         <div class="set-row">
           <span class="set-label">Screen saver
             <span class="set-hint">After this long with no mouse or keyboard, this screen fades the dashboard away and leaves the theme's scenery, still answering scans and devices, with a card that drifts slowly and says how many devices are online, and which watched ones are down. A theme without scenery gets your devices as slowly drifting points of light instead. Move the mouse or press a key to come back; the click that wakes it doesn't press anything. It waits while a dialog is open or you're typing, and stops in a background tab.</span>
-            <span class="set-hint"><b>The watchtower</b> is a saver of its own, whatever the theme: a watchman in a fedora keeps watch over your network from a tower by moonlight, his searchlight sweeping the yard where every device stands. A new device sets off the beacons, turns the night red and brings the light round to lock onto it with its details, like a jailbreak; a watched device dropping is LOST CONTACT. The siren is only if you pick it.</span>
+            <span class="set-hint"><b>The watchtower</b> is a saver of its own, whatever the theme: a watchman in a fedora keeps watch over your network from a tower by moonlight, his searchlight sweeping the yard where every device stands. A new device sets off the beacons, turns the night red and brings the light round to lock onto it with its details, like a jailbreak, and it stays that way until you <b>Mark known</b> or <b>Dismiss</b> it: moving the mouse brings up the pointer for those rather than waking the page. A watched device dropping is LOST CONTACT. The siren is only if you pick it. <b>Show me an alert</b> starts the watchtower with a test alert on one of your devices.</span>
             <span class="set-hint" id="setSaverStatus"></span>
           </span>
-          <span class="set-field speed-fields"><select class="modal-input" id="setSaver" aria-label="Screen saver"><option value="0">Off</option><option value="5">After 5 minutes</option><option value="10">After 10 minutes</option><option value="30">After 30 minutes</option><option value="60">After an hour</option></select><select class="modal-input" id="setSaverStyle" aria-label="Screen saver style"><option value="scene">The theme's scenery</option><option value="watch">The watchtower</option><option value="watch-siren">The watchtower, with the siren</option></select><button type="button" class="export-btn" id="setSaverTry">Try it now</button></span>
+          <span class="set-field speed-fields"><select class="modal-input" id="setSaver" aria-label="Screen saver"><option value="0">Off</option><option value="5">After 5 minutes</option><option value="10">After 10 minutes</option><option value="30">After 30 minutes</option><option value="60">After an hour</option></select><select class="modal-input" id="setSaverStyle" aria-label="Screen saver style"><option value="scene">The theme's scenery</option><option value="watch">The watchtower</option><option value="watch-siren">The watchtower, with the siren</option></select><button type="button" class="export-btn" id="setSaverTry">Try it now</button><button type="button" class="export-btn" id="setSaverAlert" title="The watchtower, with a test alert on one of your devices">Show me an alert</button></span>
         </div>
         <label class="set-row">
           <span class="set-label">Keyboard
@@ -10040,7 +10053,7 @@ async function refresh() {
         if (!knownMacs.has(h.mac) && !h.known && !h.ignored && !h.forgotten) {
           toast(`New host on <span class="mono">${esc(h.subnet)}</span>: <span class="mono">${esc(h.mac)}</span> at <span class="mono">${esc(h.ip)}</span>`);
           festiveHooks.newDevice?.(h);
-          watchtower?.event("new", h);
+          if (saverStyle.startsWith("watch")) { watchAlert(h); watchtower?.redraw(); }
         }
       }
     }
@@ -19599,8 +19612,44 @@ $("setNewDaysSave").onclick = async () => {
 // does it goes no further. Kept per browser: a wall screen wants it, a desk
 // doesn't.
 let saverMins = 0, saverOn = false, saverSince = 0, lastInput = Date.now(), saverTimer = null, saverRaf = 0;
-let saverStyle = "scene", watchtower = null;
+let saverStyle = "scene", watchtower = null, saverForceWatch = false;
 try { saverMins = Number(localStorage.getItem("bamf-saver")) || 0; saverStyle = localStorage.getItem("bamf-saver-style") || "scene"; } catch {}
+// New devices waiting for someone to deal with them on the watchtower, oldest
+// first. Kept in this browser, so a reload of the wall screen doesn't lose them.
+let watchAlerts = [];
+try { watchAlerts = (JSON.parse(localStorage.getItem("bamf-watch-alerts") || "[]") || []).filter(a => a && a.id != null); } catch {}
+function saveWatchAlerts() { try { localStorage.setItem("bamf-watch-alerts", JSON.stringify(watchAlerts.filter(a => !a.test))); } catch {} }
+function watchAlert(h, test) {
+  if (!h) return;
+  watchAlerts = watchAlerts.filter(a => a.id !== h.id);
+  if (test) watchAlerts.unshift({ id: h.id, test: true }); else watchAlerts.push({ id: h.id });
+  saveWatchAlerts();
+}
+// The buttons follow the callout the watchtower draws.
+function placeSaverActions(box) {
+  const el = $("saverActions");
+  if (!box) { el.hidden = true; return; }
+  el.hidden = false;
+  el.style.width = box.w + "px";
+  el.style.transform = `translate(${Math.round(box.x)}px, ${Math.round(box.y)}px)`;
+  $("svKnown").hidden = box.test;
+  $("svQueue").textContent = box.count > 1 ? `1 of ${box.count} waiting` : box.test ? "Test alert" : "";
+}
+async function resolveWatchAlert(markKnown) {
+  const a = watchAlerts[0]; if (!a) return;
+  const h = hosts.find(x => x.id === a.id);
+  if (markKnown && h && !a.test) {
+    try { await setKnown(h, true); await refresh(); toast(`${esc(nameOrIp(h))} is marked known`); }
+    catch (e) { console.error(e); toast("Couldn't mark it known - see the server log"); return; }
+  }
+  watchAlerts = watchAlerts.filter(x => x.id !== a.id);
+  saveWatchAlerts();
+  watchtower?.redraw();
+  if (!watchAlerts.length) $("saver").classList.remove("pointer");
+  setTimeout(saverCard, 50);
+}
+$("svKnown").onclick = e => { e.stopPropagation(); resolveWatchAlert(true); };
+$("svDismiss").onclick = e => { e.stopPropagation(); resolveWatchAlert(false); };
 function saverStatus() {
   $("setSaver").value = String(saverMins);
   $("setSaverStyle").value = saverStyle;
@@ -19675,13 +19724,13 @@ function startSaver() {
   s.hidden = false;
   // The watchtower if that's the style; else scenery if the theme has any,
   // otherwise the points of light.
-  const watch = saverStyle.startsWith("watch");
+  const watch = saverForceWatch || saverStyle.startsWith("watch");
   s.classList.toggle("watch", watch);
   document.body.classList.toggle("saver-watch", watch);
   $("saverWatch").hidden = !watch;
   if (watch) {
     $("saverDots").hidden = true;
-    watchtower = buildWatchtower($("saverWatch"), saverStyle === "watch-siren");
+    watchtower = buildWatchtower($("saverWatch"), saverStyle === "watch-siren", placeSaverActions);
   } else {
     const scene = !!(document.getElementById("themeBg") || document.querySelector("#festive > *"));
     $("saverDots").hidden = scene;
@@ -19696,9 +19745,12 @@ function stopSaver() {
   if (!saverOn) return;
   saverOn = false; lastInput = Date.now();
   clearInterval(saverTimer); cancelAnimationFrame(saverRaf); saverRaf = 0;
-  watchtower?.stop(); watchtower = null;
+  watchtower?.stop(); watchtower = null; saverForceWatch = false;
+  // A test alert ends with the saver; real ones wait for next time.
+  watchAlerts = watchAlerts.filter(a => !a.test);
+  placeSaverActions(null);
   document.body.classList.remove("saving", "saver-watch");
-  $("saver").classList.remove("alert");
+  $("saver").classList.remove("alert", "pointer");
   // The overlay stays a moment to catch the rest of the click that woke it.
   const s = $("saver"); s.classList.add("waking");
   setTimeout(() => { if (!saverOn) { s.hidden = true; s.classList.remove("watch"); $("saverWatch").hidden = true; document.body.classList.remove("saver-anim"); } }, 900);
@@ -19708,6 +19760,12 @@ function noteInput(e) {
   if (!saverOn) return;
   // A settling mouse just after it starts isn't someone coming back.
   if (e.type === "pointermove" && Date.now() - saverSince < 1500) return;
+  // An alert on the watchtower waits to be dealt with: the mouse brings up the
+  // pointer for its buttons instead of waking the page, and the buttons work.
+  if (watchtower && watchtower.holding()) {
+    if (e.type === "pointermove" || e.type === "wheel") { $("saver").classList.add("pointer"); return; }
+    if ((e.type === "pointerdown" || e.type === "touchstart") && e.target && e.target.closest && e.target.closest("#saverActions")) return;
+  }
   if (e.type === "pointerdown" || e.type === "keydown" || e.type === "touchstart") { e.preventDefault(); e.stopPropagation(); }
   stopSaver();
 }
@@ -19734,6 +19792,17 @@ $("setSaverStyle").onchange = () => {
   toast(saverStyle === "scene" ? "The screen saver shows the theme's scenery" : "The screen saver is the watchtower" + (saverStyle === "watch-siren" ? ", with the siren" : ""));
 };
 $("setSaverTry").onclick = () => { $("setSaverTry").blur(); setTimeout(startSaver, 250); };
+// A look at what a new device does to the watchtower, on one of your own
+// devices, marked TEST, with only Dismiss.
+$("setSaverAlert").onclick = () => {
+  $("setSaverAlert").blur();
+  const list = sceneHosts();
+  const h = list.find(x => x.online && !x.known) || list.find(x => x.online) || list[0];
+  if (!h) { toast("There's no device to show it on yet"); return; }
+  watchAlert(h, true);
+  saverForceWatch = true;
+  setTimeout(startSaver, 250);
+};
 saverStatus();
 
 // ---- The watchtower: a screen saver with someone keeping watch ----
@@ -19750,7 +19819,7 @@ saverStatus();
 // CONTACT, and coming back REACQUIRED. A scan is a fast sweep of the yard.
 // The whole scene drifts a few pixels over the minutes and the moon moves, so
 // nothing sits still long enough to burn in.
-function buildWatchtower(cv, siren) {
+function buildWatchtower(cv, siren, onBox = () => {}) {
   const calm = calmMotion();
   const W = innerWidth, H = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
   cv.width = W * dpr; cv.height = H * dpr;
@@ -19865,11 +19934,10 @@ function buildWatchtower(cv, siren) {
   const devices = () => sceneHosts();
 
   // ---- what's going on ----
-  let aim = place(.6, .4), sweep = 0, events = [], cur = null, newTags = new Map();
+  let aim = place(.6, .4), sweep = 0, events = [], cur = null;
   let raise = 1, lowerAt = performance.now() + R(20e3, 40e3), lowered = 0, lookIdle = 0;
   function event(kind, data) {
     if (kind === "scan") { sweep = 1; return; }
-    if (kind === "new" && data) { events = events.filter(e => e.kind !== "new" || e.h.id !== data.id); events.unshift({ kind: "new", h: data, secs: 15 }); newTags.set(data.id, performance.now()); }
     if (kind === "change" && data) {
       for (const id of data.off || []) { const h = hosts.find(x => x.id === id); if (h && h.watched) events.push({ kind: "lost", h, secs: 5 }); }
       for (const id of data.back || []) { const h = hosts.find(x => x.id === id); if (h && h.watched) events.push({ kind: "back", h, secs: 4 }); }
@@ -19879,11 +19947,26 @@ function buildWatchtower(cv, siren) {
   function begin(e, now) {
     cur = { ...e, t0: now, spot: spotFor(e.h) };
     if (e.kind === "new" && siren) saverSiren();
-    if (calm) setTimeout(() => { cur = null; if (events.length) begin(events.shift(), performance.now()); render(performance.now()); }, e.secs * 1000);
+    if (calm && e.kind !== "new") setTimeout(() => { cur = null; if (events.length) begin(events.shift(), performance.now()); render(performance.now()); }, e.secs * 1000);
+  }
+  // A new device's alert holds until it's dealt with: marked known, dismissed,
+  // or the device ignored or gone. The oldest waiting is the one shown.
+  function waiting() {
+    const before = watchAlerts.length;
+    watchAlerts = watchAlerts.filter(a => { const h = hosts.find(x => x.id === a.id); return h && !h.ignored && !h.forgotten && (a.test || !h.known); });
+    if (watchAlerts.length !== before) saveWatchAlerts();
+    const a = watchAlerts[0];
+    return a ? { a, h: hosts.find(x => x.id === a.id) } : null;
+  }
+  function checkAlerts(now) {
+    const w = waiting();
+    if (w && !(cur && cur.kind === "new" && cur.h.id === w.h.id)) begin({ kind: "new", h: w.h, test: w.a.test, secs: Infinity }, now);
+    else if (!w && cur && cur.kind === "new") cur = null;
   }
 
   function update(dt, now) {
     for (const c of clouds) { c.x += c.v * dt; if (c.x > W + c.w) c.x = -c.w; }
+    checkAlerts(now);
     if (cur && now - cur.t0 > cur.secs * 1000) cur = null;
     if (!cur && events.length) begin(events.shift(), now);
     let want;
@@ -19934,7 +20017,7 @@ function buildWatchtower(cv, siren) {
       g.fillStyle = `rgba(${col},.18)`; g.beginPath(); g.ellipse(p.x, p.y, 16 * p.s, 5 * p.s, 0, 0, Math.PI * 2); g.fill();
       g.fillStyle = `rgba(${col},${st === "off" ? .5 : .95})`; g.beginPath(); g.arc(p.x, p.y - 3 * p.s, 3.2 * p.s, 0, Math.PI * 2); g.fill();
       const dist = Math.hypot(p.x - aim.x, (p.y - aim.y) * 2);
-      const tag = newTags.get(h.id);
+      const tag = watchAlerts.some(x => x.id === h.id && !x.test);
       if (tag && !(cur && cur.h.id === h.id)) {
         g.strokeStyle = `rgba(255,77,61,${.5 + .3 * Math.sin(t / 300)})`; g.lineWidth = 1.4; g.beginPath(); g.ellipse(p.x, p.y, 22 * p.s, 7 * p.s, 0, 0, Math.PI * 2); g.stroke();
         g.font = `600 ${Math.round(9 + 3 * p.s / sc)}px ${MONO}`; g.fillStyle = "rgba(255,120,105,.9)"; g.fillText("NEW", p.x + 10 * p.s, p.y + 12 * p.s);
@@ -19987,10 +20070,11 @@ function buildWatchtower(cv, siren) {
     if (cur) {
       const age = (t - cur.t0) / 1000, left = cur.secs - age;
       const fade = calm ? 1 : Math.min(1, age * 3, Math.max(0, left) * 1.5);
+      const settle = calm || age > 15 ? .6 : 1;
       if (alarm) {
-        g.fillStyle = `rgba(255,30,20,${(.07 + (calm ? 0 : .04 * Math.sin(t / 220))) * fade})`; g.fillRect(0, 0, W, H);
+        g.fillStyle = `rgba(255,30,20,${(.07 + (calm || age > 15 ? 0 : .04 * Math.sin(t / 220))) * fade * settle})`; g.fillRect(0, 0, W, H);
         const vg = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .35, W / 2, H / 2, Math.max(W, H) * .7);
-        vg.addColorStop(0, "rgba(130,0,0,0)"); vg.addColorStop(1, `rgba(130,0,0,${.38 * fade})`);
+        vg.addColorStop(0, "rgba(130,0,0,0)"); vg.addColorStop(1, `rgba(130,0,0,${.38 * fade * settle})`);
         g.fillStyle = vg; g.fillRect(0, 0, W, H);
       }
       const col = alarm ? "255,77,61" : warn ? "255,122,70" : "63,219,127";
@@ -20006,6 +20090,7 @@ function buildWatchtower(cv, siren) {
         g.fillStyle = `rgb(${col})`; g.beginPath(); g.arc(p.x, p.y - 4 * sc, 4.5 * sc, 0, Math.PI * 2); g.fill();
         // The details, beside it and kept on the screen.
         const h = cur.h, cw = 340 * sc, ch = (alarm ? 150 : 104) * sc;
+        let box = null;
         const toLeft = p.x > W * .62;
         const cx = Math.min(W - cw - 20, Math.max(20, toLeft ? p.x - 80 * sc - cw : p.x + 80 * sc));
         let cy = Math.max(20, p.y - 210 * sc);
@@ -20018,7 +20103,8 @@ function buildWatchtower(cv, siren) {
           g.strokeStyle = `rgb(${col})`; g.lineWidth = 2; g.strokeRect(cx, cy, cw, ch);
           g.fillStyle = `rgb(${col})`; g.fillRect(cx, cy, cw, 28 * sc);
           g.font = `600 ${14 * sc}px ${MONO}`; g.fillStyle = "#140504";
-          g.fillText(alarm ? "NEW DEVICE  ·  LOCKED ON" : warn ? "LOST CONTACT" : "REACQUIRED", cx + 12 * sc, cy + 19 * sc);
+          g.fillText(alarm ? (cur.test ? "TEST  ·  NEW DEVICE" : "NEW DEVICE  ·  LOCKED ON") : warn ? "LOST CONTACT" : "REACQUIRED", cx + 12 * sc, cy + 19 * sc);
+          if (alarm) box = { x: cx, y: cy + ch + 10 * sc, w: cw, id: h.id, test: !!cur.test, count: watchAlerts.length };
           const name = nameOrIp(h);
           g.font = `600 ${26 * sc}px ${MONO}`; g.fillStyle = "#fff1ee"; g.fillText(name.length > 18 ? name.slice(0, 17) + "…" : name, cx + 14 * sc, cy + 60 * sc);
           const guess = h.typeName || guessFamily(h.osGuess), maker = (h.vendor || "").split(/[ ,.]/)[0].toLowerCase();
@@ -20033,8 +20119,9 @@ function buildWatchtower(cv, siren) {
           }
         }
         g.globalAlpha = 1;
-      }
-    }
+        onBox(box);
+      } else onBox(null);
+    } else onBox(null);
   }
 
   // The watchman, in profile at the rail, backlit by the moon.
@@ -20099,9 +20186,10 @@ function buildWatchtower(cv, siren) {
     const dt = Math.min(.05, (now - last) / 1000); last = now;
     update(dt, now); render(now);
   };
-  if (calm) render(performance.now());
+  if (calm) { checkAlerts(performance.now()); render(performance.now()); }
   else raf = requestAnimationFrame(frame);
-  return { event, stop() { cancelAnimationFrame(raf); raf = 0; }, busy: () => !!cur };
+  return { event, stop() { cancelAnimationFrame(raf); raf = 0; onBox(null); }, busy: () => !!cur,
+    holding: () => !!(cur && cur.kind === "new"), redraw() { if (calm) { checkAlerts(performance.now()); render(performance.now()); } } };
 }
 
 // The siren, if it's been asked for: a two-tone wail, three times, low.

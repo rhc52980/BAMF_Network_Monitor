@@ -1052,8 +1052,18 @@ breath showing in the cold.
 goes red, and the searchlight swings round and locks onto it, a reticle
 closing in and its details beside it: its address, its vendor and what it
 looks like, its MAC, when it was first seen and that it isn't on the known
-list. After fifteen seconds he goes back to his rounds, and the device keeps a
-red NEW ring for as long as the saver's up. A watched device dropping is LOST
+list. **It stays that way until you deal with it**: move the mouse and the
+pointer comes up (rather than the page waking) with **Mark known** and
+**Dismiss** under the callout. Mark known marks the device known, as the table
+would; Dismiss just clears the alert. Marking the device known in the table, or
+ignoring it, clears it too. After the first fifteen seconds the alarm settles
+to a steady red, so it isn't strobing all night. Several new devices queue up,
+oldest first ("1 of 3 waiting"), with a red NEW ring on each still waiting.
+The list is kept in that browser, so reloading the wall screen doesn't lose
+it, and an alert that came in while you were at the dashboard is there the
+next time the saver starts. **Show me an alert**, beside the saver's style,
+starts the watchtower with a test alert on one of your devices, marked TEST,
+with only Dismiss. A watched device dropping is LOST
 CONTACT, and coming back REACQUIRED; a scan is a fast sweep of the yard. The
 card sits in the corner and says ALERT while it's going on. **The watchtower,
 with the siren** adds a siren to the jailbreak; otherwise it's silent. The whole
