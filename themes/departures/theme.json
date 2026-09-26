@@ -1,0 +1,7 @@
+{
+  "name": "Departures",
+  "swatch": ["#08090c", "#ffc933", "#ff5a47"],
+  "category": "animated",
+  "description": "An airport departures board, letters flipping over.",
+  "author": "BAMF"
+}

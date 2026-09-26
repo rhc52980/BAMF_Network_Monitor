@@ -1,0 +1,29 @@
+/* Model Railway: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+/* ---- Winter: snow, and frost creeping in at the edges ---- */
+
+/* ---- Model Railway: a train set round the edges of the page ---- */
+
+/* Daylight, like the painted backscene behind it: dark text on light, and
+   the backscene kept pale enough that text laid straight on it still reads. */
+
+[data-theme="railway"] {
+  --bg:#eef1e8; --panel:rgba(252,251,246,.95); --panel-2:#f1f0e6; --line:#d2d6c5;
+  --text:#1e261b; --text-dim:#4a5444; --led-on:#2f9a45; --led-warn:#c9860f;
+  --led-off:#b9bfae; --danger:#c83a2b; --focus:#7a1f2b; --radius:6px;
+}
+
+[data-theme="railway"] .brand h1 { color:#7a1f2b; }
+
+[data-theme="railway"] .brand h1::after { content:" \1F682"; }
+
+[data-theme="railway"] header { background:linear-gradient(rgba(250,250,245,.93), rgba(244,245,238,.88)); border-bottom:1px solid #d2d6c5; }
+
+[data-theme="railway"] table, [data-theme="railway"] .feed { background:rgba(252,251,246,.96); }
+
+[data-theme="railway"] thead th { color:#7a5a14; }
+
+[data-theme="railway"] .tab.active { background:rgba(122,31,43,.1); color:#7a1f2b; }
+
+[data-theme="railway"] tbody tr:hover td { background:linear-gradient(90deg, rgba(122,31,43,.07), transparent 70%); }
+

@@ -1,0 +1,136 @@
+/* Power Plant: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+/* ---- Power Plant: the turbine hall, and a control desk along the bottom ---- */
+
+[data-theme="powerplant"] {
+  --bg:#161a1d; --panel:rgba(30,36,40,.94); --panel-2:rgba(40,47,52,.96); --line:#4a545b;
+  --text:#e9eef1; --text-dim:#98a5ad; --led-on:#49d67a; --led-warn:#ffc233;
+  --led-off:#4a545b; --danger:#ff4b3e; --focus:#48c5ff; --radius:4px;
+}
+
+[data-theme="powerplant"] .brand h1 { color:#ffd36b; letter-spacing:.05em; text-shadow:0 0 12px rgba(255,211,107,.35); }
+
+[data-theme="powerplant"] .brand h1::after { content:" ⚡"; text-shadow:none; }
+
+[data-theme="powerplant"] header { background:linear-gradient(#2b3237, #1d2226); border-bottom:2px solid #4a545b; }
+
+[data-theme="powerplant"] table, [data-theme="powerplant"] .feed { background:rgba(22,26,29,.95); }
+
+[data-theme="powerplant"] thead th { color:#ffd36b; font-family:"IBM Plex Mono", monospace; }
+
+[data-theme="powerplant"] .stat { border:1px solid #4a545b; background:linear-gradient(rgba(38,44,49,.96), rgba(28,33,37,.96)); }
+
+[data-theme="powerplant"] .stat .num { text-shadow:0 0 12px rgba(255,211,107,.28); }
+
+[data-theme="powerplant"] .tab.active { background:rgba(255,211,107,.15); color:#ffe6ad; }
+
+/* The frequency meter in the header: the grid's heartbeat. */
+
+.pp-freq { display:inline-flex; align-items:center; gap:6px; padding:3px 8px; margin-right:6px;
+  background:#0f1316; border:1px solid #4a545b; border-radius:4px; font:600 11px "IBM Plex Mono", monospace; color:#ffd36b; }
+
+.pp-freq b { font-weight:700; }
+
+.pp-freq i { width:8px; height:8px; border-radius:50%; background:#49d67a; box-shadow:0 0 6px #49d67a; }
+
+.pp-freq.low i { background:#ffc233; box-shadow:0 0 6px #ffc233; }
+
+.pp-freq.trip i { background:#ff4b3e; box-shadow:0 0 8px #ff4b3e; animation:pp-flash .9s steps(2) infinite; }
+
+.pp-freq.trip { color:#ff8b82; border-color:#7a2b25; }
+
+@keyframes pp-flash { 50% { opacity:.3; } }
+
+/* The hall behind the page. */
+
+.pp-bg { background:linear-gradient(#171c21 0%, #13171b 55%, #0d1013 100%); }
+
+.pp-bg svg { position:absolute; inset:0; width:100%; height:100%; }
+
+.pp-spin { transform-box:fill-box; transform-origin:center; animation:pp-turn 2.2s linear infinite; }
+
+.pp-spin.fast { animation-duration:.9s; }
+
+.pp-spin.slow { animation-duration:5s; }
+
+@keyframes pp-turn { to { transform:rotate(360deg); } }
+
+/* Steam rolling out of the cooling towers. */
+
+.pp-steam { animation:pp-steam 9s ease-in-out infinite; transform-origin:center bottom; }
+
+.pp-steam:nth-of-type(2n) { animation-delay:-4s; }
+
+@keyframes pp-steam { 0% { opacity:0; transform:translateY(10px) scale(.7); } 25% { opacity:.5; } 100% { opacity:0; transform:translateY(-120px) scale(1.7); } }
+
+/* Current crawling along the transmission line. */
+
+.pp-line { fill:none; stroke:#ffd36b; stroke-width:3; stroke-dasharray:10 150; animation:pp-flow 4s linear infinite; opacity:.8; }
+
+.pp-tripped .pp-line { animation:none; opacity:.15; }
+
+.pp-tripped .pp-spin { animation-play-state:paused; }
+
+@keyframes pp-flow { to { stroke-dashoffset:-160; } }
+
+.pp-glow { animation:pp-glow 6s ease-in-out infinite alternate; }
+
+@keyframes pp-glow { from { opacity:.35; } to { opacity:.7; } }
+
+/* The control desk along the bottom, in front of the page. */
+
+.pp-desk { position:absolute; left:0; right:0; bottom:0; height:104px; pointer-events:none;
+  background:linear-gradient(#2b3237 0%, #20262b 55%, #171b1f 100%); border-top:3px solid #4a545b;
+  box-shadow:0 -8px 24px rgba(0,0,0,.55); display:flex; align-items:center; gap:18px; padding:8px 20px; }
+
+.pp-gauge { position:relative; width:78px; height:78px; flex:none; }
+
+.pp-gauge svg { display:block; }
+
+.pp-gauge .needle { transform-box:fill-box; transform-origin:bottom center; transition:transform .8s cubic-bezier(.3, 1.4, .5, 1); }
+
+.pp-gauge .cap { font:600 8px "IBM Plex Mono", monospace; fill:#98a5ad; }
+
+.pp-gauge .val { font:700 11px "IBM Plex Mono", monospace; fill:#ffd36b; }
+
+/* The mimic bus: the busbar with a breaker per device. */
+
+.pp-bus { flex:1 1 auto; min-width:0; align-self:stretch; position:relative; display:flex; flex-direction:column; justify-content:center; gap:6px; }
+
+.pp-busbar { height:6px; border-radius:3px; background:linear-gradient(90deg, #6b5a22, #ffd36b 30%, #ffd36b 70%, #6b5a22); opacity:.85; }
+
+.pp-tripped .pp-busbar { background:#4a4228; }
+
+.pp-breakers { display:flex; gap:5px; justify-content:center; flex-wrap:nowrap; overflow:hidden; }
+
+.pp-brk { position:relative; width:15px; height:30px; border-radius:2px; background:#161a1d; border:1px solid #4a545b; }
+
+.pp-brk::after { content:""; position:absolute; left:3px; right:3px; top:4px; height:11px; border-radius:1px; background:#49d67a; box-shadow:0 0 5px #49d67a; }
+
+.pp-brk.un::after { background:#ffc233; box-shadow:0 0 5px #ffc233; }
+
+.pp-brk.open::after { background:#ff4b3e; box-shadow:0 0 6px #ff4b3e; top:15px; }
+
+.pp-brk i { position:absolute; left:4px; right:4px; bottom:4px; height:3px; background:#2b3237; border-radius:1px; }
+
+.pp-brk.open i { background:#7a2b25; }
+
+/* The annunciator: the panel of alarm tiles that lights when something trips. */
+
+.pp-ann { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:4px; width:186px; flex:none; }
+
+.pp-ann span { font:600 8.5px "IBM Plex Mono", monospace; letter-spacing:.04em; color:#5d666d; text-align:center;
+  padding:5px 3px; border:1px solid #3c454b; border-radius:2px; background:#171b1f; }
+
+.pp-ann span.lit { color:#171b1f; background:#ffc233; border-color:#ffd36b; }
+
+.pp-ann span.bad { color:#fff; background:#c9382c; border-color:#ff4b3e; animation:pp-flash 1s steps(2) infinite; }
+
+@media (max-width: 900px) {
+  .pp-ann { display:none; } 
+  .pp-desk { height:84px; } 
+}
+@media (prefers-reduced-motion: reduce) {
+  .pp-spin, .pp-steam, .pp-line, .pp-glow, .pp-freq.trip i, .pp-ann span.bad { animation:none !important; }
+
+}

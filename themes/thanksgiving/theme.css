@@ -1,0 +1,48 @@
+/* Thanksgiving: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+/* A turkey struts along the bottom of the screen, in front of the page like
+   the Aquarium's crab: the ground is under the table, so behind it he'd
+   never be seen. */
+
+.tg-bird { position: absolute; bottom: 8px; left: 0; opacity: .95; filter: drop-shadow(0 3px 7px rgba(30, 12, 0, .45)); animation: tg-walk linear forwards; }
+
+.tg-bird svg { display: block; width: 92px; height: auto; animation: tg-bob .5s ease-in-out infinite alternate; }
+
+.tg-bird.rtl { animation-name: tg-walk-rtl; }
+
+.tg-bird.rtl svg { transform: scaleX(-1); animation-name: tg-bob-rtl; }
+
+.tg-bird .head { transform-box: fill-box; transform-origin: bottom center; animation: tg-peck 2.6s ease-in-out infinite; }
+
+.tg-bird .fan { transform-box: fill-box; transform-origin: 80% 70%; transition: transform .5s ease-out; }
+
+.tg-bird.proud .fan { transform: scale(1.22); }
+
+@keyframes tg-walk { from { transform: translateX(-120px); } to { transform: translateX(calc(100vw + 120px)); } }
+
+@keyframes tg-walk-rtl { from { transform: translateX(calc(100vw + 120px)); } to { transform: translateX(-120px); } }
+
+@keyframes tg-bob { to { transform: translateY(-3px); } }
+
+@keyframes tg-bob-rtl { from { transform: scaleX(-1); } to { transform: scaleX(-1) translateY(3px); } }
+
+@keyframes tg-peck { 0%, 62%, 100% { transform: rotate(0); } 72% { transform: rotate(16deg); } 82% { transform: rotate(2deg); } }
+
+/* ---- Thanksgiving: leaves coming down over a harvest table ---- */
+
+[data-theme="thanksgiving"] {
+  --bg:#1a1008; --panel:rgba(40,24,13,.95); --panel-2:rgba(53,32,17,.96); --line:#5c3a1e;
+  --text:#f7ead6; --text-dim:#c0a081; --led-on:#a7c04f; --led-warn:#e8a33d;
+  --led-off:#4e3721; --danger:#d1452f; --focus:#e8873d; --radius:10px;
+}
+
+[data-theme="thanksgiving"] .brand h1 { color:#e8873d; text-shadow:0 0 10px rgba(232,135,61,.5); }
+
+[data-theme="thanksgiving"] .brand h1::after { content:" 🦃"; text-shadow:none; }
+
+[data-theme="thanksgiving"] header { background:linear-gradient(#47291339, #2a180b); border-bottom:2px solid #7a4a22; }
+
+[data-theme="thanksgiving"] thead th { color:#e8a33d; }
+
+[data-theme="thanksgiving"] table, [data-theme="thanksgiving"] .feed { background:rgba(30,18,9,.96); }
+

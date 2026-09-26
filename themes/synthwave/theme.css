@@ -1,0 +1,40 @@
+/* Synthwave: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="synthwave"] {
+  --bg:#1a0b2e; --panel:#241141; --panel-2:#2d1650; --line:#4a2578;
+  --text:#f5e6ff; --text-dim:#b58fd6; --led-on:#2de2e6; --led-warn:#ff8b39;
+  --led-off:#4a2578; --danger:#ff3864; --focus:#ff6ac1; --radius:8px;
+}
+
+[data-theme="synthwave"] .brand h1 { color:#ff6ac1; text-shadow:0 0 8px #ff6ac1; }
+
+/* Synthwave: a neon grid rolling toward a striped sun. */
+
+.sw-bg { overflow: hidden; }
+
+[data-theme="synthwave"] table, [data-theme="synthwave"] .feed { background: rgba(26, 11, 46, .88); }
+
+.sw-sun {
+  position: absolute; left: 50%; bottom: 24vh; width: 38vh; height: 38vh; transform: translateX(-50%);
+  border-radius: 50%; background: linear-gradient(#ffe36e, #ff8a5c 45%, #ff3fa4 75%, #b84dff);
+  -webkit-mask-image: linear-gradient(to bottom, #000 50%, transparent 50% 53%, #000 53% 62%, transparent 62% 66%, #000 66% 74%, transparent 74% 79%, #000 79% 86%, transparent 86% 92%, #000 92%);
+  mask-image: linear-gradient(to bottom, #000 50%, transparent 50% 53%, #000 53% 62%, transparent 62% 66%, #000 66% 74%, transparent 74% 79%, #000 79% 86%, transparent 86% 92%, #000 92%);
+  opacity: .32; filter: drop-shadow(0 0 40px #ff3fa4);
+}
+
+.sw-horizon { position: absolute; left: 0; right: 0; bottom: 30vh; height: 2px; background: #ff6ac1; box-shadow: 0 0 16px 3px #ff6ac1; opacity: .7; }
+
+.sw-grid {
+  position: absolute; left: -50%; right: -50%; bottom: 0; height: 30vh; opacity: .5;
+  background-image: linear-gradient(#ff6ac1 2px, transparent 2px), linear-gradient(90deg, #2de2e6 2px, transparent 2px);
+  background-size: 64px 64px; transform: perspective(260px) rotateX(58deg); transform-origin: bottom center;
+  animation: sw-roll 2.4s linear infinite;
+  -webkit-mask-image: linear-gradient(to top, #000 35%, transparent); mask-image: linear-gradient(to top, #000 35%, transparent);
+}
+
+@keyframes sw-roll { to { background-position: 0 64px, 0 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sw-grid { animation: none !important; }
+
+}

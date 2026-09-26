@@ -1,0 +1,53 @@
+/* Constellation: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+/* ---- Constellation: the network as stars, under a moon that shows how much is up ---- */
+
+[data-theme="constellation"] body { background: #070b1f; }
+
+[data-theme="constellation"] header { background: linear-gradient(rgba(12, 15, 38, .92), rgba(9, 12, 30, .88)); border-bottom: 1px solid #262c5a; }
+
+[data-theme="constellation"] .brand h1 { text-shadow: 0 0 10px rgba(185, 164, 255, .6); }
+
+[data-theme="constellation"] .stat .num { color: #eef0ff; text-shadow: 0 0 10px rgba(126, 224, 255, .55); }
+
+[data-theme="constellation"] .tab.active { background: rgba(185, 164, 255, .16); color: #e6e0ff; }
+
+[data-theme="constellation"] thead th { color: #b9a4ff; }
+
+[data-theme="constellation"] table, [data-theme="constellation"] .feed { background: rgba(10, 13, 32, .95); }
+
+[data-theme="constellation"] .badge.unknown::before { content: "✦ "; }
+
+[data-theme="constellation"] tbody tr:hover td { background: radial-gradient(ellipse 220px 50px at 80px 50%, rgba(185, 164, 255, .12), transparent 70%); }
+
+/* The Map: star dust along the cables, and a soft glow on everything. */
+
+[data-theme="constellation"] .map-svg .spoke.cable { stroke: #6f7fd8; filter: drop-shadow(0 0 3px rgba(126, 150, 255, .6)); }
+
+[data-theme="constellation"] .map-svg .t-tile { stroke: #5a62b0; }
+
+[data-theme="constellation"] .map-svg .pkt { display: inline; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 0 22; animation: cs-dust 3s linear infinite; }
+
+[data-theme="constellation"] .map-svg .pkt.off { display: none; }
+
+@keyframes cs-dust { from { stroke-dashoffset: 0; opacity: .9; } 50% { opacity: .35; } to { stroke-dashoffset: -44; opacity: .9; } }
+
+.cs-bg { background: radial-gradient(ellipse at 30% 20%, #111a44, #070b1f 60%); }
+
+.cs-bg canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.cs-name { position: absolute; color: #eef0ff; font: 600 12px "IBM Plex Mono", monospace; letter-spacing: .08em; white-space: nowrap;
+  text-shadow: 0 0 8px rgba(185, 164, 255, .9); pointer-events: none; animation: cs-name 4s ease-out forwards; }
+
+@keyframes cs-name { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="constellation"] .map-svg .pkt, .cs-name { animation: none !important; }
+
+}
+[data-theme="constellation"] {
+  --bg:#070b1f; --panel:rgba(14, 18, 42, .9); --panel-2:rgba(22, 27, 58, .93); --line:#262c5a;
+  --text:#e6e9ff; --text-dim:#8f96c4; --led-on:#7cf0b0; --led-warn:#ffcf6b;
+  --led-off:#3a4070; --danger:#ff6b8b; --focus:#b9a4ff; --radius:10px;
+}
+

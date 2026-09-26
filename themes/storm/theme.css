@@ -1,0 +1,64 @@
+/* Thunderstorm: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="storm"] {
+  --bg:#0e1319; --panel:rgba(24, 32, 43, .88); --panel-2:rgba(33, 44, 58, .92); --line:#2c3a4d;
+  --text:#d7e2ee; --text-dim:#8395aa; --led-on:#6fe3ff; --led-warn:#ffd23f;
+  --led-off:#3a4758; --danger:#ff6b6b; --focus:#9fd8ff; --radius:8px;
+}
+
+/* Thunderstorm: rain behind slightly see-through panels, soft lightning, a rumble. */
+
+[data-theme="storm"] table, [data-theme="storm"] .feed { background: rgba(14, 19, 25, .9); }
+
+[data-theme="storm"] header, [data-theme="storm"] .modal, [data-theme="storm"] .theme-menu,
+[data-theme="storm"] .row-menu, [data-theme="storm"] .tools-menu { background-color: #18202b; }
+
+.st-bg { overflow: hidden; background: linear-gradient(#141b24, #0e1319 60%); }
+
+.st-bg canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.st-flash { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, rgba(200, 225, 255, .5), rgba(160, 190, 230, .12) 60%, transparent); opacity: 0; }
+
+.st-flash.on { animation: st-flash .7s ease-out 1; }
+
+@keyframes st-flash { 0% { opacity: 0; } 12% { opacity: .55; } 30% { opacity: .2; } 45% { opacity: .38; } 100% { opacity: 0; } }
+
+.st-cloud {
+  position: absolute; height: 150px; border-radius: 50%; opacity: .55; filter: blur(18px);
+  background: radial-gradient(ellipse at 50% 60%, #3a4a5e, #26313f 55%, transparent 72%);
+  animation: st-drift linear infinite alternate;
+}
+
+@keyframes st-drift { from { transform: translateX(-12vw); } to { transform: translateX(12vw); } }
+
+header.st-rumble { animation: st-rumble .7s linear 1; }
+
+@keyframes st-rumble {
+  0%, 100% { transform: none; } 10% { transform: translate(-2px, 1px); } 25% { transform: translate(2px, -1px); }
+  40% { transform: translate(-1px, 1px); } 60% { transform: translate(1px, 0); } 80% { transform: translate(-1px, 0); }
+}
+
+[data-theme="storm"] tr.st-flicker td { animation: st-flicker 1s steps(1) 1; }
+
+@keyframes st-flicker { 0% { opacity: .15; } 15% { opacity: 1; } 30% { opacity: .25; } 45% { opacity: .9; } 60% { opacity: .2; } 100% { opacity: 1; } }
+
+/* The Map: a spark runs along a cable now and then, and offline devices drip. */
+
+[data-theme="storm"] .map-svg .pkt.st-spark {
+  display: inline; fill: none; stroke: #eef8ff; stroke-width: 2.5; stroke-linecap: round;
+  stroke-dasharray: 8 2000; animation: st-spark 1.2s ease-in 1; filter: drop-shadow(0 0 4px #9fd8ff);
+}
+
+@keyframes st-spark { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -900; } }
+
+[data-theme="storm"] .map-svg .tnode.off .t-drip { display: inline; fill: #7fb8e6; animation: st-drip 2.6s ease-in infinite; }
+
+@keyframes st-drip { 0% { transform: translate(0, 0); opacity: 0; } 20% { opacity: .9; } 100% { transform: translate(0, 26px); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .st-cloud, .st-flash.on, header.st-rumble, [data-theme="storm"] tr.st-flicker td,
+  [data-theme="storm"] .map-svg .tnode.off .t-drip { animation: none !important; }
+
+  [data-theme="storm"] .map-svg .pkt.st-spark { display: none; }
+
+}

@@ -1,0 +1,42 @@
+/* Laser Show: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+/* ---- Laser: a show in a dark room, beams through the haze ---- */
+
+[data-theme="laser"] {
+  --bg:#05060a; --panel:rgba(10,13,22,.93); --panel-2:rgba(16,21,34,.95); --line:#1d2740;
+  --text:#e8f6ff; --text-dim:#7f93b0; --led-on:#9dff3d; --led-warn:#ffd54a;
+  --led-off:#2a3550; --danger:#ff2f6e; --focus:#00e5ff; --radius:8px;
+}
+
+[data-theme="laser"] .brand h1 {
+  color:#e8fdff; letter-spacing:.06em;
+  text-shadow:0 0 6px #00e5ff, 0 0 18px rgba(0,229,255,.7), 0 0 36px rgba(255,47,209,.45);
+}
+
+[data-theme="laser"] header { background:linear-gradient(rgba(7,9,16,.92), rgba(5,6,10,.86)); border-bottom:0; position:relative; }
+
+/* A beam runs along the bottom edge of the header, left to right. */
+
+[data-theme="laser"] header::after {
+  content:""; position:absolute; left:0; right:0; top:100%; height:2px; z-index:5; pointer-events:none;
+  background:linear-gradient(90deg, transparent 0 8%, #00e5ff 18%, #ff2fd1 50%, #9dff3d 82%, transparent 92%);
+  filter:drop-shadow(0 0 6px rgba(0,229,255,.8));
+  animation:lz-sweep 5.5s ease-in-out infinite alternate;
+}
+
+@keyframes lz-sweep { from { transform:translateX(-14%) scaleX(.85); } to { transform:translateX(14%) scaleX(1.1); } }
+
+[data-theme="laser"] .stat .num { text-shadow:0 0 12px rgba(0,229,255,.5); }
+
+[data-theme="laser"] .tab.active { background:rgba(0,229,255,.14); color:#d8fbff; }
+
+[data-theme="laser"] thead th { color:#00e5ff; }
+
+[data-theme="laser"] table, [data-theme="laser"] .feed { background:rgba(6,8,15,.95); }
+
+[data-theme="laser"] tbody tr:hover td { background:linear-gradient(90deg, rgba(0,229,255,.12), rgba(255,47,209,.07) 60%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="laser"] header::after { animation:none; }
+
+}

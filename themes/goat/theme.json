@@ -1,0 +1,15 @@
+{
+  "name": "Goat",
+  "swatch": ["#9e2b25", "#fdf8ec", "#6d8f3a"],
+  "category": "animated",
+  "description": "An alpine pasture with a barn and a herd of goats with opinions.",
+  "author": "BAMF",
+  "variants": [
+    {
+      "id": "goatnight",
+      "name": "Goat Night",
+      "swatch": ["#0f1622", "#f5d77a", "#5a1a17"],
+      "description": "The goats' pasture after dark, under the stars."
+    }
+  ]
+}

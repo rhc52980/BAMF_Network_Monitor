@@ -1,0 +1,56 @@
+/* Terminal: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="terminal"] {
+  --bg: #020a02;
+  --panel: rgba(4, 16, 4, .94);
+  --panel-2: #072007;
+  --line: #0d3d0d;
+  --text: #33ff66;
+  --text-dim: #1f9940;
+  --led-on: #33ff66;
+  --led-warn: #ffcc33;
+  --led-off: #0d3d0d;
+  --danger: #ff5544;
+  --focus: #33ff99;
+  --radius: 2px;
+}
+
+[data-theme="terminal"] body, [data-theme="terminal"] {
+  font-family: "IBM Plex Mono", monospace !important;
+}
+
+[data-theme="terminal"] * { font-family: "IBM Plex Mono", monospace !important; letter-spacing: 0.02em; }
+
+[data-theme="terminal"] h1, [data-theme="terminal"] .brand h1 { text-shadow: 0 0 6px var(--led-on); }
+
+[data-theme="terminal"]::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 9998;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 3px);
+  mix-blend-mode: multiply;
+}
+
+/* Terminal is Battlezone: the green vector battlefield behind the page. */
+
+.bz-bg { background: #010601; }
+
+[data-theme="terminal"] table, [data-theme="terminal"] .feed { background: rgba(3, 12, 3, .96); }
+
+.bz-bg canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .6; }
+
+.bz-radar { width: 30px; height: 30px; flex: none; }
+
+.bz-score { font-size: 11px; letter-spacing: .12em; color: #33ff66; white-space: nowrap; text-shadow: 0 0 5px rgba(51, 255, 102, .7); }
+
+.bz-msg { position: absolute; left: 50%; transform: translateX(-50%); color: #ff3b30; font: 700 15px "IBM Plex Mono", monospace; letter-spacing: .3em;
+  text-shadow: 0 0 8px rgba(255, 59, 48, .8); white-space: nowrap; animation: bz-msg 2.6s steps(1) forwards; }
+
+@keyframes bz-msg { 0%, 20%, 40%, 60% { opacity: 1; } 10%, 30%, 50% { opacity: 0; } 90% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Terminal: a plain green screen with a blinking block cursor. */
+
+[data-theme="terminal"] .brand h1::after { content: "█"; margin-left: 3px; animation: term-blink 1.06s steps(1) infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="terminal"] .brand h1::after { animation: none !important; }
+
+}

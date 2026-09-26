@@ -1,0 +1,302 @@
+/* Steampunk: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="steampunk"] {
+  --bg:#150e08; --panel:rgba(40, 28, 17, .92); --panel-2:rgba(58, 41, 22, .94); --line:#5a4020;
+  --text:#ecd9b0; --text-dim:#a88d63; --led-on:#52c3a4; --led-warn:#e8893a;
+  --led-off:#5a4630; --danger:#d8503a; --focus:#e8b04b; --radius:6px;
+}
+
+/* Steampunk: walnut and leather, brass and copper, rivets, gears turning
+   behind the page, and nixie-tube numbers. */
+
+[data-theme="steampunk"] body { background: radial-gradient(ellipse at 50% 0%, #2a1d12, #150e08 70%) fixed; }
+
+[data-theme="steampunk"] .brand h1, [data-theme="steampunk"] .tab, [data-theme="steampunk"] thead th,
+[data-theme="steampunk"] .modal-title, [data-theme="steampunk"] .set-card-title, [data-theme="steampunk"] .map-net,
+[data-theme="steampunk"] .stat .lbl {
+  font-family: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif; letter-spacing: .06em;
+}
+
+[data-theme="steampunk"] thead th, [data-theme="steampunk"] .stat .lbl { text-transform: uppercase; font-size: 11px; }
+
+[data-theme="steampunk"] header {
+  background: linear-gradient(#3a2716, #24180d); border-bottom: 0; position: relative;
+  box-shadow: inset 0 -1px 0 #6b4a22;
+}
+
+/* A copper steam pipe under the header, with a joint every so often. */
+
+[data-theme="steampunk"] header::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 9px; z-index: 5; pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 236px, #5b3515 236px 240px, #d99a5a 240px 243px, #5b3515 243px 252px, transparent 252px 260px),
+    linear-gradient(#e0a067, #b87333 35%, #7a4418 80%, #4e2a0e);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, .5);
+}
+
+/* The name on a riveted brass plate. */
+
+[data-theme="steampunk"] .brand h1 {
+  color: #2a1a08; text-shadow: 0 1px 0 rgba(255, 230, 170, .6); padding: 5px 16px 4px 15px; border-radius: 4px;
+  background:
+    radial-gradient(circle at 5px 50%, #5b3d18 1.6px, transparent 2.2px),
+    radial-gradient(circle at calc(100% - 5px) 50%, #5b3d18 1.6px, transparent 2.2px),
+    linear-gradient(#f0cf7c, #c99a3f 55%, #9b7128);
+  box-shadow: inset 0 0 0 1px #6b4a1a, 0 2px 3px rgba(0, 0, 0, .5);
+}
+
+/* Rivets in the corners of every panel. */
+
+[data-theme="steampunk"] .stat, [data-theme="steampunk"] .map-card, [data-theme="steampunk"] .set-card,
+[data-theme="steampunk"] .modal {
+  border: 1px solid #8a6a33;
+  box-shadow: inset 0 0 0 1px rgba(255, 214, 140, .08), 0 2px 8px rgba(0, 0, 0, .45);
+  background-image:
+    radial-gradient(circle at 7px 7px, #d9b06a 1.4px, #6b4a1a 2.6px, transparent 3.2px),
+    radial-gradient(circle at calc(100% - 7px) 7px, #d9b06a 1.4px, #6b4a1a 2.6px, transparent 3.2px),
+    radial-gradient(circle at 7px calc(100% - 7px), #d9b06a 1.4px, #6b4a1a 2.6px, transparent 3.2px),
+    radial-gradient(circle at calc(100% - 7px) calc(100% - 7px), #d9b06a 1.4px, #6b4a1a 2.6px, transparent 3.2px);
+}
+
+/* Nixie tubes. */
+
+[data-theme="steampunk"] .stat .num { color: #ffb45c; text-shadow: 0 0 4px #ff8c1a, 0 0 12px rgba(255, 106, 0, .7); }
+
+[data-theme="steampunk"] .stat.alert .num { color: #ff9b52; }
+
+[data-theme="steampunk"] thead th { color: #d9b06a; border-bottom-color: #8a6a33; }
+
+[data-theme="steampunk"] .tab.active { background: linear-gradient(#5a3f20, #3b2913); color: #f0cf7c; }
+
+[data-theme="steampunk"] table, [data-theme="steampunk"] .feed { background: rgba(21, 14, 8, .82); }
+
+/* The next-scan bar: a glass pressure tube filling with glowing amber. */
+
+[data-theme="steampunk"] .scan-track {
+  height: 10px; border-radius: 5px; background: rgba(255, 230, 190, .08); padding: 1.5px;
+  box-shadow: inset 0 0 0 1px #b8894a, 0 0 0 2px #3a2716, 0 0 0 3px #8a6a33;
+}
+
+[data-theme="steampunk"] .scan-fill { border-radius: 4px; background: linear-gradient(#ffd27a, #ff9a1f 55%, #c25b00); box-shadow: 0 0 6px #ff8c1a; }
+
+/* The Map: copper pipes for cables, brass tiles, a cog on everything running, a top hat on the router. */
+
+[data-theme="steampunk"] .map-svg .spoke.cable { stroke: #b87333; stroke-width: 3.2; }
+
+[data-theme="steampunk"] .map-svg .t-tile { stroke: #a8823f; }
+
+[data-theme="steampunk"] .map-svg .tnode.dev.on .t-cog { display: inline; }
+
+[data-theme="steampunk"] .map-svg .t-tophat { display: inline; }
+
+.sp-bg { overflow: hidden; }
+
+.sp-gear { position: absolute; opacity: .2; }
+
+.sp-gear svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+.sp-gear .spin { transform-box: fill-box; transform-origin: center; animation: sp-turn var(--t) linear infinite; }
+
+.sp-gear .spin.rev { animation-direction: reverse; }
+
+.sp-gear .kick { transform-box: fill-box; transform-origin: center; }
+
+.sp-bg.burst .sp-gear .kick { animation: sp-kick 1.8s cubic-bezier(.2, .9, .3, 1) 1; }
+
+.sp-bg.burst .sp-gear .rev .kick { animation-name: sp-kick-rev; }
+
+@keyframes sp-kick { to { transform: rotate(40deg); } }
+
+@keyframes sp-kick-rev { to { transform: rotate(-40deg); } }
+
+.sp-airship { position: absolute; top: 9vh; left: 0; width: 220px; opacity: .32; animation: sp-fly 70s linear forwards; }
+
+.sp-airship svg { display: block; width: 100%; }
+
+.sp-airship .prop { transform-box: fill-box; transform-origin: center; animation: sp-prop .35s linear infinite; }
+
+@keyframes sp-fly { from { transform: translate(-240px, 0); } 50% { transform: translate(50vw, 14px); } to { transform: translate(calc(100vw + 40px), -6px); } }
+
+@keyframes sp-prop { 50% { transform: scaleY(.2); } }
+
+.sp-valve { position: absolute; width: 26px; height: 22px; }
+
+.sp-puff { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: rgba(235, 225, 210, .8); filter: blur(1.5px); opacity: 0; animation: sp-puff 2.2s ease-out forwards; }
+
+@keyframes sp-puff { 0% { opacity: 0; transform: translate(0, 0) scale(.5); } 15% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx), -60px) scale(3); } }
+
+.sp-ticker {
+  position: absolute; right: 0; max-width: 70vw; padding: 7px 22px 7px 16px; color: #2a1a08; white-space: nowrap; overflow: hidden;
+  font: 600 14px "Courier New", Courier, monospace; letter-spacing: .08em; text-transform: uppercase;
+  padding: 11px 22px 11px 16px; box-shadow: 0 3px 8px rgba(0, 0, 0, .5);
+  /* Paper tape, punched along both edges. */
+  background:
+    radial-gradient(circle at 6px 4px, #7a6440 1.5px, transparent 2px) 0 0 / 12px 100% repeat-x,
+    radial-gradient(circle at 6px calc(100% - 4px), #7a6440 1.5px, transparent 2px) 0 0 / 12px 100% repeat-x,
+    #efe2c0;
+  animation: sp-ticker 5.5s ease-in-out forwards;
+}
+
+@keyframes sp-ticker { 0% { transform: translateX(105%); } 14%, 84% { transform: translateX(-24px); } 100% { transform: translateX(105%); } }
+
+[data-theme="steampunk"] td.hostname { position: relative; }
+
+.sp-hiss { position: absolute; left: 4px; top: 50%; pointer-events: none; font: italic 600 12px Georgia, serif; color: #efe2c0; animation: sp-hiss 1.8s ease-out forwards; }
+
+.sp-hiss::before, .sp-hiss::after { content: ""; position: absolute; left: -2px; top: -8px; width: 14px; height: 14px; border-radius: 50%; background: rgba(235, 225, 210, .7); filter: blur(2px); animation: sp-puff 1.8s ease-out forwards; --dx: -10px; }
+
+.sp-hiss::after { left: 10px; animation-delay: .2s; --dx: 12px; }
+
+@keyframes sp-hiss { 0% { opacity: 0; transform: translateY(-50%) translateX(-6px); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-50%) translateX(14px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-gear .spin,
+  .sp-bg.burst .sp-gear .kick,
+  .sp-ticker,
+  .sp-hiss,
+  .sp-hiss::before,
+  .sp-hiss::after { animation: none !important; }
+
+}
+/* Steampunk, more of it. */
+
+/* The pressure gauge in the header: how much of the network is up. */
+
+.sp-gauge { width: 34px; height: 34px; flex: none; }
+
+.sp-gauge svg { display: block; overflow: visible; }
+
+.sp-gauge .needle { transform-origin: 17px 17px; transition: transform 1.2s cubic-bezier(.3, 1.6, .5, 1); }
+
+.sp-gauge.red .needle-wrap { animation: sp-wobble .5s ease-in-out infinite; transform-origin: 17px 17px; }
+
+@keyframes sp-wobble { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+
+/* The brass clock on the Last scan card; it chimes when a scan lands. */
+
+[data-theme="steampunk"] .stat { position: relative; }
+
+.sp-clock { position: absolute; right: 14px; top: 50%; width: 44px; height: 44px; margin-top: -22px; }
+
+.sp-clock svg { display: block; overflow: visible; }
+
+.sp-clock .hand { transform-origin: 22px 22px; }
+
+.sp-clock .sec { transform-origin: 22px 22px; animation: sp-turn 60s steps(60) infinite; }
+
+.sp-clock.chime { animation: sp-chime .9s ease-in-out 1; }
+
+@keyframes sp-chime { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-9deg); } 40% { transform: rotate(8deg); } 60% { transform: rotate(-5deg); } 80% { transform: rotate(3deg); } }
+
+.sp-note { position: absolute; right: 18px; top: 2px; color: #ffcf7a; font: 14px Georgia, serif; animation: sp-note 1.4s ease-out forwards; pointer-events: none; }
+
+@keyframes sp-note { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translate(10px, -22px); } }
+
+/* Wind-up keys on watched devices; a key winds down when its device goes offline. */
+
+.sp-key { display: inline-block; width: 18px; height: 12px; margin-left: 6px; vertical-align: -1px; }
+
+.sp-key svg { display: block; overflow: visible; }
+
+.sp-key .bow { transform-origin: 5px 6px; animation: sp-wind 1.2s ease-in-out infinite alternate; }
+
+.sp-key.down .bow { animation: sp-winddown 3s cubic-bezier(.1, .7, .3, 1) 1 forwards; }
+
+.sp-key.stopped .bow { animation: none; }
+
+@keyframes sp-wind { to { transform: scaleX(-1); } }
+
+@keyframes sp-winddown { 0% { transform: scaleX(1); } 30% { transform: scaleX(-1); } 60% { transform: scaleX(.6); } 100% { transform: scaleX(1); } }
+
+[data-theme="steampunk"] .scan-entry.busy[data-kind="identify"] .scan-entry-body { position: relative; height: 62px; }
+
+[data-theme="steampunk"] .scan-entry.busy[data-kind="identify"] .scan-entry-body::before {
+  content: ""; position: absolute; left: 6px; top: 6px; width: 150px; height: 48px;
+  background: #efe2c0; clip-path: polygon(0 0, 92% 0, 100% 16%, 100% 100%, 0 100%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, .4); animation: sp-feed 2.4s ease-in-out infinite;
+}
+
+[data-theme="steampunk"] .scan-entry.busy[data-kind="identify"] .scan-entry-body::after {
+  content: ""; position: absolute; left: 14px; top: 12px; width: 128px; height: 36px;
+  background:
+    linear-gradient(90deg, #3a2716 0 4px, transparent 4px) 0 0 / 12px 7px repeat-x,
+    linear-gradient(90deg, transparent 6px, #3a2716 6px 10px, transparent 10px) 0 14px / 16px 7px repeat-x,
+    linear-gradient(90deg, #3a2716 0 4px, transparent 4px) 5px 28px / 20px 7px repeat-x;
+  animation: sp-punch 2.4s steps(12) infinite, sp-feed 2.4s ease-in-out infinite;
+}
+
+@keyframes sp-punch { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+@keyframes sp-feed { 0% { transform: translateX(0); } 50% { transform: translateX(10px); } 100% { transform: translateX(0); } }
+
+[data-theme="steampunk"] .scan-entry.busy[data-kind="ports"] .scan-entry-body { position: relative; height: 76px; }
+
+[data-theme="steampunk"] .scan-entry.busy[data-kind="ports"] .scan-entry-body::before,
+[data-theme="steampunk"] .scan-entry.busy[data-kind="ports"] .scan-entry-body::after {
+  content: ""; position: absolute; left: 10px; top: 4px; width: 68px; height: 68px; border-radius: 50%;
+  border: 1px dashed rgba(201, 154, 63, .6);
+  background: radial-gradient(circle at 50% 50%, #ffcf7a 0 7px, #c25b00 8px, transparent 9px),
+              radial-gradient(circle at 50% 4px, #52c3a4 0 4px, transparent 4.5px);
+  animation: sp-turn 3s linear infinite;
+}
+
+[data-theme="steampunk"] .scan-entry.busy[data-kind="ports"] .scan-entry-body::after {
+  left: 24px; top: 18px; width: 40px; height: 40px; background: radial-gradient(circle at 50% 3px, #c99a3f 0 3.2px, transparent 3.6px);
+  animation-duration: 1.4s; animation-direction: reverse;
+}
+
+/* A brass lens over an address or MAC you point at. */
+
+[data-theme="steampunk"] td.ip a:hover, [data-theme="steampunk"] td.mac:hover > .mac-text {
+  display: inline-block; transform: scale(1.3); position: relative; z-index: 3; border-radius: 999px; padding: 1px 8px;
+  background: radial-gradient(ellipse at 35% 30%, rgba(255, 245, 220, .25), rgba(40, 28, 17, .92) 70%);
+  box-shadow: 0 0 0 2px #c99a3f, 0 0 0 4px #5b3d18, 0 3px 8px rgba(0, 0, 0, .6); transition: transform .15s;
+}
+
+/* The search box: a brass telescope eyepiece; rows glint as you type. */
+
+[data-theme="steampunk"] #search {
+  padding-left: 34px; border: 1px solid #c99a3f; box-shadow: inset 0 0 0 2px #3a2716, 0 0 0 2px #5b3d18;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 15l12-9 3 4-12 9z' fill='%23c99a3f' stroke='%233a2716'/%3E%3Cpath d='M15 6l3-2 3 4-3 2z' fill='%23e8c27a' stroke='%233a2716'/%3E%3Cpath d='M8 17l-2 5M10 16l2 6' stroke='%23c99a3f' stroke-width='1.5'/%3E%3C/svg%3E") 8px 50% / 18px no-repeat, var(--panel);
+}
+
+[data-theme="steampunk"] tbody.sp-glint tr td { background-image: linear-gradient(100deg, transparent 35%, rgba(255, 214, 140, .22) 50%, transparent 65%); background-size: 300% 100%; animation: sp-glint .8s ease-out 1; }
+
+@keyframes sp-glint { from { background-position: 100% 0; } to { background-position: -50% 0; } }
+
+/* Oil lamps in the corners, flickering softly. */
+
+.sp-lamps { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; animation: sp-lamp 5s infinite;
+  background:
+    radial-gradient(circle at 0 0, rgba(255, 150, 50, .16), transparent 28vmax),
+    radial-gradient(circle at 100% 0, rgba(255, 150, 50, .12), transparent 24vmax),
+    radial-gradient(circle at 0 100%, rgba(255, 150, 50, .12), transparent 24vmax),
+    radial-gradient(circle at 100% 100%, rgba(255, 150, 50, .16), transparent 28vmax); }
+
+@keyframes sp-lamp { 0%, 100% { opacity: .85; } 13% { opacity: .7; } 17% { opacity: .9; } 44% { opacity: .78; } 52% { opacity: .95; } 76% { opacity: .74; } 83% { opacity: .88; } }
+
+/* The Map unrolls like drafting paper; capsules shoot along the pipes. */
+
+[data-theme="steampunk"] #mapClusters.sp-unroll .map-card { animation: sp-unroll .9s cubic-bezier(.3, .8, .3, 1) 1; transform-origin: top; }
+
+@keyframes sp-unroll { from { clip-path: inset(0 0 100% 0); transform: scaleY(.96); } to { clip-path: inset(0 0 0 0); transform: none; } }
+
+[data-theme="steampunk"] .map-svg .pkt.sp-tube {
+  display: inline; fill: none; stroke: #f0cf7c; stroke-width: 6; stroke-linecap: round;
+  stroke-dasharray: 9 4000; animation: sp-tube 1.3s ease-in 1 forwards; filter: drop-shadow(0 0 2px #000);
+}
+
+@keyframes sp-tube { from { stroke-dashoffset: 0; } to { stroke-dashoffset: calc(-1px * var(--len)); } }
+
+.map-svg .sp-thunk { fill: rgba(235, 225, 210, .75); animation: sp-thunk .8s ease-out forwards; }
+
+@keyframes sp-thunk { from { r: 3; opacity: .9; } to { r: 18; opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-gauge.red .needle-wrap, .sp-clock .sec, .sp-clock.chime, .sp-note, .sp-key .bow, .sp-key.down .bow,
+  [data-theme="steampunk"] .scan-entry.busy .scan-entry-body::before, [data-theme="steampunk"] .scan-entry.busy .scan-entry-body::after,
+  [data-theme="steampunk"] tbody.sp-glint tr td, .sp-lamps, [data-theme="steampunk"] #mapClusters.sp-unroll .map-card { animation: none !important; }
+
+  .sp-gauge .needle { transition: none; }
+
+}

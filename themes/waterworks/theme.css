@@ -1,0 +1,360 @@
+/* Waterworks: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="waterworks"] {
+  --bg:#1c232b; --panel:rgba(38, 47, 57, .95); --panel-2:rgba(48, 59, 71, .96); --line:#3d4b5a;
+  --text:#e3eaf1; --text-dim:#8fa1b3; --led-on:#39b6ff; --led-warn:#f2a33a;
+  --led-off:#4a5866; --danger:#e8483b; --focus:#39b6ff; --radius:4px;
+}
+
+/* ---- Waterworks: pipes, valves and water ---- */
+
+[data-theme="waterworks"] header { background: linear-gradient(#34414e, #25303b); position: relative; border-bottom: 0; }
+
+/* The main: a steel pipe under the header, water shimmering through it, a flange every so often. */
+
+[data-theme="waterworks"] header::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 12px; z-index: 5; pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 214px, #5d6b79 214px 216px, #9aa8b6 216px 219px, #3d4854 219px 230px, transparent 230px 240px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0) 0 30%, rgba(190, 235, 255, .55) 38%, rgba(255, 255, 255, 0) 46%) 0 0 / 180px 100% repeat-x,
+    linear-gradient(#c3ced9, #7d8b99 30%, #3a88c4 45%, #1f6fae 70%, #3d4854);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, .5); animation: ww-flow 2.4s linear infinite;
+}
+
+[data-theme="waterworks"].ww-surge header::after { animation-duration: .5s; }
+
+@keyframes ww-flow { to { background-position: 0 0, 180px 0, 0 0; } }
+
+/* Water meters: the counts in odometer windows that roll when they change. */
+
+[data-theme="waterworks"] .stat .num {
+  display: inline-block; overflow: hidden; background: #0d1318; color: #e8f4ff; padding: 1px 9px; letter-spacing: .14em;
+  border: 1px solid #5d6b79; border-radius: 3px; box-shadow: inset 0 3px 5px rgba(0, 0, 0, .8), 0 1px 0 rgba(255, 255, 255, .08);
+}
+
+[data-theme="waterworks"] .stat .num.ww-roll { animation: ww-roll .55s cubic-bezier(.3, 1.3, .5, 1) 1; }
+
+@keyframes ww-roll { from { text-indent: 0; transform: translateY(-60%); opacity: .2; } to { transform: none; opacity: 1; } }
+
+[data-theme="waterworks"] .stat, [data-theme="waterworks"] .map-card, [data-theme="waterworks"] .set-card, [data-theme="waterworks"] .modal {
+  border: 1px solid #56636f; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 2px 6px rgba(0, 0, 0, .4);
+}
+
+[data-theme="waterworks"] table, [data-theme="waterworks"] .feed { background: rgba(22, 29, 36, .96); }
+
+[data-theme="waterworks"] thead th { color: #8fd3ff; }
+
+[data-theme="waterworks"] .tab.active { background: #1f6fae; color: #fff; }
+
+/* The next-scan bar: a glass sight tube filling with water. */
+
+[data-theme="waterworks"] .scan-track { height: 12px; border-radius: 6px; padding: 1.5px; background: rgba(160, 210, 240, .08); box-shadow: inset 0 0 0 1px #9aa8b6, 0 0 0 2px #25303b; }
+
+[data-theme="waterworks"] .scan-fill {
+  border-radius: 5px; animation: ww-flow-fill 1.6s linear infinite;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0 40%, rgba(200, 240, 255, .5) 50%, rgba(255, 255, 255, 0) 60%) 0 0 / 60px 100% repeat-x, linear-gradient(#6cc8ff, #1f6fae);
+}
+
+@keyframes ww-flow-fill { to { background-position: 60px 0, 0 0; } }
+
+/* The tank in the header: how much of the network is up. */
+
+.ww-tank { width: 26px; height: 30px; flex: none; }
+
+.ww-tank svg { display: block; overflow: visible; }
+
+.ww-tank .water { transition: transform 1.4s ease-in-out; transform-box: fill-box; transform-origin: bottom; }
+
+.ww-tank.full .wave { animation: ww-wave 1.8s ease-in-out infinite; }
+
+@keyframes ww-wave { 50% { transform: translateX(-3px); } }
+
+/* Unknown devices get an inspection tag. */
+
+[data-theme="waterworks"] .badge.unknown::before { content: "? "; font-weight: 800; }
+
+/* A red shut-off valve on watched devices; it turns closed when one drops. */
+
+.ww-valve { display: inline-block; width: 16px; height: 14px; margin-left: 6px; vertical-align: -2px; }
+
+.ww-valve svg { display: block; overflow: visible; }
+
+.ww-valve .handle { transform-origin: 8px 5px; transition: transform .6s ease; }
+
+.ww-valve.shut .handle { transform: rotate(90deg); }
+
+.ww-valve.closing .handle { animation: ww-close 1.2s ease-in-out 1 forwards; }
+
+@keyframes ww-close { 0% { transform: rotate(0); } 60% { transform: rotate(100deg); } 100% { transform: rotate(90deg); } }
+
+/* A row whose device goes offline springs a leak. */
+
+[data-theme="waterworks"] td.hostname { position: relative; }
+
+.ww-leak { position: absolute; left: 6px; top: 60%; width: 60px; height: 22px; pointer-events: none; }
+
+.ww-leak i { position: absolute; top: 0; width: 3px; height: 5px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: #6cc8ff; animation: ww-spray .8s ease-in 2; }
+
+.ww-leak i:nth-child(2) { left: 6px; animation-delay: .15s; } 
+.ww-leak i:nth-child(3) { left: 12px; animation-delay: .3s; }
+
+.ww-leak b { position: absolute; left: -6px; bottom: -4px; width: 40px; height: 6px; border-radius: 50%; background: rgba(108, 200, 255, .45); animation: ww-puddle 2.6s ease-out forwards; }
+
+@keyframes ww-spray { from { transform: translate(0, 0); opacity: 1; } to { transform: translate(10px, 16px); opacity: 0; } }
+
+@keyframes ww-puddle { 0% { transform: scaleX(.1); opacity: 0; } 30% { transform: scaleX(1); opacity: 1; } 75% { opacity: .8; } 100% { transform: scaleX(1.1); opacity: 0; } }
+
+/* Hovering a row sends a ripple across it. */
+
+[data-theme="waterworks"] tbody tr:hover {
+  background-image: radial-gradient(circle, rgba(108, 200, 255, .16) 0 45%, transparent 47%);
+  background-repeat: no-repeat; background-position: 60px 50%; animation: ww-ripple .9s ease-out 1 forwards;
+}
+
+@keyframes ww-ripple { from { background-size: 0 0; } to { background-size: 1400px 1400px; } }
+
+/* The search box is a drain inspection port; rows get a wash as you type. */
+
+[data-theme="waterworks"] #search {
+  padding-left: 34px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9.5' fill='%2325303b' stroke='%239aa8b6' stroke-width='2'/%3E%3Cpath d='M7 8h10M5.5 12h13M7 16h10' stroke='%239aa8b6' stroke-width='1.6'/%3E%3C/svg%3E") 9px 50% / 18px no-repeat, var(--panel);
+}
+
+[data-theme="waterworks"] tbody.ww-wash tr td { background-image: linear-gradient(180deg, rgba(108, 200, 255, .18), transparent); background-size: 100% 200%; animation: ww-wash .7s ease-out 1; }
+
+@keyframes ww-wash { from { background-position: 0 -100%; } to { background-position: 0 100%; } }
+
+/* The Map: steel pipes with water pulsing toward each device, still where it's offline. */
+
+[data-theme="waterworks"] .map-svg .spoke.cable { stroke: #7d8b99; stroke-width: 5; stroke-linecap: round; }
+
+[data-theme="waterworks"] .map-svg .spoke:not(.cable):not(.bolt):not(.tunnel):not(.vlink) { stroke: #b87333; stroke-width: 2.5; stroke-linecap: round; }
+
+[data-theme="waterworks"] .map-svg .pkt { display: inline; fill: none; stroke: #6cc8ff; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 5 16; animation: ww-pulse 1.1s linear infinite; }
+
+[data-theme="waterworks"] .map-svg .pkt.off { stroke: #56636f; animation: none; }
+
+[data-theme="waterworks"].ww-surge .map-svg .pkt { animation-duration: .3s; }
+
+@keyframes ww-pulse { to { stroke-dashoffset: -21; } }
+
+[data-theme="waterworks"] #mapClusters.ww-fill .map-card { animation: ww-fillup 1s ease-out 1; }
+
+@keyframes ww-fillup { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+[data-theme="waterworks"] .map-svg .tnode.dev.unknown .ww-tag { display: inline; }
+
+/* Behind the page: glass-lined mains with water running through them, flanges,
+   red valve wheels, pressure gauges reading how much of the network is up, and a
+   reservoir along the bottom. */
+
+.ww-bg { overflow: hidden; background: radial-gradient(ellipse at 50% 0, #26313c, #1c232b 60%); }
+
+.ww-bg svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .7; }
+
+.ww-bg .rim { fill: none; stroke: #7d8b99; stroke-width: 18; stroke-linecap: round; stroke-linejoin: round; }
+
+.ww-bg .bore { fill: none; stroke: #0f1a24; stroke-width: 11; stroke-linecap: round; stroke-linejoin: round; }
+
+.ww-bg .shine { fill: none; stroke: rgba(210, 225, 240, .35); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform: translate(-3px, -3px); }
+
+.ww-bg .flow { fill: none; stroke: #3aa0e8; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 12 18; opacity: .8; animation: ww-bgflow 1.8s linear infinite; }
+
+.ww-bg .flow.fast { stroke: #6cc8ff; stroke-width: 3; stroke-dasharray: 4 30; opacity: .9; animation-duration: 1.1s; }
+
+html.ww-surge .ww-bg .flow { animation-duration: .45s; }
+
+@keyframes ww-bgflow { to { stroke-dashoffset: -60; } }
+
+.ww-bg .flange { fill: #9aa8b6; stroke: #3d4854; stroke-width: 1; }
+
+.ww-bg .wheel { transform-box: fill-box; transform-origin: center; transition: transform 1.2s ease-in-out; }
+
+html.ww-surge .ww-bg .wheel { transform: rotate(270deg); }
+
+.ww-bg .gauge .jitter { animation: ww-jitter 2.8s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 90%; }
+
+@keyframes ww-jitter { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+
+.ww-bg .spray { transform-box: fill-box; transform-origin: 0 50%; animation: ww-jet 2.2s ease-out forwards; }
+
+@keyframes ww-jet { 0% { transform: scaleX(0); opacity: 0; } 15% { transform: scaleX(1); opacity: 1; } 80% { opacity: .9; } 100% { transform: scaleX(1.1); opacity: 0; } }
+
+.ww-pool { position: absolute; left: 0; right: 0; bottom: 0; height: 24px; opacity: .85;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0 30%, rgba(190, 235, 255, .35) 40%, rgba(255, 255, 255, 0) 50%) 0 0 / 300px 100% repeat-x,
+    linear-gradient(#2b7fc0, #174a74); border-top: 2px solid #6cc8ff; animation: ww-pool 7s linear infinite; }
+
+@keyframes ww-pool { to { background-position: 300px 0, 0 0; } }
+
+.ww-drip { position: absolute; width: 6px; height: 8px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: #6cc8ff; animation: ww-drip 2.2s ease-in forwards; }
+
+@keyframes ww-drip { 0% { transform: scale(.2); } 45% { transform: scale(1) translateY(0); } 100% { transform: translateY(160px); opacity: 0; } }
+
+.ww-newvalve { position: absolute; width: 30px; height: 30px; }
+
+.ww-newvalve svg { display: block; animation: ww-spin 1.2s ease-in-out 1; }
+
+@keyframes ww-spin { to { transform: rotate(540deg); } }
+
+.ww-tagdrop {
+  position: absolute; padding: 5px 12px 5px 18px; background: #f2e6c9; color: #25303b; border-radius: 3px; white-space: nowrap;
+  font: 600 13px "IBM Plex Mono", monospace; box-shadow: 0 3px 6px rgba(0, 0, 0, .5); transform-origin: 8px 0; animation: ww-tag 3.4s ease-out forwards;
+}
+
+.ww-tagdrop::before { content: ""; position: absolute; left: 6px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: #25303b; }
+
+@keyframes ww-tag { 0% { transform: translateY(-14px) rotate(-14deg); opacity: 0; } 15% { transform: rotate(8deg); opacity: 1; } 28% { transform: rotate(-4deg); } 40% { transform: rotate(0); } 85% { opacity: 1; } 100% { opacity: 0; } }
+
+/* More plumbing: tees at every junction, open ends pouring into the
+   reservoir, joints that drip, a misting seal, a pump, relief valves that
+   let off on a surge, and high-pressure bursts. */
+
+.ww-bg .tee { fill: #8795a3; stroke: #3d4854; stroke-width: 1.5; }
+
+.ww-bg .tee-in { fill: #5d6b79; }
+
+.ww-bg .lip { fill: #9aa8b6; stroke: #3d4854; stroke-width: 1; }
+
+.ww-bg .stream { fill: none; stroke: rgba(108, 200, 255, .62); stroke-width: 11; }
+
+.ww-bg .stream2 { fill: none; stroke: #bfe9ff; stroke-width: 3; stroke-dasharray: 10 14; opacity: .85; animation: ww-fall .45s linear infinite; }
+
+@keyframes ww-fall { to { stroke-dashoffset: -24; } }
+
+.ww-bg .splash path { fill: none; stroke: #bfe9ff; stroke-width: 2; stroke-linecap: round; transform-box: fill-box; transform-origin: 50% 100%; animation: ww-splash .5s ease-in-out infinite alternate; }
+
+.ww-bg .splash path:nth-child(2n) { animation-delay: .25s; }
+
+@keyframes ww-splash { from { transform: scaleY(.45); opacity: .45; } to { transform: scaleY(1.15); opacity: 1; } }
+
+.ww-bg .drop { fill: #8fd6ff; transform-box: fill-box; transform-origin: center; animation: ww-bgdrip 3.4s ease-in infinite both; }
+
+@keyframes ww-bgdrip {
+  0% { transform: translateY(0) scale(.2); opacity: 0; } 10% { opacity: 1; } 45% { transform: translateY(0) scale(1); }
+  72% { transform: translateY(62px) scale(1, 1.25); opacity: 1; } 73%, 100% { transform: translateY(62px); opacity: 0; }
+}
+
+.ww-bg .splat { fill: rgba(143, 214, 255, .65); opacity: 0; transform-box: fill-box; transform-origin: center; animation: ww-splat 3.4s ease-out infinite both; }
+
+@keyframes ww-splat { 0%, 72% { opacity: 0; transform: scaleX(.2); } 77% { opacity: 1; transform: scaleX(1); } 100% { opacity: 0; transform: scaleX(1.7); } }
+
+.ww-bg .mist path { fill: none; stroke: rgba(191, 233, 255, .75); stroke-width: 1.4; stroke-dasharray: 2 3; stroke-linecap: round; animation: ww-mist .9s linear infinite; }
+
+@keyframes ww-mist { 0% { stroke-dashoffset: 0; opacity: .3; } 50% { opacity: .95; } 100% { stroke-dashoffset: -10; opacity: .3; } }
+
+.ww-bg .fan { transform-box: fill-box; transform-origin: center; animation: ww-fan .35s linear infinite; }
+
+html.ww-surge .ww-bg .fan { animation-duration: .1s; }
+
+@keyframes ww-fan { to { transform: rotate(360deg); } }
+
+.ww-bg .lamp { fill: #39ff88; animation: ww-lamp 1.6s steps(2) infinite; }
+
+@keyframes ww-lamp { 50% { fill: #1c7a45; } }
+
+.ww-bg .lever { transform-box: fill-box; transform-origin: 4px 3.5px; transition: transform .6s ease; }
+
+.ww-bg .ballv.shut .lever { transform: rotate(-90deg); }
+
+.ww-bg .wheel.shutting, .ww-hvalve.shutting .hw { animation: ww-shutwheel 1.2s ease-in-out 1; }
+
+@keyframes ww-shutwheel { to { transform: rotate(-540deg); } }
+
+.ww-bg .gauge.red .jitter { animation-duration: .1s; }
+
+.ww-bg .vent path, .ww-hvalve .vent path { fill: none; stroke: #cfeeff; stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 3 5; opacity: 0; }
+
+.ww-bg .relief.venting .vent path, .ww-hvalve.venting .vent path { animation: ww-vent 1.6s ease-out 1; }
+
+@keyframes ww-vent { 0% { opacity: 0; stroke-dashoffset: 0; } 15% { opacity: 1; } 100% { opacity: 0; stroke-dashoffset: -40; } }
+
+.ww-bg .relief .cap, .ww-hvalve .cap { transform-box: fill-box; transform-origin: center; }
+
+.ww-bg .relief.venting .cap, .ww-hvalve.venting .cap { animation: ww-cap .16s ease-in-out 6 alternate; }
+
+@keyframes ww-cap { to { transform: translateY(-3px); } }
+
+.ww-bg.quake svg { animation: ww-quake .08s linear 7; }
+
+@keyframes ww-quake { 25% { transform: translate(1.5px, -1px); } 50% { transform: translate(-1.5px, 1px); } 75% { transform: translate(1px, 1.5px); } }
+
+/* A burst: jets of water fanning out of the split, beads flying, and mist. */
+
+.ww-jet { fill: none; stroke: #9fdcff; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 7 5; animation: ww-jetflow .22s linear infinite, ww-jetlife 2.2s ease-out 1 both; }
+
+@keyframes ww-jetflow { to { stroke-dashoffset: -12; } }
+
+@keyframes ww-jetlife { 0% { opacity: 0; } 8% { opacity: 1; } 70% { opacity: .9; } 100% { opacity: 0; } }
+
+.ww-bead { fill: #bfe9ff; animation: ww-bead 1.5s cubic-bezier(.2, .6, .4, 1) 1 both; }
+
+@keyframes ww-bead { 0% { transform: translate(0, 0); opacity: 1; } 55% { transform: translate(var(--dx), var(--dy)); opacity: 1; } 100% { transform: translate(calc(var(--dx) * 1.15), calc(var(--dy) + 80px)); opacity: 0; } }
+
+.ww-bmist { fill: rgba(191, 233, 255, .35); transform-box: fill-box; transform-origin: center; animation: ww-bmist 2.2s ease-out 1 both; }
+
+@keyframes ww-bmist { 0% { transform: scale(.2); opacity: 0; } 20% { opacity: .9; } 100% { transform: scale(2.4); opacity: 0; } }
+
+/* Valves on the main under the header, and a burst of that main over the page. */
+
+.ww-hvalve { position: absolute; top: calc(100% - 24px); width: 28px; height: 30px; z-index: 6; pointer-events: none; }
+
+.ww-hvalve svg { display: block; overflow: visible; }
+
+.ww-hvalve .hw { transform-box: fill-box; transform-origin: center; transition: transform 1.2s ease-in-out; }
+
+html.ww-surge .ww-hvalve .hw { transform: rotate(300deg); }
+
+.ww-hburst { position: absolute; width: 0; height: 0; }
+
+.ww-hburst svg { position: absolute; left: 0; top: 0; overflow: visible; }
+
+.ww-hburst .crack { position: absolute; left: -12px; top: -16px; width: 24px; height: 12px; border-radius: 50%; background: radial-gradient(#fff, rgba(191, 233, 255, 0) 70%); animation: ww-crack .6s ease-out 1 both; }
+
+@keyframes ww-crack { from { transform: scale(.3); opacity: 1; } to { transform: scale(2.2); opacity: 0; } }
+
+[data-theme="waterworks"].ww-shake header::after { animation: ww-flow .5s linear infinite, ww-hshake .07s linear 10; }
+
+@keyframes ww-hshake { 25% { transform: translate(1px, -1px); } 50% { transform: translate(-1px, 1px); } 75% { transform: translate(1px, 1px); } }
+
+/* A row whose device drops: a spurt out of the name, not just a drip. */
+
+.ww-leak i:nth-child(4) { left: 18px; animation-delay: .45s; } 
+.ww-leak i:nth-child(5) { left: 3px; animation-delay: .6s; }
+
+.ww-rowjet { position: absolute; left: -2px; top: -16px; overflow: visible; }
+
+.ww-rowjet path { fill: none; stroke: #8fd6ff; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 4 4; animation: ww-jetflow .2s linear infinite, ww-jetlife 1.8s ease-out 1 both; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="waterworks"] header::after,
+  [data-theme="waterworks"] .scan-fill,
+  [data-theme="waterworks"] .map-svg .pkt,
+  [data-theme="waterworks"] tbody tr:hover,
+  [data-theme="waterworks"] tbody.ww-wash tr td,
+  [data-theme="waterworks"] .stat .num.ww-roll,
+  .ww-tank .wave,
+  .ww-valve .handle,
+  .ww-leak i,
+  .ww-leak b,
+  [data-theme="waterworks"] #mapClusters.ww-fill .map-card,
+  .ww-bg .flow,
+  .ww-bg .gauge .jitter,
+  .ww-bg .spray,
+  .ww-pool,
+  .ww-bg .stream2,
+  .ww-bg .splash path,
+  .ww-bg .drop,
+  .ww-bg .splat,
+  .ww-bg .mist path,
+  .ww-bg .fan,
+  .ww-bg .lamp,
+  .ww-bg .wheel.shutting,
+  .ww-hvalve .hw,
+  .ww-hvalve .cap,
+  .ww-bg .relief .cap,
+  .ww-rowjet path,
+  .ww-bg.quake svg { animation: none !important; }
+
+  [data-theme="waterworks"] tbody tr:hover { background-size: 1400px 1400px; }
+
+}

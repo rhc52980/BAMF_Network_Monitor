@@ -1,0 +1,316 @@
+/* Claw Machine: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+/* ---- Claw Machine: a prize cabinet, marquee bulbs, and a claw that sometimes wins ---- */
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) body { background: #140b24; }
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) header { background: linear-gradient(#3a1766, #25104a); border-bottom: 0; position: relative; }
+
+/* The marquee: a row of bulbs under the header, yellow and pink, chasing. */
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) header::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 12px; z-index: 5; pointer-events: none;
+  background:
+    radial-gradient(circle at 11px 6px, #fff6c2 0 2.5px, #ffd23f 3.5px, rgba(255, 210, 63, .45) 5px, transparent 6.5px) 0 0 / 44px 12px repeat-x,
+    radial-gradient(circle at 33px 6px, #ffd0ea 0 2.5px, #ff4fa3 3.5px, rgba(255, 79, 163, .4) 5px, transparent 6.5px) 0 0 / 44px 12px repeat-x,
+    linear-gradient(#5a2c94, #2a1150);
+  box-shadow: 0 3px 12px rgba(255, 79, 163, .35); animation: claw-chase 1.2s linear infinite;
+}
+
+:is([data-theme="claw"], [data-theme="clawdusk"]).claw-fast header::after { animation-duration: .24s; }
+
+@keyframes claw-chase { 0%, 49.9% { background-position: 0 0, 0 0, 0 0; } 50%, 100% { background-position: 22px 0, 22px 0, 0 0; } }
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) .brand h1 { color: #fff; letter-spacing: .06em; text-shadow: 0 0 6px #ff4fa3, 0 0 16px #ff4fa3, 2px 2px 0 #ffd23f; }
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) header .chip, :is([data-theme="claw"], [data-theme="clawdusk"]) header .arp-toggle { border-color: #7b4fc0; }
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) .stat { border: 2px solid #6b44a8; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06), 0 0 0 1px #1a0c33, 0 6px 14px rgba(0, 0, 0, .4); }
+
+/* The counts in LED windows, like the credit display. */
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) .stat .num {
+  display: inline-block; font-family: "IBM Plex Mono", monospace; color: #ff3b5c; background: #0c0616; padding: 1px 10px; border-radius: 4px;
+  letter-spacing: .12em; text-shadow: 0 0 8px rgba(255, 59, 92, .8); box-shadow: inset 0 2px 6px rgba(0, 0, 0, .9);
+}
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) .stat.alert .num { color: #ffd23f; text-shadow: 0 0 8px rgba(255, 210, 63, .8); }
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) .stat .lbl { text-transform: uppercase; letter-spacing: .1em; font-size: 11px; }
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) .tab.active { background: #ff4fa3; color: #1a0930; font-weight: 600; }
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) thead th { color: #3de0ff; }
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) table, :is([data-theme="claw"], [data-theme="clawdusk"]) .feed { background: rgba(24, 13, 44, .95); }
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) tbody tr:hover td { background: rgba(61, 224, 255, .07); }
+
+/* Unknown devices are mystery capsules. */
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) .badge.unknown { background: linear-gradient(#ff4fa3 0 50%, #f7efff 50%); color: #1a0930; border: 1px solid #1a0930; border-radius: 999px; font-weight: 700; }
+
+/* The next-scan bar: a candy-striped timer. */
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) .scan-track { background: #0c0616; box-shadow: inset 0 0 0 1px #6b44a8; }
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) .scan-fill { background: repeating-linear-gradient(135deg, #ff4fa3 0 8px, #ff85c2 8px 16px); background-size: 22.6px 22.6px; animation: claw-stripe 1s linear infinite; }
+
+@keyframes claw-stripe { to { background-position: 22.6px 0; } }
+
+/* The search box is the coin slot. */
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) #search {
+  padding-left: 34px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='4' y='2' width='16' height='20' rx='3' fill='%23c8b6e6'/%3E%3Crect x='10.5' y='5' width='3' height='14' rx='1.5' fill='%23140b24'/%3E%3C/svg%3E") 9px 50% / 18px no-repeat, var(--panel);
+}
+
+.claw-play span { font-size: 14px; line-height: 1; }
+
+/* The Map: neon cables with bulbs chasing along them, and capsules on unknown devices. */
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) .map-svg .spoke.cable { stroke: #ff4fa3; filter: drop-shadow(0 0 3px rgba(255, 79, 163, .6)); }
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) .map-svg .pkt { display: inline; fill: none; stroke: #ffd23f; stroke-width: 4; stroke-linecap: round; stroke-dasharray: 0 16; animation: claw-bulbs 1s steps(2) infinite; }
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) .map-svg .pkt.off { display: none; }
+
+@keyframes claw-bulbs { to { stroke-dashoffset: -16; } }
+
+.map-svg .claw-cap { display: none; }
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) .map-svg .tnode.dev.unknown .claw-cap { display: inline; }
+
+/* Behind the glass: the back wall, neon tubes up the sides, the rail, the
+   heap of prizes, the prize chute and reflections on the glass. */
+
+.claw-bg { overflow: hidden; background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, .025) 0 2px, transparent 2px 28px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, .025) 0 2px, transparent 2px 28px),
+    radial-gradient(ellipse at 50% 30%, #2a1552, #140b24 70%); }
+
+.claw-bg .tube { position: absolute; top: 0; bottom: 0; width: 7px; border-radius: 4px; }
+
+.claw-bg .tube.l { left: 8px; background: #ff4fa3; box-shadow: 0 0 10px #ff4fa3, 0 0 26px rgba(255, 79, 163, .6); animation: claw-flicker 7s linear infinite; }
+
+.claw-bg .tube.r { right: 8px; background: #3de0ff; box-shadow: 0 0 10px #3de0ff, 0 0 26px rgba(61, 224, 255, .6); animation: claw-flicker 9s linear infinite reverse; }
+
+@keyframes claw-flicker { 0%, 91%, 93%, 96%, 100% { opacity: 1; } 92%, 95% { opacity: .35; } }
+
+.claw-bg .rail { position: absolute; left: 0; right: 0; height: 8px; background: linear-gradient(#e8e0f5, #8a7aa8 50%, #4a3a68); box-shadow: 0 2px 4px rgba(0, 0, 0, .5); }
+
+.claw-bg .pile { position: absolute; left: 0; top: 0; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .45)); }
+
+.claw-bg .chute {
+  position: absolute; bottom: 0; border: 3px solid rgba(200, 230, 255, .5); border-bottom: 0; border-radius: 8px 8px 0 0;
+  background: rgba(160, 200, 255, .07); box-shadow: inset 0 0 22px rgba(160, 220, 255, .16);
+}
+
+.claw-bg .chute b { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; font: 700 14px "IBM Plex Mono", monospace; color: #ffd23f; letter-spacing: .24em; text-shadow: 0 0 8px #ffd23f; }
+
+.claw-bg .chute.win { animation: claw-win .2s steps(2) 10; }
+
+@keyframes claw-win { 50% { background: rgba(255, 210, 63, .35); } }
+
+.claw-bg .glass { position: absolute; inset: 0; pointer-events: none; background:
+    linear-gradient(115deg, transparent 0 18%, rgba(255, 255, 255, .05) 18% 22%, transparent 22% 25%, rgba(255, 255, 255, .035) 25% 26%, transparent 26%),
+    linear-gradient(115deg, transparent 0 68%, rgba(255, 255, 255, .04) 68% 71%, transparent 71%); }
+
+/* The claw: a carriage on the rail, a cable, and three prongs that open and close. */
+
+.claw-rig { position: absolute; top: 0; width: 60px; margin-left: -30px; pointer-events: none; }
+
+.claw-rig .car { position: absolute; left: 6px; top: -6px; width: 48px; height: 16px; border-radius: 5px; background: linear-gradient(#f1ebfa, #8a7aa8); border: 1px solid #4b3a68; box-shadow: 0 2px 5px rgba(0, 0, 0, .5); }
+
+.claw-rig .car::after { content: ""; position: absolute; right: 6px; top: 5px; width: 5px; height: 5px; border-radius: 50%; background: #ff3b5c; box-shadow: 0 0 6px #ff3b5c; }
+
+.claw-rig .cable { position: absolute; left: 29px; top: 8px; width: 2px; height: 24px; background: repeating-linear-gradient(#e0d8ee 0 3px, #7d6d9b 3px 5px); }
+
+.claw-rig .claw { position: absolute; left: 0; top: 32px; width: 60px; height: 64px; }
+
+.claw-rig .claw > svg { position: absolute; left: 0; top: 0; overflow: visible; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .45)); }
+
+.claw-rig .prong { transform-box: view-box; transition: transform .35s ease-in-out; }
+
+.claw-rig .prong.l { transform-origin: 28px 14px; transform: rotate(-4deg); }
+
+.claw-rig .prong.r { transform-origin: 32px 14px; transform: rotate(4deg); }
+
+.claw-rig.open .prong.l { transform: rotate(30deg); }
+
+.claw-rig.open .prong.r { transform: rotate(-30deg); }
+
+.claw-rig .held { position: absolute; left: 30px; top: 28px; transform: translateX(-50%); display: none; }
+
+/* A device's tag hangs with its plush in the prongs and its name clear of them. */
+
+.claw-rig .held:has(.claw-tag) { top: 40px; transform: translateX(-17px); }
+
+.claw-rig .held.on { display: block; }
+
+.claw-rig .held svg, .claw-falling svg { display: block; }
+
+.claw-falling { position: absolute; pointer-events: none; }
+
+.claw-tag {
+  display: flex; align-items: center; gap: 6px; padding: 3px 10px 3px 4px; border-radius: 999px; background: #f7efff; color: #1a0930;
+  font: 700 12px "IBM Plex Mono", monospace; white-space: nowrap; box-shadow: 0 3px 8px rgba(0, 0, 0, .5), 0 0 0 2px #ff4fa3;
+}
+
+.claw-banner {
+  position: absolute; left: 50%; top: 32%; padding: 18px 34px 16px; text-align: center; border-radius: 16px; white-space: nowrap;
+  background: #25104a; border: 3px dotted #ffd23f; box-shadow: 0 0 0 6px #25104a, 0 0 0 9px #ff4fa3, 0 0 44px rgba(255, 79, 163, .6);
+  animation: claw-banner 2.6s ease-out 1 both;
+}
+
+.claw-banner b { display: block; font: 800 40px "Space Grotesk", sans-serif; letter-spacing: .08em; color: #fff; text-shadow: 0 0 10px #ff4fa3, 0 0 24px #ff4fa3, 3px 3px 0 #ffd23f; }
+
+.claw-banner small { display: block; margin-top: 6px; font: 600 14px "IBM Plex Mono", monospace; color: #3de0ff; max-width: 70vw; overflow: hidden; text-overflow: ellipsis; }
+
+@keyframes claw-banner {
+  0% { transform: translate(-50%, -50%) scale(.3); opacity: 0; } 12% { transform: translate(-50%, -50%) scale(1.12); opacity: 1; }
+  20%, 85% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+.claw-close, .claw-bonus { position: absolute; pointer-events: none; white-space: nowrap; font-weight: 800; letter-spacing: .1em; animation: claw-float 1.8s ease-out 1 both; }
+
+.claw-close { font: 800 18px "Space Grotesk", sans-serif; color: #ffd23f; text-shadow: 0 0 8px #ff4fa3; }
+
+@keyframes claw-float { 0% { transform: translate(-50%, 0) scale(.6); opacity: 0; } 15% { transform: translate(-50%, -8px) scale(1.1); opacity: 1; } 100% { transform: translate(-50%, -34px) scale(1); opacity: 0; } }
+
+/* On the rows: TRY AGAIN when a device drops, BONUS when one comes back,
+   a flash when the claw grabs one, and a little bear on watched devices. */
+
+:is([data-theme="claw"], [data-theme="clawdusk"]) td.hostname { position: relative; }
+
+.claw-stamp {
+  position: absolute; left: 90px; top: 50%; padding: 1px 8px; border: 2px solid #ff4f6d; border-radius: 4px; color: #ff4f6d; pointer-events: none; white-space: nowrap;
+  font: 800 12px "IBM Plex Mono", monospace; letter-spacing: .1em; background: rgba(20, 11, 36, .85); animation: claw-stamp 2.6s ease-out 1 both;
+}
+
+@keyframes claw-stamp { 0% { transform: translateY(-50%) rotate(-8deg) scale(2.2); opacity: 0; } 10%, 80% { transform: translateY(-50%) rotate(-8deg) scale(1); opacity: 1; } 100% { transform: translateY(-50%) rotate(-8deg); opacity: 0; } }
+
+.claw-drop { position: absolute; left: 30px; top: 0; pointer-events: none; animation: claw-dropfall 1.4s cubic-bezier(.5, 0, 1, .6) 1 both; }
+
+@keyframes claw-dropfall { from { transform: translateY(-10px) rotate(0); opacity: 1; } to { transform: translateY(46px) rotate(120deg); opacity: 0; } }
+
+.claw-bonus { left: 110px; top: 30%; font-family: "IBM Plex Mono", monospace; font-size: 13px; color: #3de0ff; text-shadow: 0 0 8px #3de0ff; }
+
+tr.claw-grab td { animation: claw-grab .7s ease-out 1; }
+
+@keyframes claw-grab { 30% { background-color: rgba(255, 79, 163, .3); } }
+
+.claw-charm { display: inline-block; margin-left: 6px; vertical-align: -3px; }
+
+.claw-charm svg { display: block; animation: claw-bob 1.6s ease-in-out infinite; }
+
+.claw-charm.off svg { filter: grayscale(1) brightness(.7); animation: none; }
+
+@keyframes claw-bob { 50% { transform: translateY(-2px) rotate(-6deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  :is([data-theme="claw"], [data-theme="clawdusk"]) header::after, :is([data-theme="claw"], [data-theme="clawdusk"]) .scan-fill, :is([data-theme="claw"], [data-theme="clawdusk"]) .map-svg .pkt, .claw-bg .tube, .claw-bg .chute.win,
+  .claw-charm svg, tr.claw-grab td, .claw-stamp, .claw-drop, .claw-bonus { animation: none !important; }
+
+  .claw-rig .prong { transition: none; }
+
+}
+/* ---- Claw Machine Dusk: the same cabinet after hours, in softer colours ---- */
+
+[data-theme="clawdusk"] body { background: #15171c; }
+
+[data-theme="clawdusk"] header { background: linear-gradient(#262a33, #1c1f26); }
+
+[data-theme="clawdusk"] header::after {
+  background:
+    radial-gradient(circle at 11px 6px, #f3e3c0 0 2px, #c9a55a 3px, rgba(201, 165, 90, .25) 4.5px, transparent 6px) 0 0 / 44px 12px repeat-x,
+    radial-gradient(circle at 33px 6px, #ecc9d2 0 2px, #b8788a 3px, rgba(184, 120, 138, .22) 4.5px, transparent 6px) 0 0 / 44px 12px repeat-x,
+    linear-gradient(#343944, #22262e);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .35); animation-duration: 2.4s;
+}
+
+[data-theme="clawdusk"].claw-fast header::after { animation-duration: .5s; }
+
+[data-theme="clawdusk"] .brand h1 { color: #ece6da; text-shadow: 0 0 6px rgba(196, 122, 143, .45), 1px 1px 0 #8a6f3c; }
+
+[data-theme="clawdusk"] header .chip, [data-theme="clawdusk"] header .arp-toggle { border-color: #454a56; }
+
+[data-theme="clawdusk"] .stat { border-color: #3f4450; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .03), 0 4px 10px rgba(0, 0, 0, .35); }
+
+[data-theme="clawdusk"] .stat .num { color: #d9a25a; text-shadow: 0 0 5px rgba(217, 162, 90, .4); }
+
+[data-theme="clawdusk"] .stat.alert .num { color: #d68a7a; text-shadow: 0 0 5px rgba(214, 138, 122, .4); }
+
+[data-theme="clawdusk"] .tab.active { background: #b8788a; color: #15171c; }
+
+[data-theme="clawdusk"] thead th { color: #7fb0ae; }
+
+[data-theme="clawdusk"] table, [data-theme="clawdusk"] .feed { background: rgba(26, 28, 34, .96); }
+
+[data-theme="clawdusk"] tbody tr:hover td { background: rgba(127, 176, 174, .06); }
+
+[data-theme="clawdusk"] .badge.unknown { background: linear-gradient(#b8788a 0 50%, #e6e1d8 50%); color: #15171c; border-color: #15171c; }
+
+[data-theme="clawdusk"] .scan-track { box-shadow: inset 0 0 0 1px #454a56; }
+
+[data-theme="clawdusk"] .scan-fill { background: repeating-linear-gradient(135deg, #b8788a 0 8px, #9c6576 8px 16px); background-size: 22.6px 22.6px; }
+
+[data-theme="clawdusk"] .map-svg .spoke.cable { stroke: #b8788a; filter: none; }
+
+[data-theme="clawdusk"] .map-svg .pkt { stroke: #c9a55a; stroke-width: 3; }
+
+[data-theme="clawdusk"] .claw-bg { background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, .015) 0 2px, transparent 2px 28px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, .015) 0 2px, transparent 2px 28px),
+    radial-gradient(ellipse at 50% 30%, #22262e, #15171c 70%); }
+
+[data-theme="clawdusk"] .claw-bg .tube.l { background: #8a5a68; box-shadow: 0 0 6px rgba(184, 120, 138, .5); }
+
+[data-theme="clawdusk"] .claw-bg .tube.r { background: #4f7f7e; box-shadow: 0 0 6px rgba(127, 176, 174, .45); }
+
+[data-theme="clawdusk"] .claw-bg .pile { opacity: .7; }
+
+[data-theme="clawdusk"] .claw-rig .stripe { fill: #b8788a; }
+
+[data-theme="clawdusk"] .claw-bg .chute { border-color: rgba(200, 210, 220, .3); }
+
+[data-theme="clawdusk"] .claw-bg .chute b { color: #c9a55a; text-shadow: none; }
+
+[data-theme="clawdusk"] .claw-bg .chute.win { animation-name: claw-win-dusk; }
+
+@keyframes claw-win-dusk { 50% { background: rgba(201, 165, 90, .2); } }
+
+[data-theme="clawdusk"] .claw-bg .glass { opacity: .6; }
+
+[data-theme="clawdusk"] .claw-rig .car::after { background: #c9a55a; box-shadow: 0 0 4px #c9a55a; }
+
+[data-theme="clawdusk"] .claw-tag { background: #e6e1d8; box-shadow: 0 3px 8px rgba(0, 0, 0, .5), 0 0 0 2px #b8788a; }
+
+[data-theme="clawdusk"] .claw-banner { background: #1c1f26; border-color: #c9a55a; box-shadow: 0 0 0 6px #1c1f26, 0 0 0 8px #b8788a, 0 0 24px rgba(0, 0, 0, .5); }
+
+[data-theme="clawdusk"] .claw-banner b { color: #ece6da; text-shadow: 0 0 6px rgba(184, 120, 138, .6), 2px 2px 0 #8a6f3c; }
+
+[data-theme="clawdusk"] .claw-banner small { color: #7fb0ae; }
+
+[data-theme="clawdusk"] .claw-close { color: #c9a55a; text-shadow: none; }
+
+[data-theme="clawdusk"] .claw-bonus { color: #7fb0ae; text-shadow: none; }
+
+[data-theme="clawdusk"] .claw-stamp { border-color: #c96a6a; color: #c96a6a; }
+
+[data-theme="clawdusk"] tr.claw-grab td { animation-name: claw-grab-dusk; }
+
+@keyframes claw-grab-dusk { 30% { background-color: rgba(184, 120, 138, .18); } }
+
+[data-theme="claw"] {
+  --bg:#140b24; --panel:rgba(31, 18, 54, .96); --panel-2:rgba(44, 27, 74, .97); --line:#4b3079;
+  --text:#f7efff; --text-dim:#ab98cc; --led-on:#3de0ff; --led-warn:#ffd23f;
+  --led-off:#3a2a58; --danger:#ff4f6d; --focus:#ff4fa3; --radius:12px;
+}
+
+[data-theme="clawdusk"] {
+  --bg:#15171c; --panel:rgba(30, 33, 40, .96); --panel-2:rgba(40, 44, 53, .97); --line:#3a3f4a;
+  --text:#e4e0d8; --text-dim:#9a9aa0; --led-on:#7fb8a8; --led-warn:#d4a95a;
+  --led-off:#3a3d45; --danger:#c96a6a; --focus:#b8788a; --radius:12px;
+}
+

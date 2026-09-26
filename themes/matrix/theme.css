@@ -1,0 +1,72 @@
+/* Matrix: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="matrix"] {
+  --bg:#000700; --panel:#001200; --panel-2:#002200; --line:#004400;
+  --text:#00ff41; --text-dim:#008f11; --led-on:#00ff41; --led-warn:#88ff00;
+  --led-off:#004400; --danger:#ff2222; --focus:#00ff41; --radius:2px;
+}
+
+[data-theme="matrix"] *, [data-theme="matrix"] { font-family:"IBM Plex Mono",monospace !important; }
+
+[data-theme="matrix"] .brand h1 { text-shadow:0 0 8px #00ff41; }
+
+[data-theme="matrix"]::before { content:""; position:fixed; inset:0; pointer-events:none; z-index:9998;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.2) 0,rgba(0,0,0,.2) 1px,transparent 1px,transparent 3px); mix-blend-mode:multiply; }
+
+/* Matrix: panels let the rain show through faintly; the table gets a backing so rows stay readable. */
+
+[data-theme="matrix"] { --panel: rgba(0, 18, 0, .86); --panel-2: rgba(0, 34, 0, .92); }
+
+[data-theme="matrix"] #themeBg { opacity: .5; }
+
+[data-theme="matrix"] body { background: #000700; }
+
+[data-theme="matrix"] table, [data-theme="matrix"] .feed { background: rgba(0, 7, 0, .9); }
+
+[data-theme="matrix"] header, [data-theme="matrix"] .modal, [data-theme="matrix"] .theme-menu,
+[data-theme="matrix"] .row-menu, [data-theme="matrix"] .tools-menu { background-color: #001200; }
+
+.m-intro {
+  position: absolute; top: 34vh; left: 0; right: 0; text-align: center; color: #00ff41;
+  font: 600 clamp(20px, 3.4vw, 40px) "IBM Plex Mono", monospace; text-shadow: 0 0 12px #00ff41;
+  transition: opacity 1.1s; line-height: 1.6;
+}
+
+.m-intro div:last-child::after { content: "█"; margin-left: 4px; animation: term-blink 1s steps(1) infinite; }
+
+.m-intro.fade { opacity: 0; }
+
+.m-rabbit {
+  position: absolute; bottom: 10px; left: 0; pointer-events: auto; cursor: pointer;
+  filter: drop-shadow(0 0 6px rgba(200, 255, 210, .7)); animation: m-rabbit-run 11s linear forwards;
+}
+
+.m-rabbit svg { position: static; display: block; animation: m-rabbit-hop .55s ease-in-out infinite; }
+
+@keyframes m-rabbit-run { from { transform: translateX(-60px); } to { transform: translateX(calc(100vw + 20px)); } }
+
+@keyframes m-rabbit-hop { 0%, 100% { transform: translateY(0); } 45% { transform: translateY(-14px) rotate(-6deg); } }
+
+[data-theme="matrix"] tr.m-glitch td { animation: m-glitch .6s steps(2) 1; }
+
+@keyframes m-glitch {
+  0% { transform: translateX(-4px) skewX(10deg); text-shadow: 2px 0 #ff2266, -2px 0 #00e5ff; opacity: .7; }
+  35% { transform: translateX(3px) skewX(-6deg); text-shadow: -2px 0 #ff2266, 2px 0 #00e5ff; opacity: 1; }
+  70% { transform: translateX(-1px); opacity: .6; }
+  100% { transform: none; text-shadow: none; opacity: 1; }
+}
+
+[data-theme="matrix"] .map-svg .pkt {
+  display: inline; fill: none; stroke: #c8ffd4; stroke-width: 3; stroke-linecap: round;
+  stroke-dasharray: 2 46; animation: m-pkt 2.2s linear infinite; filter: drop-shadow(0 0 3px #00ff41);
+}
+
+@keyframes m-pkt { to { stroke-dashoffset: -48; } }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="matrix"] .map-svg .pkt { display: none; }
+
+  .m-intro div::after,
+  [data-theme="matrix"] tr.m-glitch td { animation: none !important; }
+
+}

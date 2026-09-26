@@ -345,6 +345,19 @@ try {
         }
     }
 
+    # The themes that come with BAMF, for the same reason: replaced every time,
+    # so a theme fixed in this version doesn't lose to an older copy. This is
+    # only the library; the themes folder the dashboard reads, with any you've
+    # added or removed, is left alone, and BAMF brings it up to date at startup.
+    $srcThemes = Join-Path (Split-Path $srcDir -Parent) "themes"
+    $appLib = Join-Path $AppDir "theme-library"
+    if (Test-Path $srcThemes) {
+        Step "Installing the theme library"
+        if (Test-Path $appLib) { Remove-Item $appLib -Recurse -Force }
+        New-Item -ItemType Directory -Path $appLib | Out-Null
+        Get-ChildItem $srcThemes -Directory | ForEach-Object { Copy-Item $_.FullName (Join-Path $appLib $_.Name) -Recurse -Force }
+    }
+
     # --- service ---
     $svc = Get-Service -Name $Service -ErrorAction SilentlyContinue
     if (-not $svc) {

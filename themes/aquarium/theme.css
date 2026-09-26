@@ -1,0 +1,243 @@
+/* Aquarium: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="aquarium"] {
+  --bg:#032a3a; --panel:rgba(6, 52, 70, .84); --panel-2:rgba(10, 66, 88, .9); --line:#1b6480;
+  --text:#dff6ff; --text-dim:#86c1d4; --led-on:#5ff0c8; --led-warn:#ffc15e;
+  --led-off:#2d5b6b; --danger:#ff7a7a; --focus:#7ae0ff; --radius:14px;
+}
+
+/* ---- Aquarium: fish, bubbles, weed and gravel behind glass ---- */
+
+[data-theme="aquarium"] body { background: #032a3a; }
+
+[data-theme="aquarium"] header { background: rgba(4, 38, 52, .9); border-bottom-color: #1b6480; }
+
+[data-theme="aquarium"] table, [data-theme="aquarium"] .feed { background: rgba(3, 36, 50, .82); }
+
+[data-theme="aquarium"] .stat .num { color: #aef4ff; text-shadow: 0 0 8px rgba(122, 224, 255, .5); }
+
+[data-theme="aquarium"] .tab.active { background: rgba(122, 224, 255, .18); color: #dff6ff; }
+
+[data-theme="aquarium"] .badge.unknown::before { content: "🐚 "; }
+
+.aq-bg { overflow: hidden; background: linear-gradient(#0b5d7a, #064560 35%, #032a3a 80%); }
+
+.aq-rays { position: absolute; inset: -20% -10% 30% -10%; opacity: .5; animation: aq-rays 14s ease-in-out infinite alternate;
+  background: repeating-linear-gradient(105deg, transparent 0 60px, rgba(180, 240, 255, .07) 60px 90px, transparent 90px 170px, rgba(180, 240, 255, .05) 170px 190px); }
+
+@keyframes aq-rays { to { transform: translateX(60px) skewX(-4deg); } }
+
+.aq-gravel { position: absolute; left: 0; right: 0; bottom: 0; height: 26px;
+  background: radial-gradient(circle at 20% 40%, #b59a6a 0 3px, transparent 3.5px) 0 0 / 23px 13px, radial-gradient(circle at 60% 70%, #8a7550 0 3.5px, transparent 4px) 0 0 / 31px 13px,
+    radial-gradient(circle at 40% 30%, #cdb88a 0 2.5px, transparent 3px) 0 0 / 17px 11px, #5c4c33; }
+
+.aq-weed { position: absolute; bottom: 18px; transform-origin: bottom center; animation: aq-sway ease-in-out infinite alternate; }
+
+.aq-weed svg { display: block; }
+
+@keyframes aq-sway { from { transform: skewX(-7deg); } to { transform: skewX(7deg); } }
+
+.aq-fish { position: absolute; left: 0; animation: aq-swim linear forwards; }
+
+.aq-fish svg { display: block; }
+
+.aq-fish .tail { transform-box: fill-box; transform-origin: right center; animation: aq-tail .5s ease-in-out infinite alternate; }
+
+.aq-shark { opacity: .72; }
+
+.aq-shark svg { width: 250px; height: auto; }
+
+.aq-shark .tail { animation-duration: 1s; }
+
+/* The octopus: drifts across mid-water, arms trailing and curling. */
+
+.aq-oct { position: absolute; left: 0; opacity: .95; animation: aq-swim linear forwards; }
+
+.aq-oct svg { display: block; width: 140px; height: auto; }
+
+.aq-oct .arm { transform-box: fill-box; transform-origin: top center; animation: aq-arm 2.2s ease-in-out infinite alternate; }
+
+.aq-oct .arm:nth-of-type(2n) { animation-delay: -1.1s; }
+
+.aq-oct .arm:nth-of-type(3n) { animation-duration: 2.8s; }
+
+@keyframes aq-arm { from { transform: rotate(-5deg); } to { transform: rotate(6deg) translateY(2px); } }
+
+/* The crab: sidles along the gravel, claws working. */
+
+.aq-crab { position: absolute; bottom: 10px; left: 0; opacity: .92; filter: drop-shadow(0 3px 6px rgba(0, 20, 30, .5)); animation: aq-crawl linear forwards; }
+
+.aq-crab svg { display: block; width: 76px; height: auto; animation: aq-scuttle .46s ease-in-out infinite alternate; }
+
+.aq-crab.rtl svg { transform: scaleX(-1); }
+
+.aq-crab .claw { transform-box: fill-box; transform-origin: 80% 60%; animation: aq-snip 1.2s ease-in-out infinite alternate; }
+
+.aq-crab .claw.b { animation-delay: -.6s; }
+
+@keyframes aq-crawl { from { transform: translateX(-90px); } to { transform: translateX(calc(100vw + 90px)); } }
+
+@keyframes aq-crawl-rtl { from { transform: translateX(calc(100vw + 90px)); } to { transform: translateX(-90px); } }
+
+@keyframes aq-scuttle { to { transform: translateY(-3px) rotate(1.5deg); } }
+
+@keyframes aq-snip { to { transform: rotate(-18deg); } }
+
+.aq-crab.rtl { animation-name: aq-crawl-rtl; }
+
+.aq-crab.rtl svg { animation-name: aq-scuttle-rtl; }
+
+@keyframes aq-scuttle-rtl { from { transform: scaleX(-1); } to { transform: scaleX(-1) translateY(3px) rotate(1.5deg); } }
+
+.aq-crab.still svg { animation: none; }
+
+/* The diver: swims slowly across, finning, breathing out as he goes. */
+
+.aq-diver { position: absolute; left: 0; opacity: .82; filter: drop-shadow(0 4px 10px rgba(0, 20, 30, .5)); animation: aq-swim linear forwards; }
+
+.aq-diver svg { display: block; width: 150px; height: auto; }
+
+.aq-diver.rtl { animation-name: aq-swim-rtl; }
+
+.aq-diver.rtl svg { transform: scaleX(-1); }
+
+.aq-diver .fin { transform-box: fill-box; transform-origin: right center; animation: aq-kick 1.9s ease-in-out infinite alternate; }
+
+.aq-diver .fin.b { animation-delay: -.95s; }
+
+@keyframes aq-kick { from { transform: rotate(-12deg); } to { transform: rotate(13deg); } }
+
+.aq-dbub { position: absolute; border-radius: 50%; pointer-events: none;
+  border: 1.2px solid rgba(200, 245, 255, .6);
+  background: radial-gradient(circle at 32% 30%, rgba(255, 255, 255, .8) 0 18%, rgba(160, 230, 255, .12) 40%, transparent 70%);
+  animation: aq-breath 3.6s ease-out forwards; }
+
+@keyframes aq-breath { 0% { transform: translate(0, 0) scale(.5); opacity: 0; } 12% { opacity: .85; } 100% { transform: translate(18px, -180px) scale(1.25); opacity: 0; } }
+
+.aq-fish.rtl { animation-name: aq-swim-rtl; }
+
+.aq-fish.rtl svg { transform: scaleX(-1); }
+
+/* The seabed: a solid band along the bottom, in front of the page, so the
+   wreck and the chest are never drawn over a row of the table. */
+
+.aq-seabed { position: absolute; left: 0; bottom: 0; display: block; }
+
+.aq-seabed .sway { transform-box: fill-box; transform-origin: bottom center; animation: aq-sway 4.5s ease-in-out infinite alternate; }
+
+.aq-seabed .aq-anem path { transform-box: fill-box; transform-origin: bottom center; animation: aq-anem 3.2s ease-in-out infinite alternate; }
+
+.aq-seabed .aq-anem path:nth-child(2n) { animation-delay: -1.6s; animation-duration: 3.8s; }
+
+@keyframes aq-anem { from { transform: rotate(-9deg); } to { transform: rotate(9deg); } }
+
+.aq-seabed .aq-flag { transform-box: fill-box; transform-origin: left center; animation: aq-flag 2.6s ease-in-out infinite alternate; }
+
+@keyframes aq-flag { from { transform: skewY(-6deg) scaleX(.94); } to { transform: skewY(5deg) scaleX(1); } }
+
+/* The chest: the lid lifts on its back hinge and the gold shows. */
+
+.aq-seabed .aq-lid { transform-box: fill-box; transform-origin: 0% 100%; transition: transform .7s cubic-bezier(.3, 1.5, .5, 1); }
+
+.aq-seabed .aq-chest.open .aq-lid { transform: rotate(-34deg); }
+
+.aq-seabed .aq-glint { opacity: 0; transition: opacity .5s; }
+
+.aq-seabed .aq-chest.open .aq-glint { opacity: .85; }
+
+/* The eel lives in a porthole of the wreck and comes out to look. */
+
+.aq-seabed .aq-eel { transform: translate(-26px, 4px); transition: transform 1.1s ease-in-out; }
+
+.aq-seabed .aq-eel.peek { transform: translate(4px, -2px); }
+
+/* The clam opens to show its pearl. */
+
+.aq-seabed .aq-clam-top { transform-box: fill-box; transform-origin: 8% 100%; transition: transform .8s ease-in-out; }
+
+.aq-seabed .aq-clam.open .aq-clam-top { transform: rotate(-30deg); }
+
+/* Jellyfish drift up through the tank, well behind the glass. */
+
+.aq-jelly { position: absolute; bottom: 0; opacity: .5; animation: aq-drift linear forwards; }
+
+.aq-jelly svg { display: block; width: 58px; height: auto; }
+
+.aq-jelly .bell { transform-box: fill-box; transform-origin: center bottom; animation: aq-pulse 2.4s ease-in-out infinite; }
+
+.aq-jelly .strand { transform-box: fill-box; transform-origin: top center; animation: aq-anem 3s ease-in-out infinite alternate; }
+
+@keyframes aq-pulse { 0%, 100% { transform: scale(1, 1); } 45% { transform: scale(.86, 1.08); } }
+
+@keyframes aq-drift { from { transform: translate(0, 20vh); } 50% { transform: translate(34px, -45vh); } to { transform: translate(-10px, -115vh); } }
+
+/* A sea turtle glides past now and then, flippers rowing. */
+
+.aq-turtle { opacity: .7; }
+
+.aq-turtle svg { width: 150px; height: auto; }
+
+.aq-turtle .flip { transform-box: fill-box; transform-origin: 30% 20%; animation: aq-row 2.6s ease-in-out infinite alternate; }
+
+.aq-turtle .flip.b { animation-delay: -1.3s; }
+
+@keyframes aq-row { from { transform: rotate(-22deg); } to { transform: rotate(18deg); } }
+
+@keyframes aq-swim { from { transform: translate(-80px, 0); } 50% { transform: translate(50vw, 16px); } to { transform: translate(calc(100vw + 40px), -6px); } }
+
+@keyframes aq-swim-rtl { from { transform: translate(calc(100vw + 40px), 0); } 50% { transform: translate(50vw, -14px); } to { transform: translate(-80px, 8px); } }
+
+@keyframes aq-tail { to { transform: scaleY(.6); } }
+
+.aq-bubble { position: absolute; bottom: 24px; border-radius: 50%; border: 1.2px solid rgba(200, 245, 255, .6);
+  background: radial-gradient(circle at 32% 30%, rgba(255, 255, 255, .8) 0 18%, rgba(160, 230, 255, .12) 40%, transparent 70%); animation: aq-rise ease-in forwards; }
+
+@keyframes aq-rise { 0% { transform: translate(0, 0); opacity: 0; } 8% { opacity: .9; } 50% { transform: translate(var(--sway), -50vh); } 100% { transform: translate(0, -100vh); opacity: 0; } }
+
+.aq-newfish { position: absolute; left: 0; animation: aq-swim 7s ease-in-out forwards; }
+
+.aq-newfish .lbl { display: block; margin-top: 2px; text-align: center; color: #dff6ff; font: 600 12px "IBM Plex Mono", monospace; text-shadow: 0 1px 3px #000; white-space: nowrap; }
+
+[data-theme="aquarium"] tr.aq-sink td { animation: aq-sink 2.4s ease-in-out 1; }
+
+@keyframes aq-sink { 0% { transform: none; } 45% { transform: translateY(12px) rotate(.4deg); opacity: .35; } 70% { transform: translateY(14px); opacity: .3; } 100% { transform: none; opacity: 1; } }
+
+.aq-pet { display: inline-block; width: 18px; height: 10px; margin-left: 6px; vertical-align: 0; }
+
+.aq-pet svg { display: block; overflow: visible; animation: aq-pet 3s ease-in-out infinite; }
+
+.aq-pet.still svg { animation: none; opacity: .45; transform: rotate(160deg) translateY(-2px); }
+
+@keyframes aq-pet { 0%, 100% { transform: translateX(0) scaleX(1); } 45% { transform: translateX(8px) scaleX(1); } 50% { transform: translateX(8px) scaleX(-1); } 95% { transform: translateX(0) scaleX(-1); } }
+
+/* The Map is a reef: bubbles drift up the pipes, and a shell marks the unknown. */
+
+[data-theme="aquarium"] .map-svg .spoke.cable { stroke: #3fb3a0; stroke-width: 3; }
+
+[data-theme="aquarium"] .map-svg .pkt { display: inline; fill: none; stroke: rgba(200, 245, 255, .75); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 0 26; animation: aq-bubbles 2.2s linear infinite; }
+
+[data-theme="aquarium"] .map-svg .pkt.off { display: none; }
+
+@keyframes aq-bubbles { to { stroke-dashoffset: -26; } }
+
+[data-theme="aquarium"] .map-svg .tnode.off { opacity: .55; }
+
+[data-theme="aquarium"] .map-svg .tnode.dev.unknown .aq-shell { display: inline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aq-rays,
+  .aq-weed,
+  .aq-fish .tail,
+  [data-theme="aquarium"] tr.aq-sink td,
+  .aq-pet svg,
+  [data-theme="aquarium"] .map-svg .pkt,
+  .aq-seabed .sway,
+  .aq-seabed .aq-anem path,
+  .aq-seabed .aq-flag,
+  .aq-jelly .bell,
+  .aq-jelly .strand,
+  .aq-turtle .flip { animation: none !important; }
+
+  .aq-seabed .aq-lid, .aq-seabed .aq-glint, .aq-seabed .aq-eel, .aq-seabed .aq-clam-top { transition: none !important; }
+
+}

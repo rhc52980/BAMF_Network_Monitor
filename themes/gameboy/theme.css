@@ -1,0 +1,10 @@
+/* Game Boy: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="gameboy"] {
+  --bg:#0f380f; --panel:#1e4620; --panel-2:#2d5a2d; --line:#4a7a3a;
+  --text:#9bbc0f; --text-dim:#6a9028; --led-on:#9bbc0f; --led-warn:#c4cf4a;
+  --led-off:#2d5a2d; --danger:#8a9a2a; --focus:#9bbc0f; --radius:2px;
+}
+
+[data-theme="gameboy"] *, [data-theme="gameboy"] { font-family:"IBM Plex Mono",monospace !important; }
+

@@ -1,0 +1,167 @@
+/* Factory: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+/* ---- Factory: a shop floor behind the dashboard, with a belt running ---- */
+
+[data-theme="factory"] {
+  --bg:#232830; --panel:rgba(43,49,58,.94); --panel-2:rgba(53,60,70,.96); --line:#454e5a;
+  --text:#e8edf3; --text-dim:#97a3b1; --led-on:#7ac943; --led-warn:#ffb300;
+  --led-off:#4b545f; --danger:#e5392f; --focus:#ffb300; --radius:6px;
+}
+
+[data-theme="factorynight"] {
+  --bg:#14171c; --panel:rgba(26,31,38,.95); --panel-2:rgba(34,40,48,.96); --line:#333c47;
+  --text:#dce4ec; --text-dim:#7d8896; --led-on:#63b93a; --led-warn:#ffc233;
+  --led-off:#39424d; --danger:#ff4a3d; --focus:#ffc233; --radius:6px;
+}
+
+:is([data-theme="factory"], [data-theme="factorynight"]) .brand h1 { color:#ffd24a; letter-spacing:.05em; text-shadow:0 2px 0 rgba(0,0,0,.5); }
+
+:is([data-theme="factory"], [data-theme="factorynight"]) .brand h1::after { content:" 🏭"; text-shadow:none; }
+
+/* The header is a steel plate, with hazard tape along the bottom edge. */
+
+[data-theme="factory"] header { background:linear-gradient(#39414b, #2b323b); border-bottom:0; position:relative; }
+
+[data-theme="factorynight"] header { background:linear-gradient(#232a33, #1a1f26); border-bottom:0; position:relative; }
+
+:is([data-theme="factory"], [data-theme="factorynight"]) header::after {
+  content:""; position:absolute; left:0; right:0; top:100%; height:8px; z-index:5; pointer-events:none;
+  background:repeating-linear-gradient(45deg, #ffb300 0 14px, #1c2027 14px 28px); opacity:.9;
+}
+
+:is([data-theme="factory"], [data-theme="factorynight"]) table, :is([data-theme="factory"], [data-theme="factorynight"]) .feed { background:rgba(26,31,38,.93); }
+
+:is([data-theme="factory"], [data-theme="factorynight"]) thead th { color:#ffc233; background:linear-gradient(#333b45, #2a313a); }
+
+:is([data-theme="factory"], [data-theme="factorynight"]) .stat { border:1px solid var(--line); box-shadow:inset 0 1px 0 rgba(255,255,255,.05); }
+
+:is([data-theme="factory"], [data-theme="factorynight"]) .stat .num { text-shadow:0 0 10px rgba(255,179,0,.25); }
+
+:is([data-theme="factory"], [data-theme="factorynight"]) .tab.active { background:rgba(255,179,0,.16); color:#ffd88a; }
+
+/* The andon board in the header: the light over the shop floor. */
+
+.fac-andon { display:inline-flex; align-items:center; gap:5px; padding:3px 7px; margin-right:6px;
+  background:#11151a; border:1px solid #454e5a; border-radius:5px; }
+
+.fac-andon i { width:9px; height:9px; border-radius:50%; background:#2b333d; display:block; }
+
+.fac-andon i.on { background:#7ac943; box-shadow:0 0 7px #7ac943; }
+
+.fac-andon i.warn.on { background:#ffb300; box-shadow:0 0 7px #ffb300; }
+
+.fac-andon i.bad.on { background:#e5392f; box-shadow:0 0 9px #e5392f; animation:fac-flash 1s steps(2) infinite; }
+
+.fac-andon span { font:600 10px "IBM Plex Mono", monospace; color:#8b97a5; letter-spacing:.06em; }
+
+@keyframes fac-flash { 50% { opacity:.25; } }
+
+/* The line itself, in front of the page: belt, crates, press and arm. */
+
+.fac-line { position:absolute; left:0; right:0; bottom:0; height:96px; pointer-events:none; }
+
+.fac-belt { position:absolute; left:0; right:0; bottom:14px; height:20px; background:#1b1f25;
+  border-top:2px solid #3d4650; border-bottom:2px solid #11141a; }
+
+.fac-belt::before { content:""; position:absolute; inset:0;
+  background:repeating-linear-gradient(90deg, #2a3038 0 18px, #222830 18px 36px); animation:fac-roll 1.1s linear infinite; }
+
+.fac-fast .fac-belt::before { animation-duration:.45s; }
+
+@keyframes fac-roll { to { background-position:-36px 0; } }
+
+.fac-legs { position:absolute; left:0; right:0; bottom:0; height:14px;
+  background:repeating-linear-gradient(90deg, transparent 0 84px, #333b45 84px 92px, transparent 92px 176px); }
+
+.fac-crate { position:absolute; bottom:34px; left:0; width:54px; animation:fac-ride linear forwards; }
+
+.fac-crate svg { display:block; width:54px; height:auto; }
+
+.fac-crate .lbl { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font:600 8.5px "IBM Plex Mono", monospace; color:#3a2a12; transform:translateY(2px); overflow:hidden; }
+
+.fac-crate.reject .lbl { color:#7d1a12; }
+
+.fac-crate.reject::after { content:"REJECT"; position:absolute; left:-2px; right:-2px; top:46%;
+  font:700 10px "IBM Plex Mono", monospace; color:#e5392f; text-align:center; transform:rotate(-12deg); }
+
+@keyframes fac-ride { from { transform:translateX(-70px); } to { transform:translateX(calc(100vw + 70px)); } }
+
+/* The press over the belt, which comes down when a scan lands. */
+
+.fac-press { position:absolute; right:22vw; bottom:34px; width:80px; height:74px; }
+
+/* The frame: two posts and the head they hang from. */
+
+.fac-press .frame { position:absolute; inset:0; border-left:7px solid #39424d; border-right:7px solid #39424d;
+  border-top:12px solid #4a545f; border-radius:3px 3px 0 0; box-shadow:inset 0 0 0 1px #232a32; }
+
+.fac-press .ram { position:absolute; left:12px; right:12px; top:12px; height:30px;
+  background:linear-gradient(#6b7784, #39414b); border:2px solid #222830; border-radius:2px;
+  transform:translateY(-4px); transition:transform .12s ease-in; }
+
+.fac-press.hit .ram { transform:translateY(28px); }
+
+/* The arm that picks off the belt. */
+
+.fac-arm { position:absolute; left:16vw; bottom:34px; width:70px; height:72px; }
+
+.fac-arm svg { display:block; overflow:visible; }
+
+.fac-arm .upper { transform-box:fill-box; transform-origin:bottom center; animation:fac-swing 6s ease-in-out infinite alternate; }
+
+.fac-arm .fore { transform-box:fill-box; transform-origin:left center; animation:fac-reach 6s ease-in-out infinite alternate; }
+
+@keyframes fac-swing { from { transform:rotate(-14deg); } to { transform:rotate(12deg); } }
+
+@keyframes fac-reach { from { transform:rotate(18deg); } to { transform:rotate(-10deg); } }
+
+/* A forklift crossing now and then. */
+
+.fac-fork { position:absolute; bottom:8px; left:0; width:118px; animation:fac-ride linear forwards; }
+
+.fac-fork svg { display:block; width:118px; height:auto; }
+
+.fac-fork .wheel { transform-box:fill-box; transform-origin:center; animation:fac-wheel .7s linear infinite; }
+
+@keyframes fac-wheel { to { transform:rotate(360deg); } }
+
+/* The shop floor behind the page: gantry, lamps, machines, sparks. */
+
+.fac-bg { background:linear-gradient(#2c323b 0%, #262c34 55%, #1d2229 100%); }
+
+[data-theme="factorynight"] .fac-bg { background:linear-gradient(#1b2027 0%, #171b21 55%, #11141a 100%); }
+
+[data-theme="factorynight"] .fac-bg svg { filter:brightness(.72) saturate(.85); }
+
+/* The night shift's beacons and hazard tape stay bright: they're what you
+   can see when the lights are down. */
+
+[data-theme="factorynight"] .fac-andon i.on { box-shadow:0 0 10px currentColor; }
+
+.fac-bg svg { position:absolute; inset:0; width:100%; height:100%; }
+
+.fac-lamp { animation:fac-lamp 7s ease-in-out infinite; }
+
+.fac-lamp:nth-of-type(2n) { animation-delay:-3s; }
+
+@keyframes fac-lamp { 0%, 92%, 100% { opacity:.95; } 94% { opacity:.55; } 96% { opacity:.9; } }
+
+[data-theme="factorynight"] .fac-lamp { opacity:.7; }
+
+.fac-wheelbig { transform-box:fill-box; transform-origin:center; animation:fac-wheel 3.6s linear infinite; }
+
+.fac-wheelbig.slow { animation-duration:6s; animation-direction:reverse; }
+
+.fac-spark { animation:fac-spark 5s ease-out infinite; opacity:0; }
+
+@keyframes fac-spark { 0%, 70% { opacity:0; transform:none; } 72% { opacity:1; } 78% { opacity:.8; transform:translate(6px, 10px) scale(1.3); } 86% { opacity:0; transform:translate(12px, 22px) scale(.6); } }
+
+/* A stopped machine while something is offline: its wheel holds still. */
+
+.fac-stopped .fac-wheelbig { animation-play-state:paused; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fac-belt::before, .fac-lamp, .fac-wheelbig, .fac-spark, .fac-arm .upper, .fac-arm .fore, .fac-andon i.bad.on { animation:none !important; }
+
+}

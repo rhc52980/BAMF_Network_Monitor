@@ -1,0 +1,8 @@
+{
+  "name": "Halloween",
+  "swatch": ["#0f0913", "#ff8c1a", "#8cff4f"],
+  "category": "holiday",
+  "description": "Cobwebs, a spider, jack-o'-lanterns, and now and then a bat or a ghost.",
+  "author": "BAMF",
+  "secret": true
+}

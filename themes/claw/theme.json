@@ -1,0 +1,15 @@
+{
+  "name": "Claw Machine",
+  "swatch": ["#140b24", "#ff4fa3", "#3de0ff"],
+  "category": "animated",
+  "description": "A prize cabinet with marquee bulbs, and a claw that sometimes wins a device.",
+  "author": "BAMF",
+  "variants": [
+    {
+      "id": "clawdusk",
+      "name": "Claw Machine Dusk",
+      "swatch": ["#15171c", "#b8788a", "#7fb0ae"],
+      "description": "The same claw machine after hours, in softer colours."
+    }
+  ]
+}

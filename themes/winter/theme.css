@@ -1,0 +1,16 @@
+/* Winter: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="winter"] {
+  --bg:#0d1620; --panel:rgba(19,32,45,.95); --panel-2:rgba(26,42,58,.96); --line:#24384c;
+  --text:#e6f1fa; --text-dim:#8fa6bb; --led-on:#7ee0b8; --led-warn:#ffd08a;
+  --led-off:#33485c; --danger:#ff7b8a; --focus:#8fd3ff; --radius:10px;
+}
+
+[data-theme="winter"] .brand h1 { color:#cfeaff; text-shadow:0 0 12px rgba(143,211,255,.5); }
+
+[data-theme="winter"] .brand h1::after { content:" ❄"; text-shadow:none; }
+
+[data-theme="winter"] header { background:linear-gradient(rgba(16,28,40,.95), rgba(12,21,31,.92)); border-bottom:1px solid #24384c; }
+
+[data-theme="winter"] table, [data-theme="winter"] .feed { background:rgba(12,21,31,.96); }
+

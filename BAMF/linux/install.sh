@@ -120,6 +120,18 @@ if [ -d "$SRC_DIR/wwwroot" ]; then
     cp -r "$SRC_DIR/wwwroot/." "$APP_DIR/wwwroot/"
 fi
 
+# The themes that come with BAMF, for the same reason: replaced every time, so
+# a theme fixed in this version doesn't lose to an older copy. This is only the
+# library; the themes folder the dashboard reads, with any you've added or
+# removed, is left alone, and BAMF brings it up to date at startup.
+if [ -d "$SRC_DIR/../themes" ]; then
+    rm -rf "$APP_DIR/theme-library"
+    mkdir -p "$APP_DIR/theme-library"
+    for d in "$SRC_DIR/../themes"/*/; do
+        if [ -f "$d/theme.json" ]; then cp -r "$d" "$APP_DIR/theme-library/"; fi
+    done
+fi
+
 # --- prove the build produced what we expect ---
 [ -x "$APP_DIR/BAMF" ] || { echo "Build finished but $APP_DIR/BAMF is missing - nothing was installed."; exit 1; }
 [ -f "$APP_DIR/wwwroot/index.html" ] || { echo "Build finished but $APP_DIR/wwwroot is missing - the dashboard would not load."; exit 1; }

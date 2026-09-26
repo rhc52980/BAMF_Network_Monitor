@@ -1,0 +1,15 @@
+{
+  "name": "Factory",
+  "swatch": ["#232830", "#ffb300", "#7ac943"],
+  "category": "animated",
+  "description": "A shop floor with a belt running, a press, and an arm that picks off the line.",
+  "author": "BAMF",
+  "variants": [
+    {
+      "id": "factorynight",
+      "name": "Factory Night Shift",
+      "swatch": ["#14171c", "#ffc233", "#63b93a"],
+      "description": "The factory on the night shift."
+    }
+  ]
+}

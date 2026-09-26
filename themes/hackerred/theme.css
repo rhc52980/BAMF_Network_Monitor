@@ -1,0 +1,30 @@
+/* Hacker Red: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="hackerred"] {
+  --bg:#0a0000; --panel:#160202; --panel-2:#220404; --line:#4d0d0d;
+  --text:#ff3333; --text-dim:#992020; --led-on:#ff3333; --led-warn:#ff8833;
+  --led-off:#4d0d0d; --danger:#ff0000; --focus:#ff5555; --radius:2px;
+}
+
+[data-theme="hackerred"] *, [data-theme="hackerred"] { font-family:"IBM Plex Mono",monospace !important; }
+
+[data-theme="hackerred"] .brand h1 { text-shadow:0 0 8px #ff3333; }
+
+/* Hacker Red: the header glitches now and then. */
+
+header.hr-glitch { animation: hr-glitch .45s steps(3) 1; }
+
+header.hr-glitch .brand h1 { animation: hr-split .45s steps(3) 1; }
+
+@keyframes hr-glitch {
+  0% { transform: translateX(-5px); clip-path: inset(10% 0 55% 0); } 33% { transform: translateX(4px); clip-path: inset(50% 0 10% 0); }
+  66% { transform: translateX(-2px); clip-path: inset(0 0 0 0); } 100% { transform: none; clip-path: none; }
+}
+
+@keyframes hr-split { 0%, 66% { text-shadow: 3px 0 #00e5ff, -3px 0 #ff3333; } 100% { text-shadow: 0 0 8px #ff3333; } }
+
+@media (prefers-reduced-motion: reduce) {
+  header.hr-glitch,
+  header.hr-glitch .brand h1 { animation: none !important; }
+
+}

@@ -1,0 +1,8 @@
+/* Nord: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+[data-theme="nord"] {
+  --bg:#2e3440; --panel:#3b4252; --panel-2:#434c5e; --line:#4c566a;
+  --text:#eceff4; --text-dim:#9099a8; --led-on:#a3be8c; --led-warn:#ebcb8b;
+  --led-off:#4c566a; --danger:#bf616a; --focus:#88c0d0; --radius:8px;
+}
+

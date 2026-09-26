@@ -1,0 +1,18 @@
+/* Spring: a BAMF theme. BAMF loads this file only while the theme is on. */
+
+/* ---- Spring: blossom coming down over a soft morning ---- */
+
+[data-theme="spring"] {
+  --bg:#e6efe0; --panel:rgba(249,251,246,.95); --panel-2:#e2ecdc; --line:#c8dbc1;
+  --text:#22301e; --text-dim:#56694f; --led-on:#2f9e5b; --led-warn:#e08a1e;
+  --led-off:#b9c9b4; --danger:#d6453f; --focus:#3f8f62; --radius:10px;
+}
+
+[data-theme="spring"] .brand h1 { color:#3f8f62; }
+
+[data-theme="spring"] .brand h1::after { content:" 🌸"; text-shadow:none; }
+
+[data-theme="spring"] header { background:linear-gradient(#f5f8f1, #e2ecdb); border-bottom:1px solid #c8dbc1; }
+
+[data-theme="spring"] table, [data-theme="spring"] .feed { background:rgba(249,251,246,.96); }
+
