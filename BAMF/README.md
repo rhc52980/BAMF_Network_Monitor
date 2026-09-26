@@ -1036,6 +1036,30 @@ out of how many, how many are unknown, when the last scan was, and in red any
 watched device that's down. A theme without scenery gets your devices as
 slowly drifting points of light instead, green, amber or dim as in the table.
 
+### The watchtower
+
+Pick **The watchtower** as the saver's style (beside how long it waits) for a
+saver of its own, whatever the theme. It's night, with a full moon, and on a
+watchtower with BAMF on the hut stands the watchman: fedora, trench coat, the
+collar up, binoculars raised, a silhouette against the moon, with BAMF's star
+on his hat band. Below him is the yard, and every device on your network
+stands in it, green, amber or dim as in the table. His searchlight sweeps the
+yard, naming each device as it passes, and his binoculars follow it; now and
+then he lowers them and has a look round, his coat lifting in the wind and his
+breath showing in the cold.
+
+**A new device is a jailbreak.** The beacons on the hut spin up, the night
+goes red, and the searchlight swings round and locks onto it, a reticle
+closing in and its details beside it: its address, its vendor and what it
+looks like, its MAC, when it was first seen and that it isn't on the known
+list. After fifteen seconds he goes back to his rounds, and the device keeps a
+red NEW ring for as long as the saver's up. A watched device dropping is LOST
+CONTACT, and coming back REACQUIRED; a scan is a fast sweep of the yard. The
+card sits in the corner and says ALERT while it's going on. **The watchtower,
+with the siren** adds a siren to the jailbreak; otherwise it's silent. The whole
+scene drifts a little over the minutes and the moon moves across, so a screen
+left on it all night doesn't burn in.
+
 Move the mouse or press a key to come back; the click or key that wakes it
 goes no further, so it never presses a button by accident. It waits while a
 dialog is open or you're typing, stops in a background tab, and holds still
