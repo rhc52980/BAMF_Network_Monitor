@@ -153,6 +153,17 @@ function makeClaw(parent, x, top) {
   };
 }
 
+// A new device nobody has marked known is an intruder: a mystery prize that
+// was never put in. TILT: the cabinet shakes, the marquee bulbs go red, and a
+// black box with a question mark drops into the prize chute and sits there,
+// glowing red, tagged, until the device is marked known. Then it pops open,
+// and the claw wins it as a new prize.
+const CLAW_MYSTERY = `<svg viewBox="0 0 60 60" width="60" height="60">
+  <rect x="6" y="18" width="48" height="38" rx="4" fill="#1a1024" stroke="#ff3b5c" stroke-width="2.5"/>
+  <rect x="3" y="12" width="54" height="10" rx="3" fill="#24142f" stroke="#ff3b5c" stroke-width="2.5"/>
+  <path d="M30 12v44" stroke="#ff3b5c" stroke-width="3" opacity=".7"/>
+  <text x="30" y="47" text-anchor="middle" font-family="Space Grotesk, sans-serif" font-weight="800" font-size="24" fill="#ff5a78">?</text></svg>`;
+
 function buildClaw(root, _switched, dusk = false) {
   const calm = calmMotion();
   // Claw Machine Dusk is the same cabinet in softer colours.
@@ -327,15 +338,91 @@ function buildClaw(root, _switched, dusk = false) {
   };
   festiveStops.push(() => document.documentElement.classList.remove("claw-fast"));
   festiveStops.push(() => document.querySelectorAll(".claw-charm, .claw-stamp, .claw-drop, .claw-bonus").forEach(el => el.remove()));
-  // A new device: always a win.
-  festiveHooks.newDevice = h => {
+  // A new device, once it's been marked known: always a win.
+  const newPrize = h => {
     if (document.hidden) return;
     const tr = h ? document.querySelector(`tbody tr[data-id="${h.id}"]`) : null;
     fgPlay({ tr: tr && visibleRows().includes(tr) ? tr : null, name: h ? nameOrIp(h) : "a new device", win: true, title: "NEW PRIZE!" });
   };
+
+  // ---- intruders: mystery prizes in the chute ----
+  const watchIn = intruderWatch();
+  const boxes = new Map();              // id -> { h, el, tag, alarm, gone }
+  const room = document.createElement("div");
+  room.setAttribute("aria-hidden", "true");
+  document.body.appendChild(room);
+  festiveStops.push(() => room.remove());
+  const slotX = k => chuteX + chuteW / 2 - 30 - k * 70;
+  const inChute = () => [...boxes.values()].filter(b => !b.gone).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  const makeBox = h => {
+    const el = document.createElement("div");
+    el.className = "claw-mystery";
+    el.innerHTML = CLAW_MYSTERY;
+    const tag = intruderTagEl(h, "held");
+    el.appendChild(tag);
+    root.appendChild(el);
+    return { h, el, tag, alarm: 0, gone: false };
+  };
+  const settle = () => {
+    const list = inChute();
+    room.style.height = list.length ? "150px" : "0";
+    list.forEach((b, k) => {
+      b.el.hidden = k > 1;
+      b.tag.style.bottom = `calc(100% + ${6 + k * 52}px)`;
+      if (b.moving) return;
+      b.el.style.left = slotX(k) + "px";
+      b.el.style.top = (innerHeight - 70) + "px";
+    });
+  };
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!boxes.has(h.id)) { const b = makeBox(h); b.el.style.transition = "none"; boxes.set(h.id, b); }
+    for (const h of held) { const b = boxes.get(h.id); if (b && !b.gone) { b.h = h; if (!b.alarm || Date.now() - b.alarm > 9000) intruderTagEl(h, "held", b.tag); } }
+    for (const h of cleared) {
+      const b = boxes.get(h.id); if (!b || b.gone) continue;
+      b.gone = true;
+      const done = () => { b.el.remove(); boxes.delete(h.id); settle(); };
+      if (calm || document.hidden) { done(); continue; }
+      // Checked and passed: the box pops open, and it's a prize after all.
+      intruderTagEl(b.h, "cleared", b.tag);
+      festiveTimers.push(setTimeout(() => { b.el.classList.add("open"); }, 2000));
+      festiveTimers.push(setTimeout(() => { done(); if (!h.test) newPrize(h); }, 2900));
+    }
+    settle();
+  }
+  // TILT: the cabinet shakes, the bulbs go red, and in drops the box.
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    let b = boxes.get(h.id);
+    if (!b) { b = makeBox(h); boxes.set(h.id, b); }
+    if (calm || document.hidden) { settle(); return; }
+    b.alarm = Date.now(); b.moving = true;
+    intruderTagEl(h, "alarm", b.tag);
+    const html = document.documentElement;
+    html.classList.add("claw-tilt");
+    bg.classList.remove("tilt"); void bg.offsetWidth; bg.classList.add("tilt");
+    festiveTimers.push(setTimeout(() => { html.classList.remove("claw-tilt"); bg.classList.remove("tilt"); }, 8000));
+    const t = document.createElement("div");
+    t.className = "claw-banner claw-tiltbanner";
+    t.innerHTML = `<b>TILT!</b><small>${esc("a mystery prize nobody put in: " + nameOrIp(h))}</small>`;
+    root.appendChild(t);
+    festiveTimers.push(setTimeout(() => t.remove(), 2600));
+    b.el.style.transition = "none"; b.el.style.left = slotX(0) + "px"; b.el.style.top = (railY + 10) + "px";
+    void b.el.offsetWidth;
+    settle();
+    b.el.style.transition = "top 1.1s cubic-bezier(.5, 0, .8, 1.3)";
+    b.el.style.top = (innerHeight - 70) + "px";
+    festiveTimers.push(setTimeout(() => { b.moving = false; settle(); play(snd.clunk); }, 1150));
+    festiveTimers.push(setTimeout(() => { if (!b.gone) intruderTagEl(b.h, "held", b.tag); }, 9000));
+    play(snd.lose);
+  };
+  festiveStops.push(() => document.documentElement.classList.remove("claw-tilt"));
+  syncIntruders();
   let backIds = [];
   festiveHooks.netChange = (off, back) => { backIds = back.slice(); if (back.length) play(snd.bonus); };
   festiveHooks.rendered = () => {
+    syncIntruders();
     for (const id of wentOffIds) {
       const cell = document.querySelector(`tr[data-id="${id}"] td.hostname`);
       if (!cell) continue;

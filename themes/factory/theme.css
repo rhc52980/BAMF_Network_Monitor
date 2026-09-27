@@ -87,6 +87,37 @@
 
 @keyframes fac-ride { from { transform:translateX(-70px); } to { transform:translateX(calc(100vw + 70px)); } }
 
+/* An intruder: a part that isn't on the manifest. The line emergency-stops,
+   the andon goes red, a beacon turns, and the part goes to the reject bay. */
+
+.fac-part { position:absolute; bottom:6px; width:54px; }
+
+.fac-part svg { display:block; width:54px; height:auto; }
+
+.fac-part .intruder-tag { right:-8px; }
+
+.fac-bay { position:absolute; right:24px; bottom:14px; width:150px; height:58px; border:3px solid #ffb300; border-top:0;
+  background:repeating-linear-gradient(135deg, rgba(255,179,0,.16) 0 10px, rgba(0,0,0,.25) 10px 20px); }
+
+.fac-bay > span { position:absolute; left:0; right:0; bottom:-14px; text-align:center; font:700 9px "IBM Plex Mono", monospace; color:#ffb300; letter-spacing:.08em; }
+
+.fac-estop .fac-belt::before, .fac-estop .fac-crate, .fac-estop .fac-arm .upper, .fac-estop .fac-arm .fore { animation-play-state:paused !important; }
+
+.fac-andon.estop { border-color:#e5392f; }
+
+.fac-andon.estop i { background:#e5392f !important; box-shadow:0 0 9px #e5392f !important; animation:fac-flash .5s steps(2) infinite; }
+
+.fac-beacon { position:absolute; right:180px; bottom:40px; width:14px; height:14px; border-radius:50%; background:#5a1a16; display:none; }
+
+.fac-estop .fac-beacon { display:block; background:#ff3b2e; box-shadow:0 0 14px #ff3b2e; }
+
+.fac-estop .fac-beacon::after { content:""; position:absolute; left:-150px; top:-150px; width:314px; height:314px; border-radius:50%; pointer-events:none;
+  background:conic-gradient(rgba(255,59,46,.35), transparent 18%, transparent 50%, rgba(255,59,46,.35) 50%, transparent 68%); animation:fac-turn 1.2s linear infinite; }
+
+@keyframes fac-turn { to { transform:rotate(360deg); } }
+
+.fac-alarm::after { content:""; position:absolute; inset:0; pointer-events:none; background:rgba(229,57,47,.12); animation:fac-flash 1s steps(2) infinite; }
+
 /* The press over the belt, which comes down when a scan lands. */
 
 .fac-press { position:absolute; right:22vw; bottom:34px; width:80px; height:74px; }
@@ -162,6 +193,6 @@
 .fac-stopped .fac-wheelbig { animation-play-state:paused; }
 
 @media (prefers-reduced-motion: reduce) {
-  .fac-belt::before, .fac-lamp, .fac-wheelbig, .fac-spark, .fac-arm .upper, .fac-arm .fore, .fac-andon i.bad.on { animation:none !important; }
+  .fac-belt::before, .fac-lamp, .fac-wheelbig, .fac-spark, .fac-arm .upper, .fac-arm .fore, .fac-andon i.bad.on, .fac-beacon::after, .fac-alarm::after, .fac-andon.estop i { animation:none !important; }
 
 }

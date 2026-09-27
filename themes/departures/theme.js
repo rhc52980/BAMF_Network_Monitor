@@ -11,9 +11,17 @@
 // every so often a plane rolling out and climbing away. A scan clacks every
 // row over and sends a plane off; a new device is a new flight flipping onto
 // the board.
+// A new device nobody has marked known is an intruder: an unscheduled
+// arrival. The board's title flaps to SECURITY ALERT and every flight to HOLD,
+// the plane on its take-off run aborts and the runway lights flash red; then
+// the arrival's own row flaps to SECURITY, its flight number unknown, until
+// the device is marked known, when it goes on the board like any other flight.
 function buildDepartures(root, switched) {
   const calm = calmMotion();
   const TAU = Math.PI * 2;
+  // The intruders the board is holding, and until when every flight holds.
+  const watchIn = intruderWatch();
+  let securityIds = new Set(), holdAll = 0;
 
   // ---- The board ----
   const head = document.createElement("div");
@@ -59,14 +67,18 @@ function buildDepartures(root, switched) {
   }
 
   const status = h => {
+    if (securityIds.has(h.id)) return ["SECURITY", "sec"];
+    if (Date.now() < holdAll) return ["HOLD", "hold"];
     if (h.ignored) return ["DIVERTED", "div"];
     if (h.online) return h.known ? ["ON TIME", "on"] : ["BOARDING", "board"];
     return (Date.now() - new Date(h.lastSeen)) / 60000 < 30 ? ["DELAYED", "delay"] : ["CANCELLED", "cancel"];
   };
   const flightNo = h => {
+    if (securityIds.has(h.id)) return "?? ???";
     const air = ((h.vendor || "").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2) || "BM").padEnd(2, "X");
     return `${air} ${String(Number((h.ip || "").split(".").pop()) || 0).padStart(3, "0")}`;
   };
+  let depart = null;               // set once the airfield is built
   const shown = new Map();         // host id -> the status last on the board
   const fresh = new Set();         // new devices, to flip on from blank
   let clackAll = !!switched && !calm;
@@ -78,7 +90,16 @@ function buildDepartures(root, switched) {
   tickClock();
   festiveTimers.push(setInterval(tickClock, 5000));
 
+  // What the New tab holds: SECURITY on its rows. One cleared goes on the
+  // board like a new flight, flipping on from blank, and a plane goes.
+  const syncIntruders = () => {
+    const { held, cleared } = watchIn();
+    securityIds = new Set(held.map(h => h.id));
+    for (const h of cleared) { fresh.add(h.id); shown.delete(h.id); if (!calm && !document.hidden && !h.test) depart?.(); }
+    head.classList.toggle("security", securityIds.size > 0);
+  };
   festiveHooks.rendered = () => {
+    syncIntruders();
     const byId = new Map(hosts.map(h => [String(h.id), h]));
     const clack = clackAll;
     clackAll = false;
@@ -107,8 +128,9 @@ function buildDepartures(root, switched) {
     }
     // The totals, over everything rather than just the rows on screen.
     const n = { on: 0, board: 0, delay: 0, cancel: 0 };
-    for (const h of hosts) if (!h.ignored && !h.forgotten) n[status(h)[1]]++;
-    sum.innerHTML = `ON TIME <b>${n.on}</b> \u00b7 BOARDING <b class="am">${n.board}</b> \u00b7 DELAYED <b class="am">${n.delay}</b> \u00b7 CANCELLED <b class="rd">${n.cancel}</b>`;
+    for (const h of hosts) if (!h.ignored && !h.forgotten || securityIds.has(h.id)) { const k = status(h)[1]; n[k] = (n[k] || 0) + 1; }
+    n.sec = n.sec || 0; n.hold = n.hold || 0;
+    sum.innerHTML = (n.sec ? `SECURITY <b class="rd">${n.sec}</b> \u00b7 ` : "") + `ON TIME <b>${n.on}</b> \u00b7 BOARDING <b class="am">${n.board}</b> \u00b7 DELAYED <b class="am">${n.delay}</b> \u00b7 CANCELLED <b class="rd">${n.cancel}</b>`;
   };
   // Chosen from the menu, the table isn't redrawn, so put the board up now.
   if (hosts.length) festiveHooks.rendered();
@@ -178,13 +200,15 @@ function buildDepartures(root, switched) {
     ctx.restore();
   }
 
-  let takeoff = null, takeoffAt = 0, cruise = null, cruiseAt = 0;
-  const depart = () => { if (!takeoff) takeoff = { x: RX0 + 20, y: RY - 5 * S, v: 0, ang: 0 }; };
+  let takeoff = null, takeoffAt = 0, cruise = null, cruiseAt = 0, alarmUntil = 0;
+  depart = () => { if (!takeoff) takeoff = { x: RX0 + 20, y: RY - 5 * S, v: 0, ang: 0 }; };
 
   function step(dt, now) {
-    if (!takeoff && now > takeoffAt) { depart(); takeoffAt = now + rnd(25e3, 45e3); }
+    if (!takeoff && now > takeoffAt && now > alarmUntil) { depart(); takeoffAt = now + rnd(25e3, 45e3); }
     if (takeoff) {
       const p = takeoff;
+      // An intruder on the field: the take-off is abandoned, brakes on.
+      if (now < alarmUntil && p.ang === 0) { p.v = Math.max(0, p.v - 150 * S * dt); p.x += p.v * dt; if (p.v <= 0 && now > alarmUntil - 200) takeoff = null; return; }
       p.v += 62 * S * dt;
       p.x += Math.cos(p.ang) * p.v * dt;
       p.y += Math.sin(p.ang) * p.v * dt;
@@ -213,6 +237,10 @@ function buildDepartures(root, switched) {
     const beacon = calm ? 0 : Math.floor(t * 1.2) % 2;
     ctx.fillStyle = beacon ? "rgba(255, 255, 255, .95)" : "rgba(80, 240, 130, .95)";
     ctx.beginPath(); ctx.arc(TWR, HZ - 86 * S, 2.2, 0, TAU); ctx.fill();
+    if (now < alarmUntil && Math.sin(t * 9) > 0) {
+      ctx.fillStyle = "#ff3b30";
+      for (let x = RX0; x <= RX1; x += 18) { ctx.fillRect(x - .6, RY - 5.6, 3, 3); ctx.fillRect(x - .6, RY + 2.9, 3, 3); }
+    }
     if (takeoff) jet(takeoff.x, takeoff.y, S * .9, takeoff.ang, t);
     if (cruise) {
       ctx.save(); ctx.translate(cruise.x, cruise.y); if (cruise.dir < 0) ctx.scale(-1, 1);
@@ -222,6 +250,7 @@ function buildDepartures(root, switched) {
   }
 
   if (calm) {
+    festiveHooks.intruder = () => festiveHooks.rendered();
     // Reduced motion: a plane lined up at the start of the runway, waiting.
     takeoff = { x: RX0 + 30, y: RY - 5 * S, v: 0, ang: 0 };
     draw(0);
@@ -231,7 +260,23 @@ function buildDepartures(root, switched) {
   cruiseAt = performance.now() + rnd(10e3, 25e3);
   c.start();
   festiveHooks.scanDone = () => { clackAll = true; if (!document.hidden) depart(); };
-  festiveHooks.newDevice = h => { if (h && h.id != null) fresh.add(h.id); if (!document.hidden) depart(); };
+  // The alarm: every flight holds, the title flaps, the runway goes red.
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    if (document.hidden) { festiveHooks.rendered(); return; }
+    holdAll = Date.now() + 8000; alarmUntil = performance.now() + 8000;
+    clackAll = true;
+    const title = head.querySelector(".df-title");
+    head.classList.add("alert");
+    title.textContent = "\u26a0 SECURITY ALERT";
+    festiveHooks.rendered();
+    festiveTimers.push(setTimeout(() => {
+      head.classList.remove("alert");
+      title.textContent = "\u2708 DEPARTURES";
+      clackAll = true; festiveHooks.rendered();
+    }, 8200));
+  };
 }
 
 BAMF.registerTheme("departures", ctx => buildDepartures(ctx.root, ctx.switched));

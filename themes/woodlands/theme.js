@@ -192,6 +192,29 @@ function buildWoodlands(root) {
     g.restore();
   }
   // A fox facing right, feet at the origin. nose: 0 level, 1 down sniffing.
+  // A black bear, big and dark, a rim of evening light along its back so it
+  // reads against the floor, and a glint in its eye.
+  function bear(g, x, y, dir, sc, ph, sniff) {
+    g.save(); g.translate(x, y); g.scale(dir * sc, sc);
+    const leg = (lx, a) => { g.save(); g.translate(lx, -14); g.rotate(a); g.fillStyle = "#1c130d"; g.fillRect(-3, 0, 6.5, 14); g.restore(); };
+    const s1 = Math.sin(ph) * .35, s2 = Math.sin(ph + Math.PI) * .35;
+    leg(-14, s1); leg(10, s2);
+    g.fillStyle = "#2b1e15";
+    g.beginPath(); g.ellipse(-2, -22, 22, 12, 0, 0, TAU); g.fill();
+    g.beginPath(); g.ellipse(5, -29, 10, 7.5, 0, 0, TAU); g.fill();
+    g.strokeStyle = "rgba(255, 214, 160, .45)"; g.lineWidth = 1.2;
+    g.beginPath(); g.ellipse(-2, -22, 22, 12, 0, Math.PI * 1.08, Math.PI * 1.92); g.stroke();
+    leg(-9, s2); leg(14, s1);
+    g.save(); g.translate(18, -25); g.rotate(sniff * .3);
+    g.fillStyle = "#2b1e15";
+    g.beginPath(); g.ellipse(4, -2, 8.5, 7, 0, 0, TAU); g.fill();
+    g.beginPath(); g.arc(-1, -8.5, 3, 0, TAU); g.arc(5.5, -9.5, 3, 0, TAU); g.fill();
+    g.fillStyle = "#4a3526"; g.beginPath(); g.ellipse(11.5, 1, 5, 3.4, 0, 0, TAU); g.fill();
+    g.fillStyle = "#0d0907"; g.beginPath(); g.arc(15.8, .4, 1.4, 0, TAU); g.fill();
+    g.fillStyle = "#ffcf5a"; g.beginPath(); g.arc(7.5, -4, 1.1, 0, TAU); g.fill();
+    g.restore();
+    g.restore();
+  }
   function fox(g, x, y, dir, sc, ph, nose) {
     g.save(); g.translate(x, y); g.scale(dir * sc, sc);
     const leg = (lx, a) => { g.save(); g.translate(lx, -12); g.rotate(a); g.fillStyle = "#2a1a12"; g.fillRect(-1.1, 0, 2.2, 12); g.restore(); };
@@ -416,6 +439,16 @@ function buildWoodlands(root) {
   const snake = { flick: 0, flickAt: 0 };
   let walker = null, walkerAt = 0, bunny = null, bunnyAt = 0, bfly = null, bflyAt = 0;
   const owl = { blink: 0, blinkAt: 0, wide: 0 };
+  // A new device nobody has marked known is an intruder: a bear, lumbering
+  // into the clearing. Alarm calls go up, every bird on the vine bursts off,
+  // the flocks scatter, and the great owl's eyes go wide as it turns to fix on
+  // it. It stays in the clearing, tagged, the owl watching, until the device
+  // is marked known; then it lumbers off, and someone new wanders in.
+  const watchIn = intruderWatch();
+  const bears = new Map();              // id -> { h, x, dir, ph, sniff, state, alarm, clearAt }
+  let redFrom = 0;
+  const bearX = k => W * .74 - k * 170 * S;
+  const inClearing = () => [...bears.values()].filter(b => b.state !== "out").sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
   const wp = { burst: 0, at: 0 };
   const sq = { y: H * .45, target: H * .45, pause: 2, ph: 0, dir: -1 };
 
@@ -529,11 +562,13 @@ function buildWoodlands(root) {
     // otherwise looks about. Every minute or so it flies to the basket, stays
     // a while on the rim with the owlets, and flies back.
     const o = bigOwl;
+    const prowler = inClearing()[0];
     if (o.mode === "perch") {
       o.x = OX; o.y = OY;
-      if (o.px !== null && now - o.pAt < 4000) o.want = Math.max(-1, Math.min(1, (o.px - OX) / (W * .35)));
+      if (prowler) { o.want = Math.max(-1, Math.min(1, (prowler.x - OX) / (W * .35))); o.wide = Math.max(o.wide, .4); }
+      else if (o.px !== null && now - o.pAt < 4000) o.want = Math.max(-1, Math.min(1, (o.px - OX) / (W * .35)));
       else if (now > o.lookAt) { o.want = rnd(-1, 1); o.lookAt = now + rnd(3e3, 7e3); }
-      if (now > o.at) { o.mode = "toNest"; o.t = 0; o.from = [OX, OY]; o.to = RIM; }
+      if (!prowler && now > o.at) { o.mode = "toNest"; o.t = 0; o.from = [OX, OY]; o.to = RIM; }
     } else if (o.mode === "nest") {
       o.x = RIM[0]; o.y = RIM[1];
       o.want = -.6;                         // looking down and in, at the owlets
@@ -624,6 +659,18 @@ function buildWoodlands(root) {
       sq.dir = d < 0 ? -1 : 1;
       if (Math.abs(d) <= v) { sq.y = sq.target; sq.pause = rnd(1.5, 5); } else sq.y += Math.sign(d) * v;
       sq.ph += dt * 18;
+    }
+    // The bears: in to their place, a sniff now and then, and off when cleared.
+    inClearing().forEach((b, k) => {
+      const tx = bearX(Math.min(k, 1));
+      if (b.x == null) b.x = tx;
+      const d = tx - b.x;
+      if (Math.abs(d) > 2) { b.dir = d > 0 ? 1 : -1; b.x += Math.sign(d) * Math.min(Math.abs(d), 60 * S * dt); b.ph += dt * 5; }
+      else { b.state = "held"; b.dir = -1; b.sniff = Math.max(0, Math.sin(now / 1400 + b.x)) ; }
+    });
+    for (const [id, b] of bears) if (b.state === "out" && now - b.clearAt > 2200) {
+      b.dir = 1; b.x += 70 * S * dt; b.ph += dt * 6;
+      if (b.x > W + 140 * S) { bears.delete(id); if (!b.h.test && !walker) spawnWalker(); }
     }
     // Along the floor: a deer or a fox, and a rabbit.
     if (!walker && now > walkerAt) spawnWalker();
@@ -905,6 +952,7 @@ function buildWoodlands(root) {
       if (walker.kind === "deer") deer(fr, walker.x, GY, walker.dir, walker.sc, walker.ph, walker.head, walker.antlers);
       else fox(fr, walker.x, GY, walker.dir, walker.sc, walker.ph, walker.head);
     }
+    drawBears(now || 0);
     if (bfly) {
       const w = Math.abs(Math.sin(bfly.t * 9)) * 6 + 2.5;
       fr.save(); fr.translate(bfly.x, bfly.y); fr.scale(S, S);
@@ -916,7 +964,57 @@ function buildWoodlands(root) {
     }
   }
 
+  // The alarm's red along the floor; the bears, and their tags over them.
+  function drawBears(now) {
+    const red = redFrom && now - redFrom < 6500 ? 1 - (now - redFrom) / 6500 : 0;
+    if (red > 0) { fr.fillStyle = `rgba(255, 50, 35, ${((.12 + .12 * Math.sin((now - redFrom) / 240)) * red).toFixed(3)})`; fr.fillRect(0, FY - 30 * S, W, H - FY + 30 * S); }
+    const list = inClearing();
+    list.forEach((b, i) => { if (b.x == null) b.x = bearX(Math.min(i, 1)); });
+    let n = 0;
+    for (const b of bears.values()) {
+      if (b.x == null || (b.state !== "out" && list.indexOf(b) > 1)) continue;
+      bear(fr, b.x, GY, b.dir, S * 1.1, b.ph, b.sniff || 0);
+      const state = b.clearAt ? "cleared" : b.alarm && now - b.alarm < 8000 ? "alarm" : "held";
+      const k = b.clearAt ? Math.max(0, 1 - Math.max(0, now - b.clearAt - 1800) / 1200) : 1;
+      if (n < 2) intruderTag(fr, b.x, GY - 50 * S - n * 46 * S, b.h, { s: .85 * S, state, k });
+      n++;
+    }
+  }
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    const now = performance.now();
+    for (const h of added) if (!bears.has(h.id)) bears.set(h.id, { h, x: null, dir: -1, ph: 0, sniff: 0, state: "held", alarm: 0, clearAt: 0 });
+    for (const h of held) { const b = bears.get(h.id); if (b) b.h = h; }
+    for (const h of cleared) {
+      const b = bears.get(h.id); if (!b || b.state === "out") continue;
+      if (calm || document.hidden) { bears.delete(h.id); continue; }
+      Object.assign(b, { state: "out", clearAt: now });
+    }
+    room.style.height = `${BAND + (inClearing().length ? 110 : 0)}px`;
+  }
+  // The alarm: every bird up, calls going, the owl's eyes wide.
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    let b = bears.get(h.id);
+    if (!b) { b = { h, x: null, dir: -1, ph: 0, sniff: 0, state: "held", alarm: 0, clearAt: 0 }; bears.set(h.id, b); }
+    room.style.height = `${BAND + 110}px`;
+    if (calm) { draw(0); return; }
+    if (document.hidden) return;
+    const now = performance.now();
+    Object.assign(b, { x: W + 90 * S, state: "in", alarm: now, clearAt: 0 });
+    redFrom = now;
+    startle();
+    for (const p of perches) {
+      if (!p.bird) continue;
+      startled.push({ x: p.x, y: p.y, vx: rnd(-180, 180) * S, vy: rnd(-200, -90) * S, ph: rnd(0, TAU) });
+      notes.push({ x: p.x, y: p.y - 6 * S, dir: 1, t: 0, g: "!" });
+      p.bird = null;
+    }
+    bigOwl.wide = 3; owl.wide = 3; bigOwl.pAt = 0;
+  };
   retarget();
+  syncIntruders();
   if (calm) {
     // Reduced motion: the wood holding still. A deer grazing, a rabbit sat up,
     // a flock caught mid-sky, and the vine with its birds - which still shows
@@ -926,7 +1024,7 @@ function buildWoodlands(root) {
     sq.pause = 1;
     flocks.push({ x: W * .42, y: H * .12, v: 0, birds: [0, 1, 2, 3, 4].map(i => ({ dx: -Math.ceil(i / 2) * 13 * S, dy: (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 6 * S, ph: i })) });
     draw(0);
-    festiveHooks.rendered = () => { retarget(); settle(performance.now()); draw(0); };
+    festiveHooks.rendered = () => { retarget(); settle(performance.now()); syncIntruders(); draw(0); };
     return;
   }
   const t0 = performance.now();
@@ -941,18 +1039,14 @@ function buildWoodlands(root) {
   festiveStops.push(() => removeEventListener("pointermove", watch));
   bunnyAt = t0 + rnd(4e3, 12e3); bflyAt = t0 + rnd(8e3, 18e3); wp.at = t0 + rnd(1500, 4000); owl.blinkAt = t0 + rnd(1000, 4000);
   c.start();
-  festiveHooks.rendered = retarget;
+  festiveHooks.rendered = () => { retarget(); syncIntruders(); };
   festiveHooks.scanDone = () => {
     if (document.hidden) return;
     startle();
     // The owl's eyes go wide and it turns to see what's taken off.
     bigOwl.wide = 2.6; bigOwl.want = startled.length && startled[0].vx < 0 ? 1 : -1; bigOwl.lookAt = performance.now() + 3000; bigOwl.pAt = 0;
   };
-  // Someone new in the woods: whoever isn't already out comes into the clearing.
-  festiveHooks.newDevice = () => {
-    if (document.hidden) return;
-    if (!walker) spawnWalker(); else if (!bunny) spawnBunny();
-  };
+
 }
 
 BAMF.registerTheme("woodlands", ctx => buildWoodlands(ctx.root, ctx.switched));

@@ -2,7 +2,7 @@
   "name": "Claw Machine",
   "swatch": ["#140b24", "#ff4fa3", "#3de0ff"],
   "category": "animated",
-  "description": "A prize cabinet with marquee bulbs, and a claw that sometimes wins a device.",
+  "description": "A prize cabinet with marquee bulbs, and a claw that sometimes wins a device. An unknown new device is a TILT, and a mystery prize nobody put in.",
   "author": "BAMF",
   "variants": [
     {

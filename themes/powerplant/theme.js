@@ -174,6 +174,11 @@ const PP_SCENE = () => `<svg viewBox="0 0 1400 900" preserveAspectRatio="xMidYMi
 // Power Plant: the dashboard as a generating station. Every device is a feeder
 // on the busbar with its own breaker, the frequency in the header sags as
 // devices drop, and a trip lights the annunciator and stops the set.
+// A new device nobody has marked known is an intruder: an unauthorised load on
+// the grid. The frequency swings, a zone of breakers trips, the klaxon sounds
+// and the hall flashes red; then its breaker is locked out, padlocked and
+// tagged, UNAUTH LOAD lit on the annunciator, until the device is marked
+// known, when it's closed onto the bus like any other feeder.
 function buildPowerPlant(root) {
   const calm = calmMotion();
   let hum = null;
@@ -272,8 +277,89 @@ function buildPowerPlant(root) {
   // Repainted whenever the table is, which is how the desk fills in after the
   // first scan. Set before reduced motion takes the early way out, or the
   // busbar would stay empty.
-  festiveHooks.rendered = () => paint();
+  // ---- intruders: breakers locked out ----
+  const watchIn = intruderWatch();
+  const locked = new Map();             // id -> { h, tag, alarm, gone }
+  let swinging = 0;
+  const room = document.createElement("div");
+  room.setAttribute("aria-hidden", "true");
+  document.body.appendChild(room);
+  festiveStops.push(() => room.remove());
+  const heldIds = () => new Set([...locked.values()].filter(l => !l.gone).map(l => String(l.h.id)));
+  const lockMarks = () => {
+    const ids = heldIds();
+    for (const el of breakers.children) el.classList.toggle("lockout", ids.has(el.dataset.id));
+    const a = desk.querySelector('[data-ann="unknown"]');
+    if (a) {
+      a.textContent = ids.size ? "UNAUTH LOAD" : "UNKNOWN UNIT";
+      if (ids.size) a.className = Date.now() < swinging ? "bad" : "held";
+    }
+  };
+  const placeTags = () => {
+    const list = [...locked.values()].filter(l => !l.gone).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+    room.style.height = list.length ? "150px" : "0";
+    const dr = desk.getBoundingClientRect();
+    list.forEach((l, k) => {
+      const el = breakers.querySelector(`.pp-brk[data-id="${l.h.id}"]`), r = el?.getBoundingClientRect();
+      const x = r ? r.left + r.width / 2 - dr.left : dr.width / 2;
+      l.tag.style.left = Math.max(120, Math.min(dr.width - 120, x)) + "px";
+      l.tag.style.bottom = `${106 + k * 54}px`;
+      l.tag.hidden = k > 1;
+    });
+  };
+  const addLock = h => {
+    const tag = intruderTagEl(h, "held");
+    tag.classList.add("pp-qtag");
+    desk.appendChild(tag);
+    const l = { h, tag, alarm: 0, gone: false };
+    locked.set(h.id, l);
+    return l;
+  };
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!locked.has(h.id)) addLock(h);
+    for (const h of held) { const l = locked.get(h.id); if (l && !l.gone) { l.h = h; if (!l.alarm || Date.now() - l.alarm > 9000) intruderTagEl(h, "held", l.tag); } }
+    for (const h of cleared) {
+      const l = locked.get(h.id); if (!l || l.gone) continue;
+      l.gone = true;
+      const done = () => { l.tag.remove(); locked.delete(h.id); paint(); lockMarks(); placeTags(); };
+      if (calm || document.hidden) { done(); continue; }
+      // Authorised: the lockout comes off and it's closed onto the bus.
+      intruderTagEl(l.h, "cleared", l.tag);
+      festiveTimers.push(setTimeout(() => { done(); if (soundOn()) breakerClunk(false); }, 2600));
+    }
+    lockMarks();
+    placeTags();
+  }
+  // The alarm: the frequency swings, a zone trips, the klaxon goes.
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    const l = locked.get(h.id) || addLock(h);
+    if (calm || document.hidden) { lockMarks(); placeTags(); return; }
+    l.alarm = Date.now();
+    swinging = Date.now() + 8000;
+    intruderTagEl(h, "alarm", l.tag);
+    lockMarks(); placeTags();
+    bg.classList.add("pp-alarm"); desk.classList.add("pp-tripped");
+    const wobble = setInterval(() => {
+      if (Date.now() > swinging) { clearInterval(wobble); paint(); lockMarks(); return; }
+      freq.querySelector("b").textContent = (60 + Math.sin(Date.now() / 180) * 1.1 + rnd(-.25, .25)).toFixed(2);
+      freq.className = "pp-freq trip";
+      setNeedle("ppLoad", rnd(.55, 1), "!!");
+    }, 120);
+    festiveTimers.push(wobble);
+    // A zone trips: the breakers round it open for a few seconds.
+    const all = [...breakers.children], at = all.findIndex(el => el.dataset.id === String(h.id));
+    const zone = all.slice(Math.max(0, (at < 0 ? all.length / 2 : at) - 4), Math.max(0, (at < 0 ? all.length / 2 : at) - 4) + 9);
+    festiveTimers.push(setTimeout(() => zone.forEach(el => el.classList.add("open")), 900));
+    festiveTimers.push(setTimeout(() => { paint(); lockMarks(); }, 5200));
+    festiveTimers.push(setTimeout(() => { bg.classList.remove("pp-alarm"); paint(); lockMarks(); if (!l.gone) intruderTagEl(l.h, "held", l.tag); }, 9000));
+    if (soundOn()) { breakerClunk(true); tripKlaxon(); festiveTimers.push(setTimeout(tripKlaxon, 1800)); }
+  };
+  festiveHooks.rendered = () => { paint(); syncIntruders(); };
   paint();
+  syncIntruders();
   if (calm) return; // Reduced motion: the plant is lit, the set is still.
 
   // A scan is a load surge: the set runs up, the line runs fast, the
@@ -288,14 +374,9 @@ function buildPowerPlant(root) {
       for (const el of bg.querySelectorAll(".pp-spin")) el.classList.remove("fast");
     }, 3500));
   };
-  // A new device is a feeder being closed onto the bus.
-  festiveHooks.newDevice = () => {
-    paint();
-    if (!document.hidden && soundOn()) breakerClunk(false);
-  };
   // Something drops: its breaker opens, the frequency sags, the klaxon sounds.
   festiveHooks.netChange = (off, back) => {
-    paint();
+    paint(); lockMarks();
     if (document.hidden) return;
     if (off.length && soundOn()) { breakerClunk(true); tripKlaxon(); }
     if (back.length && soundOn()) breakerClunk(false);

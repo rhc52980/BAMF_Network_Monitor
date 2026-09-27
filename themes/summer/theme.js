@@ -10,6 +10,11 @@
 //
 // A scan sends a bigger set of waves in with a surfer riding one; a new device
 // bounces the beach ball.
+// A new device nobody has marked known is an intruder: a shark. Its fin cuts
+// in along the water, the sea flashes red, and the lifeguard runs up the red
+// flag with a blast on the whistle; the fin circles offshore, tagged, the flag
+// flying, until the device is marked known. Then it heads out to sea, the
+// flag comes down, and the beach ball goes up.
 function buildSummer(root) {
   const calm = calmMotion();
   const c = seasonCanvas(draw, step);
@@ -27,6 +32,13 @@ function buildSummer(root) {
   // the sand below, and where the water meets the sand.
   const seaTop = 6 * S, shore = 44 * S;
   const umbX = W * .14, castleX = W * .36, towelX = umbX + 30 * S, bucketX = W * .44, starX = W * .58, ballX = W * .52;
+  // ---- intruders: fins offshore ----
+  const watchIn = intruderWatch();
+  const fins = new Map();               // id -> { h, x, v, alarm, clearAt, out }
+  const flagX = W * .92;
+  let redFrom = 0, whistleAt = 0;
+  const finBase = k => W * .64 - k * 230 * S;
+  const circling = () => [...fins.values()].filter(fn => !fn.out).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
 
   function step(dt, now) {
     for (const cl of clouds) { cl.x += cl.v * dt; if (cl.x > W + 120 * cl.sc) { cl.x = -120 * cl.sc; } }
@@ -38,6 +50,18 @@ function buildSummer(root) {
     if (surfer) { surfer.x += 150 * S * dt; if (surfer.x > W + 60) surfer = null; }
     if (ball.y > 0 || ball.vy !== 0) { ball.vy -= 600 * S * dt; ball.y += ball.vy * dt; if (ball.y <= 0) { ball.y = 0; ball.vy = Math.abs(ball.vy) > 60 * S ? -ball.vy * .55 : 0; } }
     crab.x += crab.dir * 14 * S * dt; if (crab.x > W * .95 || crab.x < W * .62) crab.dir *= -1;
+    // The fins: in fast from the right, then circling their patch of sea.
+    circling().forEach((fn, k) => {
+      const base = finBase(Math.min(k, 1)), want = base + Math.sin(now / 2600 + k * 2) * 70 * S;
+      if (fn.x == null) fn.x = want;
+      const d = want - fn.x, sp = fn.alarm && now - fn.alarm < 4000 ? 260 : 40;
+      fn.v = Math.sign(d) * Math.min(Math.abs(d), sp * S * dt) / Math.max(dt, .001);
+      fn.x += fn.v * dt;
+    });
+    for (const [id, fn] of fins) if (fn.out) {
+      fn.v = -160 * S; fn.x += fn.v * dt;
+      if (fn.x < -80 * S) { fins.delete(id); if (!fn.h.test) ball.vy = 260 * S; }
+    }
   }
   const cloud = (x, y, sc) => {
     ctx.fillStyle = "rgba(255,255,255,.78)";
@@ -128,6 +152,8 @@ function buildSummer(root) {
       f.moveTo(surfer.x, y - 4 * S); f.lineTo(surfer.x - 10 * S, y - 10 * S); f.moveTo(surfer.x, y - 4 * S); f.lineTo(surfer.x + 10 * S, y - 2 * S); f.stroke();
       f.fillStyle = "#3a2a20"; f.beginPath(); f.arc(surfer.x, y - 10 * S, 3.5 * S, 0, Math.PI * 2); f.fill();
     }
+    // The fins, cutting the water, with a wake behind each.
+    drawFins(t);
     // Foam where the water runs up the sand, then the sand.
     const run = Math.sin(t / 1300) * 6 * S + surge * 8 * S;
     f.fillStyle = "#e9dcc0";
@@ -187,13 +213,85 @@ function buildSummer(root) {
     for (const d of [-1, 1]) for (let k = 0; k < 3; k++) { f.beginPath(); f.moveTo(cx + d * 4 * S, cy); f.lineTo(cx + d * (9 + k * 3) * S, cy + 5 * S + (k % 2 ? legs : -legs)); f.stroke(); }
     f.fillStyle = "#e0563b"; f.beginPath(); f.ellipse(cx, cy - 2 * S, 9 * S, 6 * S, 0, 0, Math.PI * 2); f.fill();
     f.beginPath(); f.arc(cx - 11 * S, cy - 6 * S, 3.5 * S, 0, Math.PI * 2); f.arc(cx + 11 * S, cy - 6 * S, 3.5 * S, 0, Math.PI * 2); f.fill();
+    drawFlagAndTags(t);
   }
+  function drawFins(t) {
+    const red = redFrom && t - redFrom < 6500 ? 1 - (t - redFrom) / 6500 : 0;
+    if (red > 0) { f.fillStyle = `rgba(255, 45, 35, ${((.14 + .14 * Math.sin((t - redFrom) / 220)) * red).toFixed(3)})`; f.fillRect(0, seaTop, W, shore + 10 * S - seaTop); }
+    const list = circling();
+    list.forEach((fn, i) => { if (fn.x == null) fn.x = finBase(Math.min(i, 1)); });
+    for (const fn of fins.values()) {
+      if (fn.x == null || (!fn.out && list.indexOf(fn) > 1)) continue;
+      const dir = fn.v < 0 ? -1 : 1, y = shore - 14 * S + Math.sin(t / 500 + fn.x / 90) * 1.2 * S;
+      // The wake: white streaks trailing behind.
+      f.strokeStyle = "rgba(255, 255, 255, .7)"; f.lineWidth = 1.6 * S;
+      for (let k = 1; k <= 3; k++) { f.beginPath(); f.moveTo(fn.x - dir * (8 + k * 9) * S, y + 1 * S); f.lineTo(fn.x - dir * (14 + k * 9) * S, y + (1 + k) * S); f.stroke(); }
+      f.fillStyle = "#3d4a55";
+      f.beginPath(); f.moveTo(fn.x - dir * 12 * S, y); f.quadraticCurveTo(fn.x - dir * 4 * S, y - 10 * S, fn.x + dir * 4 * S, y - 22 * S);
+      f.quadraticCurveTo(fn.x + dir * 6 * S, y - 10 * S, fn.x + dir * 12 * S, y); f.closePath(); f.fill();
+      f.fillStyle = "rgba(255, 255, 255, .5)"; f.fillRect(fn.x - 13 * S, y, 26 * S, 1.4 * S);
+    }
+  }
+  // The lifeguard's red flag, up while a shark's about, and each fin's tag on
+  // the sand below it.
+  function drawFlagAndTags(t) {
+    const list = circling();
+    if (list.length) {
+      const top = 4 * S, base = BH - 8 * S;
+      f.strokeStyle = "#e9e4d8"; f.lineWidth = 2.5 * S;
+      f.beginPath(); f.moveTo(flagX, base); f.lineTo(flagX, top); f.stroke();
+      const wave = calm ? 0 : Math.sin(t / 180) * 3 * S;
+      f.fillStyle = "#e0301e";
+      f.beginPath(); f.moveTo(flagX, top); f.quadraticCurveTo(flagX + 14 * S, top + 2 * S + wave, flagX + 28 * S, top + wave * .6);
+      f.lineTo(flagX + 28 * S, top + 18 * S + wave * .6); f.quadraticCurveTo(flagX + 14 * S, top + 20 * S + wave, flagX, top + 18 * S); f.closePath(); f.fill();
+      if (t < whistleAt) {
+        f.font = `700 ${12 * S}px "Space Grotesk", sans-serif`; f.textAlign = "right"; f.fillStyle = "#ffffff";
+        f.strokeStyle = "rgba(160, 20, 10, .9)"; f.lineWidth = 3 * S;
+        f.strokeText("TWEEEET! OUT OF THE WATER!", flagX - 8 * S, 22 * S); f.fillText("TWEEEET! OUT OF THE WATER!", flagX - 8 * S, 22 * S);
+        f.textAlign = "left";
+      }
+    }
+    // Each tag stands on the sand below its fin's patch of sea, so two fins
+    // circling close never put one tag over the other.
+    for (const fn of fins.values()) {
+      const i = list.indexOf(fn);
+      if (fn.x == null || (!fn.clearAt && i > 1)) continue;
+      const state = fn.clearAt ? "cleared" : fn.alarm && t - fn.alarm < 8000 ? "alarm" : "held";
+      const k = fn.clearAt ? Math.max(0, 1 - Math.max(0, t - fn.clearAt - 1500) / 1000) : 1;
+      const x = fn.clearAt ? (fn.tagX ?? fn.x) : (fn.tagX = finBase(Math.min(i, 1)));
+      intruderTag(f, x, BH - 4 * S, fn.h, { s: .8 * S, state, k });
+    }
+  }
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    const now = performance.now();
+    for (const h of added) if (!fins.has(h.id)) fins.set(h.id, { h, x: null, v: -1, alarm: 0, clearAt: 0, out: false });
+    for (const h of held) { const fn = fins.get(h.id); if (fn) fn.h = h; }
+    for (const h of cleared) {
+      const fn = fins.get(h.id); if (!fn || fn.clearAt) continue;
+      if (calm || document.hidden) { fins.delete(h.id); continue; }
+      fn.clearAt = now;
+      festiveTimers.push(setTimeout(() => { fn.out = true; }, 2400));
+    }
+  }
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    let fn = fins.get(h.id);
+    if (!fn) { fn = { h, x: null, v: -1, alarm: 0, clearAt: 0, out: false }; fins.set(h.id, fn); }
+    if (calm) { draw(0); return; }
+    if (document.hidden) return;
+    const now = performance.now();
+    Object.assign(fn, { x: W + 40 * S, alarm: now, clearAt: 0, out: false });
+    redFrom = now; whistleAt = now + 4500; surge = 1;
+  };
+  festiveHooks.rendered = () => { syncIntruders(); if (calm) draw(0); };
+  syncIntruders();
 
   if (calm) { draw(0); return; }
   balloonAt = performance.now() + rnd(15e3, 30e3);
   c.start();
   festiveHooks.scanDone = () => { if (document.hidden) return; surge = 1; if (!surfer) surfer = { x: -40 }; };
-  festiveHooks.newDevice = () => { if (!document.hidden) ball.vy = 260 * S; };
 }
 
 BAMF.registerTheme("summer", ctx => buildSummer(ctx.root, ctx.switched));

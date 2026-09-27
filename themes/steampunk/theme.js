@@ -35,6 +35,14 @@ const SP_AIRSHIP = `<svg viewBox="0 0 220 100" aria-hidden="true"><g fill="#c9a3
   <circle cx="98" cy="86" r="2.5" fill="#ffcc66"/><circle cx="110" cy="86" r="2.5" fill="#ffcc66"/><circle cx="122" cy="86" r="2.5" fill="#ffcc66"/>
   <rect class="prop" x="202" y="26" width="5" height="24" rx="2"/></g></svg>`;
 
+// A pirate airship: the same ship blacked out, red at the seams, and the
+// skull and crossbones at the stern.
+const SP_PIRATE = SP_AIRSHIP.replace('fill="#c9a36a" stroke="#3a2716"', 'fill="#231c19" stroke="#8a2a1c"')
+  .replace('fill="#ffcc66"', 'fill="#ff5a3c"').replace('fill="#ffcc66"', 'fill="#ff5a3c"').replace('fill="#ffcc66"', 'fill="#ff5a3c"')
+  .replace("</g></svg>", `<path d="M22 20V-6" stroke="#3a2716" stroke-width="2"/><path d="M22 -6h26v18H22z" fill="#111" stroke="#3a2716" stroke-width="1"/>
+  <circle cx="35" cy="0" r="4.2" fill="#eee" stroke="none"/><path d="M29 7l12 3M41 7l-12 3" stroke="#eee" stroke-width="1.6"/>
+  <circle cx="33.5" cy="-.5" r="1" fill="#111" stroke="none"/><circle cx="36.5" cy="-.5" r="1" fill="#111" stroke="none"/></g></svg>`);
+
 // Steampunk's sounds: a hiss of steam from the valve, a clank of the gears
 // when a scan finishes, a dull clunk for a device that has gone, a steam
 // whistle for a new one, and a small bell when one comes back.
@@ -180,19 +188,115 @@ function buildSteampunk(root) {
     festiveTimers.push(setTimeout(() => bg.classList.remove("burst"), 1900));
     steam(5);
   };
-  // A new device: a telegraph ticker tape.
-  festiveHooks.newDevice = h => {
+  // A telegraph ticker tape across the top.
+  const telegram = (text, alarm) => {
     if (document.hidden) return;
-    play(sp.whistle);
     const t = document.createElement("div");
-    t.className = "sp-ticker";
+    t.className = "sp-ticker" + (alarm ? " alarm" : "");
     t.style.top = (pipeY() + 22) + "px";
-    t.textContent = `⚙ Telegram — new arrival: ${h ? nameOrIp(h) : "unknown device"} — stop`;
+    t.textContent = text;
     root.appendChild(t);
     festiveTimers.push(setTimeout(() => t.remove(), 5600));
   };
+  // A new device, once it's been marked known: the telegram announces it.
+  const arrival = h => { play(sp.whistle); telegram(`⚙ Telegram — new arrival: ${h ? nameOrIp(h) : "unknown device"} — stop`); };
+
+  // ---- intruders: pirate airships, moored at the mast ----
+  // A new device nobody has marked known is a pirate airship. It comes in
+  // over the top; the telegraph taps out the warning, the bells ring, the
+  // pressure drops into the red and the works let off steam; then it's hauled
+  // down and moored at the mast in the corner, tagged, until the device is
+  // marked known, when it casts off and the telegram announces the arrival.
+  const watchIn = intruderWatch();
+  const pirates = new Map();            // id -> { h, el, tag, alarm, gone }
+  const room = document.createElement("div");
+  room.setAttribute("aria-hidden", "true");
+  document.body.appendChild(room);
+  festiveStops.push(() => room.remove());
+  const mast = document.createElement("div");
+  mast.className = "sp-mast";
+  mast.hidden = true;
+  root.appendChild(mast);
+  const moorX = k => innerWidth - 210 - k * 190;
+  const moorTop = () => innerHeight - 118;
+  const moored = () => [...pirates.values()].filter(p => !p.gone).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  const makePirate = h => {
+    const el = document.createElement("div");
+    el.className = "sp-pirate";
+    el.innerHTML = SP_PIRATE + `<i class="rope"></i>`;
+    const tag = intruderTagEl(h, "held");
+    el.appendChild(tag);
+    root.appendChild(el);
+    return { h, el, tag, alarm: 0, gone: false };
+  };
+  const settle = () => {
+    const list = moored();
+    mast.hidden = !list.length;
+    mast.style.left = (innerWidth - 60) + "px";
+    room.style.height = list.length ? "170px" : "0";
+    list.forEach((p, k) => {
+      p.el.hidden = k > 1;
+      if (p.moving) return;
+      p.el.classList.add("moored");
+      p.el.style.left = moorX(k) + "px"; p.el.style.top = moorTop() + "px";
+    });
+  };
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!pirates.has(h.id)) { const p = makePirate(h); p.el.style.transition = "none"; pirates.set(h.id, p); }
+    for (const h of held) { const p = pirates.get(h.id); if (p && !p.gone) { p.h = h; if (!p.alarm || Date.now() - p.alarm > 9000) intruderTagEl(h, "held", p.tag); } }
+    for (const h of cleared) {
+      const p = pirates.get(h.id); if (!p || p.gone) continue;
+      p.gone = true;
+      const done = () => { p.el.remove(); pirates.delete(h.id); settle(); };
+      if (calm || document.hidden) { done(); continue; }
+      // Cast off: its colours come back to brass, and away it floats.
+      intruderTagEl(p.h, "cleared", p.tag);
+      p.el.classList.add("cleared");
+      festiveTimers.push(setTimeout(() => {
+        p.tag.remove(); p.el.classList.remove("moored");
+        p.el.style.transition = "left 5s ease-in, top 5s ease-in, opacity 5s";
+        p.el.style.left = (innerWidth + 60) + "px"; p.el.style.top = "40px"; p.el.style.opacity = "0";
+        festiveTimers.push(setTimeout(() => { done(); if (!h.test) arrival(h); }, 5200));
+      }, 2400));
+    }
+    settle();
+  }
+  // The alarm: in over the top, every alarm in the works going, then hauled down.
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    let p = pirates.get(h.id);
+    if (!p) { p = makePirate(h); pirates.set(h.id, p); }
+    if (calm || document.hidden) { settle(); return; }
+    p.alarm = Date.now(); p.moving = true;
+    intruderTagEl(h, "alarm", p.tag);
+    p.el.classList.remove("moored");
+    p.el.style.transition = "none"; p.el.style.left = "-240px"; p.el.style.top = (pipeY() + 80) + "px";
+    void p.el.offsetWidth;
+    p.el.style.transition = "left 4s ease-out, top 3s ease-in-out";
+    p.el.style.left = Math.round(innerWidth * .55) + "px";
+    settle();
+    telegram(`⚠ Telegram — pirate vessel sighted: ${nameOrIp(h)} — all hands — stop`, true);
+    play(sp.whistle);
+    for (let k = 0; k < 4; k++) festiveTimers.push(setTimeout(() => play(sp.bell), 300 + k * 450));
+    steam(8);
+    bg.classList.remove("burst"); void bg.offsetWidth; bg.classList.add("burst");
+    document.documentElement.classList.add("sp-alarm");
+    festiveTimers.push(setTimeout(() => { bg.classList.remove("burst"); document.documentElement.classList.remove("sp-alarm"); }, 9000));
+    // Hauled down to the mast.
+    festiveTimers.push(setTimeout(() => {
+      p.el.style.transition = "left 3s ease-in-out, top 3s ease-in-out";
+      p.el.style.left = moorX(0) + "px"; p.el.style.top = moorTop() + "px";
+    }, 5000));
+    festiveTimers.push(setTimeout(() => { p.moving = false; settle(); }, 8100));
+    festiveTimers.push(setTimeout(() => { if (!p.gone) intruderTagEl(p.h, "held", p.tag); }, 9000));
+  };
+  festiveStops.push(() => document.documentElement.classList.remove("sp-alarm"));
+  syncIntruders();
   // A device goes offline: a hiss of steam on its row.
   festiveHooks.rendered = () => {
+    syncIntruders();
     if (wentOffIds.length) play(sp.clunk);
     for (const id of wentOffIds) {
       const cell = document.querySelector(`tr[data-id="${id}"] td.hostname`);

@@ -63,6 +63,10 @@ const FAC_CRATE = `<svg viewBox="0 0 54 40"><rect x="1" y="6" width="52" height=
   <path d="M3 8l48 29M51 8L3 37" stroke="#8a6330" stroke-width="2"/>
   <rect x="1" y="6" width="52" height="7" fill="#c08f4b" stroke="#6d4d24" stroke-width="2"/></svg>`;
 
+const FAC_PART = `<svg viewBox="0 0 54 40"><rect x="1" y="6" width="52" height="33" rx="2" fill="#1c1f24" stroke="#ffb300" stroke-width="2"/>
+  <path d="M2 34l6-6h6l-6 6zM14 34l6-6h6l-6 6zM26 34l6-6h6l-6 6zM38 34l6-6h6l-6 6z" fill="#ffb300"/>
+  <text x="27" y="26" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-weight="700" font-size="16" fill="#ff4d3d">?</text></svg>`;
+
 const FAC_ARM = `<svg viewBox="0 0 70 72" width="70" height="72">
   <rect x="24" y="60" width="26" height="10" rx="2" fill="#3d4650" stroke="#232a32" stroke-width="2"/>
   <g class="upper"><rect x="31" y="26" width="12" height="36" rx="3" fill="#59636f" stroke="#232a32" stroke-width="2"/>
@@ -119,6 +123,11 @@ const FAC_SCENE = (night) => `<svg viewBox="0 0 1200 900" preserveAspectRatio="x
 // crate for each device that turns up, a press stamps them when a scan lands,
 // and the andon board in the header says whether the line is running. The
 // night shift is the same floor with the lights down.
+// A new device nobody has marked known is an intruder: a part that isn't on
+// the manifest. It comes along the belt and the line emergency-stops - belt,
+// crates and arm frozen, the andon red, a beacon turning - and it's taken off
+// into the reject bay at the end of the line, tagged, until the device is
+// marked known. Then it passes inspection and rides the belt with its name.
 function buildFactory(root, switched, night) {
   const calm = calmMotion();
   let hum = null;
@@ -194,8 +203,97 @@ function buildFactory(root, switched, night) {
     if (soundOn()) pressThump(night ? .7 : 1);
   };
 
+  // ---- intruders: parts in the reject bay ----
+  const watchIn = intruderWatch();
+  const parts = new Map();              // id -> { h, el, tag, alarm, gone }
+  const room = document.createElement("div");
+  room.setAttribute("aria-hidden", "true");
+  document.body.appendChild(room);
+  festiveStops.push(() => room.remove());
+  const bay = document.createElement("div");
+  bay.className = "fac-bay";
+  bay.innerHTML = `<span>REJECT BAY</span>`;
+  bay.hidden = true;
+  line.appendChild(bay);
+  const beacon = document.createElement("div");
+  beacon.className = "fac-beacon";
+  line.appendChild(beacon);
+  const inBay = () => [...parts.values()].filter(p => !p.gone).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  const makePart = h => {
+    const el = document.createElement("div");
+    el.className = "fac-part";
+    el.innerHTML = FAC_PART;
+    const tag = intruderTagEl(h, "held");
+    el.appendChild(tag);
+    return { h, el, tag, alarm: 0, gone: false };
+  };
+  // The bay holds them side by side, the newest nearest the line; the tags
+  // stand over them, stacked, and the page gets room to scroll clear.
+  const settle = () => {
+    const list = inBay();
+    bay.hidden = !list.length;
+    room.style.height = list.length ? "150px" : "0";
+    list.forEach((p, k) => {
+      if (p.moving) return;
+      if (p.el.parentNode !== bay) { p.el.style.cssText = ""; bay.appendChild(p.el); }
+      p.el.hidden = k > 1;
+      p.el.style.left = (8 + k * 60) + "px";
+      p.tag.style.bottom = `calc(100% + ${34 + k * 52}px)`;
+    });
+  };
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!parts.has(h.id)) parts.set(h.id, makePart(h));
+    for (const h of held) { const p = parts.get(h.id); if (p && !p.gone) { p.h = h; if (!p.alarm || Date.now() - p.alarm > 9000) intruderTagEl(h, "held", p.tag); } }
+    for (const h of cleared) {
+      const p = parts.get(h.id); if (!p || p.gone) continue;
+      p.gone = true;
+      const done = () => { p.el.remove(); parts.delete(h.id); settle(); };
+      if (calm || document.hidden) { done(); continue; }
+      // Passed: out of the bay and onto the belt, with its name on it.
+      intruderTagEl(p.h, "cleared", p.tag);
+      festiveTimers.push(setTimeout(() => { done(); if (!h.test) crate(nameOrIp(h), false); }, 2600));
+    }
+    settle();
+  }
+  // The alarm: along the belt it comes, and everything stops.
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    let p = parts.get(h.id);
+    if (!p) { p = makePart(h); parts.set(h.id, p); }
+    if (calm || document.hidden) { settle(); return; }
+    p.alarm = Date.now(); p.moving = true;
+    intruderTagEl(h, "alarm", p.tag);
+    // Onto the belt from the left, riding to the middle of the line.
+    p.el.style.cssText = "position:absolute;bottom:34px;left:0;transform:translateX(-70px);transition:none";
+    line.appendChild(p.el);
+    void p.el.offsetWidth;
+    p.el.style.transition = "transform 3s linear";
+    p.el.style.transform = `translateX(${Math.round(innerWidth * .42)}px)`;
+    settle();
+    festiveTimers.push(setTimeout(() => {
+      // Emergency stop: the line freezes, the andon goes red, the beacon turns.
+      line.classList.add("fac-estop"); andon.classList.add("estop"); bg.classList.add("fac-alarm");
+      if (soundOn()) { andonBuzz(); festiveTimers.push(setTimeout(andonBuzz, 800)); festiveTimers.push(setTimeout(andonBuzz, 1600)); }
+    }, 3000));
+    // Taken off the line into the reject bay.
+    festiveTimers.push(setTimeout(() => {
+      const x = innerWidth - 24 - 150;
+      p.el.style.transition = "transform 2.4s ease-in-out";
+      p.el.style.transform = `translateX(${x}px)`;
+    }, 6500));
+    festiveTimers.push(setTimeout(() => { p.moving = false; settle(); }, 9000));
+    festiveTimers.push(setTimeout(() => {
+      line.classList.remove("fac-estop"); andon.classList.remove("estop"); bg.classList.remove("fac-alarm");
+      if (!p.gone) intruderTagEl(p.h, "held", p.tag);
+    }, 9500));
+  };
+  festiveStops.push(() => andon.classList.remove("estop"));
+  syncIntruders();
+
   setAndon();
-  if (calm) return; // Reduced motion: the floor is there, nothing runs.
+  if (calm) { festiveHooks.rendered = () => { setAndon(); syncIntruders(); }; return; } // Reduced motion: the floor is there, nothing runs.
 
   // A crate every so often, named after something that's online.
   const named = () => {
@@ -227,8 +325,6 @@ function buildFactory(root, switched, night) {
     press();
     for (let i = 0; i < 3; i++) festiveTimers.push(setTimeout(() => crate(named(), false), 300 + i * 700));
   };
-  // A new device arrives as a crate with its name stencilled on it.
-  festiveHooks.newDevice = h => crate(h ? nameOrIp(h) : "new", false);
   // Something goes off the air: the beacon, and a rejected crate with its name.
   festiveHooks.netChange = (off, back) => {
     setAndon();
@@ -240,7 +336,7 @@ function buildFactory(root, switched, night) {
     if (off.length && soundOn()) andonBuzz();
     if (back.length) press();
   };
-  festiveHooks.rendered = () => setAndon();
+  festiveHooks.rendered = () => { setAndon(); syncIntruders(); };
 }
 
 BAMF.registerTheme("factory", ctx => buildFactory(ctx.root, ctx.switched, false));

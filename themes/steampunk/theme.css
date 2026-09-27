@@ -125,6 +125,25 @@
 
 @keyframes sp-puff { 0% { opacity: 0; transform: translate(0, 0) scale(.5); } 15% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx), -60px) scale(3); } }
 
+/* An intruder: a pirate airship, moored at the mast in the corner. */
+.sp-pirate { position: absolute; left: 0; top: 0; width: 170px; pointer-events: none; }
+.sp-pirate svg { display: block; width: 100%; overflow: visible; filter: drop-shadow(0 0 1.5px rgba(255, 200, 150, .8)) drop-shadow(0 4px 8px rgba(0, 0, 0, .5)); }
+.sp-pirate .prop { transform-box: fill-box; transform-origin: center; animation: sp-prop .35s linear infinite; }
+.sp-pirate.moored svg { animation: sp-bob 3.2s ease-in-out infinite alternate; }
+.sp-pirate .rope { position: absolute; left: 50%; top: 92%; width: 2px; height: 34px; background: #8a6a33; display: none; }
+.sp-pirate.moored .rope { display: block; }
+.sp-pirate.cleared svg { filter: sepia(1) saturate(2.2) brightness(1.5) drop-shadow(0 4px 8px rgba(0, 0, 0, .5)); transition: filter 1.2s; }
+.sp-pirate .intruder-tag { bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); }
+@keyframes sp-bob { from { transform: translateY(-3px) rotate(-1deg); } to { transform: translateY(3px) rotate(1deg); } }
+.sp-mast { position: absolute; bottom: 0; width: 8px; height: 92px; background: linear-gradient(90deg, #8a6a33, #e8c27a, #8a6a33); border-radius: 3px 3px 0 0; }
+.sp-mast::before { content: ""; position: absolute; left: -6px; top: -8px; width: 20px; height: 10px; border-radius: 50%; background: #c99a3f; }
+.sp-alarm .sp-gauge .needle { transform: rotate(-110deg) !important; }
+.sp-alarm .sp-gauge { animation: sp-shake .12s linear infinite; }
+.sp-alarm .sp-bg::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: rgba(194, 55, 31, .16); animation: sp-flash .7s steps(2) infinite; }
+@keyframes sp-shake { 50% { transform: translateX(1px) rotate(2deg); } }
+@keyframes sp-flash { 50% { opacity: .2; } }
+.sp-ticker.alarm { background: #3a1510; color: #ffb4a0; border-color: #c2371f; }
+
 .sp-ticker {
   position: absolute; right: 0; max-width: 70vw; padding: 7px 22px 7px 16px; color: #2a1a08; white-space: nowrap; overflow: hidden;
   font: 600 14px "Courier New", Courier, monospace; letter-spacing: .08em; text-transform: uppercase;
@@ -152,7 +171,7 @@
 @media (prefers-reduced-motion: reduce) {
   .sp-gear .spin,
   .sp-bg.burst .sp-gear .kick,
-  .sp-ticker,
+  .sp-ticker, .sp-pirate svg, .sp-pirate .prop, .sp-alarm .sp-gauge, .sp-alarm .sp-bg::after,
   .sp-hiss,
   .sp-hiss::before,
   .sp-hiss::after { animation: none !important; }

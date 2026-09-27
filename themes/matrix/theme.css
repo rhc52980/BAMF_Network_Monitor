@@ -70,3 +70,29 @@
   [data-theme="matrix"] tr.m-glitch td { animation: none !important; }
 
 }
+
+/* An intruder: an Agent standing along the bottom, and INTRUSION DETECTED in red. */
+
+.m-agent { position: absolute; bottom: 6px; left: 0; width: 40px; pointer-events: none; filter: drop-shadow(0 0 3px rgba(0, 255, 65, .55)); }
+
+.m-agent svg { display: block; }
+
+.m-agent.walking svg { animation: m-walk .5s ease-in-out infinite alternate; }
+
+.m-agent .glint { animation: m-glint 3s steps(1) infinite; }
+
+.m-agent .intruder-tag { right: -10px; }
+
+.m-agent.gone { animation: m-gone 1.1s steps(6) forwards; }
+
+@keyframes m-walk { from { transform: translateY(0); } to { transform: translateY(-2px) rotate(1deg); } }
+
+@keyframes m-glint { 0%, 90% { fill: #7dff9c; } 92% { fill: #ffffff; } }
+
+@keyframes m-gone { 0% { opacity: 1; } 30% { opacity: .2; } 45% { opacity: .9; } 100% { opacity: 0; transform: skewX(20deg); } }
+
+.m-intro.m-alert { color: #ff4b4b; text-shadow: 0 0 10px rgba(255, 60, 60, .8); }
+
+@media (prefers-reduced-motion: reduce) {
+  .m-agent svg, .m-agent .glint, .m-agent.gone { animation: none !important; }
+}

@@ -117,6 +117,21 @@
 
 /* The annunciator: the panel of alarm tiles that lights when something trips. */
 
+/* An intruder: its breaker locked out, padlocked, the hall flashing red while
+   the alarm is on. */
+
+.pp-brk.lockout { border:1px dashed #ff4b3e; box-shadow:0 0 0 2px rgba(255,75,62,.25), 0 0 9px rgba(255,75,62,.55); }
+
+.pp-brk.lockout::after { background:#ff4b3e; box-shadow:0 0 6px #ff4b3e; top:15px; }
+
+.pp-brk.lockout::before { content:"🔒"; position:absolute; top:-13px; left:50%; transform:translateX(-50%); font-size:10px; line-height:1; }
+
+.pp-qtag { transform:translateX(-50%); }
+
+.pp-ann span.held { color:#fff; background:#8c2a22; border-color:#ff4b3e; }
+
+.pp-alarm::after { content:""; position:absolute; inset:0; pointer-events:none; background:rgba(255,60,45,.14); animation:pp-flash .8s steps(2) infinite; }
+
 .pp-ann { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:4px; width:186px; flex:none; }
 
 .pp-ann span { font:600 8.5px "IBM Plex Mono", monospace; letter-spacing:.04em; color:#5d666d; text-align:center;
@@ -131,6 +146,6 @@
   .pp-desk { height:84px; } 
 }
 @media (prefers-reduced-motion: reduce) {
-  .pp-spin, .pp-steam, .pp-line, .pp-glow, .pp-freq.trip i, .pp-ann span.bad { animation:none !important; }
+  .pp-spin, .pp-steam, .pp-line, .pp-glow, .pp-freq.trip i, .pp-ann span.bad, .pp-alarm::after { animation:none !important; }
 
 }

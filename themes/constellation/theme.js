@@ -10,6 +10,11 @@
 // and shooting stars streak by. A finished scan brings a meteor shower, a new
 // device arrives as a bright shooting star and becomes a star of its own, and
 // a device going offline collapses in a flash.
+// A new device nobody has marked known is an intruder: a rogue comet. It
+// streaks in red and stops in the open sky under the header; the
+// constellation's lines blaze and every star flares, closing ranks. It hangs
+// there, its tail streaming, tagged, until the device is marked known; then it
+// settles into the sky as a new star with its name.
 function buildConstellation(root) {
   const calm = calmMotion();
   const bg = document.createElement("div");
@@ -144,6 +149,76 @@ function buildConstellation(root) {
   };
   let sat = null;
 
+  // ---- intruders: rogue comets ----
+  const watchIn = intruderWatch();
+  const comets = new Map();             // id -> { h, x, y, tag, alarm, clearAt, settling }
+  const HB = document.querySelector("header")?.getBoundingClientRect().bottom || 58;
+  let alertFrom = 0;
+  const hangAt = k => [W * .66 - k * 230, HB + 34];
+  const hanging = () => [...comets.values()].filter(c => !c.clearAt).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  const addComet = h => {
+    const tag = intruderTagEl(h, "held");
+    tag.classList.add("cs-tag");
+    root.appendChild(tag);
+    const c = { h, x: null, y: null, tag, alarm: 0, clearAt: 0 };
+    comets.set(h.id, c);
+    return c;
+  };
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!comets.has(h.id)) addComet(h);
+    for (const h of held) { const c = comets.get(h.id); if (c && !c.clearAt) { c.h = h; if (!c.alarm || Date.now() - c.alarm > 9000) intruderTagEl(h, "held", c.tag); } }
+    for (const h of cleared) {
+      const c = comets.get(h.id); if (!c || c.clearAt) continue;
+      if (calm || document.hidden) { c.tag.remove(); comets.delete(h.id); continue; }
+      c.clearAt = performance.now();
+      intruderTagEl(c.h, "cleared", c.tag);
+      c.test = h.test;
+    }
+    placeTags();
+  }
+  // Each tag sits to the left of its comet's head.
+  function placeTags() {
+    hanging().forEach((c, k) => {
+      c.tag.hidden = k > 1;
+      const [x, y] = c.x == null ? hangAt(Math.min(k, 1)) : [c.x, c.y];
+      c.tag.style.left = Math.round(x - 20) + "px"; c.tag.style.top = Math.round(y) + "px";
+    });
+  }
+  // Drawn with the sky, over the stars.
+  function drawComets(now) {
+    const list = hanging();
+    list.forEach((c, k) => {
+      const [tx, ty] = hangAt(Math.min(k, 1));
+      if (c.x == null) { c.x = tx; c.y = ty; }
+      c.x += (tx - c.x) * (calm ? 1 : .06); c.y += (ty - c.y) * (calm ? 1 : .06);
+    });
+    for (const [id, c] of comets) {
+      if (c.x == null) continue;
+      if (c.clearAt) {
+        // Settling: it glides to its place in the sky and becomes a star.
+        const [sxp, syp] = spot(c.h), age = (now - c.clearAt) / 1000;
+        if (age > 2) { c.x += (sxp - c.x) * .08; c.y += (syp - c.y) * .08; c.tag.style.opacity = String(Math.max(0, 1 - (age - 2) * 2)); }
+        if (age > 4) {
+          c.tag.remove(); comets.delete(id);
+          if (!c.test) newStar(c.h);
+          continue;
+        }
+      }
+      const red = !c.clearAt, pulse = calm ? 1 : .8 + .2 * Math.sin(now / 160);
+      const col = red ? "255, 90, 80" : "185, 164, 255";
+      // The tail, streaming up and to the right, away from the moon's light.
+      const tail = ctx.createLinearGradient(c.x, c.y, c.x + 90, c.y - 26);
+      tail.addColorStop(0, `rgba(${col}, ${(.55 * pulse).toFixed(2)})`); tail.addColorStop(1, `rgba(${col}, 0)`);
+      ctx.fillStyle = tail;
+      ctx.beginPath(); ctx.moveTo(c.x, c.y - 4); ctx.lineTo(c.x + 95, c.y - 30); ctx.lineTo(c.x + 88, c.y - 16); ctx.lineTo(c.x, c.y + 4); ctx.closePath(); ctx.fill();
+      const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, 14);
+      g.addColorStop(0, "rgba(255, 245, 240, .95)"); g.addColorStop(.35, `rgba(${col}, ${(.8 * pulse).toFixed(2)})`); g.addColorStop(1, `rgba(${col}, 0)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.x, c.y, 14, 0, Math.PI * 2); ctx.fill();
+    }
+    if (list.length || [...comets.values()].some(c => c.clearAt)) placeTags();
+  }
+
   const draw = now => {
     ctx.clearRect(0, 0, W, H);
     ctx.drawImage(sky, 0, 0, W, H);
@@ -158,8 +233,10 @@ function buildConstellation(root) {
       ctx.fillRect(st.x, st.y, st.r, st.r);
     }
     drawMoon();
-    // The network's constellation.
-    ctx.strokeStyle = "rgba(160, 180, 255, .22)"; ctx.lineWidth = 1;
+    // The network's constellation. While an intruder's alarm is on, its lines
+    // blaze and every star flares: the stars closing ranks.
+    const alert = alertFrom && now - alertFrom < 7000 ? 1 - (now - alertFrom) / 7000 : 0;
+    ctx.strokeStyle = alert > 0 ? `rgba(255, 190, 170, ${(.22 + .6 * alert).toFixed(2)})` : "rgba(160, 180, 255, .22)"; ctx.lineWidth = alert > 0 ? 1 + alert : 1;
     ctx.beginPath();
     for (const [i, j] of links) { ctx.moveTo(net[i].p[0], net[i].p[1]); ctx.lineTo(net[j].p[0], net[j].p[1]); }
     ctx.stroke();
@@ -175,6 +252,7 @@ function buildConstellation(root) {
       ctx.fillStyle = `rgba(${col}, ${on ? tw.toFixed(2) : ".3"})`;
       ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, Math.PI * 2); ctx.fill();
     }
+    drawComets(now);
     // A star collapsing or catching light: an expanding ring.
     for (let i = flares.length - 1; i >= 0; i--) {
       const f = flares[i], age = (now - f.born) / 1400;
@@ -201,9 +279,37 @@ function buildConstellation(root) {
     }
   };
 
+  // A new star: it arrives with a flare and its name beside it.
+  const newStar = h => {
+    if (document.hidden || calm) return;
+    const [x, y] = spot(h);
+    flares.push({ x, y, col: "185, 164, 255", born: performance.now() });
+    const n = document.createElement("div");
+    n.className = "cs-name";
+    n.textContent = "✦ " + nameOrIp(h);
+    n.style.cssText = `left:${Math.round(Math.min(x + 10, W - 200))}px;top:${Math.round(y - 8)}px`;
+    root.appendChild(n);
+    festiveTimers.push(setTimeout(() => n.remove(), 4100));
+  };
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    let c = comets.get(h.id);
+    if (!c) c = addComet(h);
+    if (calm) { draw(0); return; }
+    if (document.hidden) return;
+    c.alarm = Date.now();
+    intruderTagEl(h, "alarm", c.tag);
+    c.x = -60; c.y = HB + 120;
+    alertFrom = performance.now();
+    // Every star flares at once.
+    for (const { p } of net) flares.push({ x: p[0], y: p[1], col: "255, 150, 130", born: performance.now() });
+    festiveTimers.push(setTimeout(() => { if (!c.clearAt) intruderTagEl(c.h, "held", c.tag); }, 9000));
+  };
+  syncIntruders();
   if (calm) {
     draw(0);
-    festiveHooks.rendered = () => { layout(); draw(0); };
+    festiveHooks.rendered = () => { layout(); syncIntruders(); draw(0); };
     return;
   }
   let raf = 0, last = 0;
@@ -222,25 +328,10 @@ function buildConstellation(root) {
     if (sat && !sat.v) sat.v = sat.x < 0 ? .7 : -.7;
   }, 40000));
 
-  festiveHooks.rendered = layout;
+  festiveHooks.rendered = () => { layout(); syncIntruders(); };
   festiveHooks.scanDone = () => {
     if (document.hidden) return;
     for (let k = 0; k < 7; k++) festiveTimers.push(setTimeout(meteor, k * rnd(120, 320)));
-  };
-  festiveHooks.newDevice = h => {
-    if (document.hidden) return;
-    meteor(true);
-    if (!h) return;
-    const [x, y] = spot(h);
-    festiveTimers.push(setTimeout(() => {
-      flares.push({ x, y, col: "185, 164, 255", born: performance.now() });
-      const n = document.createElement("div");
-      n.className = "cs-name";
-      n.textContent = "✦ " + nameOrIp(h);
-      n.style.cssText = `left:${Math.round(Math.min(x + 10, W - 200))}px;top:${Math.round(y - 8)}px`;
-      root.appendChild(n);
-      festiveTimers.push(setTimeout(() => n.remove(), 4100));
-    }, 900));
   };
   festiveHooks.netChange = (off, back) => {
     const byId = new Map(hosts.map(h => [h.id, h]));
