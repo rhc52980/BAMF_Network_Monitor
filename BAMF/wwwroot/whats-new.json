@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "1.52.0",
+      "date": "2026-09-26",
+      "items": [
+        "In Harbour, Ant Farm, Model Railway, Goat and Aquarium, a new device you haven't marked known is an intruder: the scene raises the alarm, then holds it, tagged, until you mark it known.",
+        "A ship with no lights, a beetle, a rogue engine, a wolf, a shark. Marking the device known stands the scene down.",
+        "Show me an intruder, in Settings, Appearance, plays the scene on one of your devices."
+      ]
+    },
+    {
       "version": "1.51.0",
       "date": "2026-09-26",
       "items": [
