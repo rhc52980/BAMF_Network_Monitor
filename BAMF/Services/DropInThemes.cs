@@ -204,18 +204,59 @@ public sealed class ThemeLibrary
         return Convert.ToHexString(sha.Hash!).ToLowerInvariant();
     }
 
-    private static void CopyTheme(string from, string to)
+    /// <summary>
+    /// Makes a theme folder's files the same as another's, one file at a time,
+    /// in place. 1.52.0 built a fresh copy beside it and swapped the folders,
+    /// and on Windows the swap can fail: a folder just deleted can linger for
+    /// a moment while something (the antivirus, the indexer) still has it
+    /// open, so the rename onto its name is refused. Writing the files over
+    /// never renames a folder, and a file that's briefly held is tried again.
+    /// </summary>
+    internal static void CopyTheme(string from, string to)
     {
-        var tmp = to + ".new";
-        if (Directory.Exists(tmp)) Directory.Delete(tmp, true);
-        Directory.CreateDirectory(tmp);
+        Directory.CreateDirectory(to);
         foreach (var f in DropInThemes.Files.Keys)
         {
-            var p = Path.Combine(from, f);
-            if (File.Exists(p)) File.Copy(p, Path.Combine(tmp, f));
+            var src = Path.Combine(from, f);
+            var dst = Path.Combine(to, f);
+            if (File.Exists(src)) Retry(() => File.Copy(src, dst, true));
+            else if (File.Exists(dst)) Retry(() => File.Delete(dst));
         }
-        if (Directory.Exists(to)) Directory.Delete(to, true);
-        Directory.Move(tmp, to);
+    }
+
+    private static void Retry(Action act)
+    {
+        for (var i = 0; ; i++)
+        {
+            try { act(); return; }
+            catch (Exception ex) when (i < 5 && ex is IOException or UnauthorizedAccessException) { Thread.Sleep(200 * (i + 1)); }
+        }
+    }
+
+    /// <summary>
+    /// A theme 1.52.0 left half-swapped: its new copy stranded as &lt;id&gt;.new
+    /// beside an emptied folder. Put the copy back in its place, or clear the
+    /// leftover if the theme is there after all.
+    /// </summary>
+    private void Recover()
+    {
+        foreach (var tmp in Directory.GetDirectories(ThemesDir, "*.new"))
+        {
+            var to = tmp[..^4];
+            try
+            {
+                if (File.Exists(Path.Combine(tmp, "theme.json")) && !File.Exists(Path.Combine(to, "theme.json")))
+                {
+                    CopyTheme(tmp, to);
+                    _log.LogInformation("Themes: put {Id} back from the copy an earlier update left beside it", Path.GetFileName(to));
+                }
+                Directory.Delete(tmp, true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _log.LogWarning("Themes: couldn't tidy {Dir}: {Error}", tmp, ex.Message);
+            }
+        }
     }
 
     public List<DropInTheme> Library() => DropInThemes.List(LibraryDir);
@@ -225,26 +266,38 @@ public sealed class ThemeLibrary
     {
         lock (_lock)
         {
+            Dictionary<string, string> offered;
             try
             {
                 Directory.CreateDirectory(ThemesDir);
-                var offered = LoadState();
-                int added = 0, updated = 0;
-                foreach (var t in Library())
+                Recover();
+                offered = LoadState();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _log.LogWarning("Couldn't bring the themes in {Dir} up to date with the library: {Error}", ThemesDir, ex.Message);
+                return;
+            }
+            int added = 0, updated = 0;
+            // One theme that can't be written doesn't stop the rest.
+            foreach (var t in Library())
+            {
+                var from = Path.Combine(LibraryDir, t.Id);
+                var to = Path.Combine(ThemesDir, t.Id);
+                try
                 {
-                    var from = Path.Combine(LibraryDir, t.Id);
-                    var to = Path.Combine(ThemesDir, t.Id);
                     var fresh = Hash(from);
                     if (Directory.Exists(to))
                     {
                         var now = Hash(to);
-                        if (offered.TryGetValue(t.Id, out var was) && was == now && now != fresh)
+                        // The same as the library's copy: it's the library's, whatever was recorded.
+                        if (now == fresh) offered[t.Id] = fresh;
+                        else if (offered.TryGetValue(t.Id, out var was) && was == now)
                         {
                             CopyTheme(from, to);
                             offered[t.Id] = fresh;
                             updated++;
                         }
-                        else if (!offered.ContainsKey(t.Id) && now == fresh) offered[t.Id] = fresh;
                     }
                     else if (!offered.ContainsKey(t.Id))
                     {
@@ -253,14 +306,18 @@ public sealed class ThemeLibrary
                         added++;
                     }
                 }
-                SaveState(offered);
-                if (added + updated > 0)
-                    _log.LogInformation("Themes: {Added} added and {Updated} updated from the library in {Dir}", added, updated, ThemesDir);
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    _log.LogWarning("Themes: couldn't update {Id} from the library: {Error}", t.Id, ex.Message);
+                }
             }
+            try { SaveState(offered); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                _log.LogWarning("Couldn't bring the themes in {Dir} up to date with the library: {Error}", ThemesDir, ex.Message);
+                _log.LogWarning("Themes: couldn't save {File}: {Error}", StateFile, ex.Message);
             }
+            if (added + updated > 0)
+                _log.LogInformation("Themes: {Added} added and {Updated} updated from the library in {Dir}", added, updated, ThemesDir);
         }
     }
 
@@ -271,12 +328,16 @@ public sealed class ThemeLibrary
         {
             var t = Library().FirstOrDefault(x => x.Id == id);
             if (t is null) return "There's no theme called that in the library.";
-            Directory.CreateDirectory(ThemesDir);
-            var from = Path.Combine(LibraryDir, id);
-            CopyTheme(from, Path.Combine(ThemesDir, id));
-            var offered = LoadState();
-            offered[id] = Hash(from);
-            SaveState(offered);
+            try
+            {
+                Directory.CreateDirectory(ThemesDir);
+                var from = Path.Combine(LibraryDir, id);
+                CopyTheme(from, Path.Combine(ThemesDir, id));
+                var offered = LoadState();
+                offered[id] = Hash(from);
+                SaveState(offered);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return "It couldn't be copied into the themes folder: " + ex.Message; }
             _log.LogInformation("Themes: {Id} installed from the library", id);
             return null;
         }
@@ -296,16 +357,21 @@ public sealed class ThemeLibrary
             if (!Directory.Exists(folder)) return "That theme isn't installed.";
             var offered = LoadState();
             var fromLibrary = Directory.Exists(Path.Combine(LibraryDir, id)) && offered.TryGetValue(id, out var was) && was == Hash(folder);
-            if (fromLibrary) Directory.Delete(folder, true);
-            else
+            try
             {
-                var bin = Path.Combine(ThemesDir, ".removed");
-                Directory.CreateDirectory(bin);
-                Directory.Move(folder, Path.Combine(bin, $"{id}-{DateTime.Now:yyyyMMdd-HHmmss}"));
+                if (fromLibrary) Directory.Delete(folder, true);
+                else
+                {
+                    // Kept, not deleted: copied into .removed, then taken out of the folder.
+                    var bin = Path.Combine(ThemesDir, ".removed", $"{id}-{DateTime.Now:yyyyMMdd-HHmmss}");
+                    CopyTheme(folder, bin);
+                    Directory.Delete(folder, true);
+                }
+                // Remembered as offered, so the next start doesn't put it back.
+                if (Directory.Exists(Path.Combine(LibraryDir, id)) && !offered.ContainsKey(id)) offered[id] = "";
+                SaveState(offered);
             }
-            // Remembered as offered, so the next start doesn't put it back.
-            if (Directory.Exists(Path.Combine(LibraryDir, id)) && !offered.ContainsKey(id)) offered[id] = "";
-            SaveState(offered);
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return "It couldn't be taken out of the themes folder: " + ex.Message; }
             _log.LogInformation("Themes: {Id} removed{Where}", id, fromLibrary ? "" : " (moved to themes/.removed)");
             return null;
         }
@@ -406,9 +472,8 @@ public sealed class ThemeLibrary
                         Directory.Delete(tmp, true);
                         return (ids, $"{id}'s theme.json can't be read.");
                     }
-                    var to = Path.Combine(ThemesDir, id);
-                    if (Directory.Exists(to)) Directory.Delete(to, true);
-                    Directory.Move(tmp, to);
+                    CopyTheme(tmp, Path.Combine(ThemesDir, id));
+                    try { Directory.Delete(tmp, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
                     ids.Add(id);
                 }
             }
