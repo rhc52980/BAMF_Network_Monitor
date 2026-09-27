@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "1.54.0",
+      "date": "2026-09-27",
+      "items": [
+        "Every animated and holiday theme now has an intruder: a werewolf at Halloween, a yeti in Winter, a fox after the hens in Spring, a stranger struck by lightning in the Thunderstorm, a seagull after the hot dogs, a burglar on the naughty list, and more.",
+        "Waterworks locks out a leak, Terminal traces and quarantines, Laser Show holds a rogue droid in every beam, and RGB finds a strange stick plugged into the rig.",
+        "When two intruders are held and one is marked known, the other no longer lands on top of it as it goes."
+      ]
+    },
+    {
       "version": "1.53.0",
       "date": "2026-09-27",
       "items": [
