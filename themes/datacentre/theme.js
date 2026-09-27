@@ -80,7 +80,7 @@ const DC_SCENE = () => {
 // maintenance shuttle patrols the tray's rail; when a scan lands it stops and
 // sweeps the racks with its laser. The readouts on the patch panel are drawn
 // here too, so the whole room runs off one frame loop that stops with the tab.
-function dcEffects(bg, panel, live, state, calm) {
+function dcEffects(bg, panel, live, state, calm, heldIds = () => new Set()) {
   const cv = document.createElement("canvas");
   cv.className = "dc-fx";
   bg.appendChild(cv);
@@ -120,14 +120,14 @@ function dcEffects(bg, panel, live, state, calm) {
     lane: (i % 3) * 4 * k, col: ["#35c8e0", "#8ef0c4", "#b18cff"][i % 3] }));
   const shuttle = { x: (lo + hi) / 2, dir: 1, v: 38 * S, laser: 0 };
   const arcs = [];
-  let yaw = .6, surge = 0, alarm = 0, lastLcd = 0, temp = 21.4;
+  let yaw = .6, surge = 0, alarm = 0, lastLcd = 0, temp = 21.4, intrusion = 0;
 
   // Devices spread over the globe on a golden-angle spiral, so they never bunch.
   const nodes = () => {
     const list = live().slice(0, 60), n = Math.max(1, list.length);
     return list.map((h, i) => {
       const y = 1 - (i + .5) / n * 2, r = Math.sqrt(1 - y * y), a = i * 2.39996;
-      return { x: Math.cos(a) * r, y, z: Math.sin(a) * r, st: state(h) };
+      return { x: Math.cos(a) * r, y, z: Math.sin(a) * r, st: state(h), id: h.id };
     });
   };
   let pts = nodes();
@@ -185,8 +185,18 @@ function dcEffects(bg, panel, live, state, calm) {
       if (head && a.t < .62) { ctx.fillStyle = "#e6fdff"; ctx.beginPath(); ctx.arc(head[0], head[1], 1.8, 0, Math.PI * 2); ctx.fill(); }
     }
     // The devices, back ones first.
-    const drawn = pts.map(p => ({ q: proj(p.x, p.y, p.z), st: p.st })).sort((a, b) => a.q[2] - b.q[2]);
+    const held = heldIds();
+    const drawn = pts.map(p => ({ q: proj(p.x, p.y, p.z), st: p.st, held: held.has(p.id) })).sort((a, b) => a.q[2] - b.q[2]);
     for (const d of drawn) {
+      // An intruder: red, with a reticle closing on it.
+      if (d.held) {
+        const r = 7 + 3 * Math.sin(t / 220);
+        ctx.strokeStyle = "rgba(255,77,61,.95)"; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(d.q[0], d.q[1], r, 0, Math.PI * 2); ctx.stroke();
+        for (let q = 0; q < 4; q++) { const a = q * Math.PI / 2; ctx.beginPath(); ctx.moveTo(d.q[0] + Math.cos(a) * (r + 2), d.q[1] + Math.sin(a) * (r + 2)); ctx.lineTo(d.q[0] + Math.cos(a) * (r + 7), d.q[1] + Math.sin(a) * (r + 7)); ctx.stroke(); }
+        ctx.fillStyle = "#ff4d3d"; ctx.beginPath(); ctx.arc(d.q[0], d.q[1], 3, 0, Math.PI * 2); ctx.fill();
+        continue;
+      }
       const front = d.q[2] > 0, c = COL[d.st], blink = d.st === "down" ? .5 + .5 * Math.sin(t / 160) : 1;
       ctx.fillStyle = `rgba(${c},${(front ? .95 : .35) * blink})`;
       ctx.beginPath(); ctx.arc(d.q[0], d.q[1], front ? 2.6 : 1.7, 0, Math.PI * 2); ctx.fill();
@@ -212,8 +222,9 @@ function dcEffects(bg, panel, live, state, calm) {
     ctx.fillStyle = alarm > 0 ? `rgba(255,120,110,${.6 + .4 * Math.sin(t / 150)})` : "#8ef6ff";
     ctx.fillText(`${up}/${list.length} LINKED`, x, y + 18 * S);
     ctx.font = `600 ${9 * S}px "IBM Plex Mono", monospace`;
-    ctx.fillStyle = down ? "rgba(255,160,150,.9)" : "rgba(142,240,196,.85)";
-    ctx.fillText(down ? `${down} DARK · CHECK PATCH` : "ALL PATHS NOMINAL", x, y + 31 * S);
+    const q = heldIds().size;
+    ctx.fillStyle = intrusion > 0 ? `rgba(255,120,110,${.6 + .4 * Math.sin(t / 120)})` : q ? "rgba(255,140,130,.95)" : down ? "rgba(255,160,150,.9)" : "rgba(142,240,196,.85)";
+    ctx.fillText(intrusion > 0 ? "INTRUSION DETECTED · LOCKDOWN" : q ? `${q} QUARANTINED · VLAN 666` : down ? `${down} DARK · CHECK PATCH` : "ALL PATHS NOMINAL", x, y + 31 * S);
     // A throughput trace to the left of the words.
     const w = 150 * S, x0 = x - 170 * S - w, yb = y + 28 * S, hh = 26 * S;
     ctx.strokeStyle = "rgba(53,200,224,.18)"; ctx.lineWidth = 1;
@@ -295,6 +306,9 @@ function dcEffects(bg, panel, live, state, calm) {
     }
     surge = Math.max(0, surge - dt * .5);
     alarm = Math.max(0, alarm - dt);
+    intrusion = Math.max(0, intrusion - dt);
+    // While the alarm's on, the shuttle keeps sweeping the racks.
+    if (intrusion > 0 && shuttle.laser <= 0) shuttle.laser = 1;
     trace.shift();
     trace.push(Math.min(1, .25 + surge * .55 + Math.random() * .22 + Math.sin(now / 700) * .08));
     if (now - lastLcd > 2000) { lastLcd = now; temp = Math.max(20.2, Math.min(24.5, temp + (Math.random() - .5) * .3 + surge * .4)); drawPanel(); }
@@ -333,13 +347,19 @@ function dcEffects(bg, panel, live, state, calm) {
     repaint() { pts = nodes(); drawPanel(); },
     scan() { surge = 1; shuttle.laser = 1; },
     alarm() { alarm = 4; },
+    intrusion() { intrusion = 9; alarm = 9; surge = 1; shuttle.laser = 1; },
   };
 }
 
 // Data Centre: the room your network would have if it were racked and
 // patched. Every device gets a port on the panel along the bottom, lit by
-// whether it's up; the racks flash through a sweep when a scan lands, and a
-// device turning up slides in as a blade.
+// whether it's up; the racks flash through a sweep when a scan lands.
+// A new device nobody has marked known is an intruder on the network. The cage
+// alarm goes: every light in the racks turns red, a red beacon sweeps the
+// room, the HUD reads INTRUSION DETECTED, the hologram puts a reticle on it and
+// the shuttle sweeps the racks with its laser. Then its port on the patch
+// panel is caged in red, quarantined, tagged, until the device is marked
+// known; then it's linked, sliding in as a blade with its name on it.
 function buildDataCentre(root) {
   const calm = calmMotion();
   let hum = null;
@@ -383,6 +403,7 @@ function buildDataCentre(root) {
   document.body.appendChild(room);
   festiveStops.push(() => room.remove());
 
+  let blade = () => {};
   const live = () => hosts.filter(h => !h.ignored && !h.forgotten && !h.remote)
     .sort((a, b) => nameOrIp(a).localeCompare(nameOrIp(b)));
   const state = h => !h.online ? "down" : h.known ? "up" : "un";
@@ -412,13 +433,73 @@ function buildDataCentre(root) {
   bar.style.top = `${(document.querySelector("header")?.getBoundingClientRect().bottom || 58) - 2}px`;
   bar.innerHTML = "<i></i>";
   root.appendChild(bar);
-  const fx = dcEffects(bg, panel, live, state, calm);
+  // ---- intruders: quarantined ports ----
+  const watchIn = intruderWatch();
+  const quar = new Map();               // id -> { h, tag, alarm, gone }
+  const heldIds = () => new Set([...quar.values()].filter(q => !q.gone).map(q => q.h.id));
+  const fx = dcEffects(bg, panel, live, state, calm, heldIds);
+  // Each held device's tag stands over its port; one whose port isn't on the
+  // panel (it shows the first 28) stands at the panel's right-hand end.
+  const placeTags = () => {
+    const list = [...quar.values()].filter(q => !q.gone).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+    room.style.height = list.length ? "130px" : "48px";
+    list.forEach((q, k) => {
+      const port = ports.querySelector(`.dc-port[data-id="${q.h.id}"]`);
+      const pr = panel.getBoundingClientRect(), r = port?.getBoundingClientRect();
+      const x = r ? r.left + r.width / 2 - pr.left : pr.width - 150;
+      q.tag.style.left = Math.max(110, Math.min(pr.width - 110, x)) + "px";
+      q.tag.style.bottom = `${50 + k * 54}px`;
+      q.tag.hidden = k > 1;
+    });
+  };
+  const markPorts = () => {
+    const ids = heldIds();
+    for (const el of ports.children) el.classList.toggle("quar", ids.has(Number(el.dataset.id)) || ids.has(el.dataset.id));
+  };
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!quar.has(h.id)) {
+      const tag = intruderTagEl(h, "held");
+      tag.classList.add("dc-qtag");
+      panel.appendChild(tag);
+      quar.set(h.id, { h, tag, alarm: 0, gone: false });
+    }
+    for (const h of held) { const q = quar.get(h.id); if (q && !q.gone) { q.h = h; if (!q.alarm || Date.now() - q.alarm > 9000) intruderTagEl(h, "held", q.tag); } }
+    for (const h of cleared) {
+      const q = quar.get(h.id); if (!q || q.gone) continue;
+      q.gone = true;
+      const done = () => { q.tag.remove(); quar.delete(h.id); markPorts(); placeTags(); };
+      if (calm || document.hidden) { done(); continue; }
+      // Released from quarantine: linked, and in it slides as a blade.
+      intruderTagEl(q.h, "cleared", q.tag);
+      festiveTimers.push(setTimeout(() => { done(); if (!h.test) blade(h); }, 2600));
+    }
+    markPorts();
+    placeTags();
+  }
+  // The alarm: the whole room goes to lockdown for a few seconds.
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    if (!quar.has(h.id)) { const tag = intruderTagEl(h, "held"); tag.classList.add("dc-qtag"); panel.appendChild(tag); quar.set(h.id, { h, tag, alarm: 0, gone: false }); markPorts(); placeTags(); }
+    if (calm || document.hidden) { fx.repaint(); return; }
+    const q = quar.get(h.id);
+    q.alarm = Date.now();
+    intruderTagEl(h, "alarm", q.tag);
+    placeTags();
+    bg.classList.add("dc-intrusion"); link.classList.add("alarm"); bar.classList.add("alarm");
+    festiveTimers.push(setTimeout(() => { bg.classList.remove("dc-intrusion"); link.classList.remove("alarm"); bar.classList.remove("alarm"); }, 9000));
+    festiveTimers.push(setTimeout(() => { if (!q.gone) intruderTagEl(q.h, "held", q.tag); }, 9000));
+    fx.intrusion();
+    if (soundOn()) { linkAlarm(); festiveTimers.push(setTimeout(linkAlarm, 700)); festiveTimers.push(setTimeout(linkAlarm, 1400)); }
+  };
 
   // The panel is repainted whenever the table is, which is also how it fills
   // in once the first scan lands. It has to be set before reduced motion
   // takes the early way out, or the ports would stay empty.
-  festiveHooks.rendered = () => { paint(); fx.repaint(); };
+  festiveHooks.rendered = () => { paint(); fx.repaint(); syncIntruders(); };
   paint();
+  syncIntruders();
   if (calm) return; // Reduced motion: the room is lit, nothing moves.
 
   // A scan: every light in the room comes on, and the fibre runs fast.
@@ -429,8 +510,9 @@ function buildDataCentre(root) {
     fx.scan();
     if (soundOn()) linkChirp(.5);
   };
-  // A new device slides in as a blade, with its name on the faceplate.
-  festiveHooks.newDevice = h => {
+  // A device slides in as a blade, with its name on the faceplate: once it's
+  // been marked known, since until then it's in quarantine.
+  blade = h => {
     if (document.hidden) return;
     const el = document.createElement("div");
     el.className = "dc-blade";

@@ -590,8 +590,10 @@ Some themes have a little life in them:
   **An airliner crosses high up** with its wingtip lights and belly strobe,
   and **a helicopter comes over lower, sweeping a searchlight below it** - and
   it turns out to look whenever a device goes off the air. Both pass in front
-  of the page, the way something overhead would. A new device
-  arrives by taxi with its name on the roof sign, a finished scan brightens
+  of the page, the way something overhead would. A new device nobody has
+  marked known is **a car running with no lights**, chased and pulled over (see
+  [Intruders](#intruders)); once it's known it arrives by taxi with its name on
+  the roof sign. A finished scan brightens
   every lamp and the Map's wiring, and a device going offline puts a lamp out
   for a moment.
 - **Constellation**: the night sky, with your network written in it. Every
@@ -644,8 +646,10 @@ Some themes have a little life in them:
   power readout and a traffic scope; the header carries a **link panel**
   counting how many are up, with a light running along its edge. A finished scan
   lights the whole room for a moment, sends the fibre running and has the
-  shuttle stop and sweep the racks with its laser; a new device slides in as a
-  blade with its name on the faceplate; one that drops turns its port red and
+  shuttle stop and sweep the racks with its laser. A new device nobody has
+  marked known is **a breach**: the room goes to lockdown and its port is
+  quarantined (see [Intruders](#intruders)); once it's known it slides in as a
+  blade with its name on the faceplate. One that drops turns its port red and
   says its name, and the header's light and the HUD turn red. With sound on
   there's the hum of the room, a chirp as a port comes up and a lower one as it
   goes; it stops in a background tab.
@@ -885,8 +889,8 @@ glyphs instead of rain.
 
 ### Intruders
 
-In **Harbour**, **Ant Farm**, **Model Railway**, **Goat** and **Aquarium**, a
-new device nobody has marked known is an intruder, and the scene treats it as
+In **Harbour**, **Ant Farm**, **Model Railway**, **Goat**, **Aquarium**,
+**City Lights** and **Data Centre**, a new device nobody has marked known is an intruder, and the scene treats it as
 one. First the alarm, then the scene holds it, in view and tagged with its
 name, address and maker, until you mark it known:
 
@@ -897,11 +901,14 @@ name, address and maker, until you mark it known:
 | Model Railway | an engine with no livery | every signal to red, the trains brake hard, the crossing lights flash | shunted into the siding, against the buffers |
 | Goat | a wolf | the herd bunches and bleats, bells clanging, and the ram charges it | lurking at the edge of the pasture |
 | Aquarium | a shark | the fish scatter, the crab digs in, the eel pulls back, the water flushes red | prowling the bottom of the tank |
+| City Lights | a car running with no lights | a police car gives chase, the city strobes red and blue, the helicopter holds its searchlight on it | pulled over at the kerb, the police car behind it |
+| Data Centre | a breach of the network | the cage alarm: every rack light red, a red beacon sweeping the room, the HUD reads INTRUSION DETECTED, the hologram puts a reticle on it | its port on the patch panel caged in red, quarantined |
 
 Mark the device known, anywhere, and the scene stands down: the tag turns
 green, the intruder goes, and the device arrives the way that theme welcomes
 one, its container lifted ashore, its chamber dug, its wagon coupled on, a kid
-goat, a fish with its name. What's held is the **New** tab, so every dashboard
+goat, a fish with its name, a taxi with its name on the roof, a blade linked
+into the rack. What's held is the **New** tab, so every dashboard
 holds the same ones, a reload doesn't lose them, and one that's ignored,
 forgotten or simply past its days on the New tab is let go too. A device held
 in front of the page gets room at the bottom so the page can scroll clear of it.

@@ -81,12 +81,12 @@ Something going on behind the dashboard. Reduced motion settles them all.
 <td width="50%" valign="top"><img src="aquarium/preview.webp" alt="The Aquarium theme"><br><b>Aquarium</b> <sub><code>aquarium</code></sub><br>Fish, bubbles, weed and a crab behind the glass. An unknown new device is a shark: the fish scatter while it prowls.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="nightstreet/preview.webp" alt="The City Lights theme"><br><b>City Lights</b> <sub><code>nightstreet</code></sub><br>A city after dark: street lamps, lit windows, and traffic going by.</td>
+<td width="50%" valign="top"><img src="nightstreet/preview.webp" alt="The City Lights theme"><br><b>City Lights</b> <sub><code>nightstreet</code></sub><br>A city after dark: street lamps, lit windows, and traffic going by. An unknown new device is a car running dark, chased down and pulled over.</td>
 <td width="50%" valign="top"><img src="claw/preview.webp" alt="The Claw Machine theme"><br><b>Claw Machine (with Claw Machine Dusk)</b> <sub><code>claw</code></sub><br>A prize cabinet with marquee bulbs, and a claw that sometimes wins a device.</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="constellation/preview.webp" alt="The Constellation theme"><br><b>Constellation</b> <sub><code>constellation</code></sub><br>Your network as stars, under a moon that shows how much of it is up.</td>
-<td width="50%" valign="top"><img src="datacentre/preview.webp" alt="The Data Centre theme"><br><b>Data Centre</b> <sub><code>datacentre</code></sub><br>The room your network would live in if it had one: racks, blinking lights and a patch panel.</td>
+<td width="50%" valign="top"><img src="datacentre/preview.webp" alt="The Data Centre theme"><br><b>Data Centre</b> <sub><code>datacentre</code></sub><br>The room your network would live in if it had one: racks, blinking lights and a patch panel. An unknown new device puts the room in lockdown and its port in quarantine.</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="departures/preview.webp" alt="The Departures theme"><br><b>Departures</b> <sub><code>departures</code></sub><br>An airport departures board, letters flipping over.</td>
@@ -216,7 +216,8 @@ BAMF.registerTheme("my-theme", ctx => {
 ### Intruders
 
 A new device that hasn't been marked known is an intruder, and a theme can make
-a scene of it, the way Harbour, Ant Farm, Model Railway, Goat and Aquarium do.
+a scene of it, the way Harbour, Ant Farm, Model Railway, Goat, Aquarium, City Lights
+and Data Centre do.
 `intruder` fires when one turns up; after that the scene holds it, in view,
 until it's marked known. What to hold is `ctx.intruders()`: the devices on the
 New tab, the same on every dashboard. `ctx.intruderWatch()` gives a function

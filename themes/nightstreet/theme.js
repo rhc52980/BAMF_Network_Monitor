@@ -4,9 +4,14 @@
 // Night Street: a city block after dark. A skyline whose lit windows are how
 // much of the network is up, street lamps pooling light on the pavement (one
 // always buzzes, and moths circle a couple), and traffic along the road at
-// the bottom. A new device arrives by taxi with its name on the roof sign; a
-// finished scan brightens every lamp; a device going offline puts one out
-// for a moment.
+// the bottom. A finished scan brightens every lamp; a device going offline
+// puts one out for a moment.
+// A new device nobody has marked known is an intruder: a car running with no
+// lights. It comes down the street with a police car after it, lights going,
+// the city strobing red and blue; the helicopter swoops in and holds its
+// searchlight on it, and it's pulled over at the kerb, the police car behind,
+// tagged, until the device is marked known. Then it puts its lights on and
+// goes, and the device arrives by taxi with its name on the roof sign.
 // An airliner at height: a silhouette with its wingtip lights and the strobe
 // on the belly. Small, because it's a long way up.
 const NS_PLANE = `<svg width="86" height="26" viewBox="0 0 86 26">
@@ -203,7 +208,109 @@ function buildNightStreet(root) {
     festiveTimers.push(setTimeout(() => html.classList.remove("ns-bright"), 1200));
   };
   festiveStops.push(() => document.documentElement.classList.remove("ns-bright"));
-  festiveHooks.newDevice = h => car({ taxi: "NEW: " + (h ? nameOrIp(h) : "a device"), rtl: false });
+  // ---- intruders: cars pulled over at the kerb ----
+  const watchIn = intruderWatch();
+  const stops = new Map();              // id -> { h, perp, cop, tag, alarm, gone }
+  const SHOW = 2;
+  const kerbX = k => W * .7 - k * 300;
+  const room = document.createElement("div");
+  room.setAttribute("aria-hidden", "true");
+  document.body.appendChild(room);
+  festiveStops.push(() => room.remove());
+  const held = () => [...stops.values()].filter(p => !p.gone).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  const vehicle = (cls, art, x) => {
+    const el = document.createElement("div");
+    el.className = "ns-stopcar " + cls;
+    el.innerHTML = art;
+    el.style.left = x + "px";
+    root.appendChild(el);
+    return el;
+  };
+  const driveTo = (el, x, secs, ease = "ease-out") => { el.style.transition = `left ${secs}s ${ease}`; el.style.left = x + "px"; };
+  const makeStop = (h, x) => {
+    const perp = vehicle("perp", NS_CAR("#15171d", "#262a33"), x);
+    const cop = vehicle("cop", NS_CAR("#e8ecf2", "#1b2130") + `<span class="ns-lightbar"><i></i><i></i></span>`, x - 96);
+    const tag = intruderTagEl(h, "held");
+    perp.appendChild(tag);
+    return { h, perp, cop, tag, alarm: 0, gone: false };
+  };
+  // Pulled over, the newest nearest the middle of the street; the page gets
+  // room at the bottom to scroll clear of them and their tags.
+  const settle = (animate = true) => {
+    const list = held();
+    room.style.height = list.length ? "96px" : "0";
+    list.forEach((p, k) => {
+      const show = k < SHOW;
+      p.perp.hidden = p.cop.hidden = !show;
+      if (!show || p.moving) return;
+      if (animate && !calm) { driveTo(p.perp, kerbX(k), 2); driveTo(p.cop, kerbX(k) - 96, 2); }
+      else { p.perp.style.left = kerbX(k) + "px"; p.cop.style.left = (kerbX(k) - 96) + "px"; }
+    });
+  };
+  function syncIntruders() {
+    const { held: now, added, cleared } = watchIn();
+    for (const h of added) if (!stops.has(h.id)) stops.set(h.id, makeStop(h, kerbX(Math.min(stops.size, SHOW - 1))));
+    for (const h of now) { const p = stops.get(h.id); if (p && !p.gone) { p.h = h; if (!p.alarm || Date.now() - p.alarm > 9000) intruderTagEl(h, "held", p.tag); } }
+    for (const h of cleared) {
+      const p = stops.get(h.id); if (!p || p.gone) continue;
+      p.gone = true;
+      const done = () => { p.perp.remove(); p.cop.remove(); stops.delete(h.id); settle(); };
+      if (calm || document.hidden) { done(); continue; }
+      // Let go: the lights go off on the police car, the car puts its own on
+      // and drives away, and the device comes by taxi instead.
+      intruderTagEl(p.h, "cleared", p.tag);
+      p.cop.classList.add("off");
+      festiveTimers.push(setTimeout(() => {
+        p.tag.remove(); p.perp.classList.add("lit");
+        driveTo(p.perp, W + 120, 4, "ease-in");
+        festiveTimers.push(setTimeout(() => driveTo(p.cop, W + 120, 4, "ease-in"), 1200));
+        festiveTimers.push(setTimeout(() => { done(); if (!h.test) car({ taxi: "NEW: " + nameOrIp(h), rtl: false }); }, 5600));
+      }, 2200));
+    }
+    settle();
+  }
+  // The chase: in they come from the left, the city strobing, the helicopter
+  // over the top with its light on the car, and it's pulled over.
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    let p = stops.get(h.id);
+    if (!p) { p = makeStop(h, kerbX(0)); stops.set(h.id, p); }
+    if (calm || document.hidden) { settle(false); return; }
+    p.alarm = Date.now(); p.moving = true;
+    intruderTagEl(h, "alarm", p.tag);
+    for (const el of [p.perp, p.cop]) { el.style.transition = "none"; el.style.left = "-200px"; void el.offsetWidth; }
+    settle();
+    const x = kerbX(0);
+    driveTo(p.perp, x, 3.2);
+    festiveTimers.push(setTimeout(() => driveTo(p.cop, x - 96, 3), 500));
+    const html = document.documentElement;
+    html.classList.add("ns-alarm");
+    festiveTimers.push(setTimeout(() => html.classList.remove("ns-alarm"), 9000));
+    // The helicopter comes over and holds its light on the car.
+    const chop = document.createElement("div");
+    chop.className = "ns-chopper";
+    chop.innerHTML = NS_HELI;
+    chop.style.left = (W + 60) + "px";
+    const top = Math.round(H * .08);
+    chop.style.top = top + "px";
+    const beam = document.createElement("div");
+    beam.className = "ns-spot";
+    root.append(beam, chop);
+    void chop.offsetWidth;
+    chop.style.left = (x - 40) + "px";
+    festiveTimers.push(setTimeout(() => {
+      const y0 = top + 60;
+      beam.style.cssText = `left:${x - 50}px;top:${y0}px;height:${H - 6 - y0}px`;
+      beam.classList.add("on");
+    }, 3100));
+    festiveTimers.push(setTimeout(() => { beam.classList.remove("on"); chop.style.left = "-220px"; }, 10500));
+    festiveTimers.push(setTimeout(() => { chop.remove(); beam.remove(); }, 15000));
+    festiveTimers.push(setTimeout(() => { p.moving = false; settle(); }, 3600));
+    festiveTimers.push(setTimeout(() => { if (!p.gone) intruderTagEl(p.h, "held", p.tag); }, 9000));
+  };
+  festiveStops.push(() => document.documentElement.classList.remove("ns-alarm"));
+  syncIntruders();
   const lampEls = [...bg.querySelectorAll(".ns-lamp")];
   festiveHooks.netChange = off => {
     if (!off.length || calm) return;
@@ -215,7 +322,7 @@ function buildNightStreet(root) {
     // Something's gone missing, so the helicopter comes over to look for it.
     festiveTimers.push(setTimeout(heli, rnd(1500, 4000)));
   };
-  festiveHooks.rendered = () => lightWindows();
+  festiveHooks.rendered = () => { lightWindows(); syncIntruders(); };
 }
 
 BAMF.registerTheme("nightstreet", ctx => buildNightStreet(ctx.root, ctx.switched));

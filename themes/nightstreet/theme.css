@@ -86,6 +86,35 @@ html.ns-bright .ns-bg .ns-glow { opacity: 1; filter: brightness(1.5); }
 
 @keyframes ns-drive-rtl { from { transform: translateX(calc(100vw + 40px)); } to { transform: translateX(-160px); } }
 
+/* An intruder: a car running dark, pulled over with a police car behind it. */
+.ns-stopcar { position: absolute; bottom: 1px; left: 0; pointer-events: none; }
+.ns-stopcar svg { display: block; overflow: visible; }
+.ns-stopcar.perp svg > path:first-child { display: none; }
+/* Its outline catching the streetlight, so a dark car on a dark road still reads. */
+.ns-stopcar.perp svg { filter: drop-shadow(0 0 1px rgba(210, 220, 240, .9)) drop-shadow(0 0 3px rgba(255, 207, 122, .35)); }
+.ns-stopcar.perp:not(.lit) rect[fill="#fff6d0"] { fill: #2a2d34; }
+.ns-stopcar.perp.lit svg > path:first-child { display: inline; }
+.ns-stopcar.perp .intruder-tag { bottom: calc(100% + 6px); left: 50%; transform: translateX(-30%); }
+.ns-stopcar.cop svg > path:first-child { display: none; }
+.ns-lightbar { position: absolute; left: 25px; top: -3px; width: 20px; height: 4px; display: flex; }
+.ns-lightbar i { flex: 1; background: #ff3b3b; animation: ns-bar .5s steps(1) infinite; }
+.ns-lightbar i + i { background: #3b7bff; animation-delay: -.25s; }
+.ns-lightbar::after { content: ""; position: absolute; left: -26px; top: -22px; width: 72px; height: 44px; border-radius: 50%;
+  background: radial-gradient(rgba(255, 59, 59, .45), transparent 70%); animation: ns-bar-glow 1s steps(1) infinite; }
+.ns-stopcar.cop.off .ns-lightbar i, .ns-stopcar.cop.off .ns-lightbar::after { animation: none; opacity: .25; }
+@keyframes ns-bar { 50% { opacity: .2; } }
+@keyframes ns-bar-glow { 50% { background: radial-gradient(rgba(59, 123, 255, .45), transparent 70%); } }
+/* The chase: the city strobing red and blue. */
+.ns-alarm .ns-bg::after { content: ""; position: absolute; inset: 0; pointer-events: none; animation: ns-strobe-city 1s steps(1) infinite; }
+@keyframes ns-strobe-city { 0% { background: rgba(255, 40, 40, .16); } 50% { background: rgba(40, 90, 255, .16); } }
+/* The helicopter over the car, and its searchlight on it. */
+.ns-chopper { position: absolute; left: 0; pointer-events: none; transition: left 3s ease-out; }
+.ns-chopper svg { display: block; width: 150px; height: 150px; overflow: visible; }
+.ns-chopper .ns-beam { display: none; }
+.ns-spot { position: absolute; width: 100px; opacity: 0; pointer-events: none; transition: opacity .6s;
+  clip-path: polygon(44% 0, 56% 0, 100% 100%, 0 100%); background: linear-gradient(rgba(255, 242, 196, .34), rgba(255, 242, 196, .16)); }
+.ns-spot.on { opacity: 1; }
+
 .ns-taxi-sign { position: absolute; left: 12px; bottom: 20px; padding: 1px 6px; background: #ffe36b; color: #1a1a1a; border: 1px solid #1a1a1a; border-radius: 3px;
   font: 700 11px "IBM Plex Mono", monospace; white-space: nowrap; }
 
@@ -139,7 +168,7 @@ html.ns-bright .ns-bg .ns-glow { opacity: 1; filter: brightness(1.5); }
 @media (prefers-reduced-motion: reduce) {
   .ns-bg .ns-star, .ns-bg .ns-lamp.buzz .ns-glow, .ns-bg .ns-win.on.tv,
   .ns-bg .ns-tw, .ns-bg .ns-crown, .ns-bg .ns-beacon,
-  .ns-air, .ns-nav, .ns-strobe, .ns-rotor, .ns-beam { animation: none !important; }
+  .ns-air, .ns-nav, .ns-strobe, .ns-rotor, .ns-beam, .ns-lightbar i, .ns-lightbar::after { animation: none !important; }
 
 }
 [data-theme="nightstreet"] {
