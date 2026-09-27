@@ -114,7 +114,7 @@ Something going on behind the dashboard. Reduced motion settles them all.
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="summer/preview.webp" alt="The Summer theme"><br><b>Summer</b> <sub><code>summer</code></sub><br>Sun, clouds and the beach along the bottom. An unknown new device is a shark offshore, and the lifeguard runs up the red flag.</td>
-<td width="50%" valign="top"><img src="terminal/preview.webp" alt="The Terminal theme"><br><b>Terminal</b> <sub><code>terminal</code></sub><br>A plain green screen with a blinking block cursor, and the odd line of boot text. An unknown new device is traced and quarantined.</td>
+<td width="50%" valign="top"><img src="terminal/preview.webp" alt="The Terminal theme"><br><b>Terminal</b> <sub><code>terminal</code></sub><br>Battlezone in green vectors behind the page: wireframe tanks prowl, one for each unknown device, and a scan fires a shell. An unknown new device is traced and quarantined.</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="storm/preview.webp" alt="The Thunderstorm theme"><br><b>Thunderstorm</b> <sub><code>storm</code></sub><br>Rain behind the page, soft lightning, and a spark along the Map's cables. An unknown new device is a stranger out in the storm, struck by lightning.</td>

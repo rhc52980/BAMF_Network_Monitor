@@ -41,8 +41,52 @@ jobs:
             exit 1
           fi
 
+  # The release is created here, once, before either build starts. When each
+  # build created it if it wasn't there yet, the two could look at the same
+  # moment, both find nothing and both create one, leaving two releases for
+  # the same tag (v1.54.0 had one with the packages and an empty one marked
+  # Latest). On a manual run there's no release, and this does nothing.
+  release:
+    name: Create the release
+    needs: addon-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read version from BAMF.csproj
+        id: ver
+        run: |
+          VERSION=$(grep -oPm1 '(?<=<Version>)[^<]+' BAMF/BAMF.csproj)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # Fail loudly if the tag and the declared version disagree, rather than
+      # publishing a v1.9.0 release containing a binary that says 1.8.0.
+      - name: Check the tag matches the declared version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          if [ "$TAG" != "${{ steps.ver.outputs.version }}" ]; then
+            echo "::error::Tag v$TAG does not match <Version>${{ steps.ver.outputs.version }}</Version> in BAMF.csproj"
+            exit 1
+          fi
+
+      # Uses the gh CLI that ships on the runner rather than a third-party
+      # action: one less external dependency holding a write-scoped token.
+      # A release that's already there (written by hand before the tag was
+      # pushed) is left as it is.
+      - name: Create the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "BAMF ${{ steps.ver.outputs.version }}" --generate-notes
+          fi
+
   build:
     name: Build ${{ matrix.rid }}
+    needs: release
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false   # one platform failing shouldn't hide the other's result
@@ -69,17 +113,6 @@ jobs:
           VERSION=$(grep -oPm1 '(?<=<Version>)[^<]+' BAMF/BAMF.csproj)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Building BAMF $VERSION for ${{ matrix.rid }}"
-
-      # Fail loudly if the tag and the declared version disagree, rather than
-      # publishing a v1.9.0 release containing a binary that says 1.8.0.
-      - name: Check the tag matches the declared version
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
-          if [ "$TAG" != "${{ steps.ver.outputs.version }}" ]; then
-            echo "::error::Tag v$TAG does not match <Version>${{ steps.ver.outputs.version }}</Version> in BAMF.csproj"
-            exit 1
-          fi
 
       - name: Publish
         run: |
@@ -132,30 +165,14 @@ jobs:
           path: ${{ steps.pack.outputs.asset }}
           retention-days: 14
 
-      # Only on a tag. A manual run builds and uploads to the Actions tab, so
-      # you can test the workflow without publishing anything.
-      #
-      # Uses the gh CLI that ships on the runner rather than a third-party
-      # action: one less external dependency holding a write-scoped token.
+      # Only on a tag, to the release the release job made. A manual run builds
+      # and uploads to the Actions tab, so you can test the workflow without
+      # publishing anything.
       - name: Attach to the release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          # Create the release if it doesn't exist yet, so pushing the tag first
-          # and writing notes later both work.
-          #
-          # Both matrix jobs arrive here within a second of each other, so the
-          # one that loses the race finds the release gone when it looks and
-          # created by the time it tries. That is not a failure: look again,
-          # and carry on if it's there now. Without this the loser dies on
-          # "Release.tag_name already exists" before uploading, and the release
-          # is published missing one of its two packages.
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --title "BAMF ${{ steps.ver.outputs.version }}" --generate-notes || gh release view "$TAG" >/dev/null
-          fi
-          gh release upload "$TAG" "${{ steps.pack.outputs.asset }}" --clobber
+        run: gh release upload "${GITHUB_REF#refs/tags/}" "${{ steps.pack.outputs.asset }}" --clobber
 
   # The container image, for anyone who would rather `docker run` than unpack a
   # zip. Pushed to GHCR under the repo owner as ghcr.io/<owner>/bamf, tagged with
