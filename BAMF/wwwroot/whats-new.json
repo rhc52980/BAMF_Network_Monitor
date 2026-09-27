@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "1.53.0",
+      "date": "2026-09-27",
+      "items": [
+        "Eleven more themes treat a new device you haven't marked known as an intruder, sixteen in all: a police chase in City Lights, lockdown in the Data Centre, an Agent in Matrix, a bear in Woodlands, TILT in the Claw Machine, and more.",
+        "Each raises the alarm, then holds the intruder, tagged, until you mark it known. Show me an intruder, in Settings, Appearance, plays the one in your theme.",
+        "The README now opens with a short video."
+      ]
+    },
+    {
       "version": "1.52.1",
       "date": "2026-09-26",
       "items": [
