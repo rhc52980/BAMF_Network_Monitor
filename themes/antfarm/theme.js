@@ -10,10 +10,15 @@
 // device has one of its own off the main gallery: eggs in it while it's online
 // and known, honey hanging in it while it's online and unknown (these are
 // honeypot ants), and it's fallen in while it's offline. A watched device that
-// drops flickers red and ants rush to it. A new device is a chamber being dug,
-// sand flying; a scan sends a stream of ants out through every tunnel. With
-// sound on there are crickets up top, a scratch of digging, and a patter for a
-// scan.
+// drops flickers red and ants rush to it. A scan sends a stream of ants out
+// through every tunnel. With sound on there are crickets up top, a scratch of
+// digging, and a patter for a scan.
+// A new device nobody has marked known is an intruder: a beetle. It breaks in
+// at the entrance and makes for the device's chamber; the alarm spreads out
+// from it in red, the colony goes frantic, soldiers pour out of the queen's
+// chamber and the queen is walled in. Then the beetle is sealed in the chamber,
+// two soldiers guarding the plug, tagged, until the device is marked known:
+// then the soldiers march it out, and the chamber is dug fresh.
 function buildAntFarm(root) {
   const calm = calmMotion();
   let amb = null;
@@ -226,13 +231,13 @@ function buildAntFarm(root) {
     const a = p.pts[i - 1], b = p.pts[i], seg = (p.len[i] - p.len[i - 1]) || 1, k = Math.max(0, Math.min(1, (d - p.len[i - 1]) / seg));
     return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, Math.atan2(b[1] - a[1], b[0] - a[0])];
   }
-  function spawnNest(target, fast) {
+  function spawnNest(target, fast, soldier = false) {
     const now = performance.now();
     const live = list.map((h, i) => i).filter(i => i < cells.length && (!digAt[list[i].id] || now - digAt[list[i].id] > 4000));
     const roll = Math.random();
     const path = withLengths(target != null ? pathTo(target) : roll < .72 && live.length ? pathTo(pick(live)) : roll < .86 ? toRoom(store) : toRoom(queen));
     const carry = Math.random() < .55 ? pick(["egg", "crumb", "leaf", "seed"]) : null;
-    ants.push({ path, d: 0, dir: 1, v: rnd(24, 36) * S * (fast ? 1.8 : 1), wait: 0, carry, p: rnd(0, 6), done: false });
+    ants.push({ path, d: 0, dir: 1, v: rnd(24, 36) * S * (fast ? 1.8 : 1), wait: soldier ? 0 : 0, carry: soldier ? null : carry, p: rnd(0, 6), done: false, soldier });
   }
   // On the surface and down the sides: foragers between the sugar and the mound.
   let topAnts = [];
@@ -278,6 +283,56 @@ function buildAntFarm(root) {
     g.restore();
   }
 
+  // ---- intruders: beetles sealed in the chambers they broke into ----
+  const watchIn = intruderWatch();
+  const beetles = new Map();            // id -> { h, path, d, phase: "in" | "held" | "out", alarm, clearAt }
+  const ALARM_MS = 8000, TAGS = 3;
+  let redFrom = 0;
+  const cellOf = h => { const i = list.findIndex(x => x.id === h.id); return i >= 0 && i < cells.length ? i : -1; };
+  function syncIntruders(now) {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) {
+      if (beetles.has(h.id)) continue;
+      const i = cellOf(h); if (i < 0) continue;
+      const path = withLengths(pathTo(i));
+      beetles.set(h.id, { h, path, d: path.total, phase: "held", alarm: 0, clearAt: 0 });
+    }
+    for (const h of held) { const b = beetles.get(h.id); if (b) b.h = h; }
+    for (const h of cleared) {
+      const b = beetles.get(h.id); if (!b || b.clearAt) continue;
+      if (calm || document.hidden) { beetles.delete(h.id); continue; }
+      b.clearAt = now; b.phase = "out";
+      // Two soldiers march it out, one either side.
+      const i = cellOf(h);
+      if (i >= 0) for (let k = 0; k < 2; k++) spawnNest(i, true, true);
+    }
+  }
+  const sealed = () => [...beetles.values()].filter(b => b.phase === "held" || b.phase === "in");
+  // A beetle: a domed shell split down the back, a sheen of green, jaws, and red eyes.
+  function drawBeetle(g, x, y, a, t, sz = 1, moving = true) {
+    const s2 = S * sz;
+    g.save(); g.translate(x, y); g.rotate(a);
+    const gait = moving ? t / 55 : t / 400;
+    g.strokeStyle = "#0b0f0c"; g.lineWidth = 1.3 * s2; g.lineCap = "round";
+    for (let i = 0; i < 3; i++) for (const side of [-1, 1]) {
+      const sw = Math.sin(gait + i * 2.1 + (side > 0 ? Math.PI : 0)) * .4, bx = (1 - i) * 3.4 * s2, ang = side * (1.3 + (i - 1) * .45) + sw;
+      g.beginPath(); g.moveTo(bx, 0); g.lineTo(bx + Math.cos(ang) * 4.5 * s2, Math.sin(ang) * 4.5 * s2);
+      g.lineTo(bx + Math.cos(ang - side * .6) * 8 * s2, Math.sin(ang - side * .6) * 8 * s2); g.stroke();
+    }
+    g.fillStyle = "#101a14"; g.beginPath(); g.ellipse(-1.5 * s2, 0, 8 * s2, 5.6 * s2, 0, 0, Math.PI * 2); g.fill();
+    const sh = g.createLinearGradient(0, -5 * s2, 0, 5 * s2);
+    sh.addColorStop(0, "rgba(90,200,140,.55)"); sh.addColorStop(.5, "rgba(40,90,120,.25)"); sh.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = sh; g.beginPath(); g.ellipse(-1.5 * s2, -.5 * s2, 7 * s2, 4.6 * s2, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = "rgba(0,0,0,.8)"; g.lineWidth = .8 * s2; g.beginPath(); g.moveTo(-9 * s2, 0); g.lineTo(4.5 * s2, 0); g.stroke();
+    g.fillStyle = "#0b0f0c"; g.beginPath(); g.ellipse(6.4 * s2, 0, 2.8 * s2, 2.6 * s2, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = "#0b0f0c"; g.lineWidth = 1.1 * s2;
+    const jaw = Math.sin(t / 140) * .25;
+    g.beginPath(); g.moveTo(8 * s2, -1.2 * s2); g.quadraticCurveTo(11 * s2, -2.6 * s2 - jaw * s2, 11.6 * s2, -.4 * s2);
+    g.moveTo(8 * s2, 1.2 * s2); g.quadraticCurveTo(11 * s2, 2.6 * s2 + jaw * s2, 11.6 * s2, .4 * s2); g.stroke();
+    g.fillStyle = "#ff4d3d"; g.beginPath(); g.arc(7.3 * s2, -1.3 * s2, .8 * s2, 0, Math.PI * 2); g.arc(7.3 * s2, 1.3 * s2, .8 * s2, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+
   let surge = 0, sand = [];
   function step(dt, now) {
     surge = Math.max(0, surge - dt * .18);
@@ -296,6 +351,18 @@ function buildAntFarm(root) {
     if (topAnts.length < 18 && Math.random() < dt * 1.8) spawnTop();
     for (const a of topAnts) a.d += a.v * dt;
     topAnts = topAnts.filter(a => a.d < a.path.total);
+    for (const [id, b] of beetles) {
+      if (b.phase === "in") { b.d = Math.min(b.path.total, b.d + 120 * S * dt); if (b.d >= b.path.total) b.phase = "held"; }
+      else if (b.phase === "out") {
+        b.d -= 36 * S * dt;
+        if (b.d <= 0) {
+          beetles.delete(id);
+          // The chamber it held is dug out fresh.
+          if (list.some(x => x.id === id)) { digAt[id] = now; if (soundOn()) antDig(); }
+        }
+      }
+      if (b.alarm && now - b.alarm < ALARM_MS) surge = Math.max(surge, .8);
+    }
     for (const p of sand) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 90 * S * dt; p.life -= dt; }
     sand = sand.filter(p => p.life > 0);
     list.forEach((h, i) => {
@@ -331,6 +398,53 @@ function buildAntFarm(root) {
     drawNest(t);
   }
 
+  // The alarm: rings of red spreading from the beetle, the nest flushed red.
+  // Held: the chamber's tunnel plugged, two soldiers on guard, the tag beside.
+  function drawIntruders(t) {
+    if (!beetles.size) return;
+    const g = f;
+    const red = redFrom && t - redFrom < 6500 ? 1 - (t - redFrom) / 6500 : 0;
+    if (red > 0) { g.fillStyle = `rgba(255,40,30,${(.10 + .10 * Math.sin((t - redFrom) / 240)) * red})`; g.fillRect(0, 0, W, BH); }
+    // The queen walled in while anything is held.
+    if (sealed().length) for (const side of [-1, 1]) {
+      const x = queen.cx + side * (queen.rx + 1 * S);
+      g.fillStyle = "#8a6a3e"; g.beginPath(); g.ellipse(x, queen.cy, 4 * S, queen.ry + 3 * S, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "rgba(60,40,20,.35)"; for (let k = 0; k < 4; k++) g.fillRect(x - 1.5 * S, queen.cy - queen.ry + k * 6 * S, 3 * S, 1.2 * S);
+    }
+    const byAge = [...beetles.values()].sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+    byAge.forEach((b, n) => {
+      const i = cellOf(b.h), cl = cells[i];
+      const [x, y, an] = at(b.path, b.d);
+      const alarm = b.alarm && t - b.alarm < ALARM_MS;
+      if (alarm) for (let k = 0; k < 3; k++) {
+        const age = ((t - b.alarm) / 1400 + k / 3) % 1;
+        g.strokeStyle = `rgba(255,70,55,${.55 * (1 - age)})`; g.lineWidth = 2 * S;
+        g.beginPath(); g.ellipse(x, y, 10 * S + age * 160 * S, 6 * S + age * 50 * S, 0, 0, Math.PI * 2); g.stroke();
+      }
+      if (b.phase === "held" && cl) {
+        // The plug across its tunnel, and a soldier either side of it.
+        const px = cl.gx + (cl.cx - cl.gx) * .5, py = galleryY(cl.gx) + (cl.cy - galleryY(cl.gx)) * .5;
+        g.fillStyle = "#8a6a3e"; g.beginPath(); g.ellipse(px, py, 6 * S, 4 * S, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "rgba(60,40,20,.4)"; g.fillRect(px - 3 * S, py - .6 * S, 6 * S, 1.2 * S);
+        const gyx = galleryY(cl.gx);
+        drawAnt(g, cl.gx - 9 * S, gyx, 0, t / 3, null, 1.6, "#5c1a0c", false);
+        drawAnt(g, cl.gx + 9 * S, gyx, Math.PI, t / 3 + 500, null, 1.6, "#5c1a0c", false);
+        drawBeetle(g, cl.cx + Math.sin(t / 210) * .8 * S, cl.cy, Math.sin(t / 700) * .35, t, 1.35, false);
+      } else {
+        drawBeetle(g, x, y, b.phase === "out" ? an + Math.PI : an, t, 1.3, true);
+      }
+      if (n < TAGS && cl) {
+        const state = b.clearAt ? "cleared" : alarm ? "alarm" : "held";
+        const k = b.clearAt ? Math.max(0, 1 - Math.max(0, t - b.clearAt - 2200) / 1200) : 1;
+        const s2 = .85 * S, right = cl.cx + cl.rx + 12 * S + 260 * s2 < W - 8 * S;
+        // Tags take turns along the top and the bottom of the nest, so two
+        // chambers side by side don't put one tag over the other.
+        const tx = b.phase === "held" ? cl.cx : x, ty = n % 2 ? BH - 6 * S : 47 * s2 + 8 * S;
+        intruderTag(g, right ? tx + cl.rx + 12 * S : tx - cl.rx - 12 * S, ty, b.h, { s: s2, align: right ? "left" : "right", state, k });
+      }
+    });
+  }
+
   function drawNest(t) {
     const g = f;
     g.drawImage(nest.cv, 0, 0, W, BH);
@@ -348,7 +462,9 @@ function buildAntFarm(root) {
       g.fillStyle = "#7f6036"; g.beginPath(); g.ellipse(cl.cx, cl.cy, rx + 1.6 * S, ry + 1.6 * S, 0, 0, Math.PI * 2); g.fill();
       g.fillStyle = "#8e6c3f"; g.beginPath(); g.ellipse(cl.cx, cl.cy, rx, ry, 0, 0, Math.PI * 2); g.fill();
       const alarm = h.watched && !h.online && (alarmUntil[h.id] || 0) > t;
-      if (dug < 1) {
+      if (beetles.has(h.id)) {
+        // Held: the beetle's in here, drawn with the intruders.
+      } else if (dug < 1) {
         // Still being dug: just the hole, growing.
       } else if (st === "off") {
         // Fallen in: loose sand heaped in it, nothing living there.
@@ -383,34 +499,43 @@ function buildAntFarm(root) {
       }
     });
     for (const p of sand) { g.fillStyle = p.c; g.fillRect(p.x, p.y, 1.8 * S, 1.8 * S); }
-    for (const a of ants) { const [x, y, an] = at(a.path, a.d); drawAnt(g, x, y, a.dir > 0 ? an : an + Math.PI, t + a.p * 1000, a.carry, 1.25, "#2a1208", false); }
+    for (const a of ants) { const [x, y, an] = at(a.path, a.d); drawAnt(g, x, y, a.dir > 0 ? an : an + Math.PI, t + a.p * 1000, a.carry, a.soldier ? 1.6 : 1.25, a.soldier ? "#5c1a0c" : "#2a1208", false); }
+    drawIntruders(t);
   }
 
   refresh();
+  syncIntruders(performance.now());
+  // An intruder: a beetle breaks in and makes for the device's chamber.
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    refresh();
+    const now = performance.now();
+    syncIntruders(now);
+    const i = cellOf(h); if (i < 0) return;
+    let b = beetles.get(h.id);
+    if (!b) { const path = withLengths(pathTo(i)); b = { h, path, d: path.total, phase: "held", alarm: 0, clearAt: 0 }; beetles.set(h.id, b); }
+    if (calm) { draw(0); return; }
+    if (document.hidden) return;
+    Object.assign(b, { d: 0, phase: "in", alarm: now, clearAt: 0 });
+    redFrom = now; surge = 1;
+    // Soldiers out of the queen's chamber, making for it.
+    for (let k = 0; k < 6; k++) festiveTimers.push(setTimeout(() => spawnNest(i, true, true), 400 + k * 350));
+    if (soundOn()) { antAlarm(); festiveTimers.push(setTimeout(antAlarm, 900)); festiveTimers.push(setTimeout(() => antPatter(1), 1600)); }
+  };
   if (calm) {
     // Reduced motion: a still colony, the ants wherever they happen to be.
     for (let i = 0; i < 16; i++) { spawnNest(); const a = ants[ants.length - 1]; a.d = rnd(0, a.path.total); }
     for (let i = 0; i < 9; i++) { spawnTop(); const a = topAnts[topAnts.length - 1]; a.d = rnd(0, a.path.total * .9); }
     draw(0);
-    festiveHooks.rendered = () => { const n = list.length; refresh(); if (n !== list.length) draw(0); };
+    festiveHooks.rendered = () => { const n = list.length, m = beetles.size; refresh(); syncIntruders(performance.now()); if (n !== list.length || m !== beetles.size) draw(0); };
     return;
   }
-  festiveHooks.rendered = () => refresh();
+  festiveHooks.rendered = () => { refresh(); syncIntruders(performance.now()); };
   // Start with the colony already about its business, spread through the
   // tunnels, rather than all coming in at the entrance.
   for (let i = 0; i < Math.min(40, 10 + Math.round(list.length / 3)); i++) { spawnNest(); const a = ants[ants.length - 1]; a.d = rnd(0, a.path.total); a.dir = Math.random() < .5 ? 1 : -1; }
   for (let i = 0; i < 10; i++) { spawnTop(); const a = topAnts[topAnts.length - 1]; a.d = rnd(0, a.path.total * .9); }
   c.start();
-  // A new device: its chamber is dug out, sand flying, ants hard at it.
-  festiveHooks.newDevice = h => {
-    if (!h) return;
-    refresh();
-    const i = list.findIndex(x => x.id === h.id);
-    if (i < 0 || i >= cells.length || document.hidden) return;
-    digAt[h.id] = performance.now();
-    for (let k = 0; k < 4; k++) spawnNest(i, true);
-    if (soundOn()) antDig();
-  };
   festiveHooks.scanDone = () => {
     if (document.hidden) return;
     refresh();

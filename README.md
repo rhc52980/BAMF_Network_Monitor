@@ -211,6 +211,10 @@ a new device or one dropping off shows up in the scene. A few of them:
 </tr>
 </table>
 
+In five of them a new device you haven't marked known is an intruder: a ship
+with no lights, a beetle, a rogue engine, a wolf, a shark. The scene raises the
+alarm, then holds it, tagged, until you say it's known.
+
 Reduced motion holds every scene still, nothing runs in a background tab, and
 sound is off unless you ask for it.
 

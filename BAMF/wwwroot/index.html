@@ -1412,6 +1412,15 @@
   .tl-state { color: var(--led-warn); font-size: 11.5px; margin-top: 4px; }
   .tl-btn { margin: 6px 10px 10px; align-self: flex-start; }
 
+  /* The tag a theme's scene hangs on an intruder, when the scene is made of elements. */
+  .intruder-tag { position: absolute; pointer-events: none; white-space: nowrap; line-height: 1.35;
+    background: rgba(10, 7, 9, .88); border: 1px solid rgba(255, 77, 61, .85); border-left: 3px solid #ff4d3d; padding: 4px 9px 5px; }
+  .intruder-tag b { display: block; font: 700 9px "IBM Plex Mono", monospace; color: #ff8a7e; }
+  .intruder-tag span { display: block; font: 600 12px "Space Grotesk", sans-serif; color: #fff; }
+  .intruder-tag small { display: block; font: 500 9.5px "IBM Plex Mono", monospace; color: #c9d3dd; }
+  .intruder-tag.cleared { border-color: rgba(79, 224, 160, .85); border-left-color: #4fe0a0; }
+  .intruder-tag.cleared b { color: #7df0bf; }
+
   .secret-modal { text-align: center; }
   .secret-emoji { font-size: 52px; line-height: 1.1; margin-bottom: 6px; animation: secret-pop .6s cubic-bezier(.18,1.4,.4,1); }
   @keyframes secret-pop { from { transform: scale(.2) rotate(-20deg); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -2275,9 +2284,10 @@
         <div class="set-row">
           <span class="set-label">Theme
             <span class="set-hint">Every theme, with its colours. The &#9681; button in the header opens the same list.</span>
+            <span class="set-hint">In Harbour, Ant Farm, Model Railway, Goat and Aquarium, a new device you haven't marked known is an <b>intruder</b>: the scene raises the alarm, then holds it, tagged, until you mark it known. <b>Show me an intruder</b> plays one on one of your devices.</span>
             <span class="set-hint" id="setThemeStatus"></span>
           </span>
-          <span class="set-field"><button type="button" class="export-btn" id="setThemeOpen">Choose…</button></span>
+          <span class="set-field speed-fields"><button type="button" class="export-btn" id="setThemeOpen">Choose…</button><button type="button" class="export-btn" id="setIntruderTry" title="Plays the intruder scene on one of your devices">Show me an intruder</button></span>
         </div>
         <label class="set-row">
           <span class="set-label">Holiday Spirit
@@ -8018,10 +8028,12 @@ async function refresh() {
     const raw = data.hosts || [];
 
     // toast on newly-appearing unknown hosts (after first load)
+    const arrivals = [];
     if (knownMacs) {
       for (const h of raw) {
         if (!knownMacs.has(h.mac) && !h.known && !h.ignored && !h.forgotten) {
           toast(`New host on <span class="mono">${esc(h.subnet)}</span>: <span class="mono">${esc(h.mac)}</span> at <span class="mono">${esc(h.ip)}</span>`);
+          arrivals.push(h);
           festiveHooks.newDevice?.(h);
           if (saverStyle.startsWith("watch")) { watchAlert(h); watchtower?.redraw(); }
         }
@@ -8042,6 +8054,8 @@ async function refresh() {
     if (wentOffIds.length || cameBack.length) { festiveHooks.netChange?.(wentOffIds, cameBack); watchtower?.event("change", { off: wentOffIds, back: cameBack }); }
     hosts = incoming;
     loadedOnce = true;
+    // To a theme with an intruder scene, each of them is an intruder.
+    for (const a of arrivals) { try { festiveHooks.intruder?.(hosts.find(x => x.id === a.id) || a); } catch (e) { console.error("theme intruder failed", e); } }
     try { feedCache = await loadFeed(); } catch { /* keep old feed */ }
     render();
     renderSwitchList();
@@ -8326,6 +8340,12 @@ $("themeToggle").onclick = (e) => {
 $("setThemeOpen").onclick = (e) => {
   e.stopPropagation();
   themeMenuOpen ? closeThemeMenu() : openThemeMenu($("setThemeOpen"));
+};
+// Over to the devices, where the scene can be seen, and an intruder for it.
+$("setIntruderTry").onclick = () => {
+  if (!festiveHooks.intruder) { toast("The intruder scene is in Harbour, Ant Farm, Model Railway, Goat and Aquarium: pick one of those, then try again."); return; }
+  showView("devices");
+  setTimeout(() => { if (!showIntruder()) toast("There's no device to borrow for the test yet."); }, 500);
 };
 document.addEventListener("click", (e) => {
   if (themeMenuOpen && !e.target.closest("#themeMenu") && e.target.id !== "themeToggle")
@@ -8625,6 +8645,89 @@ function sceneLayer(w, h) {
 }
 const easeInOut = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
+// ---- intruders ----
+// To a theme with a scene for it, a new device that hasn't been marked known is
+// an intruder: the scene raises the alarm when one turns up, then holds it, in
+// view, until it's marked known, ignored or forgotten, or its days on the New
+// tab run out. So what a scene holds is the New tab: every dashboard holds the
+// same ones, a reload doesn't lose them, and marking a device known anywhere
+// stands the scene down. Show me an intruder, in Settings, borrows a real
+// device for a test that stands down on its own.
+let intruderTest = null;           // { host, until }
+const INTRUDER_TEST_MS = 25e3;
+function intruders() {
+  const list = hosts.filter(h => isNew(h) && !h.ignored && !h.forgotten && !h.remote)
+    .sort((a, b) => String(a.firstSeen).localeCompare(String(b.firstSeen)) || a.id - b.id);
+  if (intruderTest && Date.now() >= intruderTest.until) intruderTest = null;
+  if (intruderTest && !list.some(h => h.id === intruderTest.host.id)) list.push({ ...intruderTest.host, test: true });
+  return list;
+}
+// For a scene: call it to see what it's holding now, what's been added since
+// it last looked, and what's been cleared.
+function intruderWatch() {
+  let held = new Map();
+  return () => {
+    const now = intruders();
+    const ids = new Set(now.map(h => h.id));
+    const added = now.filter(h => !held.has(h.id));
+    const cleared = [...held.values()].filter(h => !ids.has(h.id));
+    held = new Map(now.map(h => [h.id, h]));
+    return { held: now, added, cleared };
+  };
+}
+// The tag a scene hangs on an intruder, the same in every theme: what it is, in
+// the watchtower's red while it's held and green once it's cleared. x is the
+// tag's centre (or its left or right edge, by align), y its bottom. k fades it.
+function intruderText(h, state) {
+  const title = state === "cleared" ? "CLEARED · STANDING DOWN" : (h.test ? "TEST · " : "") + (state === "alarm" ? "INTRUDER ALERT" : "INTRUDER · HELD");
+  const name = nameOrIp(h);
+  let sub = [name !== h.ip ? h.ip : null, h.vendor].filter(Boolean).join("  ·  ");
+  if (sub.length > 44) sub = sub.slice(0, 43) + "…";
+  return { title, name, sub };
+}
+function intruderTag(g, x, y, h, { s = 1, align = "center", state = "held", k = 1 } = {}) {
+  if (k <= 0) return;
+  const clear = state === "cleared";
+  const { title, name, sub } = intruderText(h, state);
+  g.save();
+  g.globalAlpha *= Math.min(1, k);
+  const f1 = `700 ${9 * s}px "IBM Plex Mono", monospace`, f2 = `600 ${12 * s}px "Space Grotesk", sans-serif`, f3 = `500 ${9.5 * s}px "IBM Plex Mono", monospace`;
+  g.font = f1; const w1 = g.measureText(title).width;
+  g.font = f2; const w2 = g.measureText(name).width;
+  g.font = f3; const w3 = sub ? g.measureText(sub).width : 0;
+  const w = Math.max(w1, w2, w3) + 16 * s, hh = (sub ? 47 : 34) * s;
+  const x0 = align === "left" ? x : align === "right" ? x - w : x - w / 2, y0 = y - hh;
+  const edge = clear ? "79,224,160" : "255,77,61";
+  g.fillStyle = "rgba(10,7,9,.88)"; g.fillRect(x0, y0, w, hh);
+  g.fillStyle = `rgb(${edge})`; g.fillRect(x0, y0, 3 * s, hh);
+  g.strokeStyle = `rgba(${edge},.85)`; g.lineWidth = Math.max(1, s); g.strokeRect(x0 + .5, y0 + .5, w - 1, hh - 1);
+  g.textBaseline = "alphabetic"; g.textAlign = "left";
+  g.font = f1; g.fillStyle = clear ? "#7df0bf" : "#ff8a7e"; g.fillText(title, x0 + 9 * s, y0 + 13 * s);
+  g.font = f2; g.fillStyle = "#ffffff"; g.fillText(name, x0 + 9 * s, y0 + 28 * s);
+  if (sub) { g.font = f3; g.fillStyle = "#c9d3dd"; g.fillText(sub, x0 + 9 * s, y0 + 41 * s); }
+  g.restore();
+}
+// The same tag as an element, for a scene made of elements. Call it again with
+// the element to change its state.
+function intruderTagEl(h, state = "held", el = null) {
+  el = el || document.createElement("div");
+  const { title, name, sub } = intruderText(h, state);
+  el.className = "intruder-tag" + (state === "cleared" ? " cleared" : "");
+  el.innerHTML = `<b>${esc(title)}</b><span>${esc(name)}</span>${sub ? `<small>${esc(sub)}</small>` : ""}`;
+  return el;
+}
+// Settings → Appearance: a test intruder, on a device that isn't one already.
+function showIntruder() {
+  if (!festiveHooks.intruder) return false;
+  const pool = hosts.filter(h => !h.ignored && !h.forgotten && !h.remote && !isNew(h));
+  const h = pool.find(x => x.online && !x.known) || pool.find(x => x.online) || pool[0];
+  if (!h) return false;
+  intruderTest = { host: h, until: Date.now() + INTRUDER_TEST_MS };
+  festiveHooks.intruder({ ...h, test: true });
+  festiveTimers.push(setTimeout(() => festiveHooks.rendered?.(), INTRUDER_TEST_MS + 100));
+  return true;
+}
+
 // ---- Waterworks and Aquarium ----
 // Waterworks: water shimmering through a steel main under the header and the
 // Map's pipes (still where a device is offline), side pipes, the odd drip, a
@@ -8744,8 +8847,12 @@ function themeContext(root, switched) {
     every(fn, ms) { const t = setInterval(fn, ms); festiveTimers.push(t); return t; },
     onStop(fn) { festiveStops.push(fn); },
     // "newDevice"(host), "scanDone"(), "rendered"(), "netChange"(offIds, backIds),
-    // "decorateNode"(g, node): add SVG to a Map node as it's drawn.
+    // "decorateNode"(g, node): add SVG to a Map node as it's drawn,
+    // "intruder"(host): a new device that isn't known yet; raise the alarm.
     on(event, fn) { festiveHooks[event] = fn; },
+    // The intruders to hold (the New tab's devices), a watcher that says what
+    // changed since it last looked, and the tag to hang on one.
+    intruders, intruderWatch, intruderTag, intruderTagEl,
     hosts: () => hosts, view: () => view,
     headerBottom: () => document.querySelector("header")?.getBoundingClientRect().bottom || 60,
     // Devices that went offline since the last time this was asked.

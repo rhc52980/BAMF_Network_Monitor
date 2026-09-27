@@ -6,11 +6,17 @@
 // with the town lit along them, and a lighthouse on the breakwater sweeps the
 // sky. Along the bottom, on a quay of its own, every device is a container in
 // the stacks, its lamp green when it's online, amber when it's unknown and dark
-// when it's off; a watched device that drops blinks red. A new device is lifted
-// off the ship at the berth by the gantry crane and set down on the stacks. A
-// scan sends the tug across and the lighthouse flashes; with sound on, the
-// water laps, gulls call, the ship sounds its horn for a scan, and the harbour
-// bell rings when something drops.
+// when it's off; a watched device that drops blinks red. A scan sends the tug
+// across and the lighthouse flashes; with sound on, the water laps, gulls call,
+// the ship sounds its horn for a scan, and the harbour bell rings when
+// something drops.
+// A new device nobody has marked known is an intruder: a ship with no lights
+// and no flag. It comes in from the right, the lighthouse turns its light on
+// it, the sky flushes red and the tug goes out on patrol, its blue light
+// going. Then it's held at anchor off the breakwater, the light on it and a
+// tag on it, until the device is marked known: its lights come on, it sails
+// in, and the crane lifts its container off the ship at the berth and sets it
+// down on the stacks.
 const HB_BOXES = ["#a9432c", "#2c6a98", "#377f55", "#c98326", "#56657a", "#853a6a", "#b89a2a", "#3d7d86"];
 
 function buildHarbour(root) {
@@ -267,8 +273,34 @@ function buildHarbour(root) {
     ];
   }
   const boomY = () => 10 * S;
-  const tug = { mode: "berth", x: 0 };
+  const tug = { mode: "berth", x: 0, blueUntil: 0 };
   let beamBoost = 0, wave = -1;
+
+  // ---- intruders: ships held at anchor off the breakwater ----
+  const watchIn = intruderWatch();
+  const ships = new Map();              // id -> { h, x, alarm, clearAt }
+  let redFrom = 0;
+  const SHOW = 3, ALARM_MS = 8000;
+  // Anchored in a line to the left of the breakwater, the newest nearest it:
+  // the others move up to make room, so a ship coming in never crosses one.
+  const anchorX = k => W - 250 * S - k * 230 * S;
+  const holding = () => [...ships.values()].filter(sh => !sh.clearAt)
+    .sort((a, b) => (b.alarm || 0) - (a.alarm || 0) || String(b.h.firstSeen).localeCompare(String(a.h.firstSeen)));
+  function syncIntruders(now) {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!ships.has(h.id)) ships.set(h.id, { h, x: null, alarm: 0, clearAt: 0 });
+    for (const h of held) { const sh = ships.get(h.id); if (sh) sh.h = h; }
+    for (const h of cleared) {
+      const sh = ships.get(h.id);
+      if (!sh || sh.clearAt) continue;
+      if (calm || document.hidden) { ships.delete(h.id); continue; }
+      sh.clearAt = now;
+      // The crane brings its container ashore once it's in.
+      const index = list.findIndex(x => x.id === h.id);
+      if (index >= 0) { hidden.add(h.id); festiveTimers.push(setTimeout(() => crane.jobs.push({ h, index }), 2200)); }
+    }
+  }
+  const heldHere = id => { const sh = ships.get(id); return sh && !sh.clearAt; };
 
   function refreshList() {
     list = sceneHosts();
@@ -284,6 +316,14 @@ function buildHarbour(root) {
     else if (tug.mode === "return") { tug.x -= 45 * S * dt; if (tug.x <= yard.tugBerth) tug.mode = "berth"; }
     if (tug.mode === "berth") tug.x = yard.tugBerth;
     if (wave >= 0) { wave += dt * 26; if (wave > yard.cols + 6) wave = -1; }
+    // Ships close up only once a cleared one has sailed, so none cross it.
+    const clearing = [...ships.values()].some(sh => sh.clearAt);
+    holding().forEach((sh, k) => {
+      const tx = anchorX(Math.min(k, SHOW - 1));
+      if (sh.x == null) sh.x = tx;
+      if (!clearing || sh.alarm && now - sh.alarm < ALARM_MS) sh.x += (tx - sh.x) * Math.min(1, dt * .9);
+    });
+    for (const [id, sh] of ships) if (sh.clearAt) { sh.x -= 34 * S * dt; if (now - sh.clearAt > 5200) ships.delete(id); }
     // The crane works through its jobs one step at a time.
     if (!crane.step && crane.jobs.length) {
       const job = crane.jobs[0];
@@ -345,8 +385,73 @@ function buildHarbour(root) {
       }
     }
     ctx.fillStyle = "#fff1c2"; ctx.beginPath(); ctx.arc(lhX, lampY, 3.4 * S, 0, Math.PI * 2); ctx.fill();
+    drawIntruders(t);
 
     drawQuay(t);
+  }
+
+  // The alarm flushes the sky red for a few seconds; then each held ship sits
+  // in the lighthouse's light, its riding light blinking, with its tag.
+  function drawIntruders(t) {
+    if (!ships.size) return;
+    const red = redFrom && t - redFrom < 6500 ? (1 - (t - redFrom) / 6500) : 0;
+    if (red > 0) {
+      const pulse = .5 + .5 * Math.sin((t - redFrom) / 260);
+      const rg = ctx.createLinearGradient(0, 0, 0, horizon + 40 * S);
+      rg.addColorStop(0, `rgba(255,40,30,${(.08 + .08 * pulse) * red})`); rg.addColorStop(1, `rgba(255,40,30,${(.22 + .22 * pulse) * red})`);
+      ctx.fillStyle = rg; ctx.fillRect(0, 0, W, horizon + 40 * S);
+    }
+    const hold = holding();
+    // Held ships nobody has moved yet (with reduced motion, none move) stand at their anchors.
+    hold.forEach((sh, i) => { if (sh.x == null) sh.x = anchorX(Math.min(i, SHOW - 1)); });
+    let k = 0;
+    for (const sh of ships.values()) {
+      const shown = sh.clearAt || hold.indexOf(sh) < SHOW;
+      if (!shown) continue;
+      const y = horizon + 3 * S + Math.sin(t / 900 + (sh.h.id || 0)) * .8 * S;
+      const fade = sh.clearAt ? Math.max(0, 1 - Math.max(0, t - sh.clearAt - 2600) / 2400) : 1;
+      const alarm = sh.alarm && t - sh.alarm < ALARM_MS;
+      // The lighthouse's light on it: bright while the alarm is on, steady after.
+      const beamA = (alarm ? .42 + .18 * Math.sin(t / 180) : sh.clearAt ? .18 * fade : .2) * fade;
+      const bg = ctx.createLinearGradient(lhX, lampY, sh.x, y - 8 * S);
+      bg.addColorStop(0, `rgba(255,240,190,${beamA})`); bg.addColorStop(1, `rgba(255,240,190,${beamA * .5})`);
+      ctx.fillStyle = bg; ctx.beginPath(); ctx.moveTo(lhX, lampY - 2 * S); ctx.lineTo(sh.x - 44 * S, y - 26 * S); ctx.lineTo(sh.x - 44 * S, y + 4 * S); ctx.lineTo(lhX, lampY + 2 * S); ctx.closePath(); ctx.fill();
+      ship(sh, t, y, fade);
+      const state = sh.clearAt ? "cleared" : alarm ? "alarm" : "held";
+      const tagK = sh.clearAt ? Math.max(0, 1 - Math.max(0, t - sh.clearAt - 1800) / 1200) : 1;
+      intruderTag(ctx, sh.x, Math.max(HB + 2 + 43 * S, y - 30 * S), sh.h, { s: .9 * S, state, k: tagK });
+      k++;
+    }
+    const more = hold.length - SHOW;
+    if (more > 0) {
+      ctx.font = `600 ${10 * S}px "IBM Plex Mono", monospace`; ctx.textAlign = "right"; ctx.fillStyle = "#ff8a7e";
+      ctx.fillText(`+${more} more held`, anchorX(SHOW - 1) - 50 * S, horizon - 2 * S);
+      ctx.textAlign = "left";
+    }
+  }
+  // A long low hull with its lights out, bow to the left, the bridge aft.
+  function ship(sh, t, y, fade) {
+    const x = sh.x, lit = sh.clearAt ? Math.min(1, (t - sh.clearAt) / 700) : 0;
+    ctx.save(); ctx.globalAlpha = fade;
+    // A little bigger than the traffic on the horizon: it's nearer.
+    ctx.translate(x, y); ctx.scale(1.15, 1.15); ctx.translate(-x, -y);
+    ctx.fillStyle = "#04070b";
+    ctx.beginPath(); ctx.moveTo(x - 42 * S, y - 9 * S); ctx.lineTo(x + 40 * S, y - 9 * S); ctx.lineTo(x + 33 * S, y + 1 * S); ctx.lineTo(x - 36 * S, y + 1 * S); ctx.closePath(); ctx.fill();
+    ctx.fillRect(x - 32 * S, y - 14 * S, 44 * S, 5 * S);
+    ctx.fillRect(x + 16 * S, y - 22 * S, 16 * S, 13 * S);
+    ctx.fillRect(x + 23 * S, y - 31 * S, 1.6 * S, 9 * S);
+    // Its edge catching the light, so it reads against the dark water.
+    ctx.fillStyle = "rgba(255,236,190,.35)"; ctx.fillRect(x - 42 * S, y - 9.5 * S, 82 * S, .9 * S);
+    if (lit > 0) {
+      ctx.fillStyle = `rgba(255,214,140,${.9 * lit})`;
+      for (let w = 0; w < 3; w++) ctx.fillRect(x + 18.5 * S + w * 4.4 * S, y - 19 * S, 2.6 * S, 2.2 * S);
+      for (let w = 0; w < 6; w++) ctx.fillRect(x - 34 * S + w * 9 * S, y - 7 * S, 2 * S, 1.6 * S);
+    } else if (Math.sin(t / 380) > 0) {
+      // Its only light: red at the masthead.
+      ctx.fillStyle = "rgba(255,70,55,.35)"; ctx.beginPath(); ctx.arc(x + 23.8 * S, y - 32 * S, 4.5 * S, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ff5a48"; ctx.beginPath(); ctx.arc(x + 23.8 * S, y - 32 * S, 1.6 * S, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
   }
 
   function drawQuay(t) {
@@ -367,7 +472,7 @@ function buildHarbour(root) {
     }
     // The containers, one a device.
     list.forEach((h, i) => {
-      if (hidden.has(h.id)) return;
+      if (hidden.has(h.id) || heldHere(h.id)) return;
       const s = y.slot(i), st = sceneState(h);
       const alarm = h.watched && !h.online && (flashUntil[h.id] || 0) > t;
       const lamp = alarm ? (Math.sin(t / 160) > 0 ? "alarm" : "off") : st;
@@ -429,6 +534,15 @@ function buildHarbour(root) {
       g.fillStyle = "#ffd98a"; g.fillRect(x - 4 * S, yy - 13 * S, 3 * S, 2.4 * S); g.fillRect(x + 1 * S, yy - 13 * S, 3 * S, 2.4 * S);
       g.fillStyle = "#1b1f25"; g.fillRect(x + 7 * S, yy - 19 * S, 4 * S, 7 * S);
       reflect(g, x, water + 4 * S, "255,217,138", .35, t, 6);
+      if (tug.blueUntil > t) {
+        const on = Math.sin(t / 110) > 0;
+        if (on) {
+          const bl = g.createRadialGradient(x, yy - 18 * S, 0, x, yy - 18 * S, 16 * S);
+          bl.addColorStop(0, "rgba(110,170,255,.75)"); bl.addColorStop(1, "rgba(110,170,255,0)");
+          g.fillStyle = bl; g.fillRect(x - 16 * S, yy - 34 * S, 32 * S, 32 * S);
+        }
+        g.fillStyle = on ? "#a9cdff" : "#1c3456"; g.fillRect(x - 2.5 * S, yy - 19 * S, 5 * S, 3 * S);
+      }
       for (let k = 0; k < (moving ? 4 : 2); k++) {
         const age = ((t / (moving ? 600 : 1400) + k * .25) % 1);
         g.fillStyle = `rgba(200,205,215,${.35 * (1 - age)})`; g.beginPath(); g.arc(x + 9 * S + age * 20 * S, yy - 21 * S - age * 12 * S, (2 + age * 4) * S, 0, Math.PI * 2); g.fill();
@@ -446,19 +560,30 @@ function buildHarbour(root) {
   }
 
   refreshList();
-  festiveHooks.rendered = () => { const n = list.length; refreshList(); if (calm && n !== list.length) draw(0); };
-  if (calm) { draw(0); return; }
-  c.start();
-
-  // A new device: the crane brings it ashore. Until it's set down, its slot is empty.
-  festiveHooks.newDevice = h => {
+  syncIntruders(performance.now());
+  festiveHooks.rendered = () => {
+    const n = list.length, m = ships.size;
+    refreshList(); syncIntruders(performance.now());
+    if (calm && (n !== list.length || m !== ships.size)) draw(0);
+  };
+  // An intruder: it comes in from the right with the alarm going.
+  festiveHooks.intruder = h => {
     if (!h) return;
     refreshList();
-    const index = list.findIndex(x => x.id === h.id);
-    if (index < 0 || document.hidden) return;
-    hidden.add(h.id);
-    crane.jobs.push({ h, index });
+    const now = performance.now();
+    syncIntruders(now);
+    let sh = ships.get(h.id);
+    if (!sh) { sh = { h, x: null, alarm: 0, clearAt: 0 }; ships.set(h.id, sh); }
+    if (calm) { draw(0); return; }
+    if (document.hidden) return;
+    Object.assign(sh, { x: W + 70 * S, alarm: now, clearAt: 0 });
+    redFrom = now; beamBoost = 1;
+    tug.blueUntil = now + 14000;
+    if (tug.mode === "berth") tug.mode = "out";
+    if (soundOn()) { shipHorn(1); festiveTimers.push(setTimeout(harbourBell, 1500)); }
   };
+  if (calm) { draw(0); return; }
+  c.start();
   // A scan: the tug crosses, the lighthouse flares, and a ripple of lamps runs the yard.
   festiveHooks.scanDone = () => {
     if (document.hidden) return;

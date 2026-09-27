@@ -13,10 +13,19 @@
 // A watched device going down puts its station's exit signal to red, and the
 // train waits in the platform until it's back; any device dropping off
 // holds it for a moment. A finished scan has every train whistle and put on
-// speed, and a new device is a wagon coupled on.
+// speed.
+// A new device nobody has marked known is an intruder: an unscheduled engine,
+// black, no livery, no number. Every signal snaps to red and the trains on the
+// main line brake hard, sparks at the wheels, as it comes along the main line
+// the wrong way; the points throw, the crossing lights flash, and it's shunted
+// into the siding, where it waits against the buffers, tagged, until the
+// device is marked known. Then it's given a livery, whistles, and pulls out,
+// and its wagon is coupled on to its network's train.
 function buildRailway(root) {
   const calm = calmMotion();
   const TAU = Math.PI * 2;
+  const soundOn = themeSoundButton("bamf-railway-sound", "Railway sounds on: click to mute",
+    "Railway sounds off: click for the whistles and the crossing bell", on => { if (on) railWhistle(); });
 
   // The stations come from the networks, which arrive with the first list of
   // devices; a theme chosen before then is laid out again when they do.
@@ -68,6 +77,21 @@ function buildRailway(root) {
     return { net, x0: cx - PL / 2, x1: cx + PL / 2, sig: RAMP * .5 + cx + PL / 2, held: false, holdUntil: 0 };
   });
   const smooth = u => u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
+  // The siding for intruders: off the main line where there's most room
+  // between the stations, the points at its right-hand end, buffers at the left.
+  const SID = 170 * S;
+  const siding = (() => {
+    const gaps = [];
+    let prev = 8 * S;
+    for (const st of [...stations].sort((a, b) => a.x0 - b.x0)) { gaps.push([prev, st.x0 - RAMP - 10 * S]); prev = st.sig + 24 * S; }
+    gaps.push([prev, W - 8 * S]);
+    const [a, b] = gaps.sort((p, q) => (q[1] - q[0]) - (p[1] - p[0]))[0];
+    if (b - a < SID) return null;
+    const mid = (a + b) / 2;
+    return { x0: mid - SID / 2, x1: mid + SID / 2 };
+  })();
+  const sidUp = x => siding ? smooth((siding.x1 - x) / RAMP) : 0;
+  const sidY = x => MY - (MY - LY) * sidUp(x);
   const loopUp = (st, x) => st ? smooth((x - (st.x0 - RAMP)) / RAMP) * smooth((st.x1 + RAMP - x) / RAMP) : 0;
   const red = (st, now) => st.held || now < st.holdUntil;
 
@@ -200,6 +224,16 @@ function buildRailway(root) {
       bc.fillStyle = "#26272b"; bc.fillRect(st.sig - 1, LY - 42 * S, 2.4, 42 * S);
       bc.fillRect(st.sig - 3.5, LY - 50 * S, 7, 14 * S);
     }
+    if (siding) {
+      track(bc, siding.x0, siding.x1, sidY);
+      // The buffer stop: a beam, red and white, on two posts.
+      const bx = siding.x0 - 2 * S, by = LY;
+      bc.fillStyle = "#3a3d44"; bc.fillRect(bx - 1, by - 12 * S, 2.4, 12 * S); bc.fillRect(bx + 5 * S, by - 9 * S, 2.4, 9 * S);
+      bc.fillStyle = "#c9463d"; bc.fillRect(bx - 3 * S, by - 14 * S, 6 * S, 5 * S);
+      bc.fillStyle = "#f2ecd8"; bc.fillRect(bx - 3 * S, by - 12.5 * S, 6 * S, 1.6 * S);
+      // The crossing lights at the points.
+      bc.fillStyle = "#26272b"; bc.fillRect(siding.x1 + 10 * S, MY - 34 * S, 2.4, 30 * S); bc.fillRect(siding.x1 + 3 * S, MY - 36 * S, 16 * S, 4 * S);
+    }
     track(bc, -10, W + 10, () => MY);
     // The line along the top, from edge to edge.
     bc.strokeStyle = "#8a8f94"; bc.lineWidth = 1.2;
@@ -209,6 +243,32 @@ function buildRailway(root) {
   }
 
   // ---- The trains ----
+  // ---- intruders: rogue engines, shunted into the siding ----
+  const watchIn = intruderWatch();
+  const rogues = new Map();             // id -> { h, x, v, phase: "in" | "held" | "out", alarm, clearAt, slot }
+  const ALARM_MS = 9000, ROGUE = 52 * S;
+  let emergency = 0, sparks = [];
+  const ROGUE_LIV = { body: "#16171a", trim: "#2f3136" };
+  const heldRogues = () => [...rogues.values()].filter(r => r.phase !== "out").sort((a, b) => (a.alarm || 0) - (b.alarm || 0));
+  // Where it stands in the siding: the first against the buffers, the next behind it.
+  const slotX = k => siding ? siding.x0 + 25 * S + k * ROGUE : W * .5 + k * ROGUE;
+  function syncIntruders(now) {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!rogues.has(h.id)) rogues.set(h.id, { h, x: null, v: 0, phase: "held", alarm: 0, clearAt: 0 });
+    for (const h of held) { const r = rogues.get(h.id); if (r) r.h = h; }
+    for (const h of cleared) {
+      const r = rogues.get(h.id); if (!r || r.clearAt) continue;
+      if (calm || document.hidden) { rogues.delete(h.id); continue; }
+      // It pulls out if nothing stands between it and the points; if one
+      // does, it's given its livery and taken off where it stands.
+      const blocked = [...rogues.values()].some(o => o !== r && o.phase !== "out" && o.x != null && r.x != null && o.x > r.x);
+      Object.assign(r, { clearAt: now, phase: "out", v: 0, stay: blocked });
+      // Its network's train gets the new wagon.
+      const t = trains.find(o => o.st && o.st.net === h.subnet);
+      if (t) festiveTimers.push(setTimeout(() => { t.glow = 1.6; }, 3500));
+    }
+  }
+
   const trains = stations.map((st, i) => ({ st, liv: LIVERY[i % 4], devs: [], vans: 0, line: "queue", x: 0, v: 0, dwell: 0, done: false, dist: 0, boost: 0, glow: 0 }));
   if (trains.length === 1) trains.push({ st: null, liv: LIVERY[3], devs: [], vans: 5, goods: true, line: "queue", x: 0, v: 0, dwell: 0, done: false, dist: 0, boost: 0, glow: 0 });
   const units = t => 46 + 3 + 20 + t.vans * 33;
@@ -261,7 +321,12 @@ function buildRailway(root) {
           const gap = extent(o)[0] - t.x;
           if (gap > 0 && gap < 60 * S) limit = Math.min(limit, gap < 14 * S ? 0 : o.v);
         }
-        t.v = t.v < limit ? Math.min(limit, t.v + 60 * S * dt) : Math.max(limit, t.v - 90 * S * dt);
+        // An intruder on the line: everything brakes hard.
+        if (now < emergency) {
+          limit = 0;
+          if (t.v > 8 && Math.random() < dt * 30) sparks.push({ x: t.x - rnd(0, units(t)) * S, y: MY - 2 * S, vx: rnd(-40, 40), vy: -rnd(30, 70), life: rnd(.2, .45) });
+        }
+        t.v = t.v < limit ? Math.min(limit, t.v + 60 * S * dt) : Math.max(limit, t.v - (now < emergency ? 170 : 90) * S * dt);
         t.x += t.v * dt;
         t.dist += t.v * dt;
         if (t.dist > 16) { t.dist = 0; if (t.v > 5) puff(t, 1); }
@@ -273,6 +338,28 @@ function buildRailway(root) {
         if (extent(t)[1] < -20) t.line = "queue";
       }
     }
+    heldRogues().forEach((r, k) => {
+      const target = slotX(Math.min(k, 1));
+      if (r.x == null) r.x = target;
+      if (r.phase === "in") {
+        // Fast along the main line the wrong way, braking into the siding.
+        const left = r.x - target;
+        r.v = Math.min(190 * S, Math.max(20 * S, Math.sqrt(2 * 120 * S * Math.max(0, left))));
+        r.x -= r.v * dt;
+        r.dist = (r.dist || 0) + r.v * dt;
+        if (r.dist > 14) { r.dist = 0; puffs.push({ x: r.x + 4.5 * S, y: sidY(r.x) - 29 * S, r: 2.5 * S, sc: 1, life: 1, vx: rnd(-6, 6), vy: -rnd(10, 18) * S }); }
+        if (r.x <= target) { r.x = target; r.phase = "held"; }
+      } else r.x += (target - r.x) * Math.min(1, dt * 2);
+    });
+    for (const [id, r] of rogues) if (r.phase === "out") {
+      // Given a livery, it pulls out to the right and away.
+      if (r.stay) { if (now - r.clearAt > 3600) rogues.delete(id); continue; }
+      if (now - r.clearAt > 1200) { r.v = Math.min(110 * S, r.v + 50 * S * dt); r.x += r.v * dt; }
+      r.dist = (r.dist || 0) + r.v * dt;
+      if (r.dist > 16) { r.dist = 0; puffs.push({ x: r.x - 4.5 * S, y: sidY(r.x) - 29 * S, r: 2.5 * S, sc: 1, life: 1, vx: rnd(-6, 6), vy: -rnd(10, 18) * S }); }
+      if (r.x > W + 80 * S) rogues.delete(id);
+    }
+    for (let i = sparks.length - 1; i >= 0; i--) { const p = sparks[i]; p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; if (p.life <= 0) sparks.splice(i, 1); }
     for (let i = puffs.length - 1; i >= 0; i--) {
       const p = puffs[i];
       p.life -= dt / 1.5; p.x += p.vx * dt; p.y += p.vy * dt; p.r += 7 * S * dt * p.sc;
@@ -328,13 +415,83 @@ function buildRailway(root) {
       fr.fillStyle = `rgba(236, 236, 232, ${(p.life * .55).toFixed(2)})`;
       fr.beginPath(); fr.arc(p.x, p.y, p.r, 0, TAU); fr.fill();
     }
+    drawRogues(now || 0);
+  }
+  // The rogues, the crossing lights flashing while one's coming in, the sparks
+  // off braking wheels, and each rogue's tag beside the siding.
+  function drawRogues(now) {
+    for (const p of sparks) { fr.fillStyle = `rgba(255, 210, 90, ${Math.min(1, p.life * 3).toFixed(2)})`; fr.fillRect(p.x, p.y, 1.8 * S, 1.8 * S); }
+    if (!rogues.size && now >= emergency) return;
+    const busy = now < emergency || [...rogues.values()].some(r => r.phase === "in");
+    if (siding) {
+      // Crossing lights at the points: alternating red while it's coming in.
+      const on = Math.sin(now / 200) > 0;
+      for (const [dx, lit] of [[5 * S, busy && on], [17 * S, busy && !on]]) {
+        const lx = siding.x1 + dx, ly = MY - 38 * S;
+        if (lit) { fr.fillStyle = "rgba(255, 60, 45, .45)"; fr.beginPath(); fr.arc(lx, ly, 6 * S, 0, TAU); fr.fill(); }
+        fr.fillStyle = lit ? "#ff3b2e" : "#4a1c18"; fr.beginPath(); fr.arc(lx, ly, 2.4 * S, 0, TAU); fr.fill();
+      }
+    }
+    const held = heldRogues();
+    // Held engines nobody has moved yet (with reduced motion, none move) stand in the siding.
+    held.forEach((r, i) => { if (r.x == null) r.x = slotX(Math.min(i, 1)); });
+    for (const r of rogues.values()) {
+      if (r.x == null) continue;
+      const shown = r.phase === "out" || held.indexOf(r) < 2;
+      if (!shown) continue;
+      const y = siding ? sidY(r.x) : TY;
+      const sc = siding ? S : TOP * S;
+      const k = r.clearAt ? Math.min(1, (now - r.clearAt) / 900) : 0;
+      const liv = k > 0 ? LIVERY[(sceneHash(r.h.mac || r.h.id) % LIVERY.length)] : ROGUE_LIV;
+      fr.save(); fr.translate(r.x, y); fr.scale(r.phase === "out" && !r.stay ? sc : -sc, sc);
+      if (k > 0 && k < 1) fr.globalAlpha = .4 + .6 * k;
+      if (r.stay) fr.globalAlpha = Math.max(0, Math.min(1, 1 - (now - r.clearAt - 2000) / 1500));
+      loco(fr, liv, r.x / 5);
+      fr.restore();
+      // A red lamp on the front while it's held.
+      if (r.phase !== "out" && Math.sin(now / 350) > 0) {
+        const lx = r.x - 24 * sc, ly = y - 9 * sc;
+        fr.fillStyle = "rgba(255, 70, 55, .45)"; fr.beginPath(); fr.arc(lx, ly, 5 * sc, 0, TAU); fr.fill();
+        fr.fillStyle = "#ff4d3d"; fr.beginPath(); fr.arc(lx, ly, 1.8 * sc, 0, TAU); fr.fill();
+      }
+    }
+    // Tags: beside the siding, to the left of the buffers if there's room.
+    const tagged = [...rogues.values()].filter(r => r.x != null && (r.phase === "out" || held.indexOf(r) < 2)).slice(0, 2);
+    tagged.forEach((r, n) => {
+      const state = r.clearAt ? "cleared" : r.alarm && now - r.alarm < ALARM_MS ? "alarm" : "held";
+      const fade = r.clearAt ? Math.max(0, 1 - Math.max(0, now - r.clearAt - 2200) / 1200) : 1;
+      const s2 = .8 * S, left = siding ? siding.x0 - 16 * S : r.x - 40 * S, roomLeft = left - 250 * s2 > 8 * S;
+      const x = roomLeft ? left - n * 4 * S : (siding ? siding.x1 + 30 * S : r.x + 40 * S);
+      intruderTag(fr, x, H - 4 * S - n * 44 * s2, r.h, { s: s2, align: roomLeft ? "right" : "left", state, k: fade });
+    });
+    const more = held.length - 2;
+    if (more > 0 && siding) {
+      fr.font = `600 ${9 * S}px "IBM Plex Mono", monospace`; fr.textAlign = "left"; fr.fillStyle = "#ff8a7e"; fr.textBaseline = "alphabetic";
+      fr.fillText(`+${more} more held`, siding.x0 + 2 * S, LY - 34 * S);
+    }
   }
 
   festiveHooks.rendered = () => {
     // Networks known at last, or changed: lay the railway out again for them.
     if (netsNow().join("|") !== builtFor) { setTimeout(() => { if (festiveTheme === "railway") festive("railway"); }); return; }
     recount();
+    syncIntruders(performance.now());
     if (calm) { park(); draw(0); }
+  };
+  syncIntruders(performance.now());
+  // An intruder: signals to red, brakes on, and the rogue shunted into the siding.
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    const now = performance.now();
+    syncIntruders(now);
+    let r = rogues.get(h.id);
+    if (!r) { r = { h, x: null, v: 0, phase: "held", alarm: 0, clearAt: 0 }; rogues.set(h.id, r); }
+    if (calm) { draw(0); return; }
+    if (document.hidden) return;
+    Object.assign(r, { x: W + 60 * S, v: 190 * S, phase: "in", alarm: now, clearAt: 0, dist: 0 });
+    emergency = now + 6000;
+    for (const st of stations) st.holdUntil = Math.max(st.holdUntil, now + ALARM_MS);
+    if (soundOn()) { railWhistle(true); festiveTimers.push(setTimeout(() => crossingBell(8), 600)); }
   };
   // Standing at their stations, for a still picture.
   function park() {
@@ -357,10 +514,7 @@ function buildRailway(root) {
   festiveHooks.scanDone = () => {
     if (document.hidden) return;
     for (const t of trains) { t.boost = 3; if (t.line !== "queue") for (let k = 0; k < 5; k++) setTimeout(() => puff(t, 1.6), k * 90); }
-  };
-  festiveHooks.newDevice = h => {
-    const t = trains.find(o => o.st && h && o.st.net === h.subnet);
-    if (t) t.glow = 1.6;
+    if (soundOn()) railWhistle();
   };
   festiveHooks.netChange = (wentOff) => {
     const now = performance.now();
@@ -370,6 +524,32 @@ function buildRailway(root) {
       if (st) st.holdUntil = now + 20000;
     }
   };
+}
+
+// ---- The railway's sounds, made in the browser. Off unless switched on. ----
+// A steam whistle: three pipes together, breathy, rising in and dying away.
+// Urgent is two short blasts and a long one.
+function railWhistle(urgent = false) {
+  const ctx = waterCtx(); if (!ctx) return;
+  const blasts = urgent ? [[0, .22], [.34, .22], [.68, .9]] : [[0, .7]];
+  for (const [at, len] of blasts) {
+    const t = ctx.currentTime + .02 + at, g = ctx.createGain(), bp = ctx.createBiquadFilter();
+    bp.type = "bandpass"; bp.frequency.value = 900; bp.Q.value = .8;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.05, t + .06); g.gain.setValueAtTime(.05, t + len); g.gain.exponentialRampToValueAtTime(.001, t + len + .25);
+    for (const hz of [587, 740, 880]) { const o = ctx.createOscillator(); o.type = "triangle"; o.frequency.setValueAtTime(hz * .96, t); o.frequency.linearRampToValueAtTime(hz, t + .08); o.connect(bp); o.start(t); o.stop(t + len + .3); }
+    const n = ctx.createBufferSource(), ng = ctx.createGain(); n.buffer = noiseBuffer(ctx, len + .3, false); ng.gain.value = .012; n.connect(ng).connect(bp); n.start(t); n.stop(t + len + .3);
+    bp.connect(g).connect(ctx.destination);
+  }
+}
+// The crossing bell: a quick, bright ding, over and over.
+function crossingBell(times = 6) {
+  const ctx = waterCtx(); if (!ctx) return;
+  for (let k = 0; k < times; k++) {
+    const t = ctx.currentTime + .02 + k * .42, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "sine"; o.frequency.value = 1380;
+    g.gain.setValueAtTime(.05, t); g.gain.exponentialRampToValueAtTime(.001, t + .35);
+    o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + .38);
+  }
 }
 
 BAMF.registerTheme("railway", ctx => buildRailway(ctx.root, ctx.switched));
