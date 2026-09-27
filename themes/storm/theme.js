@@ -73,6 +73,17 @@ function stormMapDeco(g, n) {
   if (n.type === "dev") g.insertBefore(svgEl("path", { class: "t-drip", d: "M0 17c-2 3-3 4.5-3 6a3 3 0 0 0 6 0c0-1.5-1-3-3-6z" }), g.querySelector(".t-watch"));
 }
 
+// A new device nobody has marked known is an intruder: a stranger out in the
+// storm. Lightning strikes where it stands, the sky flares red and the thunder
+// rolls; it stands there along the bottom, smouldering, eyes lit under its
+// hood, tagged, until the device is marked known. Then it turns away into the
+// rain, and a bolt goes off for the new arrival.
+const STRANGER = `<svg viewBox="0 0 48 96" width="48"><path fill="#0b1016" stroke="rgba(255, 110, 80, .85)" stroke-width="1"
+  d="M24 4C14 4 9 12 9 22L8 34C6 38 4 50 4 62L2 94H46L44 62C44 50 42 38 40 34L39 22C39 12 34 4 24 4z"/>
+  <path d="M24 60V94" stroke="rgba(255, 110, 80, .35)" stroke-width="1"/>
+  <ellipse cx="24" cy="22" rx="8" ry="9.5" fill="#030507"/>
+  <circle class="st-eye" cx="21" cy="22" r="1.4" fill="#ff4a3a"/><circle class="st-eye" cx="27" cy="22" r="1.4" fill="#ff4a3a"/></svg>`;
+
 function buildStorm(root) {
   festiveHooks.decorateNode = stormMapDeco;
   const calm = calmMotion();
@@ -119,6 +130,72 @@ function buildStorm(root) {
   const MAX = Math.round(Math.min(520, W * H / 2600));
   const drop = () => ({ x: rnd(-W * .2, W * 1.1), y: rnd(-H, 0), len: rnd(10, 22), v: rnd(11, 17) });
   const drops = Array.from({ length: MAX }, drop);
+
+  // ---- intruders: strangers out in the storm ----
+  const watchIn = intruderWatch();
+  const strangers = new Map();          // id -> { h, el, tag, alarm, gone }
+  const room = document.createElement("div");
+  room.setAttribute("aria-hidden", "true");
+  document.body.appendChild(room);
+  festiveStops.push(() => room.remove());
+  let strikeAt = null;                  // set once the lightning's ready
+  const slotX = k => Math.round(W < 700 ? W * .62 : W * .74 - k * 250);
+  // One stood down keeps its place until it has gone, so none lands on it.
+  const standing = () => [...strangers.values()].sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  const makeStranger = h => {
+    const el = document.createElement("div");
+    el.className = "st-stranger";
+    el.innerHTML = `<div class="st-scorch"></div><svg class="st-zap" viewBox="0 0 40 260" width="40" height="260"><path d="M24 0L14 52 28 70 10 128 26 150 16 214 21 260"/></svg>${STRANGER}<i class="st-smoke"></i><i class="st-smoke"></i><i class="st-smoke"></i>`;
+    const tag = intruderTagEl(h, "held");
+    el.appendChild(tag);
+    root.appendChild(el);
+    const s = { h, el, tag, alarm: 0, gone: false };
+    strangers.set(h.id, s);
+    return s;
+  };
+  const settle = () => {
+    const list = standing();
+    room.style.height = list.some(s => !s.gone) ? "108px" : "0";
+    list.forEach((s, k) => {
+      s.el.hidden = k > (W < 700 ? 0 : 1);
+      s.el.style.left = slotX(k) + "px";
+    });
+  };
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!strangers.has(h.id)) makeStranger(h);
+    for (const h of held) { const s = strangers.get(h.id); if (s && !s.gone) { s.h = h; if (!s.alarm || Date.now() - s.alarm > 9000) intruderTagEl(h, "held", s.tag); } }
+    for (const h of cleared) {
+      const s = strangers.get(h.id); if (!s || s.gone) continue;
+      s.gone = true;
+      const done = () => { s.el.remove(); strangers.delete(h.id); settle(); };
+      if (calm || document.hidden) { done(); continue; }
+      // Stood down: it turns away into the rain, and a bolt goes off for the device.
+      intruderTagEl(s.h, "cleared", s.tag);
+      festiveTimers.push(setTimeout(() => s.el.classList.add("gone"), 2200));
+      festiveTimers.push(setTimeout(() => { done(); if (!h.test) strikeAt?.(rnd(W * .55, W * .9)); }, 4000));
+    }
+    settle();
+  }
+  let redUntil = 0;
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    const s = strangers.get(h.id) || makeStranger(h);
+    if (calm || document.hidden) { settle(); return; }
+    s.alarm = Date.now();
+    intruderTagEl(h, "alarm", s.tag);
+    settle();
+    // The lightning finds it: a strike to the ground where it stands, the sky red.
+    s.el.classList.remove("struck"); void s.el.offsetWidth; s.el.classList.add("struck");
+    strikeAt?.(slotX(0), H - 20);
+    redUntil = Date.now() + 9000;
+    bg.classList.add("st-red");
+    festiveTimers.push(setTimeout(() => { if (Date.now() >= redUntil - 50) bg.classList.remove("st-red"); }, 9000));
+    festiveTimers.push(setTimeout(() => { if (!s.gone) intruderTagEl(s.h, "held", s.tag); }, 9000));
+  };
+  festiveHooks.rendered = syncIntruders;
+  syncIntruders();
   let wind = -1.5, windTo = -1.5;
   const splashes = [];
   let bolt = null;
@@ -152,16 +229,17 @@ function buildStorm(root) {
     pts.push([x2, y2]);
     return pts;
   };
-  const strike = (atX) => {
+  // To a spot on the ground, if it's given one.
+  const strike = (atX, toY) => {
     if (document.hidden) return;
-    const x = atX ?? rnd(W * .08, W * .92), end = rnd(H * .35, H * .7);
-    const main = jag(x, -10, x + rnd(-120, 120), end, 34);
+    const x = atX ?? rnd(W * .08, W * .92), end = toY ?? rnd(H * .35, H * .7);
+    const main = jag(toY ? x + rnd(-160, 160) : x, -10, toY ? x : x + rnd(-120, 120), end, 34);
     const forks = [];
     for (let f = 0; f < 1 + Math.floor(Math.random() * 2); f++) {
       const from = main[3 + Math.floor(Math.random() * (main.length - 6))];
       forks.push(jag(from[0], from[1], from[0] + rnd(-160, 160), from[1] + rnd(60, 180), 22));
     }
-    bolt = { paths: [main, ...forks], born: performance.now() };
+    bolt = { paths: [main, ...forks], born: performance.now(), hold: toY ? 900 : 0 };
     // One soft brightening of the sky, never a white screen.
     flash.classList.remove("on"); void flash.offsetWidth; flash.classList.add("on");
     // Thunder follows, later the further away it struck.
@@ -174,6 +252,7 @@ function buildStorm(root) {
     }, delay));
   };
   // Lightning every 20-60 s in a light storm, more often in a heavy one; never under 20 s.
+  strikeAt = strike;
   const nextStrike = () => festiveTimers.push(setTimeout(() => { strike(); nextStrike(); },
     Math.max(20e3, rnd(20e3, 60e3) * (1.45 - intensity))));
   nextStrike();
@@ -213,10 +292,12 @@ function buildStorm(root) {
     }
     if (bolt) {
       const age = now - bolt.born;
-      if (age > 450) bolt = null;
+      if (age > 450 + bolt.hold) bolt = null;
       else {
         ctx.save();
-        ctx.globalAlpha = age < 90 ? 1 : 1 - (age - 90) / 360;
+        // One that finds an intruder stays lit a moment, flickering.
+        const a = age - bolt.hold;
+        ctx.globalAlpha = age < bolt.hold ? (Math.floor(age / 70) % 3 ? 1 : .35) : a < 90 ? 1 : 1 - (a - 90) / 360;
         ctx.shadowColor = "#9fd8ff"; ctx.shadowBlur = 18;
         bolt.paths.forEach((pts, i) => {
           ctx.strokeStyle = i ? "rgba(220, 240, 255, .7)" : "#f2faff";
@@ -242,7 +323,6 @@ function buildStorm(root) {
     festiveTimers.push(setTimeout(() => c.classList.remove("st-spark"), 1300));
   }, 9000));
 
-  festiveHooks.newDevice = () => strike(rnd(W * .55, W * .9));
   // As devices come back, the storm eases again.
   festiveHooks.netChange = (off, back) => {
     off.forEach(id => down.add(id));
@@ -252,6 +332,7 @@ function buildStorm(root) {
   };
   // Rows whose device just went offline flicker like a power cut.
   festiveHooks.rendered = () => {
+    syncIntruders();
     for (const id of wentOffIds) {
       const tr = document.querySelector(`tr[data-id="${id}"]`);
       if (!tr) continue;

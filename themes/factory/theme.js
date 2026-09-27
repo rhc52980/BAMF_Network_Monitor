@@ -218,7 +218,8 @@ function buildFactory(root, switched, night) {
   const beacon = document.createElement("div");
   beacon.className = "fac-beacon";
   line.appendChild(beacon);
-  const inBay = () => [...parts.values()].filter(p => !p.gone).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  // One stood down keeps its place until it has gone, so none lands on it.
+  const inBay = () => [...parts.values()].sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
   const makePart = h => {
     const el = document.createElement("div");
     el.className = "fac-part";
@@ -232,7 +233,7 @@ function buildFactory(root, switched, night) {
   const settle = () => {
     const list = inBay();
     bay.hidden = !list.length;
-    room.style.height = list.length ? "150px" : "0";
+    room.style.height = list.some(q => !q.gone) ? "150px" : "0";
     list.forEach((p, k) => {
       if (p.moving) return;
       if (p.el.parentNode !== bay) { p.el.style.cssText = ""; bay.appendChild(p.el); }

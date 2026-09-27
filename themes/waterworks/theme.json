@@ -2,6 +2,6 @@
   "name": "Waterworks",
   "swatch": ["#1c232b", "#39b6ff", "#e8483b"],
   "category": "animated",
-  "description": "Pipes, valves and gauges, with water pulsing to every device.",
+  "description": "Pipes, valves and gauges, with water pulsing to every device. An unknown new device is a leak: the pressure alarm, then its valve locked out.",
   "author": "BAMF"
 }

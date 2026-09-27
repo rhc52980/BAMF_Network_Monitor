@@ -164,6 +164,44 @@ function reliefSound() {
   src.connect(f).connect(g).connect(ctx.destination); src.start(t); src.stop(t + .7);
 }
 
+// The pressure alarm: a two-tone klaxon.
+function alarmSound() {
+  const ctx = waterCtx(); if (!ctx) return;
+  const t = ctx.currentTime + .01, o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  o.type = "square";
+  for (let i = 0; i < 6; i++) o.frequency.setValueAtTime(i % 2 ? 620 : 830, t + i * .22);
+  f.type = "lowpass"; f.frequency.value = 2400;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.07, t + .02); g.gain.setValueAtTime(.07, t + 1.28); g.gain.linearRampToValueAtTime(0, t + 1.34);
+  o.connect(f).connect(g).connect(ctx.destination); o.start(t); o.stop(t + 1.36);
+}
+
+// A new device nobody has marked known is an intruder: a leak. The main under
+// the header bursts, the pressure alarm sounds, every gauge slams into the red
+// and the pipes shudder; then a section of pipe along the bottom is isolated,
+// its valve shut, chained and padlocked with a red DO NOT OPEN tag, still
+// dripping, and tagged, until the device is marked known. Then the lock comes
+// off, the wheel spins open, and the valve on the main opens for the device.
+const WW_LOCKOUT = `<svg viewBox="0 0 200 104" width="200" height="104">
+  <rect x="0" y="62" width="200" height="22" fill="#5d6b79" stroke="#3d4854" stroke-width="1.5"/>
+  <rect x="0" y="65" width="200" height="4" fill="#8795a3" opacity=".6"/>
+  <rect x="62" y="56" width="8" height="34" rx="1" fill="#7d8b99" stroke="#3d4854"/><rect x="130" y="56" width="8" height="34" rx="1" fill="#7d8b99" stroke="#3d4854"/>
+  <rect x="84" y="50" width="32" height="44" rx="4" fill="#5d6b79" stroke="#3d4854" stroke-width="1.5"/>
+  <rect x="97" y="26" width="6" height="26" fill="#9aa8b6"/>
+  <g class="ww-lwheel" transform="translate(100 20)"><g><circle r="15" fill="none" stroke="#e8483b" stroke-width="4"/>
+    <path d="M0 -15V15M-15 0H15M-10.5 -10.5L10.5 10.5M-10.5 10.5L10.5 -10.5" stroke="#e8483b" stroke-width="2.2"/><circle r="4" fill="#b8352b"/></g></g>
+  <g class="ww-lock">
+    <path d="M88 10q12 10 24 0" fill="none" stroke="#c9d3dd" stroke-width="2" stroke-dasharray="3 2"/>
+    <path d="M113 24v-5a5 5 0 0 1 10 0v5" fill="none" stroke="#c9d3dd" stroke-width="2.4"/>
+    <rect x="110" y="23" width="16" height="13" rx="2" fill="#f2c230" stroke="#8a6a10"/><circle cx="118" cy="29" r="1.8" fill="#5a4308"/>
+    <g class="ww-dtag"><path d="M118 36v6" stroke="#c9d3dd" stroke-width="1.4"/>
+      <rect x="106" y="42" width="26" height="36" rx="2" fill="#e8483b" stroke="#8a1f16"/><circle cx="119" cy="46" r="1.8" fill="#8a1f16"/>
+      <rect x="106" y="50" width="26" height="9" fill="#fff"/>
+      <text x="119" y="57" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-weight="700" font-size="6" fill="#8a1f16">DANGER</text>
+      <text x="119" y="67" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-weight="700" font-size="4.6" fill="#fff">DO NOT</text>
+      <text x="119" y="73" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-weight="700" font-size="4.6" fill="#fff">OPEN</text></g></g>
+  <circle class="ww-ldrop" cx="40" cy="86" r="2.6"/><circle class="ww-ldrop" cx="160" cy="86" r="2.6" style="animation-delay:1.1s"/>
+  <ellipse cx="100" cy="100" rx="90" ry="4" fill="#1f6fae" opacity=".55"/></svg>`;
+
 function buildWaterworks(root) {
   const calm = calmMotion(), c = waterCommon(root);
   // Sound, behind the speaker button beside the theme button.
@@ -287,11 +325,11 @@ function buildWaterworks(root) {
     if (soundOn()) reliefSound();
   };
   // The main under the header bursts over the page, and its nearest wheel shuts it off.
-  const headBurst = () => {
+  const headBurst = atX => {
     if (calm || document.hidden || !head) return;
     const hb = head.getBoundingClientRect();
     if (hb.bottom < 0) return;
-    const x = Math.round(rnd(.12, .88) * innerWidth);
+    const x = atX ?? Math.round(rnd(.12, .88) * innerWidth);
     const d = document.createElement("div");
     d.className = "ww-hburst";
     d.style.cssText = `left:${x}px;top:${hb.bottom + 12}px`;
@@ -366,8 +404,9 @@ function buildWaterworks(root) {
     nextHead(true);
   }
 
-  // A new device: a valve spins open on the main and a tag drops with its name.
-  festiveHooks.newDevice = h => {
+  // A new device, once it's been marked known: a valve spins open on the main
+  // and a tag drops with its name.
+  const welcome = h => {
     if (document.hidden) return;
     if (soundOn()) squeakSound();
     const x = Math.round(innerWidth * .6);
@@ -386,8 +425,81 @@ function buildWaterworks(root) {
     festiveTimers.push(setTimeout(() => { v.remove(); t.remove(); }, 3500));
   };
 
+  // ---- intruders: leaks, isolated and locked out ----
+  const W = innerWidth;
+  const watchIn = intruderWatch();
+  const locks = new Map();              // id -> { h, el, tag, alarm, gone }
+  const room = document.createElement("div");
+  room.setAttribute("aria-hidden", "true");
+  document.body.appendChild(room);
+  festiveStops.push(() => room.remove());
+  const slotX = k => Math.round(W < 700 ? W * .56 : W * .7 - k * 270);
+  // One stood down keeps its place until it has gone, so none lands on it.
+  const order = () => [...locks.values()].sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  const makeLock = h => {
+    const el = document.createElement("div");
+    el.className = "ww-lockout";
+    el.innerHTML = WW_LOCKOUT;
+    const tag = intruderTagEl(h, "held");
+    el.appendChild(tag);
+    root.appendChild(el);
+    const l = { h, el, tag, alarm: 0, gone: false };
+    locks.set(h.id, l);
+    return l;
+  };
+  const settle = () => {
+    const list = order();
+    room.style.height = list.some(l => !l.gone) ? "116px" : "0";
+    list.forEach((l, k) => {
+      l.el.hidden = k > (W < 700 ? 0 : 1);
+      l.el.style.left = slotX(k) + "px";
+    });
+  };
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!locks.has(h.id)) makeLock(h);
+    for (const h of held) { const l = locks.get(h.id); if (l && !l.gone) { l.h = h; if (!l.alarm || Date.now() - l.alarm > 9000) intruderTagEl(h, "held", l.tag); } }
+    for (const h of cleared) {
+      const l = locks.get(h.id); if (!l || l.gone) continue;
+      l.gone = true;
+      const done = () => { l.el.remove(); locks.delete(h.id); settle(); };
+      if (calm || document.hidden) { done(); continue; }
+      // Stood down: the lock comes off, the wheel spins open, and the main
+      // opens for the device.
+      intruderTagEl(l.h, "cleared", l.tag);
+      festiveTimers.push(setTimeout(() => { l.el.classList.add("open"); if (soundOn()) squeakSound(); }, 1400));
+      festiveTimers.push(setTimeout(() => l.el.classList.add("gone"), 3000));
+      festiveTimers.push(setTimeout(() => { done(); if (!h.test) welcome(h); }, 4400));
+    }
+    settle();
+  }
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    const l = locks.get(h.id) || makeLock(h);
+    if (calm || document.hidden) { settle(); return; }
+    l.alarm = Date.now();
+    intruderTagEl(h, "alarm", l.tag);
+    settle();
+    // The leak: the main bursts, the klaxon, every gauge into the red.
+    headBurst(slotX(0));
+    restart(bg, "quake");
+    gaugeEls.forEach(g => { g.classList.add("red"); g.querySelector(".needle")?.setAttribute("transform", "rotate(118)"); });
+    if (soundOn()) { alarmSound(); burstSound(true); }
+    const a = document.createElement("div");
+    a.className = "ww-alarm";
+    a.textContent = "PRESSURE ALARM · LEAK · ISOLATING";
+    a.style.cssText = `left:${slotX(0)}px;top:${c.below() + 22}px`;
+    root.appendChild(a);
+    // Then the section's isolated: the lockout drops in, its wheel spinning shut.
+    l.el.classList.remove("shutting"); void l.el.offsetWidth; l.el.classList.add("shutting");
+    festiveTimers.push(setTimeout(() => { a.remove(); bg.classList.remove("quake"); gaugeEls.forEach(g => g.classList.remove("red")); readGauges(false); }, 6000));
+    festiveTimers.push(setTimeout(() => { if (!l.gone) intruderTagEl(l.h, "held", l.tag); }, 9000));
+  };
+
   let lastView = view;
   festiveHooks.rendered = () => {
+    syncIntruders();
     const down = new Set(wentOffIds);
     if (wentOffIds.length) { spray(); burst(true); shutBall(); }
     if (wentOffIds.length && soundOn() && !document.hidden) { dripSound(.3); festiveTimers.push(setTimeout(() => dripSound(.2), 220)); festiveTimers.push(setTimeout(() => dripSound(.12), 520)); }

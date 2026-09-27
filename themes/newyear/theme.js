@@ -4,6 +4,30 @@
 // New Year: fireworks over a skyline. Rockets climb, burst, and the sparks
 // fall and fade; a finished scan sets one off. Nothing runs while the tab is
 // in the background, and reduced motion gets the sky at one moment, still.
+//
+// A new device nobody has marked known is an intruder: a gatecrasher. The
+// fireworks stop and the sky bursts red, NOT ON THE LIST flashes up, and it's
+// held behind the velvet rope along the bottom, party hat, disguise and all,
+// tagged, until the device is marked known. Then the rope's unhooked, in it
+// goes, and a volley goes up for the device.
+const NY_CRASHER = `<svg viewBox="0 0 56 92" width="56" height="92" aria-hidden="true">
+  <path d="M19 60l-3 30h7l5-22 5 22h7l-3-30z" fill="#141828"/>
+  <path d="M14 38c0-6 6-9 14-9s14 3 14 9v24H14z" fill="#1d2238" stroke="#3a4270" stroke-width="1"/>
+  <path d="M24 29l4 12 4-12z" fill="#f2f0ff"/><path d="M24.5 31l3.5 2-3.5 2zM31.5 31l-3.5 2 3.5 2z" fill="#ffd166"/>
+  <circle cx="28" cy="20" r="9.5" fill="#e8b98e"/>
+  <path d="M19.5 17.5h17" stroke="#141828" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="24" cy="19.5" r="3" fill="none" stroke="#141828" stroke-width="1.4"/><circle cx="32" cy="19.5" r="3" fill="none" stroke="#141828" stroke-width="1.4"/>
+  <path d="M28 20v5" stroke="#c9936a" stroke-width="3" stroke-linecap="round"/><path d="M23 26q5-3 10 0q-5 2-10 0z" fill="#141828"/>
+  <g transform="rotate(14 28 12)"><path d="M21 12L28 -6l7 18z" fill="#ff5fa2"/><path d="M23.4 6h9.2M25.6 0.5h4.8" stroke="#ffd166" stroke-width="2"/><circle cx="28" cy="-6" r="2.4" fill="#ffd166"/></g>
+  <path d="M35 26l14-4" stroke="#ffd166" stroke-width="3" stroke-linecap="round"/><path d="M49 22l4-3-1 5z" fill="#7ee0ff"/>
+  <path d="M40 40l8-12" stroke="#1d2238" stroke-width="5" stroke-linecap="round"/></svg>`;
+
+const NY_ROPE = `<svg viewBox="0 0 170 60" width="170" height="60" aria-hidden="true">
+  <path class="ny-cord" d="M16 14Q85 44 154 14" fill="none" stroke="#b0122a" stroke-width="6" stroke-linecap="round"/>
+  <path class="ny-cord" d="M16 14Q85 44 154 14" fill="none" stroke="#ff4a62" stroke-width="1.6" stroke-linecap="round" opacity=".6" transform="translate(0 -1.5)"/>
+  ${[16, 154].map(x => `<g><rect x="${x - 2.5}" y="12" width="5" height="44" fill="#d4a93a"/><circle cx="${x}" cy="10" r="5" fill="#f2cf5c"/>
+    <ellipse cx="${x}" cy="57" rx="11" ry="3" fill="#b88a26"/></g>`).join("")}</svg>`;
+
 function buildNewYear(root) {
   const calm = calmMotion();
   const bg = document.createElement("div");
@@ -63,6 +87,81 @@ function buildNewYear(root) {
     ctx.globalAlpha = 1;
   };
 
+  // ---- intruders: gatecrashers at the rope ----
+  let next = 0;
+  const watchIn = intruderWatch();
+  const crashers = new Map();           // id -> { h, el, tag, alarm, gone }
+  const spacer = document.createElement("div");
+  spacer.setAttribute("aria-hidden", "true");
+  document.body.appendChild(spacer);
+  festiveStops.push(() => spacer.remove());
+  const slotX = k => Math.round(W < 700 ? W * .56 : W * .68 - k * 260);
+  // One stood down keeps its place until it has gone, so none lands on it.
+  const order = () => [...crashers.values()].sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  const makeCrasher = h => {
+    const el = document.createElement("div");
+    el.className = "ny-door";
+    el.innerHTML = `<div class="ny-crasher">${NY_CRASHER}</div>${NY_ROPE}`;
+    const tag = intruderTagEl(h, "held");
+    el.appendChild(tag);
+    root.appendChild(el);
+    const c = { h, el, tag, alarm: 0, gone: false };
+    crashers.set(h.id, c);
+    return c;
+  };
+  const settle = () => {
+    const list = order();
+    spacer.style.height = list.some(c => !c.gone) ? "108px" : "0";
+    list.forEach((c, k) => {
+      c.el.hidden = k > (W < 700 ? 0 : 1);
+      c.el.style.left = slotX(k) + "px";
+    });
+  };
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!crashers.has(h.id)) makeCrasher(h);
+    for (const h of held) { const c = crashers.get(h.id); if (c && !c.gone) { c.h = h; if (!c.alarm || Date.now() - c.alarm > 9000) intruderTagEl(h, "held", c.tag); } }
+    for (const h of cleared) {
+      const c = crashers.get(h.id); if (!c || c.gone) continue;
+      c.gone = true;
+      const done = () => { c.el.remove(); crashers.delete(h.id); settle(); };
+      if (calm || document.hidden) { done(); continue; }
+      // Stood down: the rope's unhooked, in it goes, and a volley goes up.
+      intruderTagEl(c.h, "cleared", c.tag);
+      festiveTimers.push(setTimeout(() => c.el.classList.add("open"), 1400));
+      festiveTimers.push(setTimeout(() => c.el.classList.add("gone"), 2600));
+      festiveTimers.push(setTimeout(() => {
+        done();
+        if (!h.test && !document.hidden) [.3, .5, .7].forEach((f, i) => festiveTimers.push(setTimeout(() => launch(W * f), i * 250)));
+      }, 3800));
+    }
+    settle();
+  }
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    const c = crashers.get(h.id) || makeCrasher(h);
+    if (calm || document.hidden) { settle(); return; }
+    c.alarm = Date.now();
+    intruderTagEl(h, "alarm", c.tag);
+    settle();
+    c.el.classList.remove("caught"); void c.el.offsetWidth; c.el.classList.add("caught");
+    // The fireworks stop, the sky bursts red, and the list comes out.
+    rockets.length = 0;
+    next = performance.now() + 7000;
+    [[.2, .22], [.5, .14], [.8, .24], [.35, .34], [.65, .3]].forEach(([fx, fy], i) =>
+      festiveTimers.push(setTimeout(() => { if (!document.hidden) burst(W * fx, H * fy, i % 2 ? "#ff7b7b" : "#ff3b3b"); }, i * 260)));
+    const b = document.createElement("div");
+    b.className = "ny-list";
+    b.style.top = ((document.querySelector("header")?.getBoundingClientRect().bottom || 60) + 16) + "px";
+    b.innerHTML = `NOT ON THE LIST<small>${esc(nameOrIp(h))}</small>`;
+    root.appendChild(b);
+    festiveTimers.push(setTimeout(() => b.remove(), 4600));
+    festiveTimers.push(setTimeout(() => { if (!c.gone) intruderTagEl(c.h, "held", c.tag); }, 9000));
+  };
+  festiveHooks.rendered = syncIntruders;
+  syncIntruders();
+
   if (calm) {
     // Reduced motion: three bursts hanging over the city, holding still.
     ctx.fillStyle = "#060916";
@@ -73,7 +172,7 @@ function buildNewYear(root) {
     return;
   }
 
-  let raf = 0, last = 0, next = 0;
+  let raf = 0, last = 0;
   const frame = now => {
     raf = requestAnimationFrame(frame);
     if (now - last < 33) return;

@@ -29,6 +29,27 @@ const SLEIGH = `<svg viewBox="0 0 190 40" width="190">
 
 const GIFT_COLORS = ["#d42426", "#2fa84f", "#2f6fd4", "#c9a227"];
 
+// A new device nobody has marked known is an intruder: a burglar with a sack.
+// Every bulb on the house turns red and flashes, and the naughty list unrolls
+// with its name on it; it tiptoes in and stands in the snow along the bottom,
+// swag over its shoulder, tagged, until the device is marked known. Then it's
+// crossed off, it drops the sack and tiptoes away, and Santa comes over with
+// a present for the device.
+const BURGLAR = `<svg viewBox="0 0 70 92" width="70" height="92" aria-hidden="true">
+  <g class="xb-sack"><path d="M40 24c10-7 26 1 26 19 0 14-8 22-18 22s-16-8-14-20c1-9 2-15 6-21z" fill="#a8743f" stroke="#5a3a1a" stroke-width="1.3"/>
+    <path d="M38 26q4 4 10 1" fill="none" stroke="#5a3a1a" stroke-width="1.5"/>
+    <text x="51" y="50" text-anchor="middle" font-family="Space Grotesk, sans-serif" font-weight="800" font-size="8" fill="#5a3a1a">SWAG</text></g>
+  <path d="M18 60l-4 28h7l4-19 4 19h7l-4-28z" fill="#1a1a22"/>
+  <ellipse cx="16" cy="89" rx="5.5" ry="2.5" fill="#1a1a22"/><ellipse cx="34" cy="89" rx="5.5" ry="2.5" fill="#1a1a22"/>
+  <rect x="12" y="32" width="26" height="30" rx="5" fill="#f4f4f4" stroke="#1a1a22" stroke-width="1.3"/>
+  <path d="M12 39h26M12 46h26M12 53h26" stroke="#1a1a22" stroke-width="3.5"/>
+  <path d="M35 37l7-9" stroke="#1a1a22" stroke-width="5" stroke-linecap="round"/><path d="M15 37l-5 12" stroke="#1a1a22" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="25" cy="21" r="10" fill="#f0c9a0" stroke="#1a1a22" stroke-width="1.2"/>
+  <rect x="14" y="17" width="22" height="6" rx="3" fill="#1a1a22"/>
+  <circle cx="21" cy="20" r="1.6" fill="#fff"/><circle cx="29" cy="20" r="1.6" fill="#fff"/>
+  <path d="M14.6 15q10.4-13 20.8 0z" fill="#1a1a22"/><circle cx="25" cy="4" r="2.6" fill="#1a1a22"/>
+  <path d="M22 27q3 1.5 6 0" fill="none" stroke="#7a4a2a" stroke-width="1.2" stroke-linecap="round"/></svg>`;
+
 const giftSvg = c => `<svg viewBox="0 0 18 18" width="18"><rect x="2" y="7" width="14" height="10" rx="1" fill="${c}"/>
   <rect x="1" y="5" width="16" height="3.5" rx="1" fill="${c}"/><rect x="8" y="5" width="2" height="12" fill="#fff6d0"/>
   <path d="M9 5c-2-3-5-3-4-1 1 1.5 4 1 4 1z M9 5c2-3 5-3 4-1-1 1.5-4 1-4 1z" fill="#fff6d0"/></svg>`;
@@ -256,7 +277,86 @@ function buildChristmas(root) {
     svg.innerHTML = `<path class="xl-wire" d="${d}"/>${b}`;
     root.appendChild(svg);
   }
-  if (calmMotion()) return;
+  // ---- intruders: burglars in the snow ----
+  const calm = calmMotion();
+  const watchIn = intruderWatch();
+  const burglars = new Map();           // id -> { h, el, tag, alarm, gone }
+  const spacer = document.createElement("div");
+  spacer.setAttribute("aria-hidden", "true");
+  document.body.appendChild(spacer);
+  festiveStops.push(() => { spacer.remove(); root.classList.remove("xm-red"); });
+  const slotX = k => Math.round(W < 700 ? W * .58 : W * .68 - k * 250);
+  // One stood down keeps its place until it has gone, so none lands on it.
+  const order = () => [...burglars.values()].sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  const makeBurglar = h => {
+    const el = document.createElement("div");
+    el.className = "xb";
+    el.innerHTML = BURGLAR;
+    const tag = intruderTagEl(h, "held");
+    el.appendChild(tag);
+    root.appendChild(el);
+    const b = { h, el, tag, alarm: 0, gone: false };
+    burglars.set(h.id, b);
+    return b;
+  };
+  const settle = () => {
+    const list = order();
+    spacer.style.height = list.some(b => !b.gone) ? "112px" : "0";
+    list.forEach((b, k) => {
+      b.el.hidden = k > (W < 700 ? 0 : 1);
+      if (!b.walking) b.el.style.left = slotX(k) + "px";
+    });
+  };
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!burglars.has(h.id)) makeBurglar(h);
+    for (const h of held) { const b = burglars.get(h.id); if (b && !b.gone) { b.h = h; if (!b.alarm || Date.now() - b.alarm > 9000) intruderTagEl(h, "held", b.tag); } }
+    for (const h of cleared) {
+      const b = burglars.get(h.id); if (!b || b.gone) continue;
+      b.gone = true;
+      const done = () => { b.el.remove(); burglars.delete(h.id); settle(); };
+      if (calm || document.hidden) { done(); continue; }
+      // Stood down: off the list; it drops the sack and tiptoes away, and
+      // Santa comes over with a present.
+      intruderTagEl(b.h, "cleared", b.tag);
+      festiveTimers.push(setTimeout(() => b.el.classList.add("drop"), 1400));
+      festiveTimers.push(setTimeout(() => b.el.classList.add("away"), 2400));
+      festiveTimers.push(setTimeout(() => { done(); if (!h.test) sleigh(true); }, 4200));
+    }
+    settle();
+  }
+  let redUntil = 0;
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    const b = burglars.get(h.id) || makeBurglar(h);
+    if (calm || document.hidden) { settle(); return; }
+    b.alarm = Date.now();
+    intruderTagEl(h, "alarm", b.tag);
+    settle();
+    // It tiptoes in from the right.
+    b.walking = true;
+    b.el.style.transition = "none"; b.el.style.left = (W + 50) + "px"; b.el.classList.add("walk");
+    void b.el.offsetWidth;
+    b.el.style.transition = "left 3s linear";
+    b.el.style.left = slotX(0) + "px";
+    festiveTimers.push(setTimeout(() => { b.walking = false; b.el.style.transition = ""; b.el.classList.remove("walk"); settle(); }, 3050));
+    // Every bulb red and flashing, and the naughty list unrolls.
+    redUntil = Date.now() + 8000;
+    root.classList.add("xm-red");
+    festiveTimers.push(setTimeout(() => { if (Date.now() >= redUntil - 50) root.classList.remove("xm-red"); }, 8000));
+    const list = document.createElement("div");
+    list.className = "xm-list";
+    list.style.top = ((document.querySelector("header")?.getBoundingClientRect().bottom || 60) + 16) + "px";
+    list.innerHTML = `<b>NAUGHTY LIST</b><s>the Grumbletons</s><s>next door's cat</s><span>✗ ${esc(nameOrIp(h))}</span>`;
+    root.appendChild(list);
+    festiveTimers.push(setTimeout(() => list.remove(), 5600));
+    festiveTimers.push(setTimeout(() => { if (!b.gone) intruderTagEl(b.h, "held", b.tag); }, 9000));
+  };
+  festiveHooks.rendered = syncIntruders;
+  syncIntruders();
+
+  if (calm) return;
   // Every bulb twinkles on its own clock, like the old twinkle bulbs: lit most
   // of the time, dark for a moment at uneven intervals, now and then a quick
   // double blink or a longer rest. One ticker drives them all.
@@ -357,7 +457,6 @@ function buildChristmas(root) {
 
   // The network: a new device sends Santa over straight away with a present,
   // and a finished scan runs a quick chase along the lights.
-  festiveHooks.newDevice = () => sleigh(true);
   festiveHooks.scanDone = () => {
     // The house blazes for a second, the way it does when the switch finally works.
     if (!document.hidden && !calmMotion()) {

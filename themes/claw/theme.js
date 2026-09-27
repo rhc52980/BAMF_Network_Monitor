@@ -353,7 +353,8 @@ function buildClaw(root, _switched, dusk = false) {
   document.body.appendChild(room);
   festiveStops.push(() => room.remove());
   const slotX = k => chuteX + chuteW / 2 - 30 - k * 70;
-  const inChute = () => [...boxes.values()].filter(b => !b.gone).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  // One stood down keeps its place until it has gone, so none lands on it.
+  const inChute = () => [...boxes.values()].sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
   const makeBox = h => {
     const el = document.createElement("div");
     el.className = "claw-mystery";
@@ -365,7 +366,7 @@ function buildClaw(root, _switched, dusk = false) {
   };
   const settle = () => {
     const list = inChute();
-    room.style.height = list.length ? "150px" : "0";
+    room.style.height = list.some(b => !b.gone) ? "150px" : "0";
     list.forEach((b, k) => {
       b.el.hidden = k > 1;
       b.tag.style.bottom = `calc(100% + ${6 + k * 52}px)`;

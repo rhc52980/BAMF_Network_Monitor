@@ -478,9 +478,11 @@ Some themes have a little life in them:
   slowly as you look around. Wireframe tanks prowl the plain, one for each
   unknown device (up to four), and a saucer drifts over now and then. A radar
   sweeps in the header with your score beside it. A finished scan fires a shell
-  at the nearest tank, and a hit scores 1000. A new device flashes **ENEMY IN
-  RANGE** and brings a tank in. A device going offline cracks the glass, as
-  taking a hit did in the arcade. Also a blinking block cursor.
+  at the nearest tank, and a hit scores 1000. A new device nobody has marked
+  known is traced and **quarantined** (see [Intruders](#intruders)); once it's
+  known, **TARGET CLEARED**, and it rolls out onto the plain as a tank of its
+  own. A device going offline cracks the glass, as taking a hit did in the
+  arcade. Also a blinking block cursor.
 - **Synthwave**: a neon grid rolling toward a striped sunset.
 - **Amber CRT**: rounded glass at the edges, and a gentle phosphor flicker.
 - **Blueprint**: drawn on grid paper.
@@ -494,13 +496,15 @@ Some themes have a little life in them:
   session, with a ripple on top when everything's on. Water pulses along the
   Map's pipes to each device and stands still to one that's offline, and the
   Map fills from the bottom when you open it. A finished scan surges the
-  water. A new device spins a valve open and hangs a name tag. A device going
+  water. A new device nobody has marked known is **a leak**, its section of
+  pipe locked out (see [Intruders](#intruders)); once it's known a valve spins
+  open and hangs a name tag. A device going
   offline springs a leak on its row, and watched devices carry a red shut-off
   valve that closes when they drop. Unknown devices get an inspection tag.
   Rows ripple when you point at them, the search box is a drain port, and
   rows get a wash as you type. With sound on (the 🔊 button beside the theme
-  button, off until you click it) the drips plop, a new device's valve
-  squeaks open, a device going offline leaks with a patter of drops, and a
+  button, off until you click it) the drips plop, a leak sounds the pressure
+  alarm, a new device's valve squeaks open, a device going offline leaks with a patter of drops, and a
   finished scan surges through the mains. A pipe bursting cracks and then
   hisses, and a relief valve lets off with a pssht. Behind the page, a whole
   plant: glass-lined mains with water running through them, up both sides,
@@ -567,7 +571,9 @@ Some themes have a little life in them:
   flashes the whole screen. The storm follows your network: each device that
   goes offline makes it heavier and the lightning more frequent, and its row
   flickers like a power cut. As they come back, the storm eases. A new device
-  brings a bolt of lightning. On the Map, sparks run
+  nobody has marked known is **a stranger out in the storm**, struck by
+  lightning (see [Intruders](#intruders)); once it's known a bolt goes off for
+  it. On the Map, sparks run
   along your cables and offline devices drip.
   It can be heard, too. The 🔊 button that appears beside the theme button in
   this theme turns on rain, which gets heavier with the storm, and thunder
@@ -710,15 +716,16 @@ Some themes have a little life in them:
   fans of cyan and magenta through the haze, sweeping across each other, while
   a green projector traces a figure that leaves a fading trail behind its dot.
   A grid runs back to the horizon, and a beam plays along the bottom of the
-  header. A finished scan snaps every beam into a starburst, and a new device
-  sends one hard beam across the room.
+  header. A finished scan snaps every beam into a starburst. A new device nobody
+  has marked known is **a rogue droid** (see [Intruders](#intruders)); once it's
+  known it beams out and one hard beam goes across the room.
 
   Along the bottom, on a lit floor of their own, two squads of droids are dug
   in behind barricades, cyan on the left and magenta on the right. They pop up
   to trade fire across the room, and every bolt comes out a colour of its own.
   A droid that's hit tumbles back in a shower of sparks and gets up a few
-  seconds later. The network runs the fight: a finished scan or a new device
-  starts a firefight, **a device dropping off takes a droid down and keeps it
+  seconds later. The network runs the fight: a finished scan or a device newly
+  marked known starts a firefight, **a device dropping off takes a droid down and keeps it
   down until the device comes back**, and each squad always keeps one droid
   standing. The page gets room at the bottom so the floor never hides the last
   rows. Reduced motion lights the rig and holds it still, with the fight a
@@ -732,8 +739,10 @@ Some themes have a little life in them:
   through the dark over a lit floor grid. Online, unknown and offline keep
   their own colours, so the lights never change what a colour means, and the
   text stays white. The lights answer the network the way RGB software does:
-  **a scan runs the rig flat out** for a moment, **a new device flashes it
-  white**, a device coming back flashes it green, one dropping off red, and
+  **a scan runs the rig flat out** for a moment, a new device nobody has marked
+  known plugs in as **an unknown stick** (see [Intruders](#intruders)) and
+  **flashes it white** once it's known, a device coming back flashes it green,
+  one dropping off red, and
   **while a watched device is down the frame breathes red** (for an hour,
   after which it's in the table and the rainbow comes back). Reduced motion
   lights it all and holds it still.
@@ -743,8 +752,9 @@ Some themes have a little life in them:
   of its own that the page scrolls clear of, grass, tulips and daffodils nod
   in front of a picket fence with a birdhouse, a snail makes its way along,
   butterflies flit through and now and then a rabbit hops past. A finished scan
-  shakes a fresh handful off the tree and sends the rabbit across; a new device
-  comes up as a flower. Reduced motion leaves the blossom lying where it fell.
+  shakes a fresh handful off the tree and sends the rabbit across. A new device
+  nobody has marked known is **a fox** after the hens (see
+  [Intruders](#intruders)); once it's known it comes up as a flower. Reduced motion leaves the blossom lying where it fell.
 - **Summer**: a hot afternoon at the beach. The sun turns its rays over the top
   of the page, clouds and gulls cross, and a hot-air balloon drifts over now
   and then. Along the bottom, on a shore of its own that the page scrolls clear
@@ -757,7 +767,8 @@ Some themes have a little life in them:
   Reduced motion holds the scene at one moment.
 - **Winter**: snow falling past frost that reaches in from the edges of the
   screen, settling into a drift along the bottom. A finished scan blows a gust
-  through. Reduced motion leaves the snow settled.
+  through. A new device nobody has marked known is **a yeti** in the drift (see
+  [Intruders](#intruders)). Reduced motion leaves the snow settled.
 - **Woodlands**: a forest late in the afternoon. Ridges of pine go back into
   the haze towards a low sun, light comes down through the trees in shafts,
   mist lies in the valley, leaves come down, and flocks cross high up. Big
@@ -847,19 +858,23 @@ Some themes have a little life in them:
   never hides the last rows. Reduced motion stands each train at its station.
 - **New Year**: fireworks over a city at midnight. Rockets climb from behind
   the skyline, burst, and the sparks fall and fade; a finished scan sets one
-  off. Reduced motion keeps three bursts hanging over the rooftops.
+  off. A new device nobody has marked known is **a gatecrasher** held at the
+  velvet rope (see [Intruders](#intruders)); once it's known a volley goes up.
+  Reduced motion keeps three bursts hanging over the rooftops.
 - **Thanksgiving**: autumn leaves coming down and tumbling as they go, over
   warm browns and burnt orange, with pumpkins and gourds set out along the
   bottom. Every so often a turkey struts across the foot of the screen, tail
   fanned, dipping his head to peck as he walks; a finished scan blows a gust
-  of leaves through and puffs him up. Reduced motion lays the leaves along the
+  of leaves through and puffs him up. A new device nobody has marked known is
+  **a raccoon** at the pie (see [Intruders](#intruders)). Reduced motion lays the leaves along the
   bottom and leaves the turkey out of it.
 - **Hotdog Stand**: a tribute to Windows 3.1's loudest colour scheme. It's
   mustard yellow with ketchup-red title bars, in the bold system font, with a
   striped awning under the header. The next-scan bar is a sausage sliding into
   its bun, and steam rises off the stats. Now and then a squeeze of ketchup and
   mustard zigzags across the page, and a hot dog cart rolls along the bottom. A
-  new device calls "Order up!", a finished scan rings "Ding!", and a device that
+  new device nobody has marked known is **a seagull** that makes off with a hot
+  dog (see [Intruders](#intruders)); once it's known it's "Order up!". A finished scan rings "Ding!", and a device that
   goes offline gets its row stamped **86'd** (diner slang for "we're out"). On
   the Map, online devices get a squiggle of mustard, unknown ones a 🌭, and the
   router a paper hat. With sound on (the 🔊 button, off until you click it) the
@@ -901,7 +916,7 @@ glyphs instead of rain.
 
 ### Intruders
 
-In most of the animated themes, a new device nobody has marked known is an intruder, and the scene treats it as
+In every animated and holiday theme, a new device nobody has marked known is an intruder, and the scene treats it as
 one. First the alarm, then the scene holds it, in view and tagged with its
 name, address and maker, until you mark it known:
 
@@ -923,6 +938,18 @@ name, address and maker, until you mark it known:
 | Claw Machine | a mystery prize nobody put in | TILT: the cabinet shakes and the marquee goes red | a black box glowing red in the prize chute |
 | Constellation | a rogue comet | the constellation's lines blaze and every star flares | hanging in the sky under the header, its tail streaming |
 | Data Centre | a breach of the network | the cage alarm: every rack light red, a red beacon sweeping the room, the HUD reads INTRUSION DETECTED, the hologram puts a reticle on it | its port on the patch panel caged in red, quarantined |
+| Thunderstorm | a stranger out in the storm | lightning strikes where it stands, the sky flares red and the thunder rolls | along the bottom, smouldering, eyes lit under its hood |
+| Winter | a yeti | the frost at the edges burns red and the snow whips round as it stomps in | knee-deep in the drift, its footprints behind it |
+| Spring | a fox | the sky flushes red, the hens behind the fence scatter squawking in a burst of feathers, the birds overhead scatter | sitting in the meadow, a feather in its mouth |
+| Waterworks | a leak | the main bursts, the pressure alarm sounds, every gauge slams into the red | its section of pipe isolated, the valve chained, padlocked and tagged DO NOT OPEN |
+| Terminal | a target, traced | INTRUSION DETECTED flashes, the battlefield goes red, a trace runs | in a console along the bottom, QUARANTINED, its wireframe turning in red |
+| Laser Show | a rogue droid in neither squad's colours | every beam turns red and swings onto it, and the fight stops | in no-man's-land, both squads holding it in their sights |
+| RGB | an unknown stick plugged into the rig | the frame strobes red and the room goes red | in the bottom of the frame, its light pulsing red |
+| Hotdog Stand | a seagull | it swoops on the cart and takes a hot dog, the bells ring, and a Windows 3.1 box says so | perched on the cart's umbrella, the hot dog in its beak |
+| Halloween | a werewolf | the moon turns blood red, it howls, bats burst across the sky, the lanterns flare red | crouched by the graveyard gate, eyes burning |
+| Thanksgiving | a raccoon | the page's edges glow red, the leaves whip up, and it's GOBBLE GOBBLE GOBBLE | sitting by the pie, a slice in its paws |
+| Christmas | a burglar with a sack | every bulb turns red and flashes, and the naughty list unrolls | standing in the snow, swag over its shoulder |
+| New Year | a gatecrasher | the fireworks stop, the sky bursts red, NOT ON THE LIST | behind the velvet rope |
 
 Mark the device known, anywhere, and the scene stands down: the tag turns
 green, the intruder goes, and the device arrives the way that theme welcomes
@@ -961,6 +988,11 @@ garage door, icicles hanging off the guttering, a wreath on the door, lit
 windows and a couple of trees in the snow. The bulbs twinkle on their own
 clocks, and the whole place blazes for a second when a scan finishes. With
 reduced motion it all holds still, lit.
+
+Each holiday theme has its own intruder (see [Intruders](#intruders)): a
+werewolf at the graveyard gate for Halloween, a raccoon at the pie for
+Thanksgiving, a burglar on the naughty list for Christmas, and a gatecrasher at
+the velvet rope for New Year.
 
 ### Night mode
 

@@ -8,6 +8,12 @@
 // shell at the nearest tank; a new device brings a tank in with ENEMY IN
 // RANGE; a device going offline cracks the glass, as a hit did in the arcade.
 // A radar sweeps in the header, with the score beside it.
+//
+// A new device nobody has marked known is an intruder. INTRUSION DETECTED
+// flashes, the battlefield goes red, and a trace runs in a console along the
+// bottom: the target's wireframe turning in red beside the trace, locked,
+// QUARANTINED, tagged, until the device is marked known. Then it's released,
+// TARGET CLEARED, and it rolls out onto the field as a tank of its own.
 const BZ_TANK = (() => {
   // Prisms as 4 bottom + 4 top corners, [x, y, z]; z is forward.
   const prism = (b, t) => [...b, ...t];
@@ -200,6 +206,104 @@ function buildTerminal(root) {
       bits.push({ x: e.x + p[0], y: p[1], z: e.z + p[2], dx: q[0] - p[0], dy: q[1] - p[1], dz: q[2] - p[2], vx: rnd(-6, 6), vy: rnd(3, 9), vz: rnd(-6, 6), life: 1.6 });
   };
 
+  // ---- intruders: traced and quarantined ----
+  const watchIn = intruderWatch();
+  const targets = new Map();            // id -> { h, el, tag, log, mini, alarm, gone }
+  const room = document.createElement("div");
+  room.setAttribute("aria-hidden", "true");
+  document.body.appendChild(room);
+  festiveStops.push(() => room.remove());
+  const slotX = k => Math.round(W < 760 ? W / 2 : W * .7 - k * 400);
+  // One stood down keeps its place until it has gone, so none lands on it.
+  const order = () => [...targets.values()].sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  const line = (log, text, cls = "") => {
+    const d = document.createElement("div");
+    if (cls) d.className = cls;
+    d.textContent = text;
+    log.appendChild(d);
+    while (log.children.length > 4) log.firstChild.remove();
+  };
+  const trace = h => [`$ trace ${h.ip}`, `  ${[h.mac, h.vendor].filter(Boolean).join("  ") || "no vendor"}`, `  TARGET LOCKED`];
+  const quarantined = (log, h) => { line(log, `[QUARANTINED] ${nameOrIp(h)}`, "bz-q"); log.lastChild.insertAdjacentHTML("beforeend", "<i>█</i>"); };
+  const makeTarget = h => {
+    const el = document.createElement("div");
+    el.className = "bz-intr";
+    el.innerHTML = `<canvas width="84" height="56"></canvas><div class="bz-log"></div>`;
+    const log = el.querySelector(".bz-log");
+    for (const t of trace(h)) line(log, t);
+    quarantined(log, h);
+    const tag = intruderTagEl(h, "held");
+    el.appendChild(tag);
+    root.appendChild(el);
+    const mini = el.querySelector("canvas").getContext("2d");
+    const tg = { h, el, tag, log, mini, alarm: 0, gone: false, yaw: rnd(0, 6) };
+    targets.set(h.id, tg);
+    drawMini(tg, 0);
+    return tg;
+  };
+  // The target's wireframe, turning, in red (green once it's cleared).
+  function drawMini(tg, dt) {
+    const g = tg.mini, col = tg.gone ? G : "#ff3b30";
+    tg.yaw += dt * .9;
+    const c = Math.cos(tg.yaw), s2 = Math.sin(tg.yaw);
+    g.clearRect(0, 0, 84, 56);
+    g.strokeStyle = col; g.shadowColor = col; g.shadowBlur = 4; g.lineWidth = 1.2;
+    g.beginPath();
+    const pt = q => { const x = q[0] * c + q[2] * s2, z = -q[0] * s2 + q[2] * c; return [42 + x * 9.5, 40 - (q[1] * .94 - z * .34) * 9.5]; };
+    for (const [a, b] of BZ_TANK) { const A = pt(a), B = pt(b); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
+    g.stroke();
+  }
+  const settle = () => {
+    const list = order();
+    room.style.height = list.some(t => !t.gone) ? "92px" : "0";
+    list.forEach((t, k) => {
+      t.el.hidden = k > (W < 760 ? 0 : 1);
+      t.el.style.left = slotX(k) + "px";
+    });
+  };
+  let alertUntil = 0;
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!targets.has(h.id)) makeTarget(h);
+    for (const h of held) { const t = targets.get(h.id); if (t && !t.gone) { t.h = h; if (!t.alarm || Date.now() - t.alarm > 9000) intruderTagEl(h, "held", t.tag); } }
+    for (const h of cleared) {
+      const t = targets.get(h.id); if (!t || t.gone) continue;
+      t.gone = true;
+      const done = () => { t.el.remove(); targets.delete(h.id); settle(); };
+      if (calm || document.hidden) { done(); continue; }
+      // Stood down: released, and it rolls out onto the field as a tank of its own.
+      intruderTagEl(t.h, "cleared", t.tag);
+      t.log.querySelector(".bz-q i")?.remove();
+      line(t.log, `[RELEASED] marked known`, "bz-ok");
+      t.el.classList.add("cleared");
+      drawMini(t, 0);
+      festiveTimers.push(setTimeout(() => t.el.classList.add("gone"), 2600));
+      festiveTimers.push(setTimeout(() => { done(); if (!h.test) { message("TARGET CLEARED"); spawn(); } }, 3800));
+    }
+    settle();
+  }
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    const t = targets.get(h.id) || makeTarget(h);
+    if (calm || document.hidden) { settle(); return; }
+    t.alarm = Date.now();
+    intruderTagEl(h, "alarm", t.tag);
+    settle();
+    message("INTRUSION DETECTED");
+    // The battlefield goes red while the trace runs.
+    alertUntil = Date.now() + 7000;
+    bg.classList.add("bz-alert");
+    festiveTimers.push(setTimeout(() => { if (Date.now() >= alertUntil - 50) bg.classList.remove("bz-alert"); }, 7000));
+    t.log.replaceChildren();
+    trace(h).forEach((s, i) => festiveTimers.push(setTimeout(() => { if (!t.gone) line(t.log, s); }, 300 + i * 800)));
+    festiveTimers.push(setTimeout(() => { if (!t.gone) quarantined(t.log, t.h); }, 300 + 3 * 800));
+    t.el.classList.remove("locking"); void t.el.offsetWidth; t.el.classList.add("locking");
+    festiveTimers.push(setTimeout(() => { if (!t.gone) intruderTagEl(t.h, "held", t.tag); }, 9000));
+  };
+  festiveHooks.rendered = syncIntruders;
+  syncIntruders();
+
   if (calm) {
     // Reduced motion: the battlefield, still.
     draw(0); drawRadar(0);
@@ -240,6 +344,7 @@ function buildTerminal(root) {
         if (b.life <= 0) bits.splice(i, 1);
       }
       draw(now); drawRadar(now);
+      for (const t of targets.values()) drawMini(t, dt);
     };
     raf = requestAnimationFrame(frame);
     festiveStops.push(() => cancelAnimationFrame(raf));
@@ -254,10 +359,6 @@ function buildTerminal(root) {
     const ahead = enemies.filter(e => e.type === "tank").sort((p, q) => Math.hypot(p.x, p.z) - Math.hypot(q.x, q.z))[0];
     const tx = ahead ? ahead.x : Math.sin(a) * 60, tz = ahead ? ahead.z : Math.cos(a) * 60, d = Math.hypot(tx, tz) || 1;
     shells.push({ x: 0, z: 0, vx: tx / d * 40, vz: tz / d * 40, life: 3 });
-  };
-  festiveHooks.newDevice = () => {
-    message("ENEMY IN RANGE");
-    if (!calm) spawn();
   };
   festiveHooks.netChange = off => {
     if (!off.length || calm || document.hidden) return;

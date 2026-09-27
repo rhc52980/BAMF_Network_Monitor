@@ -365,7 +365,8 @@ function buildGoat(root, switched, night = false) {
     return { h, g, tag, alarm: 0, gone: false };
   };
   // Where each wolf lurks: the newest nearest the edge.
-  const lurking = () => [...wolves.values()].filter(w => !w.gone).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  // One stood down keeps its place until it slinks off, so none lands on it.
+  const lurking = () => [...wolves.values()].filter(w => !w.leaving).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
   // While a wolf is about, the page gets room at the bottom to scroll clear of
   // it and its tag, the way a theme's floor does.
   const room = document.createElement("div");
@@ -375,6 +376,7 @@ function buildGoat(root, switched, night = false) {
   const settle = () => lurking().forEach((w, k) => {
     room.style.height = wolves.size ? "124px" : "0";
     w.g.el.hidden = k >= SHOW;
+    if (w.gone) return;
     // Tags stack, the nearer wolf's lower, so two never overlap.
     w.tag.style.bottom = `calc(100% + ${8 + k * 52}px)`;
     if (k >= SHOW || w.moving) return;
@@ -398,6 +400,7 @@ function buildGoat(root, switched, night = false) {
       (async () => {
         await sleep(2200);
         w.tag.remove(); w.g.el.classList.remove("lurk");
+        w.leaving = true; settle();
         await w.g.walkTo(W() + 90, 90);
         w.g.el.remove(); wolves.delete(h.id);
         if (!h.test) kidArrives(h);

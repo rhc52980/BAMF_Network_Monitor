@@ -21,3 +21,38 @@
 
 [data-theme="newyear"] table, [data-theme="newyear"] .feed { background:rgba(8,11,26,.96); }
 
+/* An intruder: a gatecrasher held behind the velvet rope, and NOT ON THE LIST. */
+
+.ny-door { position: absolute; bottom: 2px; width: 170px; height: 100px; transform: translateX(-50%); transition: opacity 1.2s; }
+
+.ny-door > svg { position: absolute; left: 0; bottom: 0; }
+
+.ny-crasher { position: absolute; left: 57px; bottom: 6px; width: 56px; transition: transform 1.2s ease-in; }
+
+.ny-crasher svg { display: block; filter: drop-shadow(0 0 3px rgba(255, 209, 102, .4)); }
+
+.ny-door .intruder-tag { left: 50%; bottom: calc(100% + 4px); transform: translateX(-50%); }
+
+.ny-door.caught .ny-crasher { animation: ny-caught 1.4s ease-out 1; }
+
+@keyframes ny-caught { 0% { transform: translateX(120px); } 50% { transform: translateX(-8px); } 65% { transform: translateX(4px); } 100% { transform: none; } }
+
+.ny-door .ny-cord { transition: opacity .5s; }
+
+.ny-door.open .ny-cord { opacity: 0; }
+
+.ny-door.open .ny-crasher { transform: translateY(-16px) scale(.8); }
+
+.ny-door.gone { opacity: 0; }
+
+.ny-list { position: absolute; left: 50%; transform: translateX(-50%); padding: 8px 20px; text-align: center; white-space: nowrap;
+  background: #14060c; border: 2px solid #ff3b3b; color: #ffd6d6; box-shadow: 0 0 20px rgba(255, 59, 59, .55);
+  font: 800 18px "Space Grotesk", sans-serif; letter-spacing: .14em; animation: ny-list 4.4s ease-out forwards; }
+
+.ny-list small { display: block; font: 500 12px "IBM Plex Mono", monospace; letter-spacing: 0; color: #f2f0ff; margin-top: 2px; }
+
+@keyframes ny-list { 0%, 16%, 32% { opacity: 1; } 8%, 24% { opacity: .2; } 85% { opacity: 1; } 100% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ny-door .ny-crasher, .ny-list { animation: none !important; }
+}

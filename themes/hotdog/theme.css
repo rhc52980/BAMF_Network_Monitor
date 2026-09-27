@@ -143,7 +143,52 @@
 
 @keyframes hd-stamp { 0% { transform: translate(-50%, -50%) rotate(-12deg) scale(2.2); opacity: 0; } 12% { transform: translate(-50%, -50%) rotate(-12deg) scale(1); opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
 
+/* An intruder: a seagull on the cart with a hot dog in its beak, and a
+   Windows 3.1 box to say so. */
+
+.hd-thief { position: absolute; bottom: 6px; width: 150px; transform: translateX(-50%); transition: opacity .9s; }
+
+.hd-thief > svg { position: static; display: block; }
+
+.hd-thief .intruder-tag { left: 50%; bottom: calc(100% + 34px); transform: translateX(-50%); }
+
+.hd-gull { position: absolute; left: 44px; top: -30px; width: 64px; transition: transform 1.2s ease-in, opacity 1.2s; }
+
+.hd-gull svg { display: block; }
+
+.hd-gull .hd-wing { transform-box: fill-box; transform-origin: 20% 60%; }
+
+.hd-thief.swoop .hd-gull { animation: hd-swoop 1.1s cubic-bezier(.3, .2, .4, 1) 1; }
+
+.hd-thief.swoop .hd-wing, .hd-thief.flown .hd-wing { animation: hd-flap .14s ease-in-out infinite alternate; }
+
+@keyframes hd-swoop { from { transform: translate(260px, -260px) rotate(-20deg); } to { transform: none; } }
+
+@keyframes hd-flap { to { transform: scaleY(-.8); } }
+
+.hd-thief.flown .hd-gull { transform: translate(-320px, -320px) rotate(-14deg); opacity: 0; }
+
+.hd-thief.gone { opacity: 0; transform: translateX(calc(-50% - 140px)); transition: transform 1.4s ease-in, opacity 1.4s ease-in; }
+
+.hd-thief.gone .wheel { transform-box: fill-box; transform-origin: center; animation: hd-wheel .9s linear infinite reverse; }
+
+.hd-win { position: absolute; left: 50%; transform: translateX(-50%); width: 320px; max-width: calc(100vw - 24px); background: #c0c0c0; border: 2px solid #000;
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080, 4px 4px 0 rgba(0, 0, 0, .35); font: 13px "Microsoft Sans Serif", "MS Sans Serif", Arial, sans-serif; color: #000;
+  animation: hd-winpop .25s steps(2) 1; }
+
+.hd-win-t { background: #ff0000; color: #fff; font-weight: 700; text-align: center; padding: 2px 6px; border-bottom: 2px solid #000; }
+
+.hd-win-b { display: flex; gap: 12px; align-items: center; padding: 12px 14px 6px; line-height: 1.35; }
+
+.hd-win-b svg { flex: none; }
+
+.hd-win-btn { margin: 4px auto 10px; width: 76px; text-align: center; padding: 3px 0; border: 2px solid #000;
+  box-shadow: inset 1px 1px 0 #fff, inset -2px -2px 0 #808080; font-weight: 700; }
+
+@keyframes hd-winpop { from { transform: translateX(-50%) scale(.6); } }
+
 @media (prefers-reduced-motion: reduce) {
+  .hd-thief .hd-gull, .hd-thief .hd-wing, .hd-win,
   [data-theme="hotdog"] .stat::after, .hd-order, .hd-ding, .hd-86, .hd-squig path { animation: none !important; }
 
   .hd-squig path { stroke-dashoffset: 0; }
