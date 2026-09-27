@@ -2,6 +2,6 @@
   "name": "Terminal",
   "swatch": ["#020a02", "#33ff66", "#ffcc33"],
   "category": "animated",
-  "description": "A plain green screen with a blinking block cursor, and the odd line of boot text. An unknown new device is traced and quarantined.",
+  "description": "Battlezone in green vectors behind the page: wireframe tanks prowl, one for each unknown device, and a scan fires a shell. An unknown new device is traced and quarantined.",
   "author": "BAMF"
 }
