@@ -46,3 +46,39 @@
 
 [data-theme="thanksgiving"] table, [data-theme="thanksgiving"] .feed { background:rgba(30,18,9,.96); }
 
+/* An intruder: a raccoon at the pie, a slice in its paws. */
+
+.tg-thief { position: absolute; bottom: 4px; width: 150px; height: 76px; transform: translateX(-50%); transition: opacity 1s; }
+
+.tg-thief > svg { position: absolute; left: 0; bottom: 0; }
+
+.tg-coon { position: absolute; left: 70px; bottom: 0; width: 76px; transition: transform 1s ease-in; }
+
+.tg-coon svg { display: block; filter: drop-shadow(0 3px 6px rgba(30, 12, 0, .5)); }
+
+.tg-thief .intruder-tag { left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); }
+
+.tg-thief.in .tg-coon { animation: tg-scurry .9s cubic-bezier(.3, .2, .4, 1) 1; }
+
+@keyframes tg-scurry { from { transform: translateX(-60vw); } to { transform: none; } }
+
+.tg-thief.off .tg-coon { transform: translateX(60vw); }
+
+.tg-thief.gone { opacity: 0; }
+
+.tg-alarm { position: absolute; inset: 0; box-shadow: inset 0 0 90px 10px rgba(209, 69, 47, .65); animation: tg-alarm 1s ease-in-out 6 alternate; }
+
+@keyframes tg-alarm { from { opacity: .35; } to { opacity: 1; } }
+
+.tg-gobble { position: absolute; left: 50%; transform: translateX(-50%); padding: 8px 18px; text-align: center; white-space: nowrap;
+  background: #2a180b; border: 2px solid #d1452f; color: #f7ead6; border-radius: 10px; box-shadow: 0 0 18px rgba(209, 69, 47, .5);
+  font: 800 18px "Space Grotesk", sans-serif; letter-spacing: .04em; animation: tg-gobble 4.4s ease-out forwards; }
+
+.tg-gobble small { display: block; font: 500 12px "IBM Plex Mono", monospace; letter-spacing: 0; color: #e8a33d; margin-top: 2px; }
+
+@keyframes tg-gobble { 0% { transform: translateX(-50%) scale(.4); opacity: 0; } 10% { transform: translateX(-50%) scale(1.08); opacity: 1; }
+  16%, 28% { transform: translateX(-50%) rotate(-2deg); } 22% { transform: translateX(-50%) rotate(2deg); } 85% { opacity: 1; } 100% { transform: translateX(-50%); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tg-coon, .tg-alarm, .tg-gobble { animation: none !important; }
+}

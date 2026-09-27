@@ -325,7 +325,51 @@ html.ww-surge .ww-hvalve .hw { transform: rotate(300deg); }
 
 .ww-rowjet path { fill: none; stroke: #8fd6ff; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 4 4; animation: ww-jetflow .2s linear infinite, ww-jetlife 1.8s ease-out 1 both; }
 
+/* An intruder: a leak. The alarm, then its section of pipe isolated along the
+   bottom: the valve shut, chained, padlocked and tagged DO NOT OPEN. */
+
+.ww-alarm { position: absolute; transform: translateX(-50%); white-space: nowrap; padding: 6px 14px; border: 2px solid #e8483b; border-radius: 4px;
+  background: rgba(40, 8, 6, .92); color: #ffd9d4; font: 700 13px "IBM Plex Mono", monospace; letter-spacing: .06em;
+  box-shadow: 0 0 18px rgba(232, 72, 59, .6); animation: ww-alarm .5s steps(1) infinite; }
+
+@keyframes ww-alarm { 50% { background: #e8483b; color: #fff; } }
+
+.ww-lockout { position: absolute; bottom: 0; width: 200px; transform: translateX(-50%); transition: opacity 1.2s; }
+
+.ww-lockout svg { display: block; overflow: visible; }
+
+.ww-lockout .intruder-tag { left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); }
+
+.ww-lockout .ww-lwheel > g { transform-box: fill-box; transform-origin: center; }
+
+.ww-lockout.shutting .ww-lwheel > g { animation: ww-shut 1.6s cubic-bezier(.3, .1, .3, 1) 1; }
+
+@keyframes ww-shut { from { transform: rotate(-720deg); } to { transform: rotate(0); } }
+
+.ww-lockout.shutting { animation: ww-lockin .5s ease-out 1; }
+
+@keyframes ww-lockin { from { transform: translate(-50%, 110px); } to { transform: translate(-50%, 0); } }
+
+.ww-lockout .ww-dtag { transform-box: fill-box; transform-origin: 50% 0; animation: ww-dswing 3s ease-in-out infinite alternate; }
+
+@keyframes ww-dswing { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
+
+.ww-lockout .ww-lock { transition: transform .9s ease-in, opacity .9s; }
+
+.ww-lockout.open .ww-lock { transform: translateY(40px); opacity: 0; }
+
+.ww-lockout.open .ww-lwheel > g { animation: ww-open 1.4s ease-in-out 1 forwards; }
+
+@keyframes ww-open { to { transform: rotate(720deg); } }
+
+.ww-lockout .ww-ldrop { fill: #6cc8ff; transform-box: fill-box; transform-origin: center; animation: ww-ldrop 2.2s ease-in infinite; }
+
+@keyframes ww-ldrop { 0% { transform: translateY(0) scale(.3); opacity: 0; } 30% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(14px); opacity: 0; } }
+
+.ww-lockout.gone { opacity: 0; }
+
 @media (prefers-reduced-motion: reduce) {
+  .ww-alarm, .ww-lockout, .ww-lockout *,
   [data-theme="waterworks"] header::after,
   [data-theme="waterworks"] .scan-fill,
   [data-theme="waterworks"] .map-svg .pkt,

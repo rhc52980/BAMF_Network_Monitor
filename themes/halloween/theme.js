@@ -33,7 +33,28 @@ const WITCH = `<svg viewBox="0 0 64 34"><g fill="#0a0508" stroke="#ff8c1a" strok
   <path d="M2 26L44 20l1 2L3 28z"/><path d="M44 19l16-6-4 8 6 1-17 4z"/>
   <path d="M18 22l6-10 5 1 2 8z"/><circle cx="25" cy="10" r="3.2"/><path d="M20 9l6-9 3 8 5 1-14 2z"/><path d="M24 21l-2 7h3l2-6z"/></g></svg>`;
 
-const LEAF_COLORS = ["#e0680f", "#c2410c", "#b45309", "#a16207", "#9a3412"];
+// A new device nobody has marked known is an intruder: a werewolf. The moon
+// turns blood red, it howls, bats burst across the sky and the lanterns flare
+// red; it lopes in and crouches by the graveyard gate along the bottom, eyes
+// burning, tagged, until the device is marked known. Then it slinks off into
+// the fog, and the lanterns flare for the new arrival.
+const WEREWOLF = `<svg viewBox="0 0 80 96" width="80"><g fill="#0a0508" stroke="#ff8c1a" stroke-width=".7" stroke-linejoin="round">
+  <path d="M60 90c10 3 17-4 16-15-3 8-9 11-16 9z"/>
+  <path d="M58 94C66 88 68 74 62 62 58 54 52 48 48 40L46 30 50 21 44 24 41 15 37 22 30 18 16 5 13 9 22 15 17 17 26 26C28 34 30 42 30 50 30 62 26 76 26 88L23 94z"/></g>
+  <circle class="hw-eye" cx="30" cy="22" r="1.7" fill="#ff2a2a"/></svg>`;
+const GATE = (() => {
+  const bars = [60, 70, 80, 90, 100, 110, 120, 130, 140, 150];
+  const top = x => Math.round(34 - 16 * Math.sin((x - 50) / 110 * Math.PI));
+  return `<svg viewBox="0 0 170 92" width="170"><g fill="#120b16" stroke="#6b567a" stroke-width="1">
+  <path d="M2 92V58a15 15 0 0 1 30 0v34z"/><rect x="42" y="24" width="12" height="68"/><rect x="156" y="24" width="12" height="68"/>
+  <path d="M40 24h16l-3-6h-10z M154 24h16l-3-6h-10z"/></g>
+  <text x="17" y="70" text-anchor="middle" font-family="Space Grotesk, sans-serif" font-weight="700" font-size="8" fill="#6b567a">RIP</text>
+  <g stroke="#6b567a" stroke-width="2" fill="none"><path d="M54 44h102M54 84h102"/>
+  <path d="${bars.map(x => `M${x} 90V${top(x)}`).join("")}"/></g>
+  <path fill="#6b567a" d="${bars.map(x => `M${x} ${top(x) - 6}l-2.6 6h5.2z`).join("")}"/></svg>`;
+})();
+
+const LEAF_COLORS =["#e0680f", "#c2410c", "#b45309", "#a16207", "#9a3412"];
 
 function flareLanterns() {
   document.querySelectorAll("#festive .pumpkin").forEach(p => {
@@ -91,6 +112,101 @@ function buildHalloween(root) {
     p.innerHTML = PUMPKIN;
     root.appendChild(p);
   }
+
+  // ---- intruders: werewolves at the graveyard gate ----
+  const watchIn = intruderWatch();
+  const wolves = new Map();             // id -> { h, el, tag, alarm, gone, running }
+  const room = document.createElement("div");
+  room.setAttribute("aria-hidden", "true");
+  document.body.appendChild(room);
+  festiveStops.push(() => room.remove());
+  const gateX = Math.min(W * .5, W - 290);
+  const gate = document.createElement("div");
+  gate.className = "hw-gate";
+  gate.innerHTML = GATE;
+  gate.hidden = true;
+  gate.style.left = Math.round(gateX) + "px";
+  root.appendChild(gate);
+  // The first by the gate, a second by the gravestone (when there's room).
+  const slotX = k => Math.round(k ? gateX - 125 : gateX + 115);
+  // One stood down keeps its place until it has gone, so none lands on it.
+  const atGate = () => [...wolves.values()].sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  const makeWolf = h => {
+    const el = document.createElement("div");
+    el.className = "hw-wolf";
+    el.innerHTML = WEREWOLF;
+    const tag = intruderTagEl(h, "held");
+    el.appendChild(tag);
+    root.appendChild(el);
+    const w = { h, el, tag, alarm: 0, gone: false, running: false };
+    wolves.set(h.id, w);
+    return w;
+  };
+  const settle = () => {
+    const list = atGate();
+    room.style.height = list.some(w => !w.gone) ? "112px" : "0";
+    gate.hidden = !list.length;
+    list.forEach((w, k) => {
+      w.el.hidden = k > (W < 700 ? 0 : 1);
+      w.tag.style.bottom = `calc(100% + ${4 + k * 52}px)`;
+      if (!w.running) w.el.style.left = slotX(k) + "px";
+    });
+  };
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!wolves.has(h.id)) makeWolf(h);
+    for (const h of held) { const w = wolves.get(h.id); if (w && !w.gone) { w.h = h; if (!w.alarm || Date.now() - w.alarm > 9000) intruderTagEl(h, "held", w.tag); } }
+    for (const h of cleared) {
+      const w = wolves.get(h.id); if (!w || w.gone) continue;
+      w.gone = true;
+      const done = () => { w.el.remove(); wolves.delete(h.id); settle(); };
+      if (calm || !shown()) { done(); continue; }
+      // Stood down: it slinks off into the fog, and the lanterns welcome the device.
+      intruderTagEl(w.h, "cleared", w.tag);
+      later(() => w.el.classList.add("gone"), 2200);
+      later(() => { done(); if (!h.test) flareLanterns(); }, 4000);
+    }
+    settle();
+  }
+  let bloodUntil = 0;
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    const w = wolves.get(h.id) || makeWolf(h);
+    if (calm || !shown()) { settle(); return; }
+    w.alarm = Date.now(); w.running = true;
+    intruderTagEl(h, "alarm", w.tag);
+    settle();
+    // In it lopes from the right, to the gate.
+    w.el.style.transition = "none"; w.el.style.left = (W + 30) + "px"; w.el.classList.add("run");
+    void w.el.offsetWidth;
+    w.el.style.transition = "left 2.4s cubic-bezier(.3, .1, .4, 1)";
+    w.el.style.left = slotX(0) + "px";
+    later(() => { w.running = false; w.el.style.transition = ""; w.el.classList.remove("run"); settle(); }, 2450);
+    later(() => { if (!w.gone) intruderTagEl(w.h, "held", w.tag); }, 9000);
+    // A blood moon, a howl, the lanterns red and the bats out.
+    bloodUntil = Date.now() + 9000;
+    moon.classList.add("blood");
+    later(() => { if (Date.now() >= bloodUntil - 50) moon.classList.remove("blood"); }, 9000);
+    const howl = document.createElement("div");
+    howl.className = "hw-howl";
+    howl.textContent = "AWOOOOOOO!";
+    howl.style.left = Math.round(W * .56 + 23) + "px";
+    root.appendChild(howl);
+    later(() => howl.remove(), 3600);
+    root.querySelectorAll(".pumpkin").forEach(p => p.classList.add("blood"));
+    later(() => root.querySelectorAll(".pumpkin").forEach(p => p.classList.remove("blood")), 7000);
+    for (let i = 0; i < 8; i++) later(() => {
+      const b = document.createElement("div");
+      b.className = "bat" + (i % 2 ? " rtl" : "");
+      b.style.cssText = `top:${rnd(6, 40).toFixed(0)}vh;--d:${rnd(4.5, 6.5).toFixed(1)}s`;
+      b.innerHTML = BAT;
+      b.addEventListener("animationend", e => { if (e.target === b) b.remove(); });
+      root.appendChild(b);
+    }, 300 + i * 140);
+  };
+  festiveHooks.rendered = syncIntruders;
+  syncIntruders();
   // The spider: drops down, hangs a moment, climbs back up, and crawls along
   // the top to somewhere else before dropping again.
   const sp = document.createElement("div");
@@ -192,7 +308,6 @@ function buildHalloween(root) {
   later(swarm, rnd(20000, 35000));
   later(witch, rnd(10000, 18000));
   later(ghost, rnd(14000, 24000));
-  festiveHooks.newDevice = flareLanterns;
 }
 
 BAMF.registerTheme("halloween", ctx => buildHalloween(ctx.root, ctx.switched));

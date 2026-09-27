@@ -97,8 +97,8 @@ Something going on behind the dashboard. Reduced motion settles them all.
 <td width="50%" valign="top"><img src="harbour/preview.webp" alt="The Harbour theme"><br><b>Harbour</b> <sub><code>harbour</code></sub><br>A quay at dusk with a container for every device. An unknown new device is a ship with no lights, held off the breakwater in the lighthouse's beam.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="hotdog/preview.webp" alt="The Hotdog Stand theme"><br><b>Hotdog Stand</b> <sub><code>hotdog</code></sub><br>Windows 3.1's loudest colour scheme, with a hot dog stand to go with it.</td>
-<td width="50%" valign="top"><img src="laser/preview.webp" alt="The Laser Show theme"><br><b>Laser Show</b> <sub><code>laser</code></sub><br>A laser show in a dark room, beams through the haze.</td>
+<td width="50%" valign="top"><img src="hotdog/preview.webp" alt="The Hotdog Stand theme"><br><b>Hotdog Stand</b> <sub><code>hotdog</code></sub><br>Windows 3.1's loudest colour scheme, with a hot dog stand to go with it. An unknown new device is a seagull that makes off with a hot dog.</td>
+<td width="50%" valign="top"><img src="laser/preview.webp" alt="The Laser Show theme"><br><b>Laser Show</b> <sub><code>laser</code></sub><br>A laser show in a dark room, beams through the haze. An unknown new device is a rogue droid, held in every beam and both squads' sights.</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="matrix/preview.webp" alt="The Matrix theme"><br><b>Matrix</b> <sub><code>matrix</code></sub><br>Digital rain with your devices' names falling in it, numbers that decode, and a white rabbit. An unknown new device turns the rain red and brings an Agent.</td>
@@ -106,22 +106,22 @@ Something going on behind the dashboard. Reduced motion settles them all.
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="powerplant/preview.webp" alt="The Power Plant theme"><br><b>Power Plant</b> <sub><code>powerplant</code></sub><br>A turbine hall with cooling towers, and a control desk along the bottom. An unknown new device is an unauthorised load: a zone trips and its breaker is locked out.</td>
-<td width="50%" valign="top"><img src="rgb/preview.webp" alt="The RGB theme"><br><b>RGB</b> <sub><code>rgb</code></sub><br>The dashboard as a gaming rig with every light on.</td>
+<td width="50%" valign="top"><img src="rgb/preview.webp" alt="The RGB theme"><br><b>RGB</b> <sub><code>rgb</code></sub><br>The dashboard as a gaming rig with every light on. An unknown new device is a strange stick plugged into the rig, and the frame strobes red.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="spring/preview.webp" alt="The Spring theme"><br><b>Spring</b> <sub><code>spring</code></sub><br>Blossom coming down over a soft morning.</td>
+<td width="50%" valign="top"><img src="spring/preview.webp" alt="The Spring theme"><br><b>Spring</b> <sub><code>spring</code></sub><br>Blossom coming down over a soft morning. An unknown new device is a fox, and the hens scatter.</td>
 <td width="50%" valign="top"><img src="steampunk/preview.webp" alt="The Steampunk theme"><br><b>Steampunk</b> <sub><code>steampunk</code></sub><br>Walnut and brass, gears turning, an airship, and nixie-tube numbers. An unknown new device is a pirate airship, hauled down and moored at the mast.</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="summer/preview.webp" alt="The Summer theme"><br><b>Summer</b> <sub><code>summer</code></sub><br>Sun, clouds and the beach along the bottom. An unknown new device is a shark offshore, and the lifeguard runs up the red flag.</td>
-<td width="50%" valign="top"><img src="terminal/preview.webp" alt="The Terminal theme"><br><b>Terminal</b> <sub><code>terminal</code></sub><br>A plain green screen with a blinking block cursor, and the odd line of boot text.</td>
+<td width="50%" valign="top"><img src="terminal/preview.webp" alt="The Terminal theme"><br><b>Terminal</b> <sub><code>terminal</code></sub><br>A plain green screen with a blinking block cursor, and the odd line of boot text. An unknown new device is traced and quarantined.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="storm/preview.webp" alt="The Thunderstorm theme"><br><b>Thunderstorm</b> <sub><code>storm</code></sub><br>Rain behind the page, soft lightning, and a spark along the Map's cables.</td>
-<td width="50%" valign="top"><img src="waterworks/preview.webp" alt="The Waterworks theme"><br><b>Waterworks</b> <sub><code>waterworks</code></sub><br>Pipes, valves and gauges, with water pulsing to every device.</td>
+<td width="50%" valign="top"><img src="storm/preview.webp" alt="The Thunderstorm theme"><br><b>Thunderstorm</b> <sub><code>storm</code></sub><br>Rain behind the page, soft lightning, and a spark along the Map's cables. An unknown new device is a stranger out in the storm, struck by lightning.</td>
+<td width="50%" valign="top"><img src="waterworks/preview.webp" alt="The Waterworks theme"><br><b>Waterworks</b> <sub><code>waterworks</code></sub><br>Pipes, valves and gauges, with water pulsing to every device. An unknown new device is a leak: the pressure alarm, then its valve locked out.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="winter/preview.webp" alt="The Winter theme"><br><b>Winter</b> <sub><code>winter</code></sub><br>Snow, and frost creeping in at the edges.</td>
+<td width="50%" valign="top"><img src="winter/preview.webp" alt="The Winter theme"><br><b>Winter</b> <sub><code>winter</code></sub><br>Snow, and frost creeping in at the edges. An unknown new device is a yeti, stomping into the drift.</td>
 <td width="50%" valign="top"><img src="woodlands/preview.webp" alt="The Woodlands theme"><br><b>Woodlands</b> <sub><code>woodlands</code></sub><br>A forest late in the afternoon, with its wildlife. An unknown new device is a bear in the clearing, and the owl won't take its eyes off it.</td>
 </tr>
 </table>
@@ -132,12 +132,12 @@ Seasonal. Holiday Spirit puts these on by date.
 
 <table>
 <tr>
-<td width="50%" valign="top"><img src="christmas/preview.webp" alt="The Christmas theme"><br><b>Christmas</b> <sub><code>christmas</code></sub><br>Twinkling lights, swinging ornaments, a little snow, and Santa hats on the Map. Hidden in the menu until it's unlocked.</td>
-<td width="50%" valign="top"><img src="halloween/preview.webp" alt="The Halloween theme"><br><b>Halloween</b> <sub><code>halloween</code></sub><br>Cobwebs, a spider, jack-o'-lanterns, and now and then a bat or a ghost. Hidden in the menu until it's unlocked.</td>
+<td width="50%" valign="top"><img src="christmas/preview.webp" alt="The Christmas theme"><br><b>Christmas</b> <sub><code>christmas</code></sub><br>Twinkling lights, swinging ornaments, a little snow, and Santa hats on the Map. An unknown new device is a burglar on the naughty list. Hidden in the menu until it's unlocked.</td>
+<td width="50%" valign="top"><img src="halloween/preview.webp" alt="The Halloween theme"><br><b>Halloween</b> <sub><code>halloween</code></sub><br>Cobwebs, a spider, jack-o'-lanterns, and now and then a bat or a ghost. An unknown new device is a werewolf under a blood moon, held at the graveyard gate. Hidden in the menu until it's unlocked.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="newyear/preview.webp" alt="The New Year theme"><br><b>New Year</b> <sub><code>newyear</code></sub><br>Fireworks over a midnight skyline.</td>
-<td width="50%" valign="top"><img src="thanksgiving/preview.webp" alt="The Thanksgiving theme"><br><b>Thanksgiving</b> <sub><code>thanksgiving</code></sub><br>Leaves coming down over a harvest table, and a turkey.</td>
+<td width="50%" valign="top"><img src="newyear/preview.webp" alt="The New Year theme"><br><b>New Year</b> <sub><code>newyear</code></sub><br>Fireworks over a midnight skyline. An unknown new device is a gatecrasher, held at the velvet rope.</td>
+<td width="50%" valign="top"><img src="thanksgiving/preview.webp" alt="The Thanksgiving theme"><br><b>Thanksgiving</b> <sub><code>thanksgiving</code></sub><br>Leaves coming down over a harvest table, and a turkey. An unknown new device is a raccoon at the pie.</td>
 </tr>
 </table>
 
@@ -216,7 +216,7 @@ BAMF.registerTheme("my-theme", ctx => {
 ### Intruders
 
 A new device that hasn't been marked known is an intruder, and a theme can make
-a scene of it, the way most of the animated themes here do.
+a scene of it, the way the animated and holiday themes here do.
 `intruder` fires when one turns up; after that the scene holds it, in view,
 until it's marked known. What to hold is `ctx.intruders()`: the devices on the
 New tab, the same on every dashboard. `ctx.intruderWatch()` gives a function

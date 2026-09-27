@@ -213,11 +213,11 @@ a new device or one dropping off shows up in the scene. A few of them:
 </tr>
 </table>
 
-In sixteen of them a new device you haven't marked known is an intruder: a
-ship with no lights, a beetle, a rogue engine, a wolf, a shark, a car running
-dark, a pirate airship, an Agent, a bear, a rogue comet, a mystery prize, a part
-that isn't on the manifest. The scene raises the alarm, then holds it, tagged,
-until you say it's known.
+In every animated and holiday theme a new device you haven't marked known is an
+intruder: a ship with no lights, a beetle, a wolf, a shark, a pirate airship, an
+Agent, a bear, a yeti, a fox after the hens, a leak, a seagull after the hot
+dogs, a werewolf, a burglar on the naughty list. The scene raises the alarm,
+then holds it, tagged, until you say it's known.
 
 Reduced motion holds every scene still, nothing runs in a background tab, and
 sound is off unless you ask for it.

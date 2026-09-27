@@ -219,7 +219,8 @@ function buildSteampunk(root) {
   root.appendChild(mast);
   const moorX = k => innerWidth - 210 - k * 190;
   const moorTop = () => innerHeight - 118;
-  const moored = () => [...pirates.values()].filter(p => !p.gone).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  // One stood down keeps its mooring until it casts off, so none lands on it.
+  const moored = () => [...pirates.values()].filter(p => !p.leaving).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
   const makePirate = h => {
     const el = document.createElement("div");
     el.className = "sp-pirate";
@@ -233,7 +234,7 @@ function buildSteampunk(root) {
     const list = moored();
     mast.hidden = !list.length;
     mast.style.left = (innerWidth - 60) + "px";
-    room.style.height = list.length ? "170px" : "0";
+    room.style.height = list.some(q => !q.gone) ? "170px" : "0";
     list.forEach((p, k) => {
       p.el.hidden = k > 1;
       if (p.moving) return;
@@ -254,9 +255,11 @@ function buildSteampunk(root) {
       intruderTagEl(p.h, "cleared", p.tag);
       p.el.classList.add("cleared");
       festiveTimers.push(setTimeout(() => {
+        p.leaving = true; p.moving = true;
         p.tag.remove(); p.el.classList.remove("moored");
         p.el.style.transition = "left 5s ease-in, top 5s ease-in, opacity 5s";
         p.el.style.left = (innerWidth + 60) + "px"; p.el.style.top = "40px"; p.el.style.opacity = "0";
+        settle();
         festiveTimers.push(setTimeout(() => { done(); if (!h.test) arrival(h); }, 5200));
       }, 2400));
     }

@@ -5,6 +5,13 @@
 // through the haze, a projector traces a figure that leaves a glowing trail,
 // and a grid runs back to the horizon. A finished scan snaps every beam into a
 // starburst; a new device sends one hard beam across the room.
+//
+// A new device nobody has marked known is an intruder: a rogue droid in
+// neither squad's colours, beamed into no-man's-land. Every beam in the room
+// turns red and swings onto it, the fight stops, and both squads stand up and
+// hold it in their sights; it stands there, tagged, until the device is marked
+// known. Then it beams out, the squads drop back into cover, and a hard beam
+// goes across the room for the device.
 const LZ_COLORS = [[0, 229, 255], [255, 47, 209], [157, 255, 61], [255, 213, 74]];
 
 function buildLaser(root, switched) {
@@ -68,12 +75,14 @@ function buildLaser(root, switched) {
       ctx.stroke();
     }
 
-    // The fans.
+    // The fans; red, and every beam on the rogue, while an intruder's alarm is on.
+    const alert = rogueAlert(now || 0);
     for (const r of rigs) {
       const swing = calm ? .35 : Math.sin(t * r.speed + r.phase) * .55;
-      const rgb = LZ_COLORS[r.col].join(", ");
+      const rgb = alert ? "255, 59, 48" : LZ_COLORS[r.col].join(", ");
+      const onIt = alert ? Math.atan2(H - 40 - r.y, alert.x - r.x) : 0;
       for (let i = -4; i <= 4; i++) {
-        const ang = Math.PI / 2 + swing + i * (r.spread / 4) * r.dir + (flare ? i * flare * .18 : 0);
+        const ang = alert ? onIt + i * .012 * r.dir : Math.PI / 2 + swing + i * (r.spread / 4) * r.dir + (flare ? i * flare * .18 : 0);
         beam(r.x, r.y, ang, H * 1.25, rgb, 2 + Math.abs(i) * .25, (.5 - Math.abs(i) * .045) * (1 + flare));
       }
       // The lens itself.
@@ -194,7 +203,12 @@ function buildLaser(root, switched) {
   function fight(dt, now) {
     if (now > skirmishAt) { heat = 1; skirmishAt = now + rnd(25e3, 45e3); }
     heat = Math.max(.25, heat - dt / 9);
+    const rogue = standoff();
     for (const d of droids) {
+      // While there's a rogue on the floor, the fight's off: everyone who's
+      // standing holds it in their sights.
+      if (rogue && d.state !== "down") { d.state = "hold"; d.want = 1; d.target = null; aimAt(d, rogue, dt); }
+      else if (d.state === "hold") { d.state = "cover"; d.next = now + rnd(600, 2400); }
       if (d.state === "down") {
         d.tilt = Math.min(1.35, d.tilt + dt * 6);
         if (!d.pinned && now > d.downUntil) { d.state = "cover"; d.next = now + rnd(700, 1800); }
@@ -347,6 +361,7 @@ function buildLaser(root, switched) {
     for (const d of droids) drawDroid(d);
     fx.restore();
     for (const d of droids) drawCover(d);
+    drawRogues();
     fx.globalCompositeOperation = "lighter";
     fx.lineCap = "round";
     for (const b of bolts) {
@@ -367,6 +382,119 @@ function buildLaser(root, switched) {
     fx.globalCompositeOperation = "source-over";
   }
 
+  // ---- intruders: rogue droids in no-man's-land ----
+  const watchIn = intruderWatch();
+  const rogues = new Map();             // id -> { h, x, alarm, bornAt, clearAt, outAt }
+  const slotX = k => W < 700 ? W * .5 : W * (k ? .41 : .57);
+  // One stood down keeps its place until it has gone, so none lands on it.
+  const order = () => [...rogues.values()].sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  const newRogue = h => ({ h, x: null, alarm: 0, bornAt: 0, clearAt: 0, outAt: 0 });
+  const standoff = () => order().find(r => !r.clearAt && r.x != null) || null;
+  function rogueAlert(now) {
+    const r = order().find(q => !q.clearAt && q.alarm && now - q.alarm < 8000);
+    return r && r.x != null ? r : null;
+  }
+  function aimAt(d, r, dt) {
+    const [sx, sy] = shoulder(d);
+    const want = Math.atan2(GY - 34 * S - sy, (r.x - sx) * d.dir);
+    d.aim += (want - d.aim) * (dt ? Math.min(1, dt * 10) : 1);
+  }
+  function drawRogue(r, now) {
+    const k = Math.min(r.bornAt ? (now - r.bornAt) / 500 : 1, r.outAt ? 1 - (now - r.outAt) / 500 : 1);
+    if (k <= 0) return;
+    const red = !r.clearAt, pulse = calm ? 1 : .7 + .3 * Math.sin(now / 160);
+    fx.save(); fx.globalAlpha = Math.min(1, k);
+    fx.translate(r.x, GY); fx.scale(S * 1.1, S * 1.1);
+    fx.shadowColor = red ? "rgba(255, 59, 48, .9)" : "rgba(79, 224, 160, .8)"; fx.shadowBlur = 12;
+    fx.fillStyle = "#2a1518";
+    fx.fillRect(-6, -16, 4, 16); fx.fillRect(2, -16, 4, 16);
+    rr(fx, -10, -37, 20, 22, 4); fx.fill();
+    rr(fx, -8, -51, 16, 13, 5); fx.fill();
+    fx.fillRect(-13, -34, 3, 16); fx.fillRect(10, -34, 3, 16);
+    fx.shadowBlur = 0;
+    fx.fillStyle = red ? `rgba(255, 59, 48, ${pulse.toFixed(2)})` : "rgba(79, 224, 160, .9)";
+    fx.fillRect(-6, -47, 12, 3);
+    fx.fillRect(-10, -28, 20, 2);
+    fx.restore();
+  }
+  function drawRogues() {
+    const now = calm ? 0 : performance.now();
+    const list = order(), first = standoff();
+    list.forEach((r, k) => {
+      if (!r.clearAt && k > (W < 700 ? 0 : 1)) return;
+      // Each glides to its place as the others come and go.
+      const want = slotX(Math.min(k, 1));
+      r.x = calm || r.x == null ? want : r.x + (want - r.x) * .12;
+      drawRogue(r, now);
+    });
+    // The squads' sights, all on the first of them.
+    if (first) {
+      fx.save(); fx.globalCompositeOperation = "lighter";
+      fx.strokeStyle = "rgba(255, 59, 48, .5)"; fx.fillStyle = "rgba(255, 90, 80, .9)"; fx.lineWidth = 1.2 * S;
+      const ty = GY - 34 * S;
+      for (const d of droids) {
+        if (d.state !== "hold" || d.rise < .6) continue;
+        const [sx, sy] = shoulder(d);
+        const mx = sx + d.dir * Math.cos(d.aim) * 24 * S, my = sy + Math.sin(d.aim) * 24 * S;
+        fx.beginPath(); fx.moveTo(mx, my); fx.lineTo(first.x, ty + (d.side ? 3 : -3) * S); fx.stroke();
+        fx.beginPath(); fx.arc(first.x, ty + (d.side ? 3 : -3) * S, 1.8 * S, 0, Math.PI * 2); fx.fill();
+      }
+      fx.restore();
+    }
+    list.forEach((r, k) => {
+      if (r.x == null || r.outAt || (!r.clearAt && k > (W < 700 ? 0 : 1))) return;
+      const state = r.clearAt ? "cleared" : r.alarm && now - r.alarm < 8000 ? "alarm" : "held";
+      const fade = r.clearAt ? Math.max(0, 1 - Math.max(0, now - r.clearAt - 1500) / 900) : 1;
+      intruderTag(fx, r.x, GY - 66 * S, r.h, { s: .8 * Math.max(S, .9), state, k: fade });
+    });
+  }
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    const now = performance.now();
+    for (const h of added) if (!rogues.has(h.id)) rogues.set(h.id, newRogue(h));
+    for (const h of held) { const r = rogues.get(h.id); if (r) r.h = h; }
+    for (const h of cleared) {
+      const r = rogues.get(h.id); if (!r || r.clearAt) continue;
+      if (calm || document.hidden) { rogues.delete(h.id); continue; }
+      // Stood down: it beams out, and a hard beam goes across the room for the device.
+      r.clearAt = now;
+      festiveTimers.push(setTimeout(() => {
+        r.outAt = performance.now();
+        burst(r.x, GY - 30 * S, "79, 224, 160", 18);
+        festiveTimers.push(setTimeout(() => { rogues.delete(h.id); if (!h.test) welcome(); }, 520));
+      }, 2400));
+    }
+    room.style.height = `${BAND + ([...rogues.values()].some(r => !r.clearAt) ? 64 : 0)}px`;
+    if (calm) {
+      const first = standoff();
+      if (first) droids.forEach(d => { if (d.state !== "down") { d.state = "hold"; d.rise = d.want = 1; aimAt(d, first, 0); } });
+      drawFight();
+    }
+  }
+  const welcome = () => {
+    if (document.hidden) return;
+    heat = Math.max(heat, .8);
+    const r = rigs[Math.floor(Math.random() * rigs.length)];
+    shot = { at: performance.now(), x0: r.x, y0: r.y, x1: rnd(W * .1, W * .9), y1: rnd(horizon, H) };
+  };
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    let r = rogues.get(h.id);
+    if (!r) { r = newRogue(h); rogues.set(h.id, r); }
+    if (calm) { syncIntruders(); return; }
+    if (document.hidden) return;
+    const now = performance.now();
+    Object.assign(r, { alarm: now, bornAt: now, clearAt: 0, outAt: 0 });
+    // It beams in: sparks, the squads up, every beam on it.
+    const list = order();
+    r.x = slotX(Math.min(list.indexOf(r), 1));
+    burst(r.x, GY - 30 * S, "255, 59, 48", 30);
+    bolts.length = 0;
+    flare = 1;
+  };
+  festiveHooks.rendered = syncIntruders;
+
   if (calm) {
     // Reduced motion: the rig lit, everything holding still. The fight is a
     // still of itself: a droid or two up, a few bolts caught mid-air.
@@ -379,8 +507,10 @@ function buildLaser(root, switched) {
       bolts.push({ x, y, vx: dir * 1100 * S, vy: 0, hue: Math.floor(rnd(0, 360)), side: k % 2 });
     }
     drawFight();
+    syncIntruders();
     return;
   }
+  syncIntruders();
 
   let raf = 0, last = 0;
   const frame = now => {
@@ -407,12 +537,6 @@ function buildLaser(root, switched) {
   // Staggered, so the squads don't all stand up on the first frame.
   droids.forEach(d => { d.next = performance.now() + rnd(500, 4500); });
   festiveHooks.scanDone = () => { if (!document.hidden) { flare = 1; heat = 1; } };
-  festiveHooks.newDevice = () => {
-    if (document.hidden) return;
-    heat = Math.max(heat, .8);
-    const r = rigs[Math.floor(Math.random() * rigs.length)];
-    shot = { at: performance.now(), x0: r.x, y0: r.y, x1: rnd(W * .1, W * .9), y1: rnd(horizon, H) };
-  };
   festiveHooks.netChange = (wentOff, cameBack) => {
     const now = performance.now();
     for (const id of wentOff) {

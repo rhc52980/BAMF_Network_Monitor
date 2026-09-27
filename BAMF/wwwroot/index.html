@@ -2284,7 +2284,7 @@
         <div class="set-row">
           <span class="set-label">Theme
             <span class="set-hint">Every theme, with its colours. The &#9681; button in the header opens the same list.</span>
-            <span class="set-hint">In most of the animated themes, a new device you haven't marked known is an <b>intruder</b>: the scene raises the alarm, then holds it, tagged, until you mark it known. <b>Show me an intruder</b> plays one on one of your devices.</span>
+            <span class="set-hint">In the animated and holiday themes, a new device you haven't marked known is an <b>intruder</b>: the scene raises the alarm, then holds it, tagged, until you mark it known. <b>Show me an intruder</b> plays one on one of your devices.</span>
             <span class="set-hint" id="setThemeStatus"></span>
           </span>
           <span class="set-field speed-fields"><button type="button" class="export-btn" id="setThemeOpen">Choose…</button><button type="button" class="export-btn" id="setIntruderTry" title="Plays the intruder scene on one of your devices">Show me an intruder</button></span>
@@ -8343,7 +8343,7 @@ $("setThemeOpen").onclick = (e) => {
 };
 // Over to the devices, where the scene can be seen, and an intruder for it.
 $("setIntruderTry").onclick = () => {
-  if (!festiveHooks.intruder) { toast("This theme has no intruder scene. Most of the animated ones do: try Harbour, Goat, City Lights or Matrix, then try again."); return; }
+  if (!festiveHooks.intruder) { toast("This theme has no intruder scene. The animated and holiday ones do: try Harbour, Goat, City Lights or Halloween, then try again."); return; }
   showView("devices");
   setTimeout(() => { if (!showIntruder()) toast("There's no device to borrow for the test yet."); }, 500);
 };

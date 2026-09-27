@@ -161,7 +161,8 @@ function buildMatrix(root, switched) {
   document.body.appendChild(room);
   festiveStops.push(() => room.remove());
   const standX = k => innerWidth - 90 - k * 170;
-  const standing = () => [...agents.values()].filter(a => !a.gone).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  // One stood down keeps its place until it has gone, so none lands on it.
+  const standing = () => [...agents.values()].sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
   const makeAgent = h => {
     const el = document.createElement("div");
     el.className = "m-agent";
@@ -173,7 +174,7 @@ function buildMatrix(root, switched) {
   };
   const settle = () => {
     const list = standing();
-    room.style.height = list.length ? "150px" : "0";
+    room.style.height = list.some(a => !a.gone) ? "150px" : "0";
     list.forEach((a, k) => {
       a.el.hidden = k > 1;
       a.tag.style.bottom = `calc(100% + ${6 + k * 0}px)`;
@@ -219,7 +220,7 @@ function buildMatrix(root, switched) {
   // While one's held, its name comes down the rain in red now and then.
   if (!calm) festiveTimers.push(setInterval(() => {
     if (document.hidden) return;
-    const list = standing();
+    const list = standing().filter(a => !a.gone);
     if (list.length && Math.random() < .5) dropName(nameOrIp(pick(list).h), true);
   }, 20000));
   syncIntruders();

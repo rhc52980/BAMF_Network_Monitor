@@ -90,3 +90,44 @@
   50% { transform: translate(30px, -45vh); } 85% { opacity: .6; } 100% { transform: translate(-20px, -95vh); opacity: 0; }
 }
 
+
+/* An intruder: a werewolf by the graveyard gate, under a blood moon. */
+
+.hw-gate { position: absolute; bottom: 0; width: 170px; transform: translateX(-50%); }
+
+.hw-gate svg, .hw-wolf svg { position: static; display: block; }
+
+.hw-wolf { position: absolute; bottom: 2px; width: 80px; transform: translateX(-50%); transition: left 1.2s ease-in-out, opacity 1.6s; }
+
+.hw-wolf svg { filter: drop-shadow(0 0 3px rgba(255, 42, 42, .35)); }
+
+.hw-wolf .intruder-tag { left: 50%; transform: translateX(-50%); }
+
+.hw-wolf.run svg { animation: hw-lope .28s ease-in-out infinite alternate; }
+
+@keyframes hw-lope { from { transform: translateY(0) rotate(0); } to { transform: translateY(-6px) rotate(-3deg); } }
+
+.hw-wolf .hw-eye { animation: hw-eye 1.6s ease-in-out infinite alternate; }
+
+@keyframes hw-eye { from { opacity: .55; } to { opacity: 1; } }
+
+.hw-wolf.gone { opacity: 0; }
+
+/* The blood moon: red laid over the moon, craters and all. */
+.moon::after { content: ""; position: absolute; left: 2px; top: 2px; width: 42px; height: 42px; border-radius: 50%;
+  background: #d8261a; mix-blend-mode: multiply; opacity: 0; transition: opacity 1.2s; }
+
+.moon.blood::after { opacity: .92; }
+
+.moon svg { transition: filter 1.2s; }
+
+.moon.blood svg { filter: drop-shadow(0 0 16px rgba(255, 40, 30, .85)); }
+
+.pumpkin.blood { transform: scale(1.3); }
+
+.pumpkin.blood .face { animation: none; fill: #ff3b2a; filter: drop-shadow(0 0 6px #ff2a2a) drop-shadow(0 0 14px #c00); }
+
+.hw-howl { position: absolute; top: 58px; transform: translateX(-50%); font: 800 18px "Space Grotesk", sans-serif; letter-spacing: .06em; color: #ffd8d0;
+  text-shadow: 0 0 10px #ff2a2a, 0 0 22px #c00; opacity: 0; animation: hw-howl 3.4s ease-out forwards; }
+
+@keyframes hw-howl { 10% { opacity: 1; } 70% { opacity: 1; transform: translateX(-50%) scale(1.08); } 100% { opacity: 0; transform: translate(-50%, 6px) scale(1.14); } }

@@ -9,6 +9,12 @@
 //
 // A scan shakes a fresh handful of blossom off the tree and sends the rabbit
 // hopping across; a new device comes up as a flower in the meadow.
+//
+// A new device nobody has marked known is an intruder: a fox. It streaks in
+// from the right, the sky flushes red, the hens kept behind the fence scatter
+// squawking in a burst of feathers, and the birds overhead scatter too; it
+// sits in the meadow, a feather in its mouth, tagged, until the device is
+// marked known. Then it trots off, and a flower comes up where it sat.
 function buildSpring(root) {
   const calm = calmMotion();
   const c = seasonCanvas(draw, step);
@@ -123,9 +129,144 @@ function buildSpring(root) {
     g.restore();
   }
 
+  // ---- intruders: foxes in the meadow ----
+  const watchIn = intruderWatch();
+  const foxes = new Map();              // id -> { h, x, alarm, clearAt, out, run }
+  let hens = [], feathers = [], alarmAt = -1e9;
+  const slotX = k => W < 700 ? W * .56 : W * .62 - k * 260 * S;
+  // One stood down keeps its place until it has gone, so none runs into it.
+  const order = () => [...foxes.values()].sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  const newFox = h => ({ h, x: null, alarm: 0, clearAt: 0, out: false, run: 0 });
+  const alarmK = now => Math.max(0, 1 - (now - alarmAt) / 7000);
+  function stepFoxes(dt, now) {
+    order().forEach((fx, k) => {
+      if (fx.out) {
+        fx.x += 120 * S * dt; fx.run += dt;
+        if (fx.x > W + 60 * S) foxes.delete(fx.h.id);
+        return;
+      }
+      const want = slotX(Math.min(k, 1));
+      if (fx.x == null) fx.x = want;
+      const d = want - fx.x;
+      if (Math.abs(d) < 1) { fx.run = 0; return; }
+      const sp = (fx.alarm && now - fx.alarm < 6000 ? 260 : 80) * S;
+      fx.x += Math.sign(d) * Math.min(Math.abs(d), sp * dt); fx.run += dt;
+    });
+    for (const hn of hens) { hn.t += dt; hn.x += hn.vx * dt; hn.flap += dt; }
+    hens = hens.filter(hn => hn.x > -40 && hn.x < W + 40);
+    for (const fe of feathers) { fe.t += dt; fe.x += fe.vx * dt; fe.y += fe.vy * dt; fe.vy = Math.min(fe.vy + 30 * dt, 14 * S); fe.r += fe.spin * dt; }
+    feathers = feathers.filter(fe => fe.t < 5);
+  }
+  // A fox sitting (or on the move), facing the way it's going: -1 left, 1 right.
+  function drawFox(g, x, t, running, dir, feather) {
+    const bob = running ? Math.abs(Math.sin(t / 70)) * 4 * S : 0;
+    g.save(); g.translate(x, groundY + 4 * S - bob); g.scale(-dir * S, S);
+    // The brush, curled round behind, white-tipped.
+    g.fillStyle = "#d9692a";
+    g.beginPath(); g.moveTo(6, -4); g.quadraticCurveTo(30, -2, 26, -20); g.quadraticCurveTo(22, -8, 4, -12); g.closePath(); g.fill();
+    g.fillStyle = "#fbf4ea"; g.beginPath(); g.ellipse(26, -19, 4, 3.4, -.6, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#e0782f";
+    g.beginPath(); g.ellipse(0, -13, 10, 14, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#fbf4ea"; g.beginPath(); g.ellipse(-4, -12, 5, 9, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#3a241a"; g.fillRect(-7, -4, 3, 5); g.fillRect(-1, -4, 3, 5);
+    // The head, ears up, snout out front.
+    g.fillStyle = "#e0782f";
+    g.beginPath(); g.arc(-4, -30, 8, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.moveTo(-10, -34); g.lineTo(-19, -28); g.lineTo(-9, -25); g.closePath(); g.fill();
+    for (const ex of [-8, 0]) { g.beginPath(); g.moveTo(ex - 3, -35); g.lineTo(ex, -45); g.lineTo(ex + 3, -35); g.closePath(); g.fill(); }
+    g.fillStyle = "#3a241a"; g.beginPath(); g.arc(-18.5, -28, 1.6, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(-7, -32, 1.3, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#fbf4ea"; g.beginPath(); g.moveTo(-9, -26); g.lineTo(-18, -27); g.lineTo(-10, -22); g.closePath(); g.fill();
+    if (feather) {
+      g.save(); g.translate(-16, -24); g.rotate(.5);
+      g.fillStyle = "#fffdf6"; g.strokeStyle = "#c9c2b0"; g.lineWidth = .8;
+      g.beginPath(); g.ellipse(-6, 0, 7, 2.4, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.restore();
+    }
+    g.restore();
+  }
+  function drawHen(g, hn) {
+    const hop = Math.abs(Math.sin(hn.t * 16)) * 5 * S, wing = Math.sin(hn.flap * 30) * 5;
+    g.save(); g.translate(hn.x, groundY + 2 * S - hop); g.scale(Math.sign(hn.vx) * S, S);
+    g.fillStyle = hn.col; g.beginPath(); g.ellipse(0, -8, 8, 6.5, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.moveTo(-6, -10); g.lineTo(-12, -16); g.lineTo(-9, -7); g.closePath(); g.fill();
+    g.beginPath(); g.ellipse(-1, -12 - wing * .4, 6, 3, -.5 - wing * .08, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(7, -15, 4, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#d9352f"; g.beginPath(); g.arc(7, -19.5, 2, 0, Math.PI * 2); g.arc(9, -13, 1.4, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#f2b33d"; g.beginPath(); g.moveTo(10.5, -16); g.lineTo(14, -15); g.lineTo(10.5, -14); g.fill();
+    g.fillStyle = "#222"; g.beginPath(); g.arc(8, -16, .9, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+  function drawIntruders(t) {
+    const list = order();
+    list.forEach((fx, k) => {
+      if (!fx.clearAt && k > (W < 700 ? 0 : 1)) return;
+      if (calm || fx.x == null) fx.x = fx.out ? fx.x : slotX(Math.min(k, 1));
+      const moving = fx.run > 0 && !calm;
+      drawFox(f, fx.x, t, moving, fx.out || (moving && fx.x < slotX(Math.min(k, 1))) ? 1 : -1, !fx.clearAt);
+      if (fx.out) return;
+      const state = fx.clearAt ? "cleared" : fx.alarm && t - fx.alarm < 8000 ? "alarm" : "held";
+      const fade = fx.clearAt ? Math.max(0, 1 - Math.max(0, t - fx.clearAt - 1500) / 900) : 1;
+      intruderTag(f, fx.x + 36 * S, BH - 3 * S, fx.h, { s: .78 * Math.max(S, .9), align: "left", state, k: fade });
+    });
+    for (const hn of hens) drawHen(f, hn);
+    for (const fe of feathers) {
+      f.save(); f.translate(fe.x, fe.y); f.rotate(fe.r); f.globalAlpha = Math.max(0, 1 - fe.t / 5);
+      f.fillStyle = "#fffdf6"; f.beginPath(); f.ellipse(0, 0, 5 * S, 1.8 * S, 0, 0, Math.PI * 2); f.fill();
+      f.restore();
+    }
+    const a = alarmK(t);
+    if (a > .45) {
+      f.font = `700 ${13 * S}px "Space Grotesk", sans-serif`; f.textAlign = "center";
+      f.fillStyle = "#ffffff"; f.strokeStyle = "rgba(170, 30, 20, .9)"; f.lineWidth = 3 * S;
+      const bx = fenceX + 70 * S, by = groundY - 54 * S + Math.sin(t / 90) * 2 * S;
+      f.strokeText("BAWK! BAWK! FOX!", bx, by); f.fillText("BAWK! BAWK! FOX!", bx, by);
+      f.textAlign = "left";
+    }
+  }
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    const now = performance.now();
+    for (const h of added) if (!foxes.has(h.id)) foxes.set(h.id, newFox(h));
+    for (const h of held) { const fx = foxes.get(h.id); if (fx) fx.h = h; }
+    for (const h of cleared) {
+      const fx = foxes.get(h.id); if (!fx || fx.clearAt) continue;
+      if (calm || document.hidden) { foxes.delete(h.id); continue; }
+      // Stood down: it trots off, and a flower comes up where it sat.
+      fx.clearAt = now;
+      festiveTimers.push(setTimeout(() => {
+        if (!h.test) blooms.push({ x: fx.x, h: rnd(28, 46) * S, kind: Math.random() < .5 ? "tulip" : "daff", phase: rnd(0, 6.3), grow: 0,
+          col: pick(["#e0648c", "#d9534f", "#f2c14e", "#a974c4"]) });
+        fx.out = true;
+      }, 2400));
+    }
+    if (calm) draw(0);
+  }
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    let fx = foxes.get(h.id);
+    if (!fx) { fx = newFox(h); foxes.set(h.id, fx); }
+    if (calm) { draw(0); return; }
+    if (document.hidden) return;
+    const now = performance.now();
+    Object.assign(fx, { x: W + 40 * S, alarm: now, clearAt: 0, out: false });
+    alarmAt = now;
+    // The hens behind the fence scatter, both ways, in a burst of feathers.
+    const hx = fenceX + 70 * S;
+    hens = Array.from({ length: 5 }, (_, i) => ({ x: hx + rnd(-50, 50) * S, vx: (i % 2 ? 1 : -1) * rnd(110, 190) * S, t: rnd(0, 1), flap: 0,
+      col: pick(["#fbf7ee", "#c98a4a", "#fbf7ee", "#8a5a36"]) }));
+    feathers = Array.from({ length: 14 }, () => ({ x: hx + rnd(-40, 40) * S, y: groundY - rnd(10, 40) * S, vx: rnd(-40, 40) * S, vy: -rnd(10, 40) * S, r: rnd(0, 6), spin: rnd(-3, 3), t: 0 }));
+    if (rabbit) { rabbit.dir = -1; rabbit.v = 260 * S; }
+  };
+  festiveHooks.rendered = syncIntruders;
+
   function step(dt, now) {
+    stepFoxes(dt, now);
     for (const cl of clouds) { cl.x += cl.v * dt; if (cl.x > W + 120 * cl.sc) cl.x = -120 * cl.sc; }
-    for (const b of birds) { b.x += b.v * dt; if (b.x > W + 30) { b.x = -30; b.y = HB + rnd(12, 70) * S; } }
+    // The birds overhead scatter from a fox.
+    const scare = alarmK(now);
+    for (const b of birds) { b.x += b.v * dt * (1 + 4 * scare); b.y -= 30 * scare * dt; if (b.x > W + 30) { b.x = -30; b.y = HB + rnd(12, 70) * S; } }
     for (const p of petals) {
       p.y += p.vy * dt; p.x += p.vx * dt * .4; p.r += p.spin * dt;
       if (p.y > H + 12 || p.x < -20) Object.assign(p, make(true));
@@ -146,6 +287,9 @@ function buildSpring(root) {
     const sky = ctx.createLinearGradient(0, 0, 0, H);
     sky.addColorStop(0, "#d8e9ef"); sky.addColorStop(.55, "#e5eee0"); sky.addColorStop(1, "#dfe9d6");
     ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+    // A fox about: the sky flushes red, and settles again.
+    const flush = calm ? 0 : alarmK(t);
+    if (flush > 0) { ctx.fillStyle = `rgba(226, 70, 60, ${(.3 * flush * (.8 + .2 * Math.sin(t / 150))).toFixed(3)})`; ctx.fillRect(0, 0, W, H); }
     // Hills, far to near, behind the page.
     for (const [base, amp, col, k] of [[H * .62, 26, "#cfe0c2", .004], [H * .72, 34, "#bfd6ae", .006], [H * .82, 30, "#afcb9b", .009]]) {
       ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, H);
@@ -208,25 +352,22 @@ function buildSpring(root) {
     }
     if (rabbit) drawRabbit(f, rabbit, t);
     for (const b of bfly) drawButterfly(f, b, t);
+    drawIntruders(t);
   }
 
   if (calm) {
     // Reduced motion: blossom already fallen and lying still, the meadow still.
     for (const p of petals) { p.y = H - rnd(2, 40); p.sway = 0; }
-    draw(0);
+    syncIntruders();
     return;
   }
+  syncIntruders();
   rabbitAt = performance.now() + rnd(8000, 16000);
   c.start();
   festiveHooks.scanDone = () => {
     if (document.hidden) return;
     for (const p of petals.slice(0, 20)) Object.assign(p, make(true), { vy: rnd(40, 80) });
     if (!rabbit) rabbit = { x: -30, dir: 1, v: 110 * S, t: 0 };
-  };
-  festiveHooks.newDevice = () => {
-    if (document.hidden) return;
-    blooms.push({ x: rnd(20, W - 20), h: rnd(28, 46) * S, kind: Math.random() < .5 ? "tulip" : "daff", phase: rnd(0, 6.3), grow: 0,
-      col: pick(["#e0648c", "#d9534f", "#f2c14e", "#a974c4"]) });
   };
 }
 
