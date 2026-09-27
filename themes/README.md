@@ -77,8 +77,8 @@ Something going on behind the dashboard. Reduced motion settles them all.
 
 <table>
 <tr>
-<td width="50%" valign="top"><img src="antfarm/preview.webp" alt="The Ant Farm theme"><br><b>Ant Farm</b> <sub><code>antfarm</code></sub><br>A glass ant farm with a chamber for every device.</td>
-<td width="50%" valign="top"><img src="aquarium/preview.webp" alt="The Aquarium theme"><br><b>Aquarium</b> <sub><code>aquarium</code></sub><br>Fish, bubbles, weed and a crab behind the glass; a treasure chest opens on a scan.</td>
+<td width="50%" valign="top"><img src="antfarm/preview.webp" alt="The Ant Farm theme"><br><b>Ant Farm</b> <sub><code>antfarm</code></sub><br>A glass ant farm with a chamber for every device. An unknown new device is a beetle: the colony swarms it and seals it in.</td>
+<td width="50%" valign="top"><img src="aquarium/preview.webp" alt="The Aquarium theme"><br><b>Aquarium</b> <sub><code>aquarium</code></sub><br>Fish, bubbles, weed and a crab behind the glass. An unknown new device is a shark: the fish scatter while it prowls.</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="nightstreet/preview.webp" alt="The City Lights theme"><br><b>City Lights</b> <sub><code>nightstreet</code></sub><br>A city after dark: street lamps, lit windows, and traffic going by.</td>
@@ -93,8 +93,8 @@ Something going on behind the dashboard. Reduced motion settles them all.
 <td width="50%" valign="top"><img src="factory/preview.webp" alt="The Factory theme"><br><b>Factory (with Factory Night Shift)</b> <sub><code>factory</code></sub><br>A shop floor with a belt running, a press, and an arm that picks off the line.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="goat/preview.webp" alt="The Goat theme"><br><b>Goat (with Goat Night)</b> <sub><code>goat</code></sub><br>An alpine pasture with a barn and a herd of goats with opinions.</td>
-<td width="50%" valign="top"><img src="harbour/preview.webp" alt="The Harbour theme"><br><b>Harbour</b> <sub><code>harbour</code></sub><br>A quay at dusk with a container for every device.</td>
+<td width="50%" valign="top"><img src="goat/preview.webp" alt="The Goat theme"><br><b>Goat (with Goat Night)</b> <sub><code>goat</code></sub><br>An alpine pasture with a barn and a herd of goats with opinions. An unknown new device is a wolf, and the ram sees it off.</td>
+<td width="50%" valign="top"><img src="harbour/preview.webp" alt="The Harbour theme"><br><b>Harbour</b> <sub><code>harbour</code></sub><br>A quay at dusk with a container for every device. An unknown new device is a ship with no lights, held off the breakwater in the lighthouse's beam.</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="hotdog/preview.webp" alt="The Hotdog Stand theme"><br><b>Hotdog Stand</b> <sub><code>hotdog</code></sub><br>Windows 3.1's loudest colour scheme, with a hot dog stand to go with it.</td>
@@ -102,7 +102,7 @@ Something going on behind the dashboard. Reduced motion settles them all.
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="matrix/preview.webp" alt="The Matrix theme"><br><b>Matrix</b> <sub><code>matrix</code></sub><br>Digital rain with your devices' names falling in it, numbers that decode, and a white rabbit.</td>
-<td width="50%" valign="top"><img src="railway/preview.webp" alt="The Model Railway theme"><br><b>Model Railway</b> <sub><code>railway</code></sub><br>A model train set running round the edges of the page.</td>
+<td width="50%" valign="top"><img src="railway/preview.webp" alt="The Model Railway theme"><br><b>Model Railway</b> <sub><code>railway</code></sub><br>A model train set round the edges of the page. An unknown new device is a rogue engine: signals to red, brakes on, shunted into the siding.</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="powerplant/preview.webp" alt="The Power Plant theme"><br><b>Power Plant</b> <sub><code>powerplant</code></sub><br>A turbine hall with cooling towers, and a control desk along the bottom.</td>
@@ -209,8 +209,24 @@ BAMF.registerTheme("my-theme", ctx => {
   ctx.on("rendered", () => { /* the dashboard redrew */ });
   ctx.on("netChange", (offIds, backIds) => { /* devices went offline or came back */ });
   ctx.on("decorateNode", (g, node) => { /* add SVG to a Map node as it's drawn */ });
+  ctx.on("intruder", host => { /* a new device nobody has marked known: raise the alarm */ });
 });
 ```
+
+### Intruders
+
+A new device that hasn't been marked known is an intruder, and a theme can make
+a scene of it, the way Harbour, Ant Farm, Model Railway, Goat and Aquarium do.
+`intruder` fires when one turns up; after that the scene holds it, in view,
+until it's marked known. What to hold is `ctx.intruders()`: the devices on the
+New tab, the same on every dashboard. `ctx.intruderWatch()` gives a function
+that says, each time it's called, what's held now, what's been `added` and
+what's been `cleared` since it last looked, so the scene knows when to stand
+down. Hang `ctx.intruderTag(g, x, y, host, { state })` on it on a canvas, or
+`ctx.intruderTagEl(host, state)` as an element, so every theme's tag reads the
+same; `state` is `"alarm"`, `"held"` or `"cleared"`. **Show me an intruder**, in
+Settings → Appearance, plays your scene on a test device (its host has
+`test: true`) that clears by itself after 25 seconds.
 
 Wrap your script in `(() => { ... })();` so its names don't meet another
 theme's. The themes in this folder ship with BAMF and use some of the
@@ -226,7 +242,8 @@ The themes here all keep to these, and a theme you share should too:
 - sound only when the user switches it on;
 - text stays readable: at least AA contrast;
 - online, unknown and offline keep their colours and what they mean;
-- nothing covers the dashboard for good.
+- nothing covers the dashboard for good: anything that stays in front of the
+  page gets room at the bottom so the page can scroll clear of it.
 
 ### Sharing it
 

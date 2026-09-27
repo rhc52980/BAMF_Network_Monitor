@@ -223,6 +223,21 @@
 
 .goat-leaper { position: absolute; left: 0; top: 0; pointer-events: none; }
 
+/* The wolf: grey, lean, its legs a darker grey; crouched low while it lurks,
+   its eyes catching the light. Its tag stands over it, kept on the screen. */
+.goat-svg.wolf .leg { stroke: #3d4148; stroke-width: 3.6; }
+.goat-svg.wolf.night .leg { stroke: #1c2026; }
+.goat-svg.wolf .w-tail { transform-box: fill-box; transform-origin: right top; }
+.goat-svg.wolf .w-head { transform-origin: 47px 20px; transition: transform .5s ease; }
+.goat-wolf.lurk svg { transform: scaleX(-1) translateY(4px); }
+.goat-wolf.lurk .w-head { transform: rotate(14deg); }
+.goat-svg.wolf .w-eye { filter: drop-shadow(0 0 2px #ffd24a); }
+.goat-wolf .intruder-tag { bottom: calc(100% + 8px); right: -6px; }
+.goat-red { position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 55% 40% at 82% 100%, rgba(255, 40, 30, .30), rgba(255, 40, 30, .06) 60%, transparent 100%);
+  animation: goat-red .6s ease-in-out infinite alternate; }
+@keyframes goat-red { from { opacity: .45; } to { opacity: 1; } }
+
 .goat-tag { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 4px; padding: 2px 8px; background: #fdf8ec; color: #3b2e1f;
   border: 1.5px solid #9e2b25; border-radius: 8px; font: 700 12px "Space Grotesk", system-ui, sans-serif; white-space: nowrap; }
 
@@ -234,7 +249,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   :is([data-theme="goat"], [data-theme="goatnight"]) .scan-fill::after, .goat-munch.chewing, .goat-bell, :is([data-theme="goat"], [data-theme="goatnight"]) tr.goat-shake td, .goat-bonk, .goat-cloud,
-  .goat-bg .crag-goat .g-head, .goat-svg .g-tail, .goat-svg .g-ear, .goat-bubble, .goat-boom, .goat-star, .goat-fly { animation: none !important; }
+  .goat-bg .crag-goat .g-head, .goat-svg .g-tail, .goat-svg .g-ear, .goat-bubble, .goat-boom, .goat-star, .goat-fly, .goat-red { animation: none !important; }
 
   :is([data-theme="goat"], [data-theme="goatnight"]) .stat::before { transition: none; }
 

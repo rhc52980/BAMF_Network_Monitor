@@ -529,14 +529,15 @@ Some themes have a little life in them:
   settled in the sand, its colours still flying and a moray eel living in one
   of its portholes. The seabed is solid and the page gets that much more room
   at the bottom, so the last rows scroll clear of it; the crab walks along it
-  and the diver swims in front of the page. A new device swims in as a fish
-  carrying its name, a finished scan sends up a column of bubbles and **pops
+  and the diver swims in front of the page. A new device nobody has marked
+  known is **a shark** (see [Intruders](#intruders)); once it's known it swims
+  in as a fish carrying its name. A finished scan sends up a column of bubbles and **pops
   the treasure chest open**, gold and all, a device going offline sinks for a
   moment and **brings the eel out of the wreck** to look, and one coming back
   **opens the clam** to show its pearl. Watched devices have a pet fish that swims
   beside their name and floats still when they're down. On the Map, bubbles
   drift up the pipes and a shell marks unknown devices. With sound on, the
-  bubbles burble as they rise, a new device arrives in a flurry of them, and
+  bubbles burble as they rise, a shark arrives in a flurry of them, and
   the pump hums quietly in the background; it stops in a background tab.
 - **Goat**: an alpine pasture behind the page, with snowy mountains, pines,
   drifting clouds and a goat keeping watch from a crag, under a barn-red
@@ -546,8 +547,9 @@ Some themes have a little life in them:
   across the tops of the stats cards and takes a bite out of one. The bite
   grows back. The next-scan bar is grass being eaten, a goat munches beside
   the search box as you type, and one peeks over a stats card when you point
-  at it. A new device arrives as a kid goat pronking with its name, a finished
-  scan gets a bleat, an offline device's row gets headbutted, watched devices
+  at it. A new device nobody has marked known is **a wolf** (see
+  [Intruders](#intruders)); once it's known it arrives as a kid goat pronking
+  with its name. A finished scan gets a bleat, an offline device's row gets headbutted, watched devices
   wear a goat bell that rings while they're up, and when everything's online
   the herd celebrates. On the Map, cables are rope and a goat stands on the
   router, king of the hill.
@@ -780,10 +782,12 @@ Some themes have a little life in them:
   beams round, flashing as one swings to face you. Along the bottom is the
   quay. **Every device is a shipping container** in the stacks, its lamp
   green while it's online, amber while it's unknown and dark while it's
-  offline; a watched device that drops blinks red. **A new device is brought
-  ashore by the gantry crane**: the trolley runs out over the ship at the
-  berth, lowers, lifts a container off, carries it along the boom and sets it
-  down in its place. Beyond the ship is a marina, sailboats, a launch and a
+  offline; a watched device that drops blinks red. A new device nobody has
+  marked known is **a ship with no lights** held off the breakwater (see
+  [Intruders](#intruders)); once it's known, **its container is brought ashore
+  by the gantry crane**: the trolley runs out over the ship at the berth,
+  lowers, lifts a container off, carries it along the boom and sets it down in
+  its place. Beyond the ship is a marina, sailboats, a launch and a
   fishing boat at a pontoon under warm lamps, their light shivering in the
   water, and the tug at its berth. **A scan sends the tug out** across the
   harbour and back, makes the lighthouse flare, and runs a ripple of lamps
@@ -801,8 +805,9 @@ Some themes have a little life in them:
   lamp while it's online and known, **honey hanging from the roof while it's
   online and unknown** (these are honeypot ants), and sand fallen in while
   it's offline. A watched device that drops flickers red and ants rush to it.
-  **A new device is a chamber being dug**, sand flying, and **a scan sends a
-  stream of ants out through every tunnel**. With sound on there are crickets,
+  A new device nobody has marked known is **a beetle** that breaks in (see
+  [Intruders](#intruders)); once it's known, its chamber is dug out fresh,
+  sand flying. **A scan sends a stream of ants out through every tunnel**. With sound on there are crickets,
   the scratch of digging, a patter of feet for a scan and a clicking alarm.
   Reduced motion holds the colony still, the ants wherever they were.
 - **Model Railway**: a train set run round the edges of the page, in daylight.
@@ -818,9 +823,12 @@ Some themes have a little life in them:
   seven with a `+N` on the last. The engines steam as they go. **A watched
   device going down puts its station's exit signal to red, and the train waits
   in the platform until it's back**; any device dropping off holds it there
-  for a moment. A finished scan has every train whistle and put on speed, and
-  a new device's wagon lights up. With one network there's a goods train
-  running through as well. The page gets room at the bottom so the baseboard
+  for a moment. A finished scan has every train whistle and put on speed. A
+  new device nobody has marked known is **a rogue engine** shunted into a
+  siding (see [Intruders](#intruders)); once it's known, its wagon lights up
+  on its network's train. With one network there's a goods train running
+  through as well. With sound on (the speaker beside the theme button) the
+  engines whistle for a scan and the crossing bell rings for an intruder. The page gets room at the bottom so the baseboard
   never hides the last rows. Reduced motion stands each train at its station.
 - **New Year**: fireworks over a city at midnight. Rockets climb from behind
   the skyline, burst, and the sparks fall and fade; a finished scan sets one
@@ -874,6 +882,33 @@ Some themes have a little life in them:
 None of it runs while the tab is in the background. With reduced motion switched
 on in your system settings, it all holds still: Matrix shows a still wall of
 glyphs instead of rain.
+
+### Intruders
+
+In **Harbour**, **Ant Farm**, **Model Railway**, **Goat** and **Aquarium**, a
+new device nobody has marked known is an intruder, and the scene treats it as
+one. First the alarm, then the scene holds it, in view and tagged with its
+name, address and maker, until you mark it known:
+
+| Theme | The intruder | The alarm | Held |
+|---|---|---|---|
+| Harbour | a ship with no lights and no flag | the lighthouse turns its light on it, the sky flushes red, the tug goes out on patrol | at anchor off the breakwater, in the light |
+| Ant Farm | a beetle | red alarm spreads through the nest, soldiers pour out, the queen is walled in | sealed in the device's chamber, soldiers on guard |
+| Model Railway | an engine with no livery | every signal to red, the trains brake hard, the crossing lights flash | shunted into the siding, against the buffers |
+| Goat | a wolf | the herd bunches and bleats, bells clanging, and the ram charges it | lurking at the edge of the pasture |
+| Aquarium | a shark | the fish scatter, the crab digs in, the eel pulls back, the water flushes red | prowling the bottom of the tank |
+
+Mark the device known, anywhere, and the scene stands down: the tag turns
+green, the intruder goes, and the device arrives the way that theme welcomes
+one, its container lifted ashore, its chamber dug, its wagon coupled on, a kid
+goat, a fish with its name. What's held is the **New** tab, so every dashboard
+holds the same ones, a reload doesn't lose them, and one that's ignored,
+forgotten or simply past its days on the New tab is let go too. A device held
+in front of the page gets room at the bottom so the page can scroll clear of it.
+
+**Settings → Appearance → Show me an intruder** plays the scene on one of your
+devices, marked TEST, and stands down by itself after 25 seconds. With reduced
+motion there's no alarm: each intruder is simply shown, held.
 
 ### Holiday Spirit
 

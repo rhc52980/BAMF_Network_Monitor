@@ -45,6 +45,18 @@
 
 .aq-shark { opacity: .72; }
 
+/* The intruder: a shark in front of the glass, see-through enough to read
+   through, its tag riding over it. */
+.aq-intruder { position: absolute; left: 0; pointer-events: none; }
+.aq-intruder svg { display: block; opacity: .82; filter: drop-shadow(0 4px 8px rgba(0, 10, 20, .5)); }
+.aq-intruder.rtl svg { transform: scaleX(-1); }
+.aq-intruder .tail { transform-box: fill-box; transform-origin: right center; animation: aq-tail .5s ease-in-out infinite alternate; }
+.aq-intruder .intruder-tag { bottom: calc(100% - 6px); left: 50%; transform: translateX(-50%); }
+.aq-red { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 60% 80%, rgba(255, 40, 30, .32), rgba(255, 40, 30, .08) 70%);
+  animation: aq-red .6s ease-in-out infinite alternate; }
+@keyframes aq-red { from { opacity: .4; } to { opacity: 1; } }
+.aq-crab.dig svg { transform: translateY(26px) !important; transition: transform .6s ease-in; }
+
 .aq-shark svg { width: 250px; height: auto; }
 
 .aq-shark .tail { animation-duration: 1s; }
@@ -236,7 +248,7 @@
   .aq-seabed .aq-flag,
   .aq-jelly .bell,
   .aq-jelly .strand,
-  .aq-turtle .flip { animation: none !important; }
+  .aq-turtle .flip, .aq-intruder .tail, .aq-red { animation: none !important; }
 
   .aq-seabed .aq-lid, .aq-seabed .aq-glint, .aq-seabed .aq-eel, .aq-seabed .aq-clam-top { transition: none !important; }
 

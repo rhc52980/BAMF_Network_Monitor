@@ -5,11 +5,15 @@
 // An alpine pasture behind the page and a herd along the bottom. Each goat
 // has a mind of its own: it wanders, grazes, pronks and bleats. Now and then
 // two square up and butt heads, and one leaps across the tops of the stats
-// cards, stopping to take a bite out of one. A new device arrives as a kid
-// goat, a finished scan gets a bleat, an offline device's row is headbutted,
-// watched devices wear a bell, the scan bar is grass being eaten, and on the
-// Map a goat stands on the router. When everything is online, the herd
-// celebrates.
+// cards, stopping to take a bite out of one. A finished scan gets a bleat, an
+// offline device's row is headbutted, watched devices wear a bell, the scan
+// bar is grass being eaten, and on the Map a goat stands on the router. When
+// everything is online, the herd celebrates.
+// A new device nobody has marked known is an intruder: a wolf. It slinks in at
+// the edge of the pasture; the herd bunches together, bells clanging, bleating
+// the alarm, and the ram squares up and charges it back. Then it lurks at the
+// edge, eyes glinting, tagged, until the device is marked known: then it slinks
+// off, and the device arrives as a kid goat instead.
 // One goat, facing right, in a 64 x 56 box. Its parts are classed so CSS
 // can walk its legs, lower its head to graze, flick its ear and wag its tail.
 function goatInner({ coat = "#f4f0e6", shade = "#d8cfbd", patch = null, horns = true } = {}) {
@@ -28,6 +32,25 @@ function goatInner({ coat = "#f4f0e6", shade = "#d8cfbd", patch = null, horns = 
       <path d="M55 21l1.5 6.5-3.5-6z" fill="${shade}" stroke="${s}" stroke-width=".6"/>
       <circle cx="52.5" cy="11.5" r="1.8" fill="#fff" stroke="${s}" stroke-width=".5"/><rect x="51.3" y="11.1" width="2.4" height=".9" rx=".3" fill="#222"/>
       <circle cx="59.5" cy="17" r=".7" fill="${s}"/>
+    </g>`;
+}
+
+// A wolf, facing right in a 70 x 48 box, its legs classed like a goat's so it
+// walks the same way; lean, grey, ears up, tail low.
+function wolfInner(night) {
+  const fur = night ? "#2f343c" : "#6b7078", shade = night ? "#1f232a" : "#4b5058", eye = night ? "#ffd24a" : "#f2c14a";
+  return `<g class="g-back-legs"><path class="leg l1" d="M16 30v15"/><path class="leg l2" d="M21 31v14"/></g>
+    <g class="g-front-legs"><path class="leg l3" d="M41 30v15"/><path class="leg l4" d="M46 29v16"/></g>
+    <path class="w-tail" d="M10 21Q-1 25 2 39Q6 31 12 28z" fill="${fur}" stroke="${shade}" stroke-width="1"/>
+    <path d="M9 22Q11 14 26 15L45 16Q53 17 52 27Q50 33 41 33L15 33Q8 31 9 22z" fill="${fur}" stroke="${shade}" stroke-width="1.2"/>
+    <path d="M24 15.5l2-4 2 4 2-4 2 4 2-3.5 2 3.5" fill="none" stroke="${fur}" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M15 31q13 4 26 0" fill="none" stroke="${shade}" stroke-width="2"/>
+    <g class="w-head">
+      <path d="M45 19Q51 11 57 12.5L67 17.5Q69.5 20 65.5 21.5L57 23.5Q50 25.5 46.5 23.5z" fill="${fur}" stroke="${shade}" stroke-width="1.1"/>
+      <path d="M49.5 13L51.5 4.5L55 12z M54 12.5L57.5 5.5L58.5 13z" fill="${fur}" stroke="${shade}" stroke-width=".8"/>
+      <path d="M58 20.5L66 19.5" stroke="${shade}" stroke-width=".9"/>
+      <circle class="w-eye" cx="56.5" cy="15.6" r="1.4" fill="${eye}"/>
+      <circle cx="67" cy="18.4" r="1.2" fill="#111"/>
     </g>`;
 }
 
@@ -326,8 +349,133 @@ function buildGoat(root, switched, night = false) {
 
   // A scan finishes: somebody bleats.
   festiveHooks.scanDone = () => { if (herd.length) pick(herd).bleat(null, true); };
-  // A new device arrives as a kid goat, pronking, with its name.
-  festiveHooks.newDevice = async h => {
+
+  // ---- intruders: wolves at the edge of the pasture ----
+  const watchIn = intruderWatch();
+  const wolves = new Map();             // id -> { h, g, tag, alarm, gone }
+  const SHOW = 2;
+  const wolfX = k => W() - 100 - k * 74;
+  const makeWolf = (h, x) => {
+    const g = makeGoat(GOAT_COATS[0], 70, x);
+    g.el.classList.add("goat-wolf");
+    g.el.innerHTML = `<svg class="goat-svg wolf${night ? " night" : ""}" width="70" height="48" viewBox="0 0 70 48">${wolfInner(night)}</svg>`;
+    g.h = 48; g.busy = true;
+    const tag = intruderTagEl(h, "held");
+    g.el.appendChild(tag);
+    return { h, g, tag, alarm: 0, gone: false };
+  };
+  // Where each wolf lurks: the newest nearest the edge.
+  const lurking = () => [...wolves.values()].filter(w => !w.gone).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  // While a wolf is about, the page gets room at the bottom to scroll clear of
+  // it and its tag, the way a theme's floor does.
+  const room = document.createElement("div");
+  room.setAttribute("aria-hidden", "true");
+  document.body.appendChild(room);
+  festiveStops.push(() => room.remove());
+  const settle = () => lurking().forEach((w, k) => {
+    room.style.height = wolves.size ? "124px" : "0";
+    w.g.el.hidden = k >= SHOW;
+    // Tags stack, the nearer wolf's lower, so two never overlap.
+    w.tag.style.bottom = `calc(100% + ${8 + k * 52}px)`;
+    if (k >= SHOW || w.moving) return;
+    if (calm) { w.g.el.style.left = wolfX(k) + "px"; w.g.x = wolfX(k); w.g.face(-1); w.g.el.classList.add("lurk"); return; }
+    w.g.walkTo(wolfX(k), 60).then(() => { w.g.face(-1); w.g.el.classList.add("lurk"); });
+  });
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!wolves.has(h.id)) {
+      const w = makeWolf(h, wolfX(Math.min(wolves.size, SHOW - 1)));
+      w.g.face(-1); w.g.el.classList.add("lurk");
+      wolves.set(h.id, w);
+    }
+    for (const h of held) { const w = wolves.get(h.id); if (w && !w.gone) { w.h = h; if (!w.alarm || Date.now() - w.alarm > 9000) intruderTagEl(h, "held", w.tag); } }
+    for (const h of cleared) {
+      const w = wolves.get(h.id); if (!w || w.gone) continue;
+      w.gone = true;
+      if (calm || document.hidden) { w.g.el.remove(); wolves.delete(h.id); if (!wolves.size) room.style.height = "0"; continue; }
+      // It slinks off; the device comes in as a kid goat instead.
+      intruderTagEl(w.h, "cleared", w.tag);
+      (async () => {
+        await sleep(2200);
+        w.tag.remove(); w.g.el.classList.remove("lurk");
+        await w.g.walkTo(W() + 90, 90);
+        w.g.el.remove(); wolves.delete(h.id);
+        if (!h.test) kidArrives(h);
+        settle();
+        if (!wolves.size) room.style.height = "0";
+      })();
+    }
+  }
+  const redFlush = () => {
+    const r = document.createElement("div");
+    r.className = "goat-red";
+    root.appendChild(r);
+    festiveTimers.push(setTimeout(() => r.remove(), 6500));
+  };
+  // The alarm: the wolf slinks in, the herd bunches and bleats, bells going,
+  // and the ram charges it back to the edge.
+  festiveHooks.intruder = async h => {
+    if (!h) return;
+    syncIntruders();
+    let w = wolves.get(h.id);
+    if (!w) { w = makeWolf(h, wolfX(0)); wolves.set(h.id, w); }
+    if (calm || document.hidden) { settle(); return; }
+    w.alarm = Date.now(); w.moving = true;
+    intruderTagEl(h, "alarm", w.tag);
+    w.g.el.classList.remove("lurk");
+    w.g.el.style.transition = "none"; w.g.el.style.left = (W() + 20) + "px"; w.g.x = W() + 20; void w.g.el.offsetWidth;
+    settle();
+    const stop = W() - 250;
+    await w.g.walkTo(stop, 70);
+    w.g.face(-1);
+    redFlush();
+    // The herd sees it: they bunch together, facing it, and sound the alarm.
+    const flock = herd.filter(g => document.body.contains(g.el));
+    flock.forEach(g => { g.busy = true; });
+    const mid = W() * .3;
+    await Promise.all(flock.map((g, i) => g.walkTo(mid + (i - flock.length / 2) * 42, 170).then(() => g.face(1))));
+    bells(); flock.slice(0, 3).forEach((g, i) => festiveTimers.push(setTimeout(() => g.bleat(i ? "Baa!!" : "WOLF!", true), i * 300)));
+    await sleep(900);
+    // The ram: the biggest goat, horns and all.
+    const ram = flock.find(g => g.w >= 64) || flock[0];
+    if (ram) {
+      await ram.walkTo(stop - ram.w - 60, 190);
+      ram.face(1);
+      await ram.pose("rear", 520);
+      await ram.walkTo(stop - ram.w + 8, 320);
+      boom(stop, innerHeight - 12 - 30);
+      voice(.9, true);
+      w.moving = false;
+      settle();
+      await ram.walkTo(stop - ram.w - 90, 100);
+      await sleep(900);
+      ram.bleat("Hmph.", true);
+    } else { w.moving = false; settle(); }
+    await sleep(1200);
+    flock.forEach(g => { g.busy = false; });
+    festiveTimers.push(setTimeout(() => { if (!w.gone) intruderTagEl(w.h, "held", w.tag); }, 3000));
+  };
+  // Bells on the herd, clanging.
+  const bells = () => {
+    if (!soundOn || document.hidden) return;
+    try { goatAudio = goatAudio || new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
+    const ctx = goatAudio;
+    for (let k = 0; k < 7; k++) {
+      const t = ctx.currentTime + .02 + k * .16 + Math.random() * .05;
+      for (const [m, a] of [[1, .05], [2.4, .02]]) {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = "triangle"; o.frequency.value = (k % 2 ? 1150 : 980) * m;
+        g.gain.setValueAtTime(a, t); g.gain.exponentialRampToValueAtTime(.0005, t + .5);
+        o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + .55);
+      }
+    }
+  };
+  syncIntruders();
+  settle();
+
+  // A new device arrives as a kid goat, pronking, with its name: once it's
+  // been marked known, since until then it's the wolf.
+  const kidArrives = async h => {
     if (document.hidden) return;
     const kid = makeGoat({ coat: "#fbf8f1", shade: "#e2d9c6", horns: false }, 38, -50);
     kid.busy = true;
@@ -355,6 +503,7 @@ function buildGoat(root, switched, night = false) {
 
   let allUp = null;
   festiveHooks.rendered = () => {
+    syncIntruders();
     // Offline devices: their row gets headbutted.
     for (const id of wentOffIds) {
       const tr = document.querySelector(`tr[data-id="${id}"]`);

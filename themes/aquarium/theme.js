@@ -209,6 +209,11 @@ function aqSeabed(vw, seed) {
 
 const AQ_COLOURS = [["#ff9f43", "#e8662a"], ["#ffd23f", "#e0a800"], ["#7ae0ff", "#2fa7d6"], ["#ff7ab6", "#d8438a"], ["#b18cff", "#7a55d6"]];
 
+// A new device nobody has marked known is an intruder: a shark, in front of
+// the glass. It charges in; the fish scatter at full speed, the crab digs in,
+// the eel pulls back into the wreck, and the water flushes red. Then it
+// prowls the bottom of the tank, tagged, until the device is marked known:
+// then it swims off, and the device swims in as a fish with its name.
 function buildAquarium(root) {
   const calm = calmMotion(), c = waterCommon(root);
   // Sound: bubbles when they rise, and the pump's hum while it's on.
@@ -421,8 +426,103 @@ function buildAquarium(root) {
     if (off.length) briefly(eel, "peek", 5200);
     if (back.length) briefly(clam, "open", 4200);
   };
-  // A new device swims in as a fish, with its name.
-  festiveHooks.newDevice = h => {
+  // ---- intruders: sharks prowling the bottom of the tank ----
+  const watchIn = intruderWatch();
+  const sharks = new Map();             // id -> { el, tag, h, alarm, gone, dir }
+  const SHOW = 2, SW = 200;
+  const prowlRoom = document.createElement("div");
+  prowlRoom.setAttribute("aria-hidden", "true");
+  document.body.appendChild(prowlRoom);
+  festiveStops.push(() => prowlRoom.remove());
+  const prowling = () => [...sharks.values()].filter(k => !k.gone).sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
+  // Each shark has a lane just above the seabed, the newest lowest; the page
+  // gets room at the bottom to scroll clear of them.
+  const lane = k => bedH + 6 + k * 78;
+  const place = () => {
+    const list = prowling();
+    prowlRoom.style.height = list.length ? `${Math.min(list.length, SHOW) * 78 + 60}px` : "0";
+    list.forEach((k, i) => { k.el.hidden = i >= SHOW; k.el.style.bottom = lane(i) + "px"; });
+  };
+  const makeShark = (h, x) => {
+    const el = document.createElement("div");
+    el.className = "aq-intruder";
+    el.innerHTML = AQ_SHARK.replace('width="170" height="70"', `width="${SW}" height="${Math.round(SW * 70 / 170)}"`);
+    el.style.left = x + "px";
+    const tag = intruderTagEl(h, "held");
+    el.appendChild(tag);
+    root.appendChild(el);
+    return { el, tag, h, alarm: 0, gone: false, dir: -1, x };
+  };
+  const swimTo = (k, x, secs) => {
+    k.dir = x < k.x ? -1 : 1;
+    k.el.classList.toggle("rtl", k.dir < 0);
+    k.el.style.transition = `left ${secs}s ${secs < 4 ? "ease-out" : "ease-in-out"}`;
+    k.el.style.left = x + "px";
+    k.x = x;
+  };
+  // Back and forth across the right of the tank, unhurried.
+  const prowl = () => {
+    if (calm || document.hidden) return;
+    for (const k of prowling()) {
+      if (k.alarm && Date.now() - k.alarm < 3500) continue;
+      const a = innerWidth * .42, b = innerWidth - SW - 30;
+      swimTo(k, k.dir < 0 ? b : a, rnd(11, 15));
+    }
+  };
+  if (!calm) festiveTimers.push(setInterval(prowl, 14000));
+  function syncIntruders() {
+    const { held, added, cleared } = watchIn();
+    for (const h of added) if (!sharks.has(h.id)) {
+      const k = makeShark(h, innerWidth - SW - 40 - sharks.size * 260);
+      k.el.classList.add("rtl");
+      sharks.set(h.id, k);
+    }
+    for (const h of held) { const k = sharks.get(h.id); if (k && !k.gone) { k.h = h; if (!k.alarm || Date.now() - k.alarm > 9000) intruderTagEl(h, "held", k.tag); } }
+    for (const h of cleared) {
+      const k = sharks.get(h.id); if (!k || k.gone) continue;
+      k.gone = true;
+      if (calm || document.hidden) { k.el.remove(); sharks.delete(h.id); place(); continue; }
+      // It swims off; the device comes in as a fish instead.
+      intruderTagEl(k.h, "cleared", k.tag);
+      festiveTimers.push(setTimeout(() => {
+        k.tag.remove();
+        swimTo(k, -SW - 60, 4);
+        festiveTimers.push(setTimeout(() => { k.el.remove(); sharks.delete(h.id); place(); if (!h.test) fishArrives(h); }, 4200));
+      }, 2200));
+    }
+    place();
+  }
+  // The alarm: in it charges, everything else scatters.
+  festiveHooks.intruder = h => {
+    if (!h) return;
+    syncIntruders();
+    let k = sharks.get(h.id);
+    if (!k) { k = makeShark(h, innerWidth - SW - 40); sharks.set(h.id, k); place(); }
+    if (calm || document.hidden) return;
+    k.alarm = Date.now();
+    intruderTagEl(h, "alarm", k.tag);
+    k.el.style.transition = "none"; k.el.style.left = (innerWidth + 30) + "px"; k.x = innerWidth + 30; void k.el.offsetWidth;
+    place();
+    swimTo(k, innerWidth * .55, 2.6);
+    festiveTimers.push(setTimeout(() => { if (!k.gone) intruderTagEl(k.h, "held", k.tag); }, 9000));
+    // The water flushes red.
+    const red = document.createElement("div");
+    red.className = "aq-red";
+    bg.appendChild(red);
+    festiveTimers.push(setTimeout(() => red.remove(), 6500));
+    // Every fish in the tank bolts, the turtle and the octopus too.
+    for (const f of bg.querySelectorAll(".aq-fish:not(.aq-shark), .aq-oct")) for (const a of f.getAnimations()) a.playbackRate = 7;
+    // The crab digs in, the eel's gone back into the wreck, the clam shuts.
+    document.querySelectorAll(".aq-crab").forEach(cr => { cr.classList.add("dig"); festiveTimers.push(setTimeout(() => cr.classList.remove("dig"), 12000)); });
+    eel?.classList.remove("peek"); clam?.classList.remove("open");
+    bubbles(14);
+    if (soundOn()) { bubbleSound(6, .2); festiveTimers.push(setTimeout(() => bubbleSound(6, .14), 500)); }
+  };
+  syncIntruders();
+
+  // A new device swims in as a fish, with its name: once it's been marked
+  // known, since until then it's the shark.
+  const fishArrives = h => {
     if (document.hidden) return;
     if (soundOn()) bubbleSound(5, .18);
     const [b, f] = pick(AQ_COLOURS);
@@ -434,6 +534,7 @@ function buildAquarium(root) {
     root.appendChild(el);
   };
   festiveHooks.rendered = () => {
+    syncIntruders();
     const down = new Set(wentOffIds);
     for (const id of wentOffIds) {
       const tr = document.querySelector(`tr[data-id="${id}"]`);
