@@ -2,6 +2,14 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "1.52.1",
+      "date": "2026-09-26",
+      "items": [
+        "Themes update reliably on Windows: 1.52.0 could leave some on their old versions, or take one out of the menu. This puts them right.",
+        "If one theme can't be updated, the rest still are."
+      ]
+    },
+    {
       "version": "1.52.0",
       "date": "2026-09-26",
       "items": [
