@@ -51,3 +51,6 @@
   --led-off:#3a4070; --danger:#ff6b8b; --focus:#b9a4ff; --radius:10px;
 }
 
+/* An intruder's tag, beside its comet in the sky under the header. */
+
+.cs-tag { transform: translate(-100%, -50%); transition: opacity .4s; }

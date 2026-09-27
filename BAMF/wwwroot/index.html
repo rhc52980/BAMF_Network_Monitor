@@ -2284,7 +2284,7 @@
         <div class="set-row">
           <span class="set-label">Theme
             <span class="set-hint">Every theme, with its colours. The &#9681; button in the header opens the same list.</span>
-            <span class="set-hint">In Harbour, Ant Farm, Model Railway, Goat and Aquarium, a new device you haven't marked known is an <b>intruder</b>: the scene raises the alarm, then holds it, tagged, until you mark it known. <b>Show me an intruder</b> plays one on one of your devices.</span>
+            <span class="set-hint">In most of the animated themes, a new device you haven't marked known is an <b>intruder</b>: the scene raises the alarm, then holds it, tagged, until you mark it known. <b>Show me an intruder</b> plays one on one of your devices.</span>
             <span class="set-hint" id="setThemeStatus"></span>
           </span>
           <span class="set-field speed-fields"><button type="button" class="export-btn" id="setThemeOpen">Choose…</button><button type="button" class="export-btn" id="setIntruderTry" title="Plays the intruder scene on one of your devices">Show me an intruder</button></span>
@@ -8343,7 +8343,7 @@ $("setThemeOpen").onclick = (e) => {
 };
 // Over to the devices, where the scene can be seen, and an intruder for it.
 $("setIntruderTry").onclick = () => {
-  if (!festiveHooks.intruder) { toast("The intruder scene is in Harbour, Ant Farm, Model Railway, Goat and Aquarium: pick one of those, then try again."); return; }
+  if (!festiveHooks.intruder) { toast("This theme has no intruder scene. Most of the animated ones do: try Harbour, Goat, City Lights or Matrix, then try again."); return; }
   showView("devices");
   setTimeout(() => { if (!showIntruder()) toast("There's no device to borrow for the test yet."); }, 500);
 };
@@ -8712,7 +8712,9 @@ function intruderTag(g, x, y, h, { s = 1, align = "center", state = "held", k = 
 function intruderTagEl(h, state = "held", el = null) {
   el = el || document.createElement("div");
   const { title, name, sub } = intruderText(h, state);
-  el.className = "intruder-tag" + (state === "cleared" ? " cleared" : "");
+  // Keeps any class the theme gave it, for where it sits.
+  el.classList.add("intruder-tag");
+  el.classList.toggle("cleared", state === "cleared");
   el.innerHTML = `<b>${esc(title)}</b><span>${esc(name)}</span>${sub ? `<small>${esc(sub)}</small>` : ""}`;
   return el;
 }

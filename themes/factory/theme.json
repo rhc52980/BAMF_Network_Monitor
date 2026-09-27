@@ -2,7 +2,7 @@
   "name": "Factory",
   "swatch": ["#232830", "#ffb300", "#7ac943"],
   "category": "animated",
-  "description": "A shop floor with a belt running, a press, and an arm that picks off the line.",
+  "description": "A shop floor with a belt running, a press, and an arm that picks off the line. An unknown new device is a part not on the manifest: the line stops and it goes to the reject bay.",
   "author": "BAMF",
   "variants": [
     {

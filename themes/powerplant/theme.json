@@ -2,6 +2,6 @@
   "name": "Power Plant",
   "swatch": ["#161a1d", "#ffd36b", "#48c5ff"],
   "category": "animated",
-  "description": "A turbine hall with cooling towers, and a control desk along the bottom.",
+  "description": "A turbine hall with cooling towers, and a control desk along the bottom. An unknown new device is an unauthorised load: a zone trips and its breaker is locked out.",
   "author": "BAMF"
 }

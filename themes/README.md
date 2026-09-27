@@ -81,16 +81,16 @@ Something going on behind the dashboard. Reduced motion settles them all.
 <td width="50%" valign="top"><img src="aquarium/preview.webp" alt="The Aquarium theme"><br><b>Aquarium</b> <sub><code>aquarium</code></sub><br>Fish, bubbles, weed and a crab behind the glass. An unknown new device is a shark: the fish scatter while it prowls.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="nightstreet/preview.webp" alt="The City Lights theme"><br><b>City Lights</b> <sub><code>nightstreet</code></sub><br>A city after dark: street lamps, lit windows, and traffic going by.</td>
-<td width="50%" valign="top"><img src="claw/preview.webp" alt="The Claw Machine theme"><br><b>Claw Machine (with Claw Machine Dusk)</b> <sub><code>claw</code></sub><br>A prize cabinet with marquee bulbs, and a claw that sometimes wins a device.</td>
+<td width="50%" valign="top"><img src="nightstreet/preview.webp" alt="The City Lights theme"><br><b>City Lights</b> <sub><code>nightstreet</code></sub><br>A city after dark: street lamps, lit windows, and traffic going by. An unknown new device is a car running dark, chased down and pulled over.</td>
+<td width="50%" valign="top"><img src="claw/preview.webp" alt="The Claw Machine theme"><br><b>Claw Machine (with Claw Machine Dusk)</b> <sub><code>claw</code></sub><br>A prize cabinet with marquee bulbs, and a claw that sometimes wins a device. An unknown new device is a TILT, and a mystery prize nobody put in.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="constellation/preview.webp" alt="The Constellation theme"><br><b>Constellation</b> <sub><code>constellation</code></sub><br>Your network as stars, under a moon that shows how much of it is up.</td>
-<td width="50%" valign="top"><img src="datacentre/preview.webp" alt="The Data Centre theme"><br><b>Data Centre</b> <sub><code>datacentre</code></sub><br>The room your network would live in if it had one: racks, blinking lights and a patch panel.</td>
+<td width="50%" valign="top"><img src="constellation/preview.webp" alt="The Constellation theme"><br><b>Constellation</b> <sub><code>constellation</code></sub><br>Your network as stars, under a moon that shows how much of it is up. An unknown new device is a rogue comet, and the stars close ranks.</td>
+<td width="50%" valign="top"><img src="datacentre/preview.webp" alt="The Data Centre theme"><br><b>Data Centre</b> <sub><code>datacentre</code></sub><br>The room your network would live in if it had one: racks, blinking lights and a patch panel. An unknown new device puts the room in lockdown and its port in quarantine.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="departures/preview.webp" alt="The Departures theme"><br><b>Departures</b> <sub><code>departures</code></sub><br>An airport departures board, letters flipping over.</td>
-<td width="50%" valign="top"><img src="factory/preview.webp" alt="The Factory theme"><br><b>Factory (with Factory Night Shift)</b> <sub><code>factory</code></sub><br>A shop floor with a belt running, a press, and an arm that picks off the line.</td>
+<td width="50%" valign="top"><img src="departures/preview.webp" alt="The Departures theme"><br><b>Departures</b> <sub><code>departures</code></sub><br>An airport departures board, letters flipping over. An unknown new device is an unscheduled arrival: SECURITY ALERT, and every flight holds.</td>
+<td width="50%" valign="top"><img src="factory/preview.webp" alt="The Factory theme"><br><b>Factory (with Factory Night Shift)</b> <sub><code>factory</code></sub><br>A shop floor with a belt running, a press, and an arm that picks off the line. An unknown new device is a part not on the manifest: the line stops and it goes to the reject bay.</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="goat/preview.webp" alt="The Goat theme"><br><b>Goat (with Goat Night)</b> <sub><code>goat</code></sub><br>An alpine pasture with a barn and a herd of goats with opinions. An unknown new device is a wolf, and the ram sees it off.</td>
@@ -101,19 +101,19 @@ Something going on behind the dashboard. Reduced motion settles them all.
 <td width="50%" valign="top"><img src="laser/preview.webp" alt="The Laser Show theme"><br><b>Laser Show</b> <sub><code>laser</code></sub><br>A laser show in a dark room, beams through the haze.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="matrix/preview.webp" alt="The Matrix theme"><br><b>Matrix</b> <sub><code>matrix</code></sub><br>Digital rain with your devices' names falling in it, numbers that decode, and a white rabbit.</td>
+<td width="50%" valign="top"><img src="matrix/preview.webp" alt="The Matrix theme"><br><b>Matrix</b> <sub><code>matrix</code></sub><br>Digital rain with your devices' names falling in it, numbers that decode, and a white rabbit. An unknown new device turns the rain red and brings an Agent.</td>
 <td width="50%" valign="top"><img src="railway/preview.webp" alt="The Model Railway theme"><br><b>Model Railway</b> <sub><code>railway</code></sub><br>A model train set round the edges of the page. An unknown new device is a rogue engine: signals to red, brakes on, shunted into the siding.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="powerplant/preview.webp" alt="The Power Plant theme"><br><b>Power Plant</b> <sub><code>powerplant</code></sub><br>A turbine hall with cooling towers, and a control desk along the bottom.</td>
+<td width="50%" valign="top"><img src="powerplant/preview.webp" alt="The Power Plant theme"><br><b>Power Plant</b> <sub><code>powerplant</code></sub><br>A turbine hall with cooling towers, and a control desk along the bottom. An unknown new device is an unauthorised load: a zone trips and its breaker is locked out.</td>
 <td width="50%" valign="top"><img src="rgb/preview.webp" alt="The RGB theme"><br><b>RGB</b> <sub><code>rgb</code></sub><br>The dashboard as a gaming rig with every light on.</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="spring/preview.webp" alt="The Spring theme"><br><b>Spring</b> <sub><code>spring</code></sub><br>Blossom coming down over a soft morning.</td>
-<td width="50%" valign="top"><img src="steampunk/preview.webp" alt="The Steampunk theme"><br><b>Steampunk</b> <sub><code>steampunk</code></sub><br>Walnut and brass, gears turning, an airship, and nixie-tube numbers.</td>
+<td width="50%" valign="top"><img src="steampunk/preview.webp" alt="The Steampunk theme"><br><b>Steampunk</b> <sub><code>steampunk</code></sub><br>Walnut and brass, gears turning, an airship, and nixie-tube numbers. An unknown new device is a pirate airship, hauled down and moored at the mast.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="summer/preview.webp" alt="The Summer theme"><br><b>Summer</b> <sub><code>summer</code></sub><br>Sun, clouds and the beach along the bottom.</td>
+<td width="50%" valign="top"><img src="summer/preview.webp" alt="The Summer theme"><br><b>Summer</b> <sub><code>summer</code></sub><br>Sun, clouds and the beach along the bottom. An unknown new device is a shark offshore, and the lifeguard runs up the red flag.</td>
 <td width="50%" valign="top"><img src="terminal/preview.webp" alt="The Terminal theme"><br><b>Terminal</b> <sub><code>terminal</code></sub><br>A plain green screen with a blinking block cursor, and the odd line of boot text.</td>
 </tr>
 <tr>
@@ -122,7 +122,7 @@ Something going on behind the dashboard. Reduced motion settles them all.
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="winter/preview.webp" alt="The Winter theme"><br><b>Winter</b> <sub><code>winter</code></sub><br>Snow, and frost creeping in at the edges.</td>
-<td width="50%" valign="top"><img src="woodlands/preview.webp" alt="The Woodlands theme"><br><b>Woodlands</b> <sub><code>woodlands</code></sub><br>A forest late in the afternoon, with its wildlife.</td>
+<td width="50%" valign="top"><img src="woodlands/preview.webp" alt="The Woodlands theme"><br><b>Woodlands</b> <sub><code>woodlands</code></sub><br>A forest late in the afternoon, with its wildlife. An unknown new device is a bear in the clearing, and the owl won't take its eyes off it.</td>
 </tr>
 </table>
 
@@ -216,7 +216,7 @@ BAMF.registerTheme("my-theme", ctx => {
 ### Intruders
 
 A new device that hasn't been marked known is an intruder, and a theme can make
-a scene of it, the way Harbour, Ant Farm, Model Railway, Goat and Aquarium do.
+a scene of it, the way most of the animated themes here do.
 `intruder` fires when one turns up; after that the scene holds it, in view,
 until it's marked known. What to hold is `ctx.intruders()`: the devices on the
 New tab, the same on every dashboard. `ctx.intruderWatch()` gives a function

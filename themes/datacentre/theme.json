@@ -2,6 +2,6 @@
   "name": "Data Centre",
   "swatch": ["#0a0f16", "#35e08a", "#35c8e0"],
   "category": "animated",
-  "description": "The room your network would live in if it had one: racks, blinking lights and a patch panel.",
+  "description": "The room your network would live in if it had one: racks, blinking lights and a patch panel. An unknown new device puts the room in lockdown and its port in quarantine.",
   "author": "BAMF"
 }

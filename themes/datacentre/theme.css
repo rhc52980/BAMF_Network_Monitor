@@ -111,6 +111,19 @@
 
 /* A blade sliding into a rack when a device turns up. */
 
+/* An intruder: lockdown. Every light in the racks goes red, a red beacon
+   sweeps the room, the header's link panel flashes; its port is caged. */
+.dc-intrusion .dc-led { fill: #ff3b3b !important; color: #ff3b3b !important; }
+.dc-intrusion::after { content: ""; position: absolute; inset: -50%; pointer-events: none;
+  background: conic-gradient(from 0deg at 50% 50%, rgba(255, 40, 30, .22), transparent 16%, transparent 50%, rgba(255, 40, 30, .22) 50%, transparent 66%);
+  animation: dc-beacon 1.4s linear infinite; }
+@keyframes dc-beacon { to { transform: rotate(360deg); } }
+.dc-link.alarm { border-color: #ff4d3d !important; box-shadow: 0 0 10px rgba(255, 77, 61, .6); animation: dc-blink .5s steps(2) infinite; }
+.dc-port.quar { border: 1px dashed #ff4d3d; box-shadow: 0 0 0 2px rgba(255, 77, 61, .25), 0 0 10px rgba(255, 77, 61, .5); }
+.dc-port.quar i { background: #ff4d3d !important; box-shadow: 0 0 6px #ff4d3d !important; }
+.dc-port.quar::before { content: "🔒"; position: absolute; top: -13px; left: 50%; transform: translateX(-50%); font-size: 10px; line-height: 1; }
+.dc-qtag { transform: translateX(-50%); }
+
 .dc-blade { position:absolute; bottom:44px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:6px;
   padding:4px 10px; background:linear-gradient(#22303f, #16202b); border:1px solid #35c8e0; border-radius:3px;
   font:600 11px "IBM Plex Mono", monospace; color:#bdf0fa; animation:dc-slide 6s ease-out forwards; }
@@ -153,6 +166,6 @@
   .dc-lcd, .dc-scope { display:none; } 
 }
 @media (prefers-reduced-motion: reduce) {
-  .dc-led, .dc-fan, .dc-fibre, .dc-port i.act, .dc-link .ports i.down, .dc-blade, .dc-scanbar i { animation:none !important; }
+  .dc-led, .dc-fan, .dc-fibre, .dc-port i.act, .dc-link .ports i.down, .dc-blade, .dc-scanbar i, .dc-intrusion::after, .dc-link.alarm { animation:none !important; }
 
 }

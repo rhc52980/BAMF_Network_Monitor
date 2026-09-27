@@ -157,6 +157,18 @@
   font: 700 12px "IBM Plex Mono", monospace; white-space: nowrap; box-shadow: 0 3px 8px rgba(0, 0, 0, .5), 0 0 0 2px #ff4fa3;
 }
 
+/* An intruder: TILT. The cabinet shakes, the marquee goes red, and a mystery
+   box sits in the chute, glowing red. */
+.claw-mystery { position: absolute; left: 0; top: 0; width: 60px; pointer-events: none; filter: drop-shadow(0 0 8px rgba(255, 59, 92, .7)); animation: claw-myst 1.4s ease-in-out infinite alternate; }
+.claw-mystery svg { display: block; }
+.claw-mystery .intruder-tag { right: -8px; }
+.claw-mystery.open svg { transform: scale(1.4); opacity: 0; transition: transform .8s, opacity .8s; }
+@keyframes claw-myst { from { filter: drop-shadow(0 0 4px rgba(255, 59, 92, .5)); } to { filter: drop-shadow(0 0 12px rgba(255, 59, 92, .95)); } }
+.claw-bg.tilt { animation: claw-shake .09s linear 14; }
+@keyframes claw-shake { 25% { transform: translate(-5px, 2px) rotate(-.4deg); } 75% { transform: translate(5px, -2px) rotate(.4deg); } }
+.claw-tilt header::after { filter: grayscale(1) sepia(1) saturate(9) hue-rotate(-40deg) !important; }
+.claw-tiltbanner b { color: #ffdce3; text-shadow: 0 0 10px #ff2a4a, 0 0 26px #ff2a4a, 3px 3px 0 #7a0a1c; }
+
 .claw-banner {
   position: absolute; left: 50%; top: 32%; padding: 18px 34px 16px; text-align: center; border-radius: 16px; white-space: nowrap;
   background: #25104a; border: 3px dotted #ffd23f; box-shadow: 0 0 0 6px #25104a, 0 0 0 9px #ff4fa3, 0 0 44px rgba(255, 79, 163, .6);
@@ -209,7 +221,7 @@ tr.claw-grab td { animation: claw-grab .7s ease-out 1; }
 @keyframes claw-bob { 50% { transform: translateY(-2px) rotate(-6deg); } }
 
 @media (prefers-reduced-motion: reduce) {
-  :is([data-theme="claw"], [data-theme="clawdusk"]) header::after, :is([data-theme="claw"], [data-theme="clawdusk"]) .scan-fill, :is([data-theme="claw"], [data-theme="clawdusk"]) .map-svg .pkt, .claw-bg .tube, .claw-bg .chute.win,
+  :is([data-theme="claw"], [data-theme="clawdusk"]) header::after, :is([data-theme="claw"], [data-theme="clawdusk"]) .scan-fill, :is([data-theme="claw"], [data-theme="clawdusk"]) .map-svg .pkt, .claw-bg .tube, .claw-bg .chute.win, .claw-mystery, .claw-bg.tilt,
   .claw-charm svg, tr.claw-grab td, .claw-stamp, .claw-drop, .claw-bonus { animation: none !important; }
 
   .claw-rig .prong { transition: none; }

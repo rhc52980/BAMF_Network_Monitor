@@ -466,8 +466,9 @@ Some themes have a little life in them:
 
 - **Matrix**: digital rain falls behind the page, faint behind the panels so
   everything stays readable. Now and then a column spells out one of your
-  devices' names or addresses, and a new device drops its name down the screen
-  in white. The numbers decode when they change, and a row glitches when its
+  devices' names or addresses. A new device nobody has marked known brings
+  **an Agent** (see [Intruders](#intruders)); once it's known its name drops
+  down the screen in white. The numbers decode when they change, and a row glitches when its
   device goes offline or changes address. On the Map, data flows along the
   cables you've recorded. Switching to Matrix plays a short intro, and every
   so often a white rabbit hops along the bottom. Follow it.
@@ -590,8 +591,10 @@ Some themes have a little life in them:
   **An airliner crosses high up** with its wingtip lights and belly strobe,
   and **a helicopter comes over lower, sweeping a searchlight below it** - and
   it turns out to look whenever a device goes off the air. Both pass in front
-  of the page, the way something overhead would. A new device
-  arrives by taxi with its name on the roof sign, a finished scan brightens
+  of the page, the way something overhead would. A new device nobody has
+  marked known is **a car running with no lights**, chased and pulled over (see
+  [Intruders](#intruders)); once it's known it arrives by taxi with its name on
+  the roof sign. A finished scan brightens
   every lamp and the Map's wiring, and a device going offline puts a lamp out
   for a moment.
 - **Constellation**: the night sky, with your network written in it. Every
@@ -601,8 +604,9 @@ Some themes have a little life in them:
   Behind them are the Milky Way, nebulae, a slowly turning spiral galaxy and a
   ringed planet. Stars twinkle, a satellite blinks across now and then, and
   shooting stars streak by. A finished scan brings a meteor shower. A new device
-  arrives as a bright shooting star and becomes a star of its own, with its
-  name beside it for a moment. A device going offline collapses in a flash. On
+  nobody has marked known is **a rogue comet** (see [Intruders](#intruders));
+  once it's known it becomes a star of its own, with its name beside it for a
+  moment. A device going offline collapses in a flash. On
   the Map, star dust twinkles along your cables.
 - **Claw Machine**: the prize cabinet at the arcade. Marquee bulbs chase
   under the header, the counts glow in red LED windows like the credit
@@ -614,8 +618,9 @@ Some themes have a little life in them:
   slip on the way to the chute. When it does win, the chute flashes. The 🕹
   button in the header sends a claw down onto one of your devices' rows. It
   comes back up with the device's name on a tag and either carries it off to
-  **WINNER!** or drops it with a **SO CLOSE!**. A new device is always a win:
-  **NEW PRIZE!** A finished scan puts a coin in, races the marquee and sets
+  **WINNER!** or drops it with a **SO CLOSE!**. A new device nobody has marked
+  known is a **TILT** and a mystery prize in the chute (see
+  [Intruders](#intruders)); once it's known it's always a win: **NEW PRIZE!** A finished scan puts a coin in, races the marquee and sets
   the cabinet playing. A device going offline gets a **TRY AGAIN** stamp and
   drops its plush, and one coming back gets a **BONUS!** Watched devices
   carry a little bear that bobs while they run, and unknown devices are
@@ -644,8 +649,10 @@ Some themes have a little life in them:
   power readout and a traffic scope; the header carries a **link panel**
   counting how many are up, with a light running along its edge. A finished scan
   lights the whole room for a moment, sends the fibre running and has the
-  shuttle stop and sweep the racks with its laser; a new device slides in as a
-  blade with its name on the faceplate; one that drops turns its port red and
+  shuttle stop and sweep the racks with its laser. A new device nobody has
+  marked known is **a breach**: the room goes to lockdown and its port is
+  quarantined (see [Intruders](#intruders)); once it's known it slides in as a
+  blade with its name on the faceplate. One that drops turns its port red and
   says its name, and the header's light and the HUD turn red. With sound on
   there's the hum of the room, a chirp as a port comes up and a lower one as it
   goes; it stops in a background tab.
@@ -662,7 +669,9 @@ Some themes have a little life in them:
   The header carries the **grid frequency**, which sags from 60.00 Hz as
   devices drop off and goes red when a watched one trips. A finished scan is a
   load surge: the set runs up and **POLL RUNNING** lights. A trip stops the
-  machines and lights **FEEDER TRIP**. With sound on there's the hum of the
+  machines and lights **FEEDER TRIP**. A new device nobody has marked known is
+  **an unauthorised load** whose breaker is locked out (see
+  [Intruders](#intruders)). With sound on there's the hum of the
   hall, the clunk of a breaker closing or opening, and the two-tone klaxon on a
   trip; it stops in a background tab.
 - **Departures**: the dashboard as an airport departures board. **Every
@@ -677,15 +686,18 @@ Some themes have a little life in them:
   screen. Behind the page the sun is down over the airfield: runway lights,
   approach lights running towards the threshold, the tower's beacon, the
   terminal lit, and every so often a plane rolling out and climbing away. A
-  finished scan clacks every row on screen and sends a plane off; a new
-  device flips onto the board from blank. Reduced motion changes the words
+  finished scan clacks every row on screen and sends a plane off. A new device
+  nobody has marked known is **an unscheduled arrival** (see
+  [Intruders](#intruders)); once it's known it flips onto the board from blank. Reduced motion changes the words
   without the clatter, with a plane waiting at the start of the runway.
 - **Factory**: the dashboard as a shop floor. Lamps hang from a gantry across
   the roof, machines turn against the back wall, a welder throws sparks in the
   corner, and a conveyor runs along the bottom of the screen with crates on it,
   each stencilled with a device's name. A finished scan is a batch coming off
   the line: the belt speeds up, the press comes down and crates go out. A new
-  device arrives as a crate of its own; one that goes off the air comes back
+  device nobody has marked known is **a part that isn't on the manifest** (see
+  [Intruders](#intruders)); once it's known it arrives as a crate of its own.
+  One that goes off the air comes back
   down the belt stamped **REJECT**, the machines stop turning and the beacon
   goes red. The **andon board** in the header is the light over the floor —
   green running, amber for unknown devices, red when something watched is
@@ -739,7 +751,9 @@ Some themes have a little life in them:
   of, a sailboat goes along the sea, and on the sand are a parasol planted
   beside a towel, a sandcastle flying its flag, a bucket and spade, a starfish,
   a beach ball, a palm and a crab sidling about. A finished scan sends a bigger
-  set of waves in with a surfer riding one; a new device bounces the ball.
+  set of waves in with a surfer riding one. A new device nobody has marked known
+  is **a shark** offshore (see [Intruders](#intruders)); once it's known the
+  ball bounces.
   Reduced motion holds the scene at one moment.
 - **Winter**: snow falling past frost that reaches in from the edges of the
   screen, settling into a drift along the bottom. A finished scan blows a gust
@@ -771,8 +785,9 @@ Some themes have a little life in them:
   **The birds on the vine are the network**: as many perches are taken as the
   share of your devices that are up, so a device dropping off sends a bird
   away and one coming back brings one in. A finished scan startles a flock
-  out of the trees and wakes the owl, and a new device is someone new
-  wandering into the clearing. The page gets room at the bottom so the floor
+  out of the trees and wakes the owl. A new device nobody has marked known is
+  **a bear** (see [Intruders](#intruders)); once it's known, someone new
+  wanders into the clearing. The page gets room at the bottom so the floor
   never hides the last rows. Reduced motion holds the wood still, with a deer
   grazing and a rabbit sat up, and the vine still showing how much of the
   network is up.
@@ -857,7 +872,8 @@ Some themes have a little life in them:
   the next-scan bar is a glass pressure tube filling with amber. Brass gears
   turn slowly behind the page, and now and then an airship drifts past. When a
   scan finishes, the gears lurch forward and the valve lets off steam. A new
-  device arrives by telegraph ticker tape, and a device that goes offline
+  device nobody has marked known is **a pirate airship** (see
+  [Intruders](#intruders)); once it's known it arrives by telegraph ticker tape, and a device that goes offline
   gets a hiss of steam on its row. On the Map, cables become copper pipes,
   running devices get a little turning cog, and the router wears a top hat.
   With sound on (the 🔊 button, off until you click it) the valve hisses when
@@ -885,8 +901,7 @@ glyphs instead of rain.
 
 ### Intruders
 
-In **Harbour**, **Ant Farm**, **Model Railway**, **Goat** and **Aquarium**, a
-new device nobody has marked known is an intruder, and the scene treats it as
+In most of the animated themes, a new device nobody has marked known is an intruder, and the scene treats it as
 one. First the alarm, then the scene holds it, in view and tagged with its
 name, address and maker, until you mark it known:
 
@@ -897,11 +912,22 @@ name, address and maker, until you mark it known:
 | Model Railway | an engine with no livery | every signal to red, the trains brake hard, the crossing lights flash | shunted into the siding, against the buffers |
 | Goat | a wolf | the herd bunches and bleats, bells clanging, and the ram charges it | lurking at the edge of the pasture |
 | Aquarium | a shark | the fish scatter, the crab digs in, the eel pulls back, the water flushes red | prowling the bottom of the tank |
+| City Lights | a car running with no lights | a police car gives chase, the city strobes red and blue, the helicopter holds its searchlight on it | pulled over at the kerb, the police car behind it |
+| Factory | a part that isn't on the manifest | the line emergency-stops: belt, crates and arm frozen, the andon red, a beacon turning | in the reject bay at the end of the line |
+| Power Plant | an unauthorised load on the grid | the frequency swings, a zone of breakers trips, the klaxon sounds, UNAUTH LOAD lights | its breaker locked out and padlocked |
+| Steampunk | a pirate airship | the telegraph taps out a warning, bells ring, the pressure gauge drops into the red, the works let off steam | moored at the mast in the corner |
+| Departures | an unscheduled arrival | the board's title flaps to SECURITY ALERT and every flight to HOLD; the take-off is aborted and the runway lights flash red | its row reads SECURITY, its flight number unknown |
+| Matrix | an Agent | the rain turns red and INTRUSION DETECTED is typed across the screen | standing along the bottom, its name falling in red now and then |
+| Woodlands | a bear | every bird bursts off the vine with alarm calls, the flocks scatter, the owl's eyes go wide | in the clearing, the owl fixed on it |
+| Summer | a shark | its fin cuts in, the sea flashes red, the lifeguard runs up the red flag with a whistle | circling offshore, the flag flying |
+| Claw Machine | a mystery prize nobody put in | TILT: the cabinet shakes and the marquee goes red | a black box glowing red in the prize chute |
+| Constellation | a rogue comet | the constellation's lines blaze and every star flares | hanging in the sky under the header, its tail streaming |
+| Data Centre | a breach of the network | the cage alarm: every rack light red, a red beacon sweeping the room, the HUD reads INTRUSION DETECTED, the hologram puts a reticle on it | its port on the patch panel caged in red, quarantined |
 
 Mark the device known, anywhere, and the scene stands down: the tag turns
 green, the intruder goes, and the device arrives the way that theme welcomes
-one, its container lifted ashore, its chamber dug, its wagon coupled on, a kid
-goat, a fish with its name. What's held is the **New** tab, so every dashboard
+one: its container lifted ashore, a kid goat, a taxi with its name on the roof,
+a crate on the belt, a new star, and so on. What's held is the **New** tab, so every dashboard
 holds the same ones, a reload doesn't lose them, and one that's ignored,
 forgotten or simply past its days on the New tab is let go too. A device held
 in front of the page gets room at the bottom so the page can scroll clear of it.
