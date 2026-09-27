@@ -2,6 +2,8 @@
 
 **Know every device on your network, and know the moment a new one appears.**
 
+https://github.com/user-attachments/assets/53f13791-953f-4041-a6c9-354da0ea6603
+
 BAMF watches your LAN at layer 2. It discovers every device via ARP — including
 the ones that ignore ping — remembers each MAC it has ever seen, and tells you
 when something new turns up or something you care about drops off. It runs as a
