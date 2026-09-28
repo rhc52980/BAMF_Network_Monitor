@@ -173,7 +173,11 @@ VER="$(sed -n 's:.*<Version>[[:space:]]*\([^<[:space:]]*\)[[:space:]]*</Version>
 echo
 echo -e "\e[32mBAMF ${VER:-} is running from $APP_DIR.\e[0m"
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
-echo "Dashboard: http://${IP:-<container-ip>}:8840"
+# The first address in Urls, with an all-interfaces host shown as this
+# machine's address; 8840 if the setting isn't there.
+URL="$(sed -n 's/.*"Urls"[[:space:]]*:[[:space:]]*"\([^";]*\).*/\1/p' "$APP_DIR/appsettings.json" 2>/dev/null | head -1)"
+URL="${URL:-http://0.0.0.0:8840}"
+echo "Dashboard: $(printf '%s' "$URL" | sed -E "s#://(0\.0\.0\.0|\*|\+|\[::\])#://${IP:-<container-ip>}#")"
 [ -n "$VER" ] && echo "Check the dashboard header shows v$VER - if it doesn't, you're seeing a cached page (Ctrl+F5)."
 echo "Logs:      journalctl -u bamf -f"
 echo "Update:    copy the new zip in and run: bash /opt/bamf/install.sh /root/BAMF.zip"

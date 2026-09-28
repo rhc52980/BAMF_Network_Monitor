@@ -383,6 +383,15 @@ try {
         $runningFrom = if ($bp.StartsWith('"')) { ($bp -split '"')[1] } else { ($bp -split ' ')[0] }
     }
 
+    # Where the dashboard is: the first address in Urls, an all-interfaces
+    # host shown as localhost. 8840 if the setting isn't there.
+    $dashboard = "http://localhost:8840"
+    $cfgNow = Join-Path $AppDir "appsettings.json"
+    if (Test-Path $cfgNow) {
+        $m = [regex]::Match((Get-Content -Raw $cfgNow), '"Urls"\s*:\s*"([^";]+)')
+        if ($m.Success) { $dashboard = $m.Groups[1].Value -replace '://(0\.0\.0\.0|\*|\+|\[::\])', '://localhost' }
+    }
+
     Write-Host ""
     if ($runningFrom -ne $newExe) {
         Write-Host "WARNING: the service runs $runningFrom but this update installed to $newExe." -ForegroundColor Yellow
@@ -392,7 +401,7 @@ try {
     else {
         Write-Host "BAMF $ver updated successfully." -ForegroundColor Green
         Write-Host "Running from: $runningFrom"
-        Write-Host "Dashboard: http://localhost:8840  (Ctrl+F5 in your browser to load the new UI)"
+        Write-Host "Dashboard: $dashboard  (Ctrl+F5 in your browser to load the new UI)"
         Write-Host "Confirm the version shown in the dashboard header matches $ver."
     }
 }

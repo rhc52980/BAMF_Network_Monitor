@@ -133,7 +133,7 @@ git tag v1.9.0 && git push --tags
 
 | Setting | Meaning |
 |---|---|
-| `Urls` | Listen address. Default `http://0.0.0.0:8840` (all interfaces). |
+| `Urls` | Listen address. Default `http://0.0.0.0:8840` (all interfaces). To use another port, change the number (or list two, separated by `;`), restart BAMF and open the port in the firewall; the Windows desktop shortcut and the installers' Dashboard line follow it. |
 | `Bamf:Subnets` | List of CIDRs to scan, e.g. `["192.168.1.0/24", "192.168.2.0/24"]`. Empty list = auto-detect every active IPv4 interface. (`Bamf:Subnet` as a single string still works for back-compat.) |
 | `Bamf:DeviceLinkTemplate` | Where a device's IP link points when it has no link of its own. `{ip}` is the device address. Default `http://{ip}`. |
 | `Bamf:HistoryRetentionDays` | Days of online/offline history to keep (default 90, pruned daily). |
