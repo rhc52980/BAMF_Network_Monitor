@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Sign in · BAMF</title>
+<link rel="icon" type="image/svg+xml" href="/bamf-icon.svg">
+<!-- The dashboard's own light and high-contrast looks, if one was picked in
+     this browser; a theme from the themes folder only loads once signed in,
+     so any other choice shows as dark here. -->
+<script>
+(function () {
+  var t = null;
+  try { t = localStorage.getItem("bamf-theme"); } catch (e) {}
+  if (t === "light" || t === "contrast") document.documentElement.setAttribute("data-theme", t);
+})();
+</script>
+<link href="/fonts.css" rel="stylesheet">
+<style>
+  :root {
+    --bg: #10141a; --panel: #171d26; --line: #263040; --text: #d5dde8; --text-dim: #7e8b9d;
+    --led-on: #3fdb7f; --danger: #f2716f; --focus: #6db7d8;
+  }
+  [data-theme="light"] {
+    --bg: #eef1f5; --panel: #ffffff; --line: #d0d7e2; --text: #1c2430; --text-dim: #66717f;
+    --led-on: #1ba85a; --danger: #d63b39; --focus: #2b7fb0;
+  }
+  [data-theme="contrast"] {
+    --bg: #000000; --panel: #0a0a0a; --line: #ffffff; --text: #ffffff; --text-dim: #c0c0c0;
+    --led-on: #00ff00; --danger: #ff0000; --focus: #00ffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: "Space Grotesk", system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased;
+    display: flex; align-items: center; justify-content: center;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  }
+  main {
+    width: 100%; max-width: 340px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 28px 24px 24px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .brand h1 { font-size: 22px; font-weight: 700; letter-spacing: .04em; }
+  label { display: block; color: var(--text-dim); font-size: 12px; margin-bottom: 6px; }
+  input {
+    width: 100%; font: inherit; font-size: 16px; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+  }
+  input:focus { outline: 2px solid var(--focus); outline-offset: 1px; }
+  button {
+    width: 100%; margin-top: 14px; font: inherit; font-weight: 600; font-size: 15px; cursor: pointer;
+    color: #0c1a12; background: var(--led-on); border: 0; border-radius: 8px; padding: 11px;
+  }
+  button:disabled { opacity: .6; cursor: default; }
+  button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .msg { min-height: 20px; margin-top: 12px; font-size: 13px; color: var(--danger); }
+  .hint { margin-top: 14px; font-size: 12px; line-height: 1.5; color: var(--text-dim); }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">
+    <svg viewBox="0 0 120 120" width="30" height="30" aria-hidden="true">
+      <polygon fill="#3fdb7f" stroke="#0c3a22" stroke-width="4" stroke-linejoin="round"
+        points="117,60 93.3,73.8 98.2,98.2 73.8,93.3 60,117 46.2,93.3 19.8,101.2 26.7,73.8 3,60 26.7,46.2 21.8,19.8 46.2,26.7 60,3 73.8,26.7 101.2,19.8 93.3,46.2"/>
+      <line x1="42" y1="72" x2="60" y2="48" stroke="#0c3a22" stroke-width="7" stroke-linecap="round"/>
+      <line x1="60" y1="48" x2="78" y2="72" stroke="#0c3a22" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="42" cy="72" r="9" fill="#0c3a22"/>
+      <circle cx="60" cy="48" r="9" fill="#0c3a22"/>
+      <circle cx="78" cy="72" r="9" fill="#ffb454" stroke="#0c3a22" stroke-width="3"/>
+    </svg>
+    <h1>BAMF</h1>
+  </div>
+  <form id="form">
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" autofocus required>
+    <button id="go" type="submit">Sign in</button>
+    <div class="msg" id="msg" role="alert"></div>
+  </form>
+  <p class="hint">This browser stays signed in for 30 days. The view-only password opens BAMF to look at, but not change.</p>
+</main>
+<script>
+// Back to where this browser was headed, but only somewhere on this server.
+// The server never sees a #tab, so the browser brings it along to here, and
+// it goes on from here.
+function next() {
+  var n = new URLSearchParams(location.search).get("next") || "/";
+  if (!/^\/(?!\/)/.test(n)) n = "/";
+  return n.indexOf("#") < 0 ? n + location.hash : n;
+}
+document.getElementById("form").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  var go = document.getElementById("go"), msg = document.getElementById("msg");
+  go.disabled = true; msg.textContent = "";
+  try {
+    var r = await fetch("/api/signin", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: document.getElementById("password").value }),
+    });
+    if (r.ok) { location.replace(next()); return; }
+    var d = await r.json().catch(function () { return {}; });
+    msg.textContent = d.error || "Couldn't sign in (HTTP " + r.status + ").";
+  } catch (err) {
+    msg.textContent = "BAMF didn't answer. Is it running?";
+  }
+  go.disabled = false;
+  var p = document.getElementById("password"); p.select(); p.focus();
+});
+</script>
+</body>
+</html>

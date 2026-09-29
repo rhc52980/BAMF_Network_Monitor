@@ -108,8 +108,10 @@ optional daily update check you have to switch on, and your own webhook.
 - Runs as a Windows service, a systemd service, a Docker container or a Home Assistant add-on
 - One script installs *and* updates, preserving your config and database
 - Scheduled nightly backups keeping 30 snapshots, safe to sync to cloud storage
-- Optional password (HTTP Basic), with a second view-only password for a wall
-  display or the rest of the house, and optional HTTPS
+- A short setup on first start: which networks to watch, and a password
+- A sign-in page and a password set in Settings, with a second view-only password
+  for a wall display or the rest of the house, a lockout for guessing, and
+  optional HTTPS
 - 44 themes (and a couple more, if you know how to ask, or drop your own in), grouped into colours, animated and holidays, a mobile card layout, and a
   comic-book splat when you switch them
 

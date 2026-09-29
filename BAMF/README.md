@@ -68,6 +68,11 @@ copying it, and removing BAMF means deleting it plus the service.
 - **Docker** — `docker run` the image from GHCR on the host's network; nothing
   to build. See [Docker](#docker).
 
+However it's installed, the first time the dashboard opens it asks two things:
+which of the networks this machine is on to watch, and a password. Both are in
+Settings afterwards. See [First-run setup](#first-run-setup). An install
+updated from an older version doesn't ask; it carries on as it was.
+
 ## Build
 
 From this folder:
@@ -147,7 +152,7 @@ git tag v1.9.0 && git push --tags
 | Setting | Meaning |
 |---|---|
 | `Urls` | Listen address. Default `http://0.0.0.0:8840` (all interfaces). To use another port, change the number (or list two, separated by `;`), restart BAMF and open the port in the firewall; the Windows desktop shortcut and the installers' Dashboard line follow it. |
-| `Bamf:Subnets` | List of CIDRs to scan, e.g. `["192.168.1.0/24", "192.168.2.0/24"]`. Empty list = auto-detect every active IPv4 interface. (`Bamf:Subnet` as a single string still works for back-compat.) |
+| `Bamf:Subnets` | List of CIDRs to scan, e.g. `["192.168.1.0/24", "192.168.2.0/24"]`. Empty list = auto-detect every active IPv4 interface. (`Bamf:Subnet` as a single string still works for back-compat.) A list saved in **Settings → Scanning → Networks** replaces this one; see [Networks](#networks). |
 | `Bamf:DeviceLinkTemplate` | Where a device's IP link points when it has no link of its own. `{ip}` is the device address. Default `http://{ip}`. |
 | `Bamf:HistoryRetentionDays` | Days of online/offline history to keep (default 90, pruned daily). |
 | `Bamf:ThemesPath` | The themes folder, relative to the exe (default `themes`; `/data/themes` in Docker and the add-on). See [Adding and removing themes](#adding-and-removing-themes). |
@@ -169,8 +174,8 @@ git tag v1.9.0 && git push --tags
 | `Bamf:WanIntervalSeconds` | How often it pings, 20 to 3600 (default 60). Also in Settings → Internet, which wins once changed there. |
 | `Bamf:HolidaySpirit` | `true` puts every dashboard in a season's theme by date: Halloween through October, Thanksgiving for the week of the holiday, Christmas from December 1st to 25th, and New Year to January 2nd (default false). Also in Settings → Appearance, which wins once changed there. See [Holiday Spirit](#holiday-spirit). |
 | `Bamf:WebhookUrl` | Optional starting value for the notification webhook — the dashboard's **Settings → Alerts** saves over it. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use **Test** under Settings → Alerts to verify. |
-| `Bamf:Password` | Optional. If set, the UI/API require it via HTTP Basic auth (any username). Over plain HTTP the credential is only base64-encoded — see [What BAMF talks to](#what-bamf-talks-to). |
-| `Bamf:ViewerPassword` | Optional, with `Password` set: a second password that opens the same dashboard to look at but not change. See [A view-only password](#a-view-only-password). |
+| `Bamf:Password` | Optional. If set, BAMF asks for it: a browser on a sign-in page, anything else with HTTP Basic auth (any username). One set in **Settings → Security** replaces it. See [Signing in](#signing-in). |
+| `Bamf:ViewerPassword` | Optional, with a main password: a second password that opens the same dashboard to look at but not change. One set in Settings replaces it. See [A view-only password](#a-view-only-password). |
 | `Bamf:DatabasePath` | SQLite file, relative to the exe. |
 
 ## Active ARP scanning (optional, recommended)
@@ -272,10 +277,10 @@ Two things worth knowing:
 - **An `http://` webhook sends device names, MACs and IPs in plaintext.** BAMF
   logs a warning at startup if yours is one. Discord and most services offer
   HTTPS endpoints - use them.
-- **HTTP Basic auth over plain HTTP is encoding, not encryption.** If you set
-  `Bamf:Password`, the credential travels base64-encoded and anyone who can see
-  traffic on that segment can read it. BAMF warns about this too. Fine on a
-  trusted LAN; see below if not.
+- **A password over plain HTTP can be read on the wire.** Signing in sends it
+  once, and a script using HTTP Basic auth sends it with every request, readable
+  to anyone who can see traffic on that segment. Fine on a trusted LAN; see
+  below if not.
 
 ### Serving the dashboard over HTTPS
 
@@ -1193,13 +1198,43 @@ buttons across the top on a phone):
 
 | Section | What's in it |
 |---|---|
-| **Scanning** | The default interval, offline after missed scans, probe concurrency and mDNS, each network's own interval and on/off, with **Save** and **Reset to file defaults**; then how BAMF looks, which applies at once: active ARP, randomised MACs, latency, IPv6 neighbours, the traffic monitor and the daily port watch |
+| **Scanning** | The default interval, offline after missed scans, probe concurrency and mDNS, each network's own interval and on/off, with **Save** and **Reset to file defaults**; adding and removing networks, which applies at once; then how BAMF looks, which applies at once: active ARP, randomised MACs, latency, IPv6 neighbours, the traffic monitor and the daily port watch |
 | **Internet** | The internet watch: on or off, how often, the address it pings and what counts as slow; and the speed test's schedule |
-| **Security** | The ARP watch, the certificate watch and the GreyNoise check |
+| **Security** | Sign-in: the main and view-only passwords, and signing out; then the ARP watch, the certificate watch and the GreyNoise check |
 | **Alerts** | Where alerts go: the main webhook with **Sends** and **Test**, more destinations and the scheduled report; then alert rules and quiet hours |
 | **Your network** | Switches and routers, map icons and names from your router |
 | **Appearance** | The theme, Holiday Spirit, Night mode, compact rows, the screen saver, the keyboard shortcuts, and which themes are installed |
 | **System** | History retention, with its own **Save**, the update check, backups, and what's set in `appsettings.json` |
+
+### First-run setup
+
+On a new install, the first time the dashboard opens, BAMF asks:
+
+1. **Which networks to watch.** It lists the networks this machine is on,
+   the ones it would scan already ticked, and takes any other you type.
+2. **A password.** Or, if you say so, none: then anyone who can reach BAMF can
+   open it and change things, as it always was.
+
+That's all. Everything it sets is in Settings afterwards, and it points at
+**Settings → Alerts** for where alerts go. **Skip** leaves everything as it is.
+It's only shown once, and only when BAMF made its database at that start: an
+install updated from an older version never sees it. If a password is already
+set in `appsettings.json` (or the Home Assistant add-on's options), BAMF asks
+for it first, and setup doesn't ask for another.
+
+### Networks
+
+**Settings → Scanning → Networks** adds and removes the networks BAMF scans,
+with one click for each network this machine is on. It applies at once, and a
+new network is scanned straight away. The list saved there replaces
+`Bamf:Subnets`; **Use appsettings.json's instead** (or **Reset to file
+defaults**) hands it back to the file.
+
+Only private networks can be added there (10.x, 172.16-31.x, 192.168.x,
+100.64-127.x and 169.254.x), from /22 to /30. The port scans follow BAMF's
+networks, so this keeps anyone who can open the dashboard from pointing them
+at the internet, and a /22, 1,022 addresses, is as much as a scan covers.
+`appsettings.json` can still list anything.
 
 Each section has its own address, such as `/#settings/internet`, so a link or a
 bookmark opens that one; plain `/#settings` opens the last one you looked at.
@@ -1252,7 +1287,7 @@ live in three places, and it helps to know which is which:
 
 | What | Where it lives | On update |
 |---|---|---|
-| Subnets, password, webhook URL, scan interval, ping tuning | `appsettings.json` | Copied aside and restored. The version's fresh defaults are written next to it as `appsettings.new.json` so you can merge in any new options. |
+| Subnets, password, webhook URL, scan interval, ping tuning, as set in the file | `appsettings.json` | Copied aside and restored. The version's fresh defaults are written next to it as `appsettings.new.json` so you can merge in any new options. |
 | Custom names, notes, watch stars, ignored/known flags, all online-offline and address history, **and everything saved from the Settings tab** | `bamf.db` | Never touched, and snapshotted to `backups/` first (last 30 kept). |
 | Theme choice | your browser's localStorage | Not on the server at all, so nothing can disturb it. |
 
@@ -1481,8 +1516,10 @@ anything that speaks HTTP.
 
 **Base URL**: `http://<server>:8840`
 
-**Auth**: none unless you set `Bamf:Password`. If you have, every route needs
-HTTP Basic auth with *any* username and that password:
+**Auth**: none unless there's a password (set in Settings or as
+`Bamf:Password`). If there is, every route needs it: a browser signs in once
+(see [Signing in](#signing-in)), and anything else sends HTTP Basic auth with
+*any* username and that password:
 
 ```bash
 curl -u x:yourpassword http://192.168.1.10:8840/api/hosts
@@ -1493,9 +1530,29 @@ and every POST and DELETE answers `403` with an `X-BAMF-ViewOnly: 1` header.
 `/api/hosts` says which you are in `role`: `admin`, `viewer`, or `open` when
 no password is set.
 
+### Signing in
+
+With a password, a browser that opens BAMF gets a sign-in page. Once signed
+in, it stays signed in for 30 days, renewed while it's in use, so a wall
+display or a dashboard left open doesn't get signed out. Scripts, other BAMF
+servers, Home Assistant and anything else that isn't a browser send the
+password with every request, with HTTP Basic auth, exactly as before.
+
+**Settings → Security → Sign-in** sets, changes and removes the passwords.
+Changing or removing one takes the current main password. They're kept in the
+database, hashed, and one set there replaces the same one in
+`appsettings.json`; a password from the file can be replaced there but only
+removed from the file. Changing a password signs out every browser that used
+the old one. **Sign out** is there too.
+
+Five wrong passwords from the same address within 15 minutes lock that
+address out for 15 minutes, whether they came from the sign-in page or a
+script, and send a security alert saying so.
+
 ### A view-only password
 
-Set `Bamf:ViewerPassword` as well as `Bamf:Password`, and there are two ways
+Set a view-only password as well as the main one (in Settings, or
+`Bamf:ViewerPassword` with `Bamf:Password`), and there are two ways
 in. The main password opens everything, as before. The view-only one opens
 the same dashboard, with every device, the Map, Activity and Settings, but
 nothing can be changed: no renaming, no editing the Map, no settings, and no
@@ -1562,6 +1619,14 @@ scan, or delete a thing.
 | POST | `/api/destinations/{id}/test` | Send a test to one destination: `main` for the main webhook, or another's `id`. Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/settings/webhookkinds` | Body `{"kinds": ["devices", "status"]}` — which kinds of alert the main webhook gets: `devices`, `status`, `security`, `internet`, `reports`. `GET /api/settings` returns it as `webhookKinds` |
 | POST | `/api/settings/destinations` | Body `{"destinations": [{"id": "…", "name": "Phone", "url": "https://…", "format": "ntfy", "kinds": ["security", "internet"]}]}` — replace the destinations besides the main webhook, up to 8. `id` blank adds one; a saved one sent with `url` empty keeps its URL. `GET /api/settings` returns them as `destinations`, URLs masked |
+| POST | `/api/settings/networks` | Body `{"networks": ["192.168.1.0/24"]}` — the networks to scan, replacing `Bamf:Subnets`, and scan them now. Private networks from /22 to /30 only; see [Networks](#networks). `GET /api/settings` returns them as `editable.networks`, with where they come from and the ones this machine is on |
+| POST | `/api/settings/networks/reset` | Hand the networks back to `appsettings.json` |
+| GET | `/api/auth` | Whether BAMF asks for a password, the role you have, and where each password comes from (`settings`, `file` or none) |
+| POST | `/api/settings/password` | Body `{"role": "admin"\|"viewer", "current": "…", "password": "…"}` — set, change or (with `password` empty) remove a password. `current` is the main password, needed once there is one |
+| POST | `/api/signin` | Body `{"password": "…"}` — sign a browser in: sets a cookie good for 30 days. `401` for a wrong password, `429` while locked out. Open to anyone |
+| POST | `/api/signout` | Sign this browser out |
+| GET | `/api/setup` | Whether the first-run setup is due, with the networks and whether a password is set |
+| POST | `/api/setup` | Body `{"networks": [...], "password": "…", "open": false, "skip": false}` — finish the first-run setup; `409` once it's done |
 | POST | `/api/settings/active-arp` | Body `{"enabled": true}` — toggle active ARP scanning at runtime |
 | POST | `/api/settings/auto-ignore-random` | Body `{"enabled": true}` — toggle auto-ignoring of randomized MACs at runtime |
 | POST | `/api/settings/webhook` | Body `{"url": "https://..."}` — save the notification webhook (empty string clears it). Returns a masked form; the full URL is never read back |

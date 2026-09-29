@@ -640,6 +640,7 @@
   body.viewer .hy-actions .hint { display: none !important; }
   body.viewer .watch-star { pointer-events: none; }
   body.viewer #settingsWrap .set-main :is(button, input, select, textarea) { pointer-events: none; opacity: .5; }
+  body.viewer #settingsWrap .set-main #authSignOut { pointer-events: auto; opacity: 1; }
   body.viewer #settingsWrap::before {
     grid-column: 1 / -1;
     content: "View only: these are BAMF's settings, but the view-only password can't change them.";
@@ -905,6 +906,41 @@
   /* The speed test's schedule, Save and Run now: the schedule reads in full, and the buttons go under it. */
   .speed-fields { width: 180px; flex-wrap: wrap; }
   .speed-fields .modal-input { width: 100%; }
+  /* Settings → Scanning → Networks: adding one, and the ones this machine is on. */
+  .set-net-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+  .set-net-add .modal-input { width: 180px; min-width: 0; margin-left: 0; }
+  .set-net-found { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; font-size: 12px; color: var(--text-dim); }
+  .set-net-found button { font: inherit; font-size: 12px; cursor: pointer; color: var(--text); background: var(--panel-2);
+    border: 1px dashed var(--line); border-radius: 999px; padding: 3px 10px; }
+  .set-net-found button:hover { border-color: var(--focus); }
+  .set-net-rm { font: inherit; font-size: 15px; line-height: 1; cursor: pointer; color: var(--text-dim); background: none;
+    border: 1px solid transparent; border-radius: 6px; padding: 2px 7px; }
+  .set-net-rm:hover { color: var(--danger); border-color: var(--line); }
+  .set-net-source { margin-top: 10px; font-size: 12px; color: var(--text-dim); }
+  /* On a phone the table stacks, so the remove button sits in each network's corner. */
+  @media (max-width: 700px) {
+    #setNetTable tr { position: relative; }
+    #setNetTable td.set-net-rm-cell { position: absolute; top: 6px; right: 0; border: 0; padding: 0; }
+  }
+  .set-net-source button { font: inherit; font-size: 12px; color: var(--focus); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+  /* The first-run setup, on a new install. */
+  .setup-modal { width: min(520px, 94vw); }
+  .setup-step { border-top: 1px solid var(--line); padding: 14px 0 6px; }
+  .setup-h { font-weight: 600; margin-bottom: 6px; }
+  .setup-net { display: flex; align-items: center; gap: 10px; padding: 5px 0; font-size: 13px; }
+  .setup-net .mono { font-size: 13px; }
+  .setup-net .if { color: var(--text-dim); font-size: 12px; }
+  .setup-net.off { color: var(--text-dim); }
+  .setup-pw { display: flex; flex-wrap: wrap; gap: 8px; }
+  .setup-pw .modal-input { flex: 1 1 180px; min-width: 0; margin-left: 0; }
+  .setup-open { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-size: 12px; color: var(--text-dim); cursor: pointer; }
+  .setup-modal .modal-actions { align-items: center; margin-top: 12px; }
+  .setup-modal .modal-actions .set-result { margin-right: auto; }
+  /* Settings → Security → Sign-in: a password box and its buttons in each row. */
+  .auth-fields { width: 220px; flex-wrap: wrap; }
+  .auth-fields .modal-input { width: 100%; }
+  .auth-state { color: var(--text-dim); font-size: 12px; }
+  .auth-state b { color: var(--text); font-weight: 600; }
   .night-fields input[type="time"] { width: auto; }
   .set-field.night-fields select.modal-input { width: auto; max-width: 200px; }
   .phone-setup { margin: -2px 0 12px; }
@@ -1964,10 +2000,17 @@
           last known state and never get a false down-alert. Give a network its own
           interval to watch it more or less closely than the default above; blank
           means the default. A device is only judged offline by a scan that actually
-          covered its network.
+          covered its network. Adding or removing a network applies at once.
         </p>
         <table class="set-table" id="setNetTable"></table>
         <div class="modal-note" id="setNetNote"></div>
+        <div class="set-net-add">
+          <input class="modal-input" id="setNetNew" placeholder="192.168.1.0/24" aria-label="A network to add, like 192.168.1.0/24" autocomplete="off" spellcheck="false">
+          <button type="button" class="export-btn" id="setNetAdd">Add a network</button>
+          <span class="set-result" id="setNetResult"></span>
+        </div>
+        <div class="set-net-found" id="setNetFound" hidden></div>
+        <div class="set-net-source" id="setNetSource"></div>
       </div>
       <div class="set-actions">
         <button class="toggle" id="setReset">Reset to file defaults</button>
@@ -2060,6 +2103,42 @@
     </section>
     <section class="set-sec" data-sec="security" aria-label="Security">
       <h2 class="set-sec-title">Security</h2>
+      <div class="set-card" id="signinCard">
+        <div class="set-card-title">Sign-in</div>
+        <p class="modal-help" id="authStatus"></p>
+        <label class="set-row" id="authCurrentRow" hidden>
+          <span class="set-label">Current main password
+            <span class="set-hint">Needed to change or remove either password.</span>
+          </span>
+          <span class="set-field auth-fields"><input id="authCurrent" class="modal-input" type="password" autocomplete="current-password"></span>
+        </label>
+        <div class="set-row">
+          <span class="set-label">Main password
+            <span class="set-hint">Opens everything. A browser that signs in with it stays signed in for 30 days; scripts, Home Assistant and other BAMF servers send it with each request, as they always have.</span>
+            <span class="auth-state" id="authMainState"></span>
+          </span>
+          <span class="set-field auth-fields">
+            <input id="authMain" class="modal-input" type="password" autocomplete="new-password" placeholder="New password" aria-label="New main password">
+            <button type="button" class="export-btn" id="authMainSave">Save</button>
+            <button type="button" class="toggle" id="authMainRemove" hidden>Remove</button>
+          </span>
+        </div>
+        <div class="set-row">
+          <span class="set-label">View-only password
+            <span class="set-hint">Optional, for family or a wall display: it opens the same dashboard, but nothing can be changed, scanned or woken. Only counts alongside a main password.</span>
+            <span class="auth-state" id="authViewerState"></span>
+          </span>
+          <span class="set-field auth-fields">
+            <input id="authViewer" class="modal-input" type="password" autocomplete="new-password" placeholder="New password" aria-label="New view-only password">
+            <button type="button" class="export-btn" id="authViewerSave">Save</button>
+            <button type="button" class="toggle" id="authViewerRemove" hidden>Remove</button>
+          </span>
+        </div>
+        <div class="set-actions">
+          <button type="button" class="toggle" id="authSignOut" hidden>Sign out</button>
+          <span class="set-result" id="authResult"></span>
+        </div>
+      </div>
       <div class="set-card">
         <div class="set-card-title">Security</div>
         <p class="modal-help">These apply the moment you click them — no Save needed.</p>
@@ -2654,6 +2733,40 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="setupModal" hidden>
+  <div class="modal setup-modal" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+    <div class="modal-title" id="setupTitle">Welcome to BAMF</div>
+    <p class="modal-help">Two things before it gets going. Both can be changed later in Settings.</p>
+    <div class="setup-step">
+      <div class="setup-h">1. The networks to watch</div>
+      <p class="modal-help">These are the networks this machine is on. Tick the ones BAMF should scan.</p>
+      <div id="setupNets"></div>
+      <div class="set-net-add">
+        <input class="modal-input" id="setupNetNew" placeholder="192.168.1.0/24" aria-label="Another network to watch, like 192.168.1.0/24" autocomplete="off" spellcheck="false">
+        <button type="button" class="toggle" id="setupNetAdd">Add</button>
+      </div>
+    </div>
+    <div class="setup-step" id="setupPwStep">
+      <div class="setup-h">2. A password</div>
+      <div id="setupPwAsk">
+        <p class="modal-help">Without one, anyone on your network can open BAMF and change things. This browser stays signed in with it.</p>
+        <div class="setup-pw">
+          <input class="modal-input" id="setupPw" type="password" autocomplete="new-password" aria-label="Password">
+          <input class="modal-input" id="setupPw2" type="password" autocomplete="new-password" placeholder="Again" aria-label="The password again">
+        </div>
+        <label class="setup-open"><input type="checkbox" id="setupOpen"> Leave BAMF open to anyone on my network, with no password. A password can be set later in Settings → Security.</label>
+      </div>
+      <p class="modal-help" id="setupPwSet" hidden>A password is already set, in <span class="mono">appsettings.json</span>. It can be changed in Settings → Security.</p>
+    </div>
+    <p class="modal-help">Where alerts go (Discord, your phone, and more) is in Settings → Alerts, whenever you're ready.</p>
+    <div class="modal-actions">
+      <span class="set-result" id="setupMsg"></span>
+      <button type="button" class="toggle" id="setupSkip" title="Close this and leave everything as it is. It won't show again.">Skip</button>
+      <button type="button" class="export-btn" id="setupGo">Start watching</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="secretModal" hidden>
   <div class="modal secret-modal">
     <div class="secret-emoji" id="secretEmoji">🎁</div>
@@ -2896,10 +3009,18 @@ let trafficCache = null;    // the last /api/traffic answer, for the Activity ca
 // an X-BAMF-ViewOnly header. Say so once per refusal, whichever control it was.
 {
   const plainFetch = window.fetch.bind(window);
+  // And a sign-in that has run out (or a password changed elsewhere) sends
+  // the page to sign in again, and back here after.
+  let signingIn = false;
   window.fetch = async (...args) => {
     const r = await plainFetch(...args);
     if (r.status === 403 && r.headers.get("X-BAMF-ViewOnly")) {
       try { toast("View only: this password can look at everything but not change anything"); } catch { }
+    }
+    if (r.status === 401 && r.headers.get("X-BAMF-SignIn") && !signingIn) {
+      signingIn = true;
+      const here = location.pathname + location.search + location.hash;
+      location.href = "/signin" + (here === "/" ? "" : "?next=" + encodeURIComponent(here));
     }
     return r;
   };
@@ -11264,6 +11385,7 @@ async function loadSettings() {
   loadSpeed().then(renderSpeedSetting);
   $("setNewDays").value = newDays;
   loadRouterImport();
+  loadAuth();
 
   // The instant-apply toggles and the notifications card draw from the last
   // /api/hosts poll rather than this endpoint, so refresh them here too.
@@ -11275,7 +11397,8 @@ async function loadSettings() {
   renderUpdateToggle();
   fillNotify();
 
-  const nets = ro.subnets || [];
+  // As they are now, not as of the last scan, so one just added shows at once.
+  const nets = (e.networks && e.networks.list) || ro.subnets || [];
   const tbl = $("setNetTable");
   tbl.innerHTML = "";
   if (!nets.length) {
@@ -11340,6 +11463,20 @@ async function loadSettings() {
       tdIn.appendChild(input);
       tr.appendChild(tdIn);
 
+      const tdRm = document.createElement("td");
+      tdRm.className = "set-net-rm-cell";
+      if (nets.length > 1) {
+        const rm = document.createElement("button");
+        rm.type = "button";
+        rm.className = "set-net-rm";
+        rm.textContent = "\u00d7";
+        rm.title = `Stop scanning ${net} and take it off the list. Its devices stay, with their history.`;
+        rm.setAttribute("aria-label", `Remove ${net}`);
+        rm.onclick = () => saveNetworks(nets.filter(n => n !== net), `Removed ${net}.`);
+        tdRm.appendChild(rm);
+      }
+      tr.appendChild(tdRm);
+
       sw.onclick = () => {
         const nowOn = !sw.classList.contains("on");
         sw.classList.toggle("on", nowOn);
@@ -11355,6 +11492,8 @@ async function loadSettings() {
       tbl.appendChild(tr);
     });
   }
+
+  renderNetworkSource(e.networks);
 
   const roEl = $("setReadOnly");
   roEl.innerHTML = "";
@@ -11421,6 +11560,240 @@ async function saveSettings() {
     setMsg("Save failed: " + e.message, "err");
   }
 }
+
+// ---- The first-run setup ----
+// Shown once, on a new install: which networks, and a password. The server
+// only offers it when BAMF made its database at this start.
+let setupNets = [];   // { network, iface, problem, on }
+async function checkSetup() {
+  let s;
+  try {
+    const r = await fetch("/api/setup");
+    if (!r.ok) return;
+    s = await r.json();
+  } catch { return; }
+  if (!s.pending) return;
+  const n = s.networks;
+  setupNets = (n.found || []).map(f => ({ network: f.network, iface: f.interface, problem: f.problem, on: !f.problem && n.list.includes(f.network) }));
+  for (const net of n.list) if (!setupNets.some(x => x.network === net)) setupNets.push({ network: net, iface: "", problem: null, on: true });
+  renderSetupNets();
+  $("setupPwAsk").hidden = !!s.password;
+  $("setupPwSet").hidden = !s.password;
+  $("setupPw").placeholder = `At least ${s.minLength} characters`;
+  $("setupModal").hidden = false;
+  (s.password ? $("setupGo") : $("setupPw")).focus();
+}
+function renderSetupNets() {
+  const box = $("setupNets");
+  box.innerHTML = "";
+  if (!setupNets.length) {
+    box.innerHTML = '<p class="modal-help">BAMF didn\'t find a network it can watch on this machine. Add one below.</p>';
+    return;
+  }
+  for (const n of setupNets) {
+    const row = document.createElement("label");
+    row.className = "setup-net" + (n.problem ? " off" : "");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = n.on;
+    cb.disabled = !!n.problem;
+    cb.onchange = () => { n.on = cb.checked; };
+    const name = document.createElement("span");
+    name.className = "mono";
+    name.textContent = n.network;
+    row.append(cb, name);
+    if (n.iface || n.problem) {
+      const why = document.createElement("span");
+      why.className = "if";
+      why.textContent = n.problem ? "Can't be watched from here: " + n.problem : n.iface;
+      row.appendChild(why);
+    }
+    box.appendChild(row);
+  }
+}
+function setupMsg(text, kind) {
+  const el = $("setupMsg");
+  el.textContent = text;
+  el.className = "set-result" + (kind ? " " + kind : "");
+}
+$("setupNetAdd").onclick = () => {
+  const v = $("setupNetNew").value.trim();
+  if (!v) return;
+  if (!setupNets.some(n => n.network === v)) setupNets.push({ network: v, iface: "", problem: null, on: true });
+  $("setupNetNew").value = "";
+  renderSetupNets();
+  setupMsg("");
+};
+$("setupNetNew").onkeydown = e => { if (e.key === "Enter") $("setupNetAdd").click(); };
+async function finishSetup(skip) {
+  const body = { skip };
+  if (!skip) {
+    body.networks = setupNets.filter(n => n.on).map(n => n.network);
+    if (!body.networks.length) { setupMsg("Tick at least one network.", "err"); return; }
+    if (!$("setupPwAsk").hidden) {
+      body.open = $("setupOpen").checked;
+      if (!body.open) {
+        if ($("setupPw").value !== $("setupPw2").value) { setupMsg("The two passwords aren't the same.", "err"); $("setupPw2").focus(); return; }
+        body.password = $("setupPw").value;
+      }
+    }
+  }
+  setupMsg("Saving…");
+  try {
+    const r = await fetch("/api/setup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok && r.status !== 409) { setupMsg(d.error || "Couldn't save (HTTP " + r.status + ")", "err"); return; }
+  } catch (e) {
+    setupMsg("Couldn't save: " + e.message, "err");
+    return;
+  }
+  $("setupModal").hidden = true;
+  if (!skip) toast("BAMF is set up and scanning.");
+  refresh();
+}
+$("setupGo").onclick = () => finishSetup(false);
+$("setupSkip").onclick = () => finishSetup(true);
+$("setupOpen").onchange = () => {
+  const open = $("setupOpen").checked;
+  $("setupPw").disabled = $("setupPw2").disabled = open;
+};
+
+// ---- Settings → Scanning → Networks: adding and removing ----
+// Networks saved here replace appsettings.json's list; only private ones no
+// bigger than a sweep covers can be added (the server says why if not).
+function renderNetworkSource(n) {
+  if (!n) return;
+  const found = $("setNetFound");
+  const extra = (n.found || []).filter(f => !f.problem && !n.list.includes(f.network));
+  found.hidden = !extra.length;
+  found.innerHTML = "";
+  if (extra.length) {
+    found.append("On this machine: ");
+    for (const f of extra) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = `+ ${f.network} (${f.interface})`;
+      b.title = `Scan ${f.network} too: this machine is on it, through ${f.interface}.`;
+      b.onclick = () => saveNetworks([...n.list, f.network], `Added ${f.network}.`);
+      found.appendChild(b);
+    }
+  }
+  const src = $("setNetSource");
+  if (n.source === "settings") {
+    src.innerHTML = "These networks are saved here. ";
+    const back = document.createElement("button");
+    back.type = "button";
+    back.textContent = "Use appsettings.json's instead";
+    back.onclick = async () => {
+      try { await fetch("/api/settings/networks/reset", { method: "POST" }); } catch { }
+      await loadSettings();
+    };
+    src.appendChild(back);
+  } else {
+    src.innerHTML = n.source === "file"
+      ? "These networks come from <span class=\"mono\">appsettings.json</span>. Adding or removing one here saves the list here instead."
+      : "No networks are listed in <span class=\"mono\">appsettings.json</span>, so BAMF scans every network this machine is on.";
+  }
+}
+function netMsg(text, kind) {
+  const el = $("setNetResult");
+  el.textContent = text;
+  el.className = "set-result" + (kind ? " " + kind : "");
+}
+async function saveNetworks(list, done) {
+  netMsg("Saving…");
+  try {
+    const r = await fetch("/api/settings/networks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ networks: list }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { netMsg(d.error || "Couldn't save (HTTP " + r.status + ")", "err"); return false; }
+    await loadSettings();
+    netMsg(done + " Scanning now.", "ok");
+    return true;
+  } catch (e) {
+    netMsg("Couldn't save: " + e.message, "err");
+    return false;
+  }
+}
+async function addNetwork() {
+  const box = $("setNetNew");
+  const v = box.value.trim();
+  if (!v) { netMsg("Type a network first, like 192.168.1.0/24.", "err"); box.focus(); return; }
+  const list = (settingsData?.editable?.networks?.list) || [];
+  if (await saveNetworks([...list, v], `Added ${v}.`)) box.value = "";
+}
+$("setNetAdd").onclick = addNetwork;
+$("setNetNew").onkeydown = e => { if (e.key === "Enter") addNetwork(); };
+
+// ---- Settings → Security → Sign-in ----
+let authInfo = null;
+async function loadAuth() {
+  try {
+    const r = await fetch("/api/auth");
+    if (r.ok) authInfo = await r.json();
+  } catch { }
+  renderAuth();
+}
+function renderAuth() {
+  const a = authInfo;
+  if (!a) return;
+  const where = s => s === "file" ? "Set in <span class=\"mono\">appsettings.json</span>. Saving one here replaces it." : "Set here.";
+  $("authStatus").innerHTML = a.required
+    ? "BAMF asks for a password." + (a.role === "viewer" ? " You're signed in with the view-only one." : "")
+    : "<b>Anyone who can reach BAMF can open it and change things.</b> Set a main password and it will ask for one.";
+  $("authCurrentRow").hidden = !a.required;
+  $("authMainState").innerHTML = a.main ? where(a.main) : "Not set.";
+  $("authViewerState").innerHTML = !a.main ? "Needs a main password first." : a.viewer ? where(a.viewer) : "Not set.";
+  $("authViewer").disabled = $("authViewerSave").disabled = !a.main;
+  $("authMainRemove").hidden = a.main !== "settings";
+  $("authViewerRemove").hidden = a.viewer !== "settings";
+  $("authSignOut").hidden = !a.session;
+  $("authMain").placeholder = a.main ? "New password" : `At least ${a.minLength} characters`;
+  $("authViewer").placeholder = a.viewer ? "New password" : `At least ${a.minLength} characters`;
+}
+function authMsg(text, kind) {
+  const el = $("authResult");
+  el.textContent = text;
+  el.className = "set-result" + (kind ? " " + kind : "");
+}
+async function savePassword(role, remove) {
+  const box = $(role === "viewer" ? "authViewer" : "authMain");
+  if (!remove && !box.value) { authMsg("Type the new password first.", "err"); box.focus(); return; }
+  if (remove && role === "admin" && !confirm("Remove the main password? Anyone who can reach BAMF will be able to open it and change things, and the view-only password goes too.")) return;
+  authMsg("Saving…");
+  try {
+    const r = await fetch("/api/settings/password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role, current: $("authCurrent").value, password: remove ? "" : box.value }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { authMsg(d.error || "Couldn't save (HTTP " + r.status + ")", "err"); return; }
+    box.value = "";
+    $("authCurrent").value = "";
+    await loadAuth();
+    authMsg(remove ? "Removed." : role === "viewer" ? "View-only password saved." : "Saved. This browser is signed in with it.", "ok");
+  } catch (e) {
+    authMsg("Couldn't save: " + e.message, "err");
+  }
+}
+$("authMainSave").onclick = () => savePassword("admin", false);
+$("authMainRemove").onclick = () => savePassword("admin", true);
+$("authViewerSave").onclick = () => savePassword("viewer", false);
+$("authViewerRemove").onclick = () => savePassword("viewer", true);
+$("authMain").onkeydown = e => { if (e.key === "Enter") savePassword("admin", false); };
+$("authViewer").onkeydown = e => { if (e.key === "Enter") savePassword("viewer", false); };
+$("authSignOut").onclick = async () => {
+  try { await fetch("/api/signout", { method: "POST" }); } catch { }
+  location.href = "/signin";
+};
 
 $("setSave").onclick = saveSettings;
 // History retention sits under System, but it's saved with the scanning
@@ -11531,6 +11904,7 @@ $("search").oninput = e => { query = e.target.value; render(); };
 // which is harmless with no data yet; refresh() re-renders when data lands.
 if (location.hash.length > 1) showView(location.hash.slice(1), { fromHash: true });
 refresh();
+checkSetup();
 setInterval(refresh, POLL_MS);
 </script>
 </body>

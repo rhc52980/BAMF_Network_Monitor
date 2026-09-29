@@ -110,6 +110,16 @@
   </footer>
 </main>
 <script>
+// A sign-in that has run out sends the wall to sign in again, and back here after.
+{
+  const plainFetch = window.fetch.bind(window);
+  window.fetch = async (...args) => {
+    const r = await plainFetch(...args);
+    if (r.status === 401 && r.headers.get("X-BAMF-SignIn"))
+      location.href = "/signin?next=" + encodeURIComponent(location.pathname + location.search);
+    return r;
+  };
+}
 (() => {
   const $ = id => document.getElementById(id);
   const params = new URLSearchParams(location.search);
