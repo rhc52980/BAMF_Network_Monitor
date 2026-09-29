@@ -1496,11 +1496,11 @@ app.MapPost("/api/settings/night", (NightRequest body, HostStore store) =>
 });
 
 // Everything the Settings tab renders, in one round trip. Split into what the
-// dashboard may change and what it may only display: anything that decides which
-// networks BAMF is allowed to touch, or that needs a restart to apply, stays in
-// appsettings.json on purpose. Subnets in particular is the boundary the wildcard
-// port-scan guard depends on - a pattern can only expand across configured
-// networks, so letting the UI edit that list would dissolve the guarantee.
+// dashboard may change and what it may only display: anything that needs a
+// restart to apply stays in appsettings.json. The networks can be changed here,
+// but only to private ones no bigger than a sweep covers (see
+// ScannerService.CheckNetwork): the wildcard port-scan guard expands a pattern
+// across the networks, so this is what keeps it on private addresses.
 app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChecker updates, IConfiguration cfg, ReportService reports, MqttPublisher mqtt, RuleService rulesSvc, RemoteService remotesSvc2, WanWatch wan) =>
 {
     var overrides = scanner.ReadIntervalOverrides();
@@ -1554,6 +1554,7 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
         webhookFormat = scanner.WebhookFormat,
             webhookKinds = scanner.MainKinds,
             destinations = DestinationsJson(scanner),
+            networks = NetworksJson(scanner),
         },
         readOnly = new
         {
@@ -1574,6 +1575,45 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
         },
         minIntervalSeconds = ScannerService.MinIntervalSeconds,
     });
+});
+
+// The networks BAMF scans, where that list comes from, and the ones this
+// machine is on, for Settings → Scanning → Networks and the first-run setup.
+static object NetworksJson(ScannerService scanner) => new
+{
+    source = scanner.NetworkSource,
+    list = scanner.CurrentNetworks(),
+    found = ScannerService.DetectLocalNetworks().Select(n => new
+    {
+        network = $"{n.Network}/{n.Prefix}", @interface = n.Interface,
+        problem = ScannerService.CheckNetwork($"{n.Network}/{n.Prefix}", out _),
+    }),
+    widest = ScannerService.WidestPrefix,
+};
+
+// Saves the networks to scan, replacing appsettings.json's list, and scans
+// them now. Each must pass CheckNetwork; see /api/settings.
+app.MapPost("/api/settings/networks", (NetworksRequest body, HostStore store, ScannerService scanner) =>
+{
+    var labels = new List<string>();
+    foreach (var raw in body.Networks ?? [])
+    {
+        if (ScannerService.CheckNetwork(raw, out var label) is { } problem) return Results.BadRequest(new { error = problem });
+        if (!labels.Contains(label)) labels.Add(label);
+    }
+    if (labels.Count == 0) return Results.BadRequest(new { error = "BAMF needs at least one network to scan." });
+    if (labels.Count > 16) return Results.BadRequest(new { error = "That's more networks than BAMF scans at once: 16 at most." });
+    store.SetSetting("subnets", JsonSerializer.Serialize(labels));
+    scanner.RequestScan(null);
+    app.Logger.LogInformation("Networks set in Settings: {Networks}", string.Join(", ", labels));
+    return Results.Json(NetworksJson(scanner));
+});
+// Hands the networks back to appsettings.json (or to auto-detect).
+app.MapPost("/api/settings/networks/reset", (HostStore store, ScannerService scanner) =>
+{
+    store.DeleteSetting("subnets");
+    scanner.RequestScan(null);
+    return Results.Json(NetworksJson(scanner));
 });
 
 app.MapPost("/api/settings/scan", (ScanSettingsRequest body, HostStore store, ScannerService scanner) =>
@@ -1631,12 +1671,10 @@ app.MapPost("/api/settings/scan", (ScanSettingsRequest body, HostStore store, Sc
             store.SetSetting("subnetScanIntervalSeconds", JsonSerializer.Serialize(clean));
     }
 
-    // Pausing is the one network-level control the dashboard gets, and it only
-    // ever narrows: a label must already be in Bamf:Subnets to be accepted, so
-    // the file remains the sole authority on which networks BAMF may touch.
+    // Pausing only ever narrows: a label must already be one of the networks.
     if (body.DisabledSubnets is { } paused)
     {
-        var configured = new HashSet<string>(scanner.SubnetLabels, StringComparer.OrdinalIgnoreCase);
+        var configured = new HashSet<string>(scanner.CurrentNetworks(), StringComparer.OrdinalIgnoreCase);
         var clean = new List<string>();
         foreach (var raw in paused)
         {
@@ -1655,8 +1693,8 @@ app.MapPost("/api/settings/scan", (ScanSettingsRequest body, HostStore store, Sc
     return Results.Ok();
 });
 
-// Drops every dashboard-saved scan setting so appsettings.json is authoritative
-// again. Deliberately does not touch the webhook or the toggles that predate the
+// Drops every dashboard-saved scan setting, the networks included, so
+// appsettings.json is authoritative again. Deliberately does not touch the webhook or the toggles that predate the
 // Settings tab - those have their own controls and their own meaning of "off".
 app.MapPost("/api/settings/scan/reset", (HostStore store) =>
 {
@@ -1664,7 +1702,7 @@ app.MapPost("/api/settings/scan/reset", (HostStore store) =>
              {
                  "scanIntervalSeconds", "pingConcurrency",
                  "historyRetentionDays", "subnetScanIntervalSeconds", "disabledSubnets",
-                 "offlineAfterMissedScans", "mdnsListen",
+                 "offlineAfterMissedScans", "mdnsListen", "subnets",
              })
         store.DeleteSetting(key);
     return Results.Ok();
@@ -2176,6 +2214,7 @@ record IgnoreRequest(bool Ignored);
 record SnoozeRequest(int Minutes);
 record WatchRequest(bool Watched);
 record SignInRequest(string? Password);
+record NetworksRequest(string[]? Networks);
 record PasswordRequest(string? Role, string? Current, string? Password);
 record ForgetRequest(bool Forgotten);
 record ActiveArpRequest(bool Enabled);

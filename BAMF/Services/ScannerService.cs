@@ -43,8 +43,8 @@ public partial class ScannerService : BackgroundService
     /// Configured networks the dashboard has paused. Still listed in
     /// <see cref="SubnetLabels"/> - they remain configured, so their hosts keep
     /// their tab and last-known state - but never scanned and never judged
-    /// offline. Only a label already in Bamf:Subnets can appear here, so the
-    /// file stays the sole authority on which networks BAMF may touch at all.
+    /// offline. Only a label already among the networks (see SavedNetworks)
+    /// can appear here.
     /// </summary>
     public IReadOnlySet<string> DisabledSubnets { get; private set; } =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -952,20 +952,106 @@ public partial class ScannerService : BackgroundService
         return "";
     }
 
-    private List<(IPAddress Network, int Prefix)> ResolveSubnets()
-    {
-        var result = new List<(IPAddress, int)>();
+    // ---------- which networks ----------
+    // The networks saved in Settings, if any; otherwise Bamf:Subnets in
+    // appsettings.json; otherwise every network this machine has an address on.
+    // Settings can only add private networks no bigger than a sweep covers (see
+    // CheckNetwork), so whoever can open the dashboard can't point BAMF, and the
+    // port scans that follow its networks, anywhere else. The file can still
+    // list anything.
 
-        // Preferred: list of CIDRs in Bamf:Subnets.
+    /// <summary>The networks saved in Settings, or null when there are none.</summary>
+    public List<string>? SavedNetworks()
+    {
+        try
+        {
+            var list = JsonSerializer.Deserialize<List<string>>(_store.GetSetting("subnets") ?? "");
+            return list is { Count: > 0 } ? list : null;
+        }
+        catch (JsonException) { return null; }
+    }
+
+    private string[] FileNetworks()
+    {
         // Blank entries are skipped: the Home Assistant add-on blanks the
         // file's list past its own, and all blank means auto-detect.
         var configured = (_config.GetSection("Bamf:Subnets").Get<string[]>() ?? Array.Empty<string>())
             .Where(c => !string.IsNullOrWhiteSpace(c)).ToArray();
-
         // Back-compat: single Bamf:Subnet string.
         var single = _config["Bamf:Subnet"];
-        if (configured.Length == 0 && !string.IsNullOrWhiteSpace(single))
-            configured = new[] { single };
+        return configured.Length == 0 && !string.IsNullOrWhiteSpace(single) ? [single] : configured;
+    }
+
+    /// <summary>Where the networks come from: "settings", "file", or "auto" for every one this machine is on.</summary>
+    public string NetworkSource => SavedNetworks() is not null ? "settings" : FileNetworks().Length > 0 ? "file" : "auto";
+
+    /// <summary>The networks BAMF scans as of now, whether or not a scan has picked them up yet.</summary>
+    public List<string> CurrentNetworks()
+    {
+        try { return ResolveSubnets().Select(s => $"{s.Network}/{s.Prefix}").ToList(); }
+        catch (Exception ex) when (ex is InvalidOperationException or FormatException) { return []; }
+    }
+
+    /// <summary>Private address ranges, the only ones Settings can add networks in.</summary>
+    private static readonly (IPAddress Network, int Prefix)[] PrivateRanges =
+    [
+        (IPAddress.Parse("10.0.0.0"), 8), (IPAddress.Parse("172.16.0.0"), 12), (IPAddress.Parse("192.168.0.0"), 16),
+        (IPAddress.Parse("100.64.0.0"), 10), (IPAddress.Parse("169.254.0.0"), 16),
+    ];
+
+    /// <summary>The biggest network a sweep covers whole; see EnumerateSubnet.</summary>
+    public const int WidestPrefix = 22;
+
+    /// <summary>
+    /// Whether a network can be added from Settings: IPv4, written as an
+    /// address and a prefix, private, and no bigger than a sweep covers. Gives
+    /// it back as its network address and prefix, 192.168.1.7/24 as
+    /// 192.168.1.0/24, or says what's wrong with it.
+    /// </summary>
+    public static string? CheckNetwork(string? input, out string label)
+    {
+        label = "";
+        var parts = (input ?? "").Trim().Split('/');
+        if (parts.Length != 2 || !IPAddress.TryParse(parts[0], out var ip) || ip.AddressFamily != AddressFamily.InterNetwork
+            || !int.TryParse(parts[1], out var prefix) || prefix is < 0 or > 32)
+            return $"\"{input?.Trim()}\" isn't a network. Write it as an address and a prefix, like 192.168.1.0/24.";
+        if (prefix < WidestPrefix)
+            return $"A /{prefix} is bigger than BAMF sweeps: it covers 1,022 addresses at most, a /{WidestPrefix}. Use /{WidestPrefix} or smaller.";
+        if (prefix > 30) return "That network has no room for devices. Use /30 or bigger.";
+        var network = GetNetworkAddress(ip, prefix);
+        if (!PrivateRanges.Any(r => prefix >= r.Prefix && InSubnet(network, r.Network, r.Prefix)))
+            return "BAMF only adds private networks from here: 10.x, 172.16-31.x, 192.168.x, 100.64-127.x and 169.254.x. Others can still go in appsettings.json.";
+        label = $"{network}/{prefix}";
+        return null;
+    }
+
+    /// <summary>Every network this machine has an IPv4 address on, and the interface it's on.</summary>
+    public static List<(IPAddress Network, int Prefix, string Interface)> DetectLocalNetworks()
+    {
+        var result = new List<(IPAddress, int, string)>();
+        var seen = new HashSet<string>();
+        foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (nic.OperationalStatus != OperationalStatus.Up) continue;
+            if (nic.NetworkInterfaceType is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel) continue;
+            foreach (var addr in nic.GetIPProperties().UnicastAddresses)
+            {
+                if (addr.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                var prefix = addr.PrefixLength;
+                var network = GetNetworkAddress(addr.Address, prefix);
+                if (seen.Add($"{network}/{prefix}"))
+                    result.Add((network, prefix, nic.Name));
+            }
+        }
+        return result;
+    }
+
+    private List<(IPAddress Network, int Prefix)> ResolveSubnets()
+    {
+        var result = new List<(IPAddress, int)>();
+
+        // Preferred: the networks saved in Settings, then the list of CIDRs in Bamf:Subnets.
+        var configured = SavedNetworks()?.ToArray() ?? FileNetworks();
 
         if (configured.Length > 0)
         {
@@ -991,20 +1077,7 @@ public partial class ScannerService : BackgroundService
         }
 
         // Auto-detect: every operational non-loopback IPv4 interface.
-        var seen = new HashSet<string>();
-        foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
-        {
-            if (nic.OperationalStatus != OperationalStatus.Up) continue;
-            if (nic.NetworkInterfaceType is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel) continue;
-            foreach (var addr in nic.GetIPProperties().UnicastAddresses)
-            {
-                if (addr.Address.AddressFamily != AddressFamily.InterNetwork) continue;
-                var prefix = addr.PrefixLength;
-                var network = GetNetworkAddress(addr.Address, prefix);
-                if (seen.Add($"{network}/{prefix}"))
-                    result.Add((network, prefix));
-            }
-        }
+        result.AddRange(DetectLocalNetworks().Select(n => (n.Network, n.Prefix)));
         if (result.Count == 0)
             throw new InvalidOperationException("No active IPv4 interface found; set Bamf:Subnets in appsettings.json");
         return result;

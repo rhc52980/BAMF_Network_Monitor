@@ -906,6 +906,23 @@
   /* The speed test's schedule, Save and Run now: the schedule reads in full, and the buttons go under it. */
   .speed-fields { width: 180px; flex-wrap: wrap; }
   .speed-fields .modal-input { width: 100%; }
+  /* Settings → Scanning → Networks: adding one, and the ones this machine is on. */
+  .set-net-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+  .set-net-add .modal-input { width: 180px; min-width: 0; margin-left: 0; }
+  .set-net-found { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; font-size: 12px; color: var(--text-dim); }
+  .set-net-found button { font: inherit; font-size: 12px; cursor: pointer; color: var(--text); background: var(--panel-2);
+    border: 1px dashed var(--line); border-radius: 999px; padding: 3px 10px; }
+  .set-net-found button:hover { border-color: var(--focus); }
+  .set-net-rm { font: inherit; font-size: 15px; line-height: 1; cursor: pointer; color: var(--text-dim); background: none;
+    border: 1px solid transparent; border-radius: 6px; padding: 2px 7px; }
+  .set-net-rm:hover { color: var(--danger); border-color: var(--line); }
+  .set-net-source { margin-top: 10px; font-size: 12px; color: var(--text-dim); }
+  /* On a phone the table stacks, so the remove button sits in each network's corner. */
+  @media (max-width: 700px) {
+    #setNetTable tr { position: relative; }
+    #setNetTable td.set-net-rm-cell { position: absolute; top: 6px; right: 0; border: 0; padding: 0; }
+  }
+  .set-net-source button { font: inherit; font-size: 12px; color: var(--focus); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
   /* Settings → Security → Sign-in: a password box and its buttons in each row. */
   .auth-fields { width: 220px; flex-wrap: wrap; }
   .auth-fields .modal-input { width: 100%; }
@@ -1970,10 +1987,17 @@
           last known state and never get a false down-alert. Give a network its own
           interval to watch it more or less closely than the default above; blank
           means the default. A device is only judged offline by a scan that actually
-          covered its network.
+          covered its network. Adding or removing a network applies at once.
         </p>
         <table class="set-table" id="setNetTable"></table>
         <div class="modal-note" id="setNetNote"></div>
+        <div class="set-net-add">
+          <input class="modal-input" id="setNetNew" placeholder="192.168.1.0/24" aria-label="A network to add, like 192.168.1.0/24" autocomplete="off" spellcheck="false">
+          <button type="button" class="export-btn" id="setNetAdd">Add a network</button>
+          <span class="set-result" id="setNetResult"></span>
+        </div>
+        <div class="set-net-found" id="setNetFound" hidden></div>
+        <div class="set-net-source" id="setNetSource"></div>
       </div>
       <div class="set-actions">
         <button class="toggle" id="setReset">Reset to file defaults</button>
@@ -11326,7 +11350,8 @@ async function loadSettings() {
   renderUpdateToggle();
   fillNotify();
 
-  const nets = ro.subnets || [];
+  // As they are now, not as of the last scan, so one just added shows at once.
+  const nets = (e.networks && e.networks.list) || ro.subnets || [];
   const tbl = $("setNetTable");
   tbl.innerHTML = "";
   if (!nets.length) {
@@ -11391,6 +11416,20 @@ async function loadSettings() {
       tdIn.appendChild(input);
       tr.appendChild(tdIn);
 
+      const tdRm = document.createElement("td");
+      tdRm.className = "set-net-rm-cell";
+      if (nets.length > 1) {
+        const rm = document.createElement("button");
+        rm.type = "button";
+        rm.className = "set-net-rm";
+        rm.textContent = "\u00d7";
+        rm.title = `Stop scanning ${net} and take it off the list. Its devices stay, with their history.`;
+        rm.setAttribute("aria-label", `Remove ${net}`);
+        rm.onclick = () => saveNetworks(nets.filter(n => n !== net), `Removed ${net}.`);
+        tdRm.appendChild(rm);
+      }
+      tr.appendChild(tdRm);
+
       sw.onclick = () => {
         const nowOn = !sw.classList.contains("on");
         sw.classList.toggle("on", nowOn);
@@ -11406,6 +11445,8 @@ async function loadSettings() {
       tbl.appendChild(tr);
     });
   }
+
+  renderNetworkSource(e.networks);
 
   const roEl = $("setReadOnly");
   roEl.innerHTML = "";
@@ -11472,6 +11513,76 @@ async function saveSettings() {
     setMsg("Save failed: " + e.message, "err");
   }
 }
+
+// ---- Settings → Scanning → Networks: adding and removing ----
+// Networks saved here replace appsettings.json's list; only private ones no
+// bigger than a sweep covers can be added (the server says why if not).
+function renderNetworkSource(n) {
+  if (!n) return;
+  const found = $("setNetFound");
+  const extra = (n.found || []).filter(f => !f.problem && !n.list.includes(f.network));
+  found.hidden = !extra.length;
+  found.innerHTML = "";
+  if (extra.length) {
+    found.append("On this machine: ");
+    for (const f of extra) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = `+ ${f.network} (${f.interface})`;
+      b.title = `Scan ${f.network} too: this machine is on it, through ${f.interface}.`;
+      b.onclick = () => saveNetworks([...n.list, f.network], `Added ${f.network}.`);
+      found.appendChild(b);
+    }
+  }
+  const src = $("setNetSource");
+  if (n.source === "settings") {
+    src.innerHTML = "These networks are saved here. ";
+    const back = document.createElement("button");
+    back.type = "button";
+    back.textContent = "Use appsettings.json's instead";
+    back.onclick = async () => {
+      try { await fetch("/api/settings/networks/reset", { method: "POST" }); } catch { }
+      await loadSettings();
+    };
+    src.appendChild(back);
+  } else {
+    src.innerHTML = n.source === "file"
+      ? "These networks come from <span class=\"mono\">appsettings.json</span>. Adding or removing one here saves the list here instead."
+      : "No networks are listed in <span class=\"mono\">appsettings.json</span>, so BAMF scans every network this machine is on.";
+  }
+}
+function netMsg(text, kind) {
+  const el = $("setNetResult");
+  el.textContent = text;
+  el.className = "set-result" + (kind ? " " + kind : "");
+}
+async function saveNetworks(list, done) {
+  netMsg("Saving…");
+  try {
+    const r = await fetch("/api/settings/networks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ networks: list }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { netMsg(d.error || "Couldn't save (HTTP " + r.status + ")", "err"); return false; }
+    await loadSettings();
+    netMsg(done + " Scanning now.", "ok");
+    return true;
+  } catch (e) {
+    netMsg("Couldn't save: " + e.message, "err");
+    return false;
+  }
+}
+async function addNetwork() {
+  const box = $("setNetNew");
+  const v = box.value.trim();
+  if (!v) { netMsg("Type a network first, like 192.168.1.0/24.", "err"); box.focus(); return; }
+  const list = (settingsData?.editable?.networks?.list) || [];
+  if (await saveNetworks([...list, v], `Added ${v}.`)) box.value = "";
+}
+$("setNetAdd").onclick = addNetwork;
+$("setNetNew").onkeydown = e => { if (e.key === "Enter") addNetwork(); };
 
 // ---- Settings → Security → Sign-in ----
 let authInfo = null;
