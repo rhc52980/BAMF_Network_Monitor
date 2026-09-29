@@ -202,6 +202,23 @@
 
 @keyframes rgb-strobe { 50% { opacity:.25; } }
 
+/* While the alarm's on, every light on the rig runs red: the strips, the
+   card borders, the rainbow numbers and name, the scan bar and the logo.
+   Status colours stay as they are, so online is still green. */
+
+[data-theme="rgb"].rgb-red {
+  --rgb-line: #ff1f4b, #ff5a3c, #c2002b, #ff1f4b, #ff6a7e, #d10030, #ff3d3d, #ff1f4b;
+  --rgb-text: #ff8a9c, #ff6b6b, #ffb3bf, #ff8a9c, #ff9a8a, #ff7a90, #ffc2cb, #ff8a9c;
+}
+
+[data-theme="rgb"].rgb-red .brand .mark { animation:none; filter:hue-rotate(-130deg) drop-shadow(0 0 8px rgba(255,31,75,.8)); }
+
+[data-theme="rgb"].rgb-red .stat { box-shadow:0 0 22px rgba(255,31,75,.35); }
+
+[data-theme="rgb"].rgb-red header::after { box-shadow:0 0 14px rgba(255,31,75,.6); }
+
+[data-theme="rgb"].rgb-red .tab.active { background:linear-gradient(180deg, rgba(255,31,75,.18), rgba(255,31,75,.06)); box-shadow:inset 0 -2px 0 #ff1f4b; }
+
 .rgb-stick { position:absolute; bottom:-21px; width:40px; transform:translateX(-50%); transition:transform .8s ease-in, opacity .8s; }
 
 .rgb-stick svg { display:block; filter:drop-shadow(0 0 8px rgba(255, 31, 75, .55)); }
