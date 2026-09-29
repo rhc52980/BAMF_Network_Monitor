@@ -2,6 +2,14 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "1.54.2",
+      "date": "2026-09-28",
+      "items": [
+        "In RGB, every light on the rig now turns red for an intruder, not just the frame: the card borders, the rainbow numbers, the logo and the rest.",
+        "If you've changed BAMF's port, the Windows desktop shortcut now opens it, and the updaters show it when they finish."
+      ]
+    },
+    {
       "version": "1.54.1",
       "date": "2026-09-27",
       "items": [
