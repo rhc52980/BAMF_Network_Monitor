@@ -11,11 +11,23 @@ namespace LanWatch.Services;
 /// with its details on an attributes topic, and Home Assistant's MQTT
 /// discovery makes each one a device_tracker without any YAML. A small MQTT
 /// 3.1.1 client of its own (connect, publish at QoS 0, ping), so BAMF carries
-/// no extra dependency for it. Configured in appsettings.json only, since the
-/// broker password has no business in the dashboard.
+/// no extra dependency for it.
+///
+/// Set up in Settings → System, or in appsettings.json (Bamf:Mqtt); Settings
+/// wins, and a change there reconnects straight away. The broker password is
+/// never sent back to the dashboard, and pointing BAMF at another broker drops
+/// the saved one unless it's typed again, so the dashboard can't be used to
+/// send it somewhere else.
 /// </summary>
 public sealed class MqttPublisher : BackgroundService
 {
+    /// <summary>What to connect to, and how. Equal settings compare equal, so a change is easy to see.</summary>
+    public sealed record MqttSettings(string Server, int Port, string? Username, string? Password, bool Tls,
+        bool Discovery, string TopicPrefix, string DiscoveryPrefix, string ClientId);
+
+    /// <summary>The settings as saved in Settings; Server empty means MQTT is off.</summary>
+    public sealed record Saved(string? Server, int? Port, string? Username, string? Password, bool? Tls, bool? Discovery, string? TopicPrefix);
+
     private readonly HostStore _store;
     private readonly IConfiguration _config;
     private readonly ILogger<MqttPublisher> _log;
@@ -25,54 +37,123 @@ public sealed class MqttPublisher : BackgroundService
     private readonly Dictionary<string, string> _published = new();   // mac id -> last state/ip/name fingerprint
     private string? _speedPublished;                                   // the speed test last sent, by its time
 
-    public bool Configured => !string.IsNullOrWhiteSpace(_config["Bamf:Mqtt:Server"]);
+    // The settings of the connection now open, read once when it opens.
+    private MqttSettings _cfg = new("", 1883, null, null, false, true, "bamf", "homeassistant", "bamf");
+    private CancellationTokenSource _wake = new();
+
+    /// <summary>Where the settings come from: "settings", "file", or null for nowhere.</summary>
+    public string? Source => SavedSettings() is not null ? "settings" : !string.IsNullOrWhiteSpace(_config["Bamf:Mqtt:Server"]) ? "file" : null;
+
+    public Saved? SavedSettings()
+    {
+        try { return JsonSerializer.Deserialize<Saved>(_store.GetSetting("mqtt") ?? ""); }
+        catch (JsonException) { return null; }
+    }
+
+    /// <summary>What MQTT is set to now, or null when it's off.</summary>
+    public MqttSettings? Current()
+    {
+        var discoveryPrefix = (_config["Bamf:Mqtt:DiscoveryPrefix"] ?? "homeassistant").Trim('/');
+        var clientId = _config["Bamf:Mqtt:ClientId"] ?? "bamf";
+        if (SavedSettings() is { } s)
+            return string.IsNullOrWhiteSpace(s.Server) ? null
+                : new MqttSettings(s.Server.Trim(), s.Port ?? 1883, s.Username, s.Password, s.Tls ?? false, s.Discovery ?? true,
+                    (s.TopicPrefix ?? "bamf").Trim('/'), discoveryPrefix, clientId);
+        var server = _config["Bamf:Mqtt:Server"];
+        return string.IsNullOrWhiteSpace(server) ? null
+            : new MqttSettings(server.Trim(), _config.GetValue("Bamf:Mqtt:Port", 1883), _config["Bamf:Mqtt:Username"], _config["Bamf:Mqtt:Password"],
+                _config.GetValue("Bamf:Mqtt:Tls", false), _config.GetValue("Bamf:Mqtt:Discovery", true),
+                (_config["Bamf:Mqtt:TopicPrefix"] ?? "bamf").Trim('/'), discoveryPrefix, clientId);
+    }
+
+    /// <summary>
+    /// The password to save: the one typed, else the saved one, but only while
+    /// it still goes to the same broker, so a saved password can't be sent to a
+    /// server of someone else's choosing.
+    /// </summary>
+    public static string? KeptPassword(MqttSettings? now, string server, int port, string? typed) =>
+        typed ?? (now is not null && now.Server.Equals(server, StringComparison.OrdinalIgnoreCase) && now.Port == port ? now.Password : null);
+
+    public bool Configured => Current() is not null;
     public bool Connected { get; private set; }
     public string? LastError { get; private set; }
     public DateTime? LastPublishUtc { get; private set; }
     public long Published { get; private set; }
-    public string Server => $"{_config["Bamf:Mqtt:Server"]}:{_config.GetValue("Bamf:Mqtt:Port", 1883)}";
-    private string Prefix => (_config["Bamf:Mqtt:TopicPrefix"] ?? "bamf").Trim('/');
-    private string DiscoveryPrefix => (_config["Bamf:Mqtt:DiscoveryPrefix"] ?? "homeassistant").Trim('/');
-    private bool Discovery => _config.GetValue("Bamf:Mqtt:Discovery", true);
+    public string Server => Current() is { } c ? $"{c.Server}:{c.Port}" : "";
+    private string Prefix => _cfg.TopicPrefix;
+    private string DiscoveryPrefix => _cfg.DiscoveryPrefix;
+    private bool Discovery => _cfg.Discovery;
 
     public MqttPublisher(HostStore store, IConfiguration config, ILogger<MqttPublisher> log)
     {
         _store = store; _config = config; _log = log;
     }
 
+    /// <summary>The settings changed: act on them now rather than at the next look.</summary>
+    public void Reconfigure()
+    {
+        LastError = null;
+        try { _wake.Cancel(); } catch (ObjectDisposedException) { }
+    }
+
+    // A wait that a change of settings cuts short.
+    private async Task Wait(TimeSpan delay, CancellationToken ct)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _wake.Token);
+        try { await Task.Delay(delay, linked.Token); }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { }
+        if (_wake.IsCancellationRequested) _wake = new CancellationTokenSource();
+    }
+
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        if (!Configured) return;
         while (!ct.IsCancellationRequested)
         {
+            var cfg = Current();
+            if (cfg is null)
+            {
+                try { await Wait(TimeSpan.FromSeconds(30), ct); } catch (OperationCanceledException) { break; }
+                continue;
+            }
+            var changed = false;
             try
             {
+                _cfg = cfg;
                 await ConnectAsync(ct);
-                _log.LogInformation("MQTT connected to {Server}; publishing under {Prefix}/", Server, Prefix);
+                _log.LogInformation("MQTT connected to {Server}:{Port}; publishing under {Prefix}/", cfg.Server, cfg.Port, Prefix);
                 _published.Clear();
                 _speedPublished = null;
                 await PublishAsync($"{Prefix}/status", "online", true, ct);
                 var lastPing = DateTime.UtcNow;
                 while (!ct.IsCancellationRequested && Connected)
                 {
+                    if (Current() != cfg) { changed = true; break; }
                     await PublishDevicesAsync(ct);
                     await PublishSpeedAsync(ct);
-                    await Task.Delay(TimeSpan.FromSeconds(5), ct);
+                    await Wait(TimeSpan.FromSeconds(5), ct);
                     if ((DateTime.UtcNow - lastPing).TotalSeconds >= 30)
                     {
                         await SendAsync(new byte[] { 0xC0, 0x00 }, ct);
                         lastPing = DateTime.UtcNow;
                     }
                 }
+                // Signed off properly, so the devices don't linger as present.
+                if (changed)
+                {
+                    _log.LogInformation("MQTT settings changed; reconnecting");
+                    await PublishAsync($"{Prefix}/status", "offline", true, ct);
+                    await SendAsync(new byte[] { 0xE0, 0x00 }, ct);
+                }
             }
-            catch (OperationCanceledException) { break; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
             catch (Exception ex)
             {
                 LastError = ex.Message;
                 _log.LogWarning("MQTT: {Error}; retrying in 30 s", ex.Message);
             }
             Close();
-            try { await Task.Delay(TimeSpan.FromSeconds(30), ct); } catch (OperationCanceledException) { break; }
+            if (changed) continue;
+            try { await Wait(TimeSpan.FromSeconds(30), ct); } catch (OperationCanceledException) { break; }
         }
         try { if (Connected) { await PublishAsync($"{Prefix}/status", "offline", true, CancellationToken.None); await SendAsync(new byte[] { 0xE0, 0x00 }, CancellationToken.None); } } catch { }
         Close();
@@ -172,8 +253,8 @@ public sealed class MqttPublisher : BackgroundService
 
     private async Task ConnectAsync(CancellationToken ct)
     {
-        var host = _config["Bamf:Mqtt:Server"]!.Trim();
-        var port = _config.GetValue("Bamf:Mqtt:Port", 1883);
+        var host = _cfg.Server;
+        var port = _cfg.Port;
         var tcp = new TcpClient();
         using (var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct))
         {
@@ -181,7 +262,7 @@ public sealed class MqttPublisher : BackgroundService
             await tcp.ConnectAsync(host, port, timeout.Token);
         }
         Stream stream = tcp.GetStream();
-        if (_config.GetValue("Bamf:Mqtt:Tls", false))
+        if (_cfg.Tls)
         {
             var ssl = new SslStream(stream, false);
             await ssl.AuthenticateAsClientAsync(host);
@@ -189,9 +270,9 @@ public sealed class MqttPublisher : BackgroundService
         }
         _tcp = tcp; _stream = stream;
 
-        var user = _config["Bamf:Mqtt:Username"];
-        var pass = _config["Bamf:Mqtt:Password"];
-        var clientId = _config["Bamf:Mqtt:ClientId"] ?? "bamf";
+        var user = _cfg.Username;
+        var pass = _cfg.Password;
+        var clientId = _cfg.ClientId;
         var flags = 0x02 | 0x04 | 0x20;   // clean session, will, will retain
         if (!string.IsNullOrEmpty(user)) flags |= 0x80;
         if (!string.IsNullOrEmpty(pass)) flags |= 0x40;

@@ -40,7 +40,8 @@ The options are where BAMF starts. Anything you change in BAMF's own
 With the Mosquitto broker add-on installed, set **MQTT broker** to your Home
 Assistant's own address (not `core-mosquitto`: BAMF runs on the host's
 network, where that name doesn't resolve) and give it a Mosquitto user.
-Every device then shows up in Home Assistant as a presence sensor.
+Every device then shows up in Home Assistant as a presence sensor. The broker
+can also be set, or changed, in BAMF's **Settings → System**.
 
 ## What it needs
 

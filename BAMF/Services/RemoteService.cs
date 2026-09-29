@@ -6,11 +6,15 @@ using System.Text.Json.Nodes;
 namespace LanWatch.Services;
 
 /// <summary>
-/// Other BAMF servers, read-only. Each remote in Bamf:Remotes is polled for
-/// its /api/hosts once a minute, and its devices show in this dashboard under
-/// networks named after the site ("Cabin · 10.0.0.0/24"). Nothing is written
-/// to a remote, and a remote that can't be reached keeps its last answer,
-/// marked as stale.
+/// Other BAMF servers, read-only. Each remote is polled for its /api/hosts
+/// once a minute, and its devices show in this dashboard under networks named
+/// after the site ("Cabin · 10.0.0.0/24"). Nothing is written to a remote, and
+/// a remote that can't be reached keeps its last answer, marked as stale.
+///
+/// The list is set in Settings → System, or in appsettings.json
+/// (Bamf:Remotes); Settings wins, and a change there is fetched at once. A
+/// remote's password is never sent back to the dashboard, and changing its
+/// address drops the saved one unless it's typed again.
 /// </summary>
 public sealed class RemoteService : BackgroundService
 {
@@ -22,16 +26,40 @@ public sealed class RemoteService : BackgroundService
     private readonly ILogger<RemoteService> _log;
     private readonly object _lock = new();
     private readonly Dictionary<string, (Status Status, JsonArray Hosts)> _state = new();
+    private readonly HostStore _store;
+    private CancellationTokenSource _wake = new();
 
-    public RemoteService(IConfiguration config, IHttpClientFactory http, ILogger<RemoteService> log)
+    public RemoteService(IConfiguration config, IHttpClientFactory http, HostStore store, ILogger<RemoteService> log)
     {
-        _config = config; _http = http; _log = log;
+        _config = config; _http = http; _store = store; _log = log;
     }
 
-    public List<Remote> Remotes =>
+    /// <summary>The list saved in Settings, or null when appsettings.json decides.</summary>
+    public List<Remote>? SavedRemotes()
+    {
+        try { return JsonSerializer.Deserialize<List<Remote>>(_store.GetSetting("remotes") ?? ""); }
+        catch (JsonException) { return null; }
+    }
+
+    /// <summary>Where the list comes from: "settings", "file", or null for none.</summary>
+    public string? Source => SavedRemotes() is not null ? "settings" : FileRemotes().Count > 0 ? "file" : null;
+
+    private List<Remote> FileRemotes() =>
         _config.GetSection("Bamf:Remotes").GetChildren()
         .Select(c => new Remote((c["Name"] ?? "").Trim(), (c["Url"] ?? "").Trim(), c["Password"]))
         .Where(r => r.Name != "" && r.Url != "").ToList();
+
+    public List<Remote> Remotes => SavedRemotes() ?? FileRemotes();
+
+    /// <summary>
+    /// The password to save for a server: the one typed, else the saved one,
+    /// but only while its name and address stay the same.
+    /// </summary>
+    public static string? KeptPassword(IEnumerable<Remote> now, string name, string url, string? typed) =>
+        typed ?? now.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase) && x.Url.TrimEnd('/') == url.TrimEnd('/'))?.Password;
+
+    /// <summary>The list changed: fetch now rather than at the next minute.</summary>
+    public void Reconfigure() { try { _wake.Cancel(); } catch (ObjectDisposedException) { } }
 
     public bool Configured => Remotes.Count > 0;
 
@@ -49,10 +77,13 @@ public sealed class RemoteService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        if (!Configured) return;
         while (!ct.IsCancellationRequested)
         {
-            foreach (var r in Remotes)
+            var remotes = Remotes;
+            // One taken off the list takes its devices with it.
+            lock (_lock)
+                foreach (var gone in _state.Keys.Where(n => !remotes.Any(r => r.Name == n)).ToList()) _state.Remove(gone);
+            foreach (var r in remotes)
             {
                 try { await Fetch(r, ct); }
                 catch (OperationCanceledException) { return; }
@@ -61,12 +92,16 @@ public sealed class RemoteService : BackgroundService
                     lock (_lock)
                     {
                         var was = _state.TryGetValue(r.Name, out var s) ? s : (Status: new Status(r.Name, r.Url, false, null, null, 0, Array.Empty<string>(), null, null), Hosts: new JsonArray());
-                        _state[r.Name] = (was.Status with { Ok = false, Error = ex.Message }, was.Hosts);
+                        _state[r.Name] = (was.Status with { Ok = false, Error = ex.Message, Url = r.Url }, was.Hosts);
                     }
                     _log.LogWarning("Remote {Name}: {Error}", r.Name, ex.Message);
                 }
             }
-            try { await Task.Delay(TimeSpan.FromSeconds(60), ct); } catch (OperationCanceledException) { break; }
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _wake.Token);
+            try { await Task.Delay(TimeSpan.FromSeconds(60), linked.Token); }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested) { }
+            catch (OperationCanceledException) { break; }
+            if (_wake.IsCancellationRequested) _wake = new CancellationTokenSource();
         }
     }
 

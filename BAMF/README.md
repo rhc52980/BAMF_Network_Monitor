@@ -162,10 +162,10 @@ git tag v1.9.0 && git push --tags
 | `Bamf:ActiveArpScan` | Use raw ARP scanning via Npcap/libpcap when available; falls back to ping sweep otherwise. |
 | `Bamf:ScanIntervalSeconds` | Seconds between scans. |
 | `Bamf:AutoIgnoreRandomizedMacs` | Auto-ignore new hosts with randomized MACs (default in shipped config: true). |
-| `Bamf:HookToken` | A token for the inbound webhooks, sent as `X-BAMF-Token` or `?token=`. With a `Password` set, it stands in for the password on those endpoints; without one, they're as open as the dashboard (default empty). |
+| `Bamf:HookToken` | A token for the inbound webhooks, sent as `X-BAMF-Token` or `?token=`. With a `Password` set, it stands in for the password on those endpoints; without one, they're as open as the dashboard (default empty). One made in **Settings → System** replaces it. |
 | `Bamf:RouterImport` | Read device names from your router every hour: `Kind` (`openwrt`, `opnsense`, `pfsense` or `unifi`), `Url`, and the credentials that router needs. Off while `Kind` is empty. See [Names from your router](#names-from-your-router). |
-| `Bamf:Remotes` | Other BAMF servers to show here, read-only: `[{"Name": "Cabin", "Url": "http://10.0.0.5:8840", "Password": ""}]`. See [Other BAMF servers](#other-bamf-servers). |
-| `Bamf:Mqtt:*` | Presence per device over MQTT: `Server` (set it to turn this on), `Port` (1883), `Tls`, `Username`, `Password`, `ClientId` (bamf), `TopicPrefix` (bamf), `Discovery` (true), `DiscoveryPrefix` (homeassistant). Read at startup only. See [MQTT](#mqtt-and-home-assistant). |
+| `Bamf:Remotes` | Other BAMF servers to show here, read-only: `[{"Name": "Cabin", "Url": "http://10.0.0.5:8840", "Password": ""}]`. A list saved in **Settings → System** replaces it. See [Other BAMF servers](#other-bamf-servers). |
+| `Bamf:Mqtt:*` | Presence per device over MQTT: `Server` (set it to turn this on), `Port` (1883), `Tls`, `Username`, `Password`, `ClientId` (bamf), `TopicPrefix` (bamf), `Discovery` (true), `DiscoveryPrefix` (homeassistant). A broker saved in **Settings → System** replaces these, all but `ClientId` and `DiscoveryPrefix`. See [MQTT](#mqtt-and-home-assistant). |
 | `Bamf:TrafficMonitor` | With Npcap, watch the wire receive-only: bytes in and out per device, and every DHCP and DNS server in use, alerting on new ones (default true). Also in Settings → Scanning. See [Traffic, DHCP and DNS](#traffic-dhcp-and-dns). |
 | `Bamf:LatencyProbe` | After each scan, ping every online device on the networks it covered and keep the round-trip time (default true). Also in Settings → Scanning, which wins once changed there. See [Latency and uptime](#latency-and-uptime). |
 | `Bamf:WanWatch` | `true` watches the internet connection: a ping a minute to your router and to `Bamf:WanTarget` (default false). Also in Settings → Internet, which wins once changed there. See [Internet watch](#internet-watch). |
@@ -1205,7 +1205,7 @@ buttons across the top on a phone):
 | **Alerts** | Where alerts go: the main webhook with **Sends** and **Test**, more destinations and the scheduled report; then alert rules and quiet hours |
 | **Your network** | Switches and routers, map icons and names from your router |
 | **Appearance** | The theme, Holiday Spirit, Night mode, compact rows, the screen saver, the keyboard shortcuts, and which themes are installed |
-| **System** | History retention, with its own **Save**, the update check, backups, and what's set in `appsettings.json` |
+| **System** | History retention, with its own **Save**, the update check, Home Assistant (MQTT), other BAMF servers, the inbound webhooks' token, backups, and what's set in `appsettings.json` |
 
 ### First-run setup
 
@@ -1644,6 +1644,11 @@ scan, or delete a thing.
 | POST | `/api/settings/destinations` | Body `{"destinations": [{"id": "…", "name": "Phone", "url": "https://…", "format": "ntfy", "kinds": ["security", "internet"]}]}` — replace the destinations besides the main webhook, up to 8. `id` blank adds one; a saved one sent with `url` empty keeps its URL. `GET /api/settings` returns them as `destinations`, URLs masked |
 | POST | `/api/settings/networks` | Body `{"networks": ["192.168.1.0/24"]}` — the networks to scan, replacing `Bamf:Subnets`, and scan them now. Private networks from /22 to /30 only; see [Networks](#networks). `GET /api/settings` returns them as `editable.networks`, with where they come from and the ones this machine is on |
 | POST | `/api/settings/networks/reset` | Hand the networks back to `appsettings.json` |
+| POST | `/api/settings/mqtt` | Body `{"server": "10.0.0.2", "port": 1883, "username": "bamf", "password": null, "tls": false, "discovery": true, "topicPrefix": "bamf"}` — the MQTT broker, replacing `Bamf:Mqtt`, and connect now. `server` empty turns MQTT off. `password` null keeps the saved one, but only for the same server and port. `GET /api/settings` returns it as `editable.mqtt`, with `password` only saying whether one is saved |
+| POST | `/api/settings/mqtt/reset` | Hand MQTT back to `appsettings.json` |
+| POST | `/api/settings/remotes` | Body `{"remotes": [{"name": "Cabin", "url": "http://10.0.0.5:8840", "password": null}]}` — the other BAMF servers, replacing `Bamf:Remotes`, up to 8, and read them now. `password` null keeps a saved one while the name and URL stay the same. `GET /api/settings` returns them as `editable.remotes` |
+| POST | `/api/settings/remotes/reset` | Hand the other BAMF servers back to `appsettings.json` |
+| POST | `/api/settings/hooktoken` | Body `{"action": "generate"}` makes a new inbound-webhook token, replacing `Bamf:HookToken`, and returns it this once as `{"token": "…"}`; `{"action": "reset"}` hands it back to `appsettings.json` |
 | GET | `/api/auth` | Whether BAMF asks for a password, the role you have, and where each password comes from (`settings`, `file` or none) |
 | POST | `/api/settings/password` | Body `{"role": "admin"\|"viewer", "current": "…", "password": "…"}` — set, change or (with `password` empty) remove a password. `current` is the main password, needed once there is one |
 | POST | `/api/signin` | Body `{"password": "…"}` — sign a browser in: sets a cookie good for 30 days. `401` for a wrong password, `429` while locked out. Open to anyone |
@@ -1700,7 +1705,7 @@ scan, or delete a thing.
 | POST | `/api/ports/watch` | Run that scan now; returns how many newly open ports it found |
 | GET | `/api/hosts/{id}/ports` | Every port found open on a device, open now or once: `{"port", "service", "firstSeen", "lastSeen", "open"}`. A port scan (`/api/hosts/{id}/portscan`, which now returns `{"ports", "newlyOpen"}`) records here |
 | GET | `/api/hosts/{id}/traffic` | Bytes per hour for a device over the last 7 days (`?days=` for more): `[{"hour", "rx", "tx"}]` |
-| GET | `/api/backup` | The whole database as one SQLite file, named `bamf-YYYYMMDD-HHMM.db`, taken while BAMF runs. Refused with the view-only password, since it carries the saved webhook URL |
+| GET | `/api/backup` | The whole database as one SQLite file, named `bamf-YYYYMMDD-HHMM.db`, taken while BAMF runs. Refused with the view-only password, since it carries the saved webhook URL and the MQTT and other servers' passwords |
 | POST | `/api/settings/alertnudge` | Body `{"off": true}` — hide the dashboard's "Alerts are off" banner; `false` brings it back |
 | POST | `/api/backup/restore` | The body is a backup file. Checked, then swapped in for the database; the one it replaces is kept in `backups`. Answers `{"ok": true, "kept": "bamf-before-restore-….db"}`, or `400` with the reason it was turned down |
 | POST | `/api/settings/report` | Body `{"schedule": "daily", "hour": 8, "day": 1}` — the scheduled report: `off`, `daily`, `weekly` or `monthly`, the hour (0–23, the server's local time) and, for weekly, the day (0 Sunday to 6 Saturday). Monthly goes out on the 1st |
@@ -2488,10 +2493,14 @@ The way in, to go with MQTT going out:
 - `POST /api/hooks/wake/{mac}` sends a Wake-on-LAN magic packet to that MAC,
   directed at its network's broadcast address when BAMF knows the device.
 
-Set `Bamf:HookToken` and both require it, as an `X-BAMF-Token` header or
-`?token=`. With a `Password` set as well, the token stands in for the password
-on these two endpoints, so a Home Assistant `rest_command` needs only the
-token. Without a token they're as open as the rest of the dashboard.
+Give them a token and both require it, as an `X-BAMF-Token` header or
+`?token=`. **Settings → System → Inbound webhooks → Make a new token** makes
+one and shows it once, to copy; after that the dashboard only says there is
+one. Making another stops the old one working. (`Bamf:HookToken` in
+`appsettings.json` works too; one made in Settings replaces it.) With a
+password set as well, the token stands in for the password on these two
+endpoints, so a Home Assistant `rest_command` needs only the token. Without a
+token they're as open as the rest of the dashboard.
 
 ```yaml
 rest_command:
@@ -2502,8 +2511,10 @@ rest_command:
 
 ### Other BAMF servers
 
-A BAMF at another site can show in this dashboard, read-only. List it in
-`appsettings.json`:
+A BAMF at another site can show in this dashboard, read-only. Add it under
+**Settings → System → Other BAMF servers**: a name, the address it opens at,
+and its password if it has one. It's read straight away. Up to eight; the ×
+beside one removes it and its devices. Or list them in `appsettings.json`:
 
 ```json
 "Remotes": [
@@ -2511,13 +2522,18 @@ A BAMF at another site can show in this dashboard, read-only. List it in
 ]
 ```
 
+A list saved in Settings replaces the file's; **Use appsettings.json's
+instead** hands it back. A saved password is never shown again, and it stays
+with its server only while the name and address do: change the address and
+the password has to be typed again, so it can't be sent somewhere new.
+
 BAMF fetches each remote's `/api/hosts` once a minute. If the remote has a
 view-only password, use that: reading is all this server ever does there. Its devices appear
 under network tabs named after it ("Cabin · 10.0.0.0/24"), with a **remote**
 tag on the tab and a site chip in place of the ⋯ menu, since nothing can be
 changed from here. **All networks** stays this server's own. A remote that
 can't be reached keeps its last answer and its tab says **stale**; the
-**Set in appsettings.json** card shows each remote's state. The Map draws
+**Other BAMF servers** card shows each one's state. The Map draws
 this server's networks only.
 
 ### Scheduled reports
@@ -3151,7 +3167,8 @@ to add or remove it. Tags show as small chips under the device's name.
 **Settings → System → Back up the database → Download a backup** saves everything BAMF
 knows as one file, `bamf-YYYYMMDD-HHMM.db`: every device and its history, the
 names, notes and tags, the Map, the floor plans, alert rules, and the settings
-saved in the dashboard.
+saved in the dashboard. Those include the webhook URLs and the passwords for
+MQTT and other BAMF servers, so keep the file somewhere private.
 
 It's taken while BAMF keeps running. SQLite's `VACUUM INTO` writes a fresh,
 compacted copy from one read transaction, so the file is whole even if a scan
@@ -3205,8 +3222,17 @@ do the same from a script.
 
 Give BAMF an MQTT broker and every device becomes a presence entity in Home
 Assistant, so automations can run when someone gets home or the last phone
-leaves. Set it in `appsettings.json` (and only there, since the broker
-password has no business in the dashboard), then restart:
+leaves. Set it under **Settings → System → Home Assistant (MQTT)**: the
+broker's name or address, its port, a username and password, TLS, discovery
+and the topic prefix. **Save** connects straight away, and the card says
+whether it's connected and how much it has published. A blank broker turns
+MQTT off.
+
+The password is never shown again once saved; leave the box blank to keep it.
+It only goes to the broker it was saved for: point BAMF at another broker or
+port and it has to be typed again. Or set it all in `appsettings.json`; one
+saved in Settings replaces it, and **Use appsettings.json's instead** hands it
+back:
 
 ```json
 "Mqtt": {
@@ -3234,8 +3260,7 @@ password has no business in the dashboard), then restart:
   message on `bamf/speed` (`download` and `upload` in Mbps, `ping` and `jitter`
   in ms, `server`, `tested_at`), and with Discovery on it's three sensors,
   Download speed, Upload speed and Speed test ping, on a device called BAMF.
-- `Tls: true` for a broker on 8883. The **Set in appsettings.json** card on the
-  Settings tab shows whether BAMF is connected and how much it has published.
+- `Tls: true` (or the **TLS** switch) for a broker on 8883.
 
 BAMF speaks MQTT 3.1.1 itself (connect, publish, ping), so there's no extra
 dependency, and it never subscribes to anything.
