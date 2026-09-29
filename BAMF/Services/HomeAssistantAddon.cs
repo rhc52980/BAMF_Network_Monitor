@@ -33,6 +33,7 @@ public static class HomeAssistantAddon
         if (o.TryGetProperty("traffic_monitor", out var tm) && tm.ValueKind is JsonValueKind.True or JsonValueKind.False) map["Bamf:TrafficMonitor"] = tm.GetBoolean().ToString();
         if (Str("password") is { } pw) map["Bamf:Password"] = pw;
         if (Str("viewer_password") is { } vpw) map["Bamf:ViewerPassword"] = vpw;
+        if (o.TryGetProperty("reset_password", out var rp) && rp.ValueKind is JsonValueKind.True or JsonValueKind.False) map["Bamf:ResetPassword"] = rp.GetBoolean().ToString();
         if (o.TryGetProperty("wan_watch", out var ww) && ww.ValueKind is JsonValueKind.True or JsonValueKind.False) map["Bamf:WanWatch"] = ww.GetBoolean().ToString();
         if (Str("wan_target") is { Length: > 0 } wt) map["Bamf:WanTarget"] = wt;
         if (Str("speed_test") is { Length: > 0 } sp) map["Bamf:SpeedTest"] = sp;

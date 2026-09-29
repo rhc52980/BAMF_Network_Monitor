@@ -176,6 +176,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:WebhookUrl` | Optional starting value for the notification webhook — the dashboard's **Settings → Alerts** saves over it. POSTs when a new host appears. Discord webhook URLs get rich embeds automatically (amber alert cards with MAC/IP/vendor/network); other endpoints get generic JSON with a `content` field. Use **Test** under Settings → Alerts to verify. |
 | `Bamf:Password` | Optional. If set, BAMF asks for it: a browser on a sign-in page, anything else with HTTP Basic auth (any username). One set in **Settings → Security** replaces it. See [Signing in](#signing-in). |
 | `Bamf:ViewerPassword` | Optional, with a main password: a second password that opens the same dashboard to look at but not change. One set in Settings replaces it. See [A view-only password](#a-view-only-password). |
+| `Bamf:ResetPassword` | `true` clears the passwords set in Settings, once, at the next start: for a forgotten password. Switch it off again after. See [A forgotten password](#a-forgotten-password) (default false). |
 | `Bamf:DatabasePath` | SQLite file, relative to the exe. |
 
 ## Active ARP scanning (optional, recommended)
@@ -1548,6 +1549,28 @@ the old one. **Sign out** is there too.
 Five wrong passwords from the same address within 15 minutes lock that
 address out for 15 minutes, whether they came from the sign-in page or a
 script, and send a security alert saying so.
+
+#### A forgotten password
+
+To take a password off, open **Settings → Security → Sign-in** and use
+**Remove**; that takes the current main password. If it's been forgotten, it's
+reset on the machine BAMF runs on, which only someone who can already change
+`appsettings.json` can do. It clears the passwords set in Settings: BAMF is
+then open (or asks for the password in `appsettings.json`, if there is one)
+until a new one is set.
+
+- **Windows or Linux:** create an empty file named `reset-password` in the
+  folder with BAMF's database (`C:\BAMF` or `/opt/bamf`), then restart BAMF
+  (`Restart-Service BAMF`, or `systemctl restart bamf`). BAMF clears the
+  passwords and deletes the file.
+- **Docker:** run it once with `-e Bamf__ResetPassword=true`, then without.
+  Or put the `reset-password` file in the `/data` volume and restart.
+- **Home Assistant:** switch on **Reset a forgotten password** in the add-on's
+  Configuration, restart it, then switch it off again.
+
+`Bamf:ResetPassword` clears them once each time it's switched on, and says so
+in the log while it's still on. A password in `appsettings.json` itself is
+changed or removed there.
 
 ### A view-only password
 

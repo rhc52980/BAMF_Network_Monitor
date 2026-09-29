@@ -148,6 +148,23 @@ public sealed class AuthService
         return null;
     }
 
+    /// <summary>
+    /// For a forgotten password: clears the main and view-only passwords set in
+    /// Settings, so BAMF is open again (or asks for appsettings.json's, if it
+    /// has one) and a new one can be set. Only ever from the machine BAMF runs
+    /// on; see Program.cs. Says whether there was anything to clear.
+    /// </summary>
+    public bool ResetSettingsPasswords(string how)
+    {
+        var had = StoredHash("admin") is not null || StoredHash("viewer") is not null;
+        Save("authPassword", null);
+        Save("authViewerPassword", null);
+        if (had) _log.LogWarning("Sign-in: the passwords set in Settings were cleared, by {How}. " +
+            (Required ? "BAMF now asks for the password in appsettings.json." : "BAMF is open until a new password is set.") + " Set one in Settings, under Security.", how);
+        else _log.LogInformation("Sign-in: asked to clear the passwords set in Settings, by {How}, but there weren't any", how);
+        return had;
+    }
+
     // ---------- hashing ----------
 
     internal static string Hash(string password)

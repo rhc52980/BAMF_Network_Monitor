@@ -11,6 +11,9 @@ configuration:
   viewer_password:
     name: View-only password
     description: With a dashboard password set, a second password that can look at everything but change nothing. For family, or a wall display.
+  reset_password:
+    name: Reset a forgotten password
+    description: Switch on and restart to clear the passwords set in BAMF's own Settings, if one's been forgotten. Then switch it off again, and set a new password in Settings, Security.
   wan_watch:
     name: Watch the internet connection
     description: Pings your router and one address on the internet every minute, so BAMF can tell you when the line goes down and for how long. This sends a ping out of your house every minute.

@@ -112,9 +112,37 @@ if (!string.IsNullOrWhiteSpace(webhook) &&
 // viewer only ever sees masked.
 var auth = app.Services.GetRequiredService<AuthService>();
 var hookToken = app.Configuration["Bamf:HookToken"];
+// A forgotten password is reset from the machine BAMF runs on, which already
+// has the say over appsettings.json: a file named reset-password beside the
+// database clears the passwords set in Settings at the next start, and is
+// deleted; or Bamf:ResetPassword (an environment variable in Docker, an option
+// in the Home Assistant add-on) does it once each time it's switched on.
+{
+    var store = app.Services.GetRequiredService<HostStore>();
+    var trigger = Path.Combine(Path.GetDirectoryName(store.DatabasePath) ?? AppContext.BaseDirectory, "reset-password");
+    if (File.Exists(trigger))
+    {
+        auth.ResetSettingsPasswords("the reset-password file");
+        try { File.Delete(trigger); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            app.Logger.LogWarning("Couldn't delete {File}; delete it, or the passwords are cleared again at every start: {Error}", trigger, ex.Message);
+        }
+    }
+    if (app.Configuration.GetValue("Bamf:ResetPassword", false))
+    {
+        if (store.GetSetting("passwordResetDone") != "1")
+        {
+            auth.ResetSettingsPasswords("Bamf:ResetPassword");
+            store.SetSetting("passwordResetDone", "1");
+        }
+        else app.Logger.LogWarning("Bamf:ResetPassword is still on. It has done its job; switch it off, so it can clear a password again next time.");
+    }
+    else store.DeleteSetting("passwordResetDone");
+}
 if (!string.IsNullOrEmpty(app.Configuration["Bamf:ViewerPassword"]) && auth.Source("admin") is null)
     app.Logger.LogWarning("Bamf:ViewerPassword is set without a main password, so it does nothing: " +
-        "with no main password the dashboard is open to everyone. Set Bamf:Password too, or set both in Settings → Security.");
+        "with no main password the dashboard is open to everyone. Set Bamf:Password too, or set both in Settings, under Security.");
 if (auth.Required && !(app.Configuration["Urls"] ?? "").Contains("https://", StringComparison.OrdinalIgnoreCase))
     app.Logger.LogInformation(
         "A password is set and the dashboard is served over http://, so the password crosses the network " +

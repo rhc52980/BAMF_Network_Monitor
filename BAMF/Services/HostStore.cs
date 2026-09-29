@@ -12,6 +12,9 @@ public partial class HostStore
 {
     private readonly string _connString;
     private readonly string _dbPath;
+
+    /// <summary>The database file's full path.</summary>
+    public string DatabasePath => _dbPath;
     private readonly object _lock = new();
     private readonly int _retentionDays;
     private readonly List<long> _recoveredThisCycle = new();
