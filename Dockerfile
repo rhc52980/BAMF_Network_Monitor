@@ -13,7 +13,7 @@
 # appsettings.json over /app/appsettings.json. The database lives in /data,
 # and so do the themes, so the ones you've added or removed survive an update.
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY BAMF/BAMF.csproj BAMF/
 RUN dotnet restore BAMF/BAMF.csproj
