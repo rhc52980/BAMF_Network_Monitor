@@ -152,6 +152,7 @@ git tag v1.9.0 && git push --tags
 | Setting | Meaning |
 |---|---|
 | `Urls` | Listen address. Default `http://0.0.0.0:8840` (all interfaces). To use another port, change the number (or list two, separated by `;`), restart BAMF and open the port in the firewall; the Windows desktop shortcut and the installers' Dashboard line follow it. |
+| `Bamf:HttpsPort` | The port for HTTPS turned on under **Settings → Security → HTTPS**. Default `8843`. See [Serving the dashboard over HTTPS](#serving-the-dashboard-over-https). |
 | `Bamf:Subnets` | List of CIDRs to scan, e.g. `["192.168.1.0/24", "192.168.2.0/24"]`. Empty list = auto-detect every active IPv4 interface. (`Bamf:Subnet` as a single string still works for back-compat.) A list saved in **Settings → Scanning → Networks** replaces this one; see [Networks](#networks). |
 | `Bamf:DeviceLinkTemplate` | Where a device's IP link points when it has no link of its own. `{ip}` is the device address. Default `http://{ip}`. |
 | `Bamf:HistoryRetentionDays` | Days of online/offline history to keep (default 90, pruned daily). |
@@ -285,8 +286,41 @@ Two things worth knowing:
 
 ### Serving the dashboard over HTTPS
 
-Point `Urls` at an `https://` address and give Kestrel a certificate. With a
-PFX, in `appsettings.json`:
+HTTPS encrypts the connection, so the password and everything on the page
+can't be read by anyone watching the network. On a home network it matters
+most once a password is set.
+
+**The quick way:** **Settings → Security → HTTPS → Make a certificate and turn
+HTTPS on**. BAMF makes a certificate of its own for this machine, covering its
+name, `name.local`, `localhost` and its addresses. From its next start, it also
+serves the dashboard at `https://<server>:8843`. The card says how to restart
+BAMF for however it's installed. Plain HTTP stays on beside it, so scripts,
+Home Assistant and other BAMF servers carry on unchanged.
+
+- **Browsers warn once.** Nothing vouches for a certificate BAMF made itself,
+  so each browser shows a warning the first time, until you tell it to go on
+  (usually **Advanced → Continue**). The card shows the certificate's SHA-256
+  fingerprint, to check against the one in the warning. To stop the warning
+  on a device altogether, **Download certificate** and install it there as
+  trusted.
+- **The port** is `Bamf:HttpsPort`, 8843 unless you change it. Let it through
+  the firewall if the machine has one. In Docker, publish it too
+  (`-p 8843:8843`) unless the container uses host networking. The Home
+  Assistant add-on already does.
+- **If it can't start** (the port is taken, or the certificate can't be read),
+  BAMF starts on plain HTTP anyway, and the card says why.
+- **New certificate** replaces it at the next start. A device that trusted
+  the old one will warn again. The certificate lasts 825 days, the longest
+  Apple's devices accept, and the certificate watch doesn't cover BAMF's own
+  port, so make a new one when the card says it's close.
+- **Turn off** removes it, and HTTPS stops at the next start.
+- It's a file, `bamf-https.pfx`, beside the database, not in it. An update
+  leaves it alone. A backup doesn't carry it, so after restoring onto a new
+  machine, make a new one there.
+
+**With a certificate of your own**, point `Urls` at an `https://` address and
+give Kestrel the certificate. BAMF then leaves HTTPS to the file, and the card
+says so. With a PFX, in `appsettings.json`:
 
 ```json
 {
@@ -299,8 +333,7 @@ PFX, in `appsettings.json`:
 }
 ```
 
-A self-signed certificate is enough to encrypt the connection (browsers will
-warn once, since nothing vouches for it):
+To make a self-signed one by hand instead of from Settings:
 
 ```powershell
 # Windows - creates the cert and exports it next to the exe
@@ -1201,7 +1234,7 @@ buttons across the top on a phone):
 |---|---|
 | **Scanning** | The default interval, offline after missed scans, probe concurrency and mDNS, each network's own interval and on/off, with **Save** and **Reset to file defaults**; adding and removing networks, which applies at once; then how BAMF looks, which applies at once: active ARP, randomised MACs, latency, IPv6 neighbours, the traffic monitor and the daily port watch |
 | **Internet** | The internet watch: on or off, how often, the address it pings and what counts as slow; and the speed test's schedule |
-| **Security** | Sign-in: the main and view-only passwords, and signing out; then the ARP watch, the certificate watch and the GreyNoise check |
+| **Security** | Sign-in: the main and view-only passwords, and signing out; HTTPS; then the ARP watch, the certificate watch and the GreyNoise check |
 | **Alerts** | Where alerts go: the main webhook with **Sends** and **Test**, more destinations and the scheduled report; then alert rules and quiet hours |
 | **Your network** | Switches and routers, map icons and names from your router |
 | **Appearance** | The theme, Holiday Spirit, Night mode, compact rows, the screen saver, the keyboard shortcuts, and which themes are installed |
@@ -1290,6 +1323,7 @@ live in three places, and it helps to know which is which:
 |---|---|---|
 | Subnets, password, webhook URL, scan interval, ping tuning, as set in the file | `appsettings.json` | Copied aside and restored. The version's fresh defaults are written next to it as `appsettings.new.json` so you can merge in any new options. |
 | Custom names, notes, watch stars, ignored/known flags, all online-offline and address history, **and everything saved from the Settings tab** | `bamf.db` | Never touched, and snapshotted to `backups/` first (last 30 kept). |
+| The HTTPS certificate made in Settings | `bamf-https.pfx`, beside `bamf.db` | Never touched. |
 | Theme choice | your browser's localStorage | Not on the server at all, so nothing can disturb it. |
 
 The second row is the one people don't expect: settings changed in the
@@ -1645,6 +1679,8 @@ scan, or delete a thing.
 | POST | `/api/settings/networks` | Body `{"networks": ["192.168.1.0/24"]}` — the networks to scan, replacing `Bamf:Subnets`, and scan them now. Private networks from /22 to /30 only; see [Networks](#networks). `GET /api/settings` returns them as `editable.networks`, with where they come from and the ones this machine is on |
 | POST | `/api/settings/networks/reset` | Hand the networks back to `appsettings.json` |
 | GET | `/api/auth` | Whether BAMF asks for a password, the role you have, and where each password comes from (`settings`, `file` or none) |
+| POST | `/api/settings/https` | Body `{"action": "create"}` makes a self-signed certificate for this machine, served over HTTPS on `Bamf:HttpsPort` from BAMF's next start; `{"action": "remove"}` takes it away. `GET /api/settings` returns the state as `editable.https`: `state` (`off`, `restart`, `on`, `problem` or `file`), the port, what the certificate covers, when it expires and its fingerprint |
+| GET | `/api/settings/https/certificate` | That certificate alone, without its key, as `bamf.crt`, to install as trusted on a device |
 | POST | `/api/settings/password` | Body `{"role": "admin"\|"viewer", "current": "…", "password": "…"}` — set, change or (with `password` empty) remove a password. `current` is the main password, needed once there is one |
 | POST | `/api/signin` | Body `{"password": "…"}` — sign a browser in: sets a cookie good for 30 days. `401` for a wrong password, `429` while locked out. Open to anyone |
 | POST | `/api/signout` | Sign this browser out |
