@@ -944,7 +944,7 @@ name, address and maker, until you mark it known:
 | Waterworks | a leak | the main bursts, the pressure alarm sounds, every gauge slams into the red | its section of pipe isolated, the valve chained, padlocked and tagged DO NOT OPEN |
 | Terminal | a target, traced | INTRUSION DETECTED flashes, the battlefield goes red, a trace runs | in a console along the bottom, QUARANTINED, its wireframe turning in red |
 | Laser Show | a rogue droid in neither squad's colours | every beam turns red and swings onto it, and the fight stops | in no-man's-land, both squads holding it in their sights |
-| RGB | an unknown stick plugged into the rig | the frame strobes red and the room goes red | in the bottom of the frame, its light pulsing red |
+| RGB | an unknown stick plugged into the rig | every light on the rig turns red, the frame strobing, and the room goes red | in the bottom of the frame, its light pulsing red |
 | Hotdog Stand | a seagull | it swoops on the cart and takes a hot dog, the bells ring, and a Windows 3.1 box says so | perched on the cart's umbrella, the hot dog in its beak |
 | Halloween | a werewolf | the moon turns blood red, it howls, bats burst across the sky, the lanterns flare red | crouched by the graveyard gate, eyes burning |
 | Thanksgiving | a raccoon | the page's edges glow red, the leaves whip up, and it's GOBBLE GOBBLE GOBBLE | sitting by the pie, a slice in its paws |

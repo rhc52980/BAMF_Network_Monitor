@@ -106,7 +106,7 @@ Something going on behind the dashboard. Reduced motion settles them all.
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="powerplant/preview.webp" alt="The Power Plant theme"><br><b>Power Plant</b> <sub><code>powerplant</code></sub><br>A turbine hall with cooling towers, and a control desk along the bottom. An unknown new device is an unauthorised load: a zone trips and its breaker is locked out.</td>
-<td width="50%" valign="top"><img src="rgb/preview.webp" alt="The RGB theme"><br><b>RGB</b> <sub><code>rgb</code></sub><br>The dashboard as a gaming rig with every light on. An unknown new device is a strange stick plugged into the rig, and the frame strobes red.</td>
+<td width="50%" valign="top"><img src="rgb/preview.webp" alt="The RGB theme"><br><b>RGB</b> <sub><code>rgb</code></sub><br>The dashboard as a gaming rig with every light on. An unknown new device is a strange stick plugged into the rig, and every light on the rig turns red.</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="spring/preview.webp" alt="The Spring theme"><br><b>Spring</b> <sub><code>spring</code></sub><br>Blossom coming down over a soft morning. An unknown new device is a fox, and the hens scatter.</td>

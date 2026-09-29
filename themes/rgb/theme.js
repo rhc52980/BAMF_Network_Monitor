@@ -11,8 +11,8 @@
 // while a watched device is down the frame breathes red rather than cycling.
 //
 // A new device nobody has marked known is an intruder: an unknown stick
-// plugged into the rig. The frame strobes red and the room goes red, and the
-// stick sits in the bottom of the frame, its light pulsing red, tagged, until
+// plugged into the rig. Every light on the rig turns red, the frame strobing,
+// and the room goes red; the stick sits in the bottom of the frame, its light pulsing red, tagged, until
 // the device is marked known. Then its light goes green, it ejects, and the
 // rig flashes white for the device.
 const RGB_STICK = `<svg viewBox="0 0 40 78" width="40" height="78"><defs><linearGradient id="rgbStripe" x1="0" x2="0" y1="0" y2="1">
@@ -111,7 +111,7 @@ function buildRgb(root) {
   const spacer = document.createElement("div");
   spacer.setAttribute("aria-hidden", "true");
   document.body.appendChild(spacer);
-  festiveStops.push(() => spacer.remove());
+  festiveStops.push(() => { spacer.remove(); document.documentElement.classList.remove("rgb-red"); });
   const slotX = k => Math.round(W < 700 ? W * .6 : W * .7 - k * 260);
   // One stood down keeps its place until it has gone, so none lands on it.
   const order = () => [...sticks.values()].sort((a, b) => (b.alarm || 0) - (a.alarm || 0));
@@ -163,7 +163,13 @@ function buildRgb(root) {
     s.el.classList.remove("plug"); void s.el.offsetWidth; s.el.classList.add("plug");
     redUntil = Date.now() + 8000;
     rig.classList.add("intruder");
-    festiveTimers.push(setTimeout(() => { if (Date.now() >= redUntil - 50) rig.classList.remove("intruder"); }, 8000));
+    // Every light on the rig goes red with it, not just the frame.
+    document.documentElement.classList.add("rgb-red");
+    festiveTimers.push(setTimeout(() => {
+      if (Date.now() < redUntil - 50) return;
+      rig.classList.remove("intruder");
+      document.documentElement.classList.remove("rgb-red");
+    }, 8000));
     festiveTimers.push(setTimeout(() => { if (!s.gone) intruderTagEl(s.h, "held", s.tag); }, 9000));
   };
 
