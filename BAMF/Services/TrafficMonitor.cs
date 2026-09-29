@@ -112,11 +112,11 @@ public sealed class TrafficMonitor : IDisposable
             foreach (var shared in LibPcapLiveDeviceList.Instance)
             {
                 var mine = shared.Addresses.Any(a => a.Addr?.ipAddress is { } ip && localIps.Any(l => l.Equals(ip)));
-                if (!mine) continue;
+                if (!mine || shared.Interface is not { } iface) continue;
                 // A handle of its own. The device objects in the shared list are
                 // the ones the active ARP scan opens and closes each pass, and
                 // closing one of those would close this capture with it.
-                var dev = new LibPcapLiveDevice(shared.Interface);
+                var dev = new LibPcapLiveDevice(iface);
                 try
                 {
                     dev.Open(DeviceModes.Promiscuous, 200);
