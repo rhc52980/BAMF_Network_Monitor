@@ -12,7 +12,10 @@ same BAMF as everywhere else, next to Home Assistant.
 2. Find **BAMF** in the store and install it.
 3. On the **Configuration** tab, list your networks, or leave the list empty
    to scan every network the Home Assistant host is on.
-4. Start it, and use **Open Web UI**. The dashboard is on port 8840.
+4. Start it, and use **Open Web UI**. The dashboard is on port 8840. The first
+   time it opens it asks which networks to watch and for a password; with a
+   **Dashboard password** set here, it asks for that one first and doesn't ask
+   for another.
 
 ## Options
 

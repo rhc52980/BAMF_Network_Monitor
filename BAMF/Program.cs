@@ -1577,6 +1577,55 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
     });
 });
 
+// ---------- first-run setup ----------
+// A new install (one whose database BAMF made when it first started) is shown
+// a short setup in the dashboard: which networks to watch, and a password.
+// Everything it sets is in Settings afterwards. An install that was already
+// there, updated to this version, never sees it.
+app.MapGet("/api/setup", (HostStore store, ScannerService scanner) => Results.Json(new
+{
+    pending = store.GetSetting("setupPending") == "1",
+    networks = NetworksJson(scanner),
+    password = auth.Source("admin"),
+    minLength = AuthService.MinLength,
+}));
+app.MapPost("/api/setup", (SetupRequest body, HostStore store, ScannerService scanner, HttpContext ctx) =>
+{
+    if (store.GetSetting("setupPending") != "1")
+        return Results.Conflict(new { error = "BAMF is already set up. Everything setup covers is in Settings." });
+    if (body.Skip != true)
+    {
+        // Everything is checked before anything is saved.
+        var labels = new List<string>();
+        foreach (var raw in body.Networks ?? [])
+        {
+            if (ScannerService.CheckNetwork(raw, out var label) is { } problem) return Results.BadRequest(new { error = problem });
+            if (!labels.Contains(label)) labels.Add(label);
+        }
+        if (labels.Count == 0) return Results.BadRequest(new { error = "Pick at least one network for BAMF to watch." });
+        var setPassword = !auth.Required && body.Open != true;
+        if (setPassword && (body.Password ?? "").Length < AuthService.MinLength)
+            return Results.BadRequest(new { error = $"Use at least {AuthService.MinLength} characters for the password, or choose to leave BAMF open." });
+
+        // The networks are saved only if they aren't the ones BAMF would scan
+        // anyway, so a list in appsettings.json, or finding them itself, carries on.
+        if (!labels.Order().SequenceEqual(scanner.CurrentNetworks().Order()))
+        {
+            store.SetSetting("subnets", JsonSerializer.Serialize(labels));
+            scanner.RequestScan(null);
+            app.Logger.LogInformation("Setup: networks {Networks}", string.Join(", ", labels));
+        }
+        if (setPassword)
+        {
+            if (auth.SetPassword("admin", null, body.Password) is { } problem) return Results.BadRequest(new { error = problem });
+            SetSessionCookie(ctx, auth.Issue("admin"));
+        }
+    }
+    store.DeleteSetting("setupPending");
+    app.Logger.LogInformation("Setup: {Done}", body.Skip == true ? "skipped" : "done");
+    return Results.Ok();
+});
+
 // The networks BAMF scans, where that list comes from, and the ones this
 // machine is on, for Settings → Scanning → Networks and the first-run setup.
 static object NetworksJson(ScannerService scanner) => new
@@ -2215,6 +2264,7 @@ record SnoozeRequest(int Minutes);
 record WatchRequest(bool Watched);
 record SignInRequest(string? Password);
 record NetworksRequest(string[]? Networks);
+record SetupRequest(string[]? Networks, string? Password, bool? Open, bool? Skip);
 record PasswordRequest(string? Role, string? Current, string? Password);
 record ForgetRequest(bool Forgotten);
 record ActiveArpRequest(bool Enabled);

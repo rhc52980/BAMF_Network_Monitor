@@ -923,6 +923,19 @@
     #setNetTable td.set-net-rm-cell { position: absolute; top: 6px; right: 0; border: 0; padding: 0; }
   }
   .set-net-source button { font: inherit; font-size: 12px; color: var(--focus); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+  /* The first-run setup, on a new install. */
+  .setup-modal { width: min(520px, 94vw); }
+  .setup-step { border-top: 1px solid var(--line); padding: 14px 0 6px; }
+  .setup-h { font-weight: 600; margin-bottom: 6px; }
+  .setup-net { display: flex; align-items: center; gap: 10px; padding: 5px 0; font-size: 13px; }
+  .setup-net .mono { font-size: 13px; }
+  .setup-net .if { color: var(--text-dim); font-size: 12px; }
+  .setup-net.off { color: var(--text-dim); }
+  .setup-pw { display: flex; flex-wrap: wrap; gap: 8px; }
+  .setup-pw .modal-input { flex: 1 1 180px; min-width: 0; margin-left: 0; }
+  .setup-open { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-size: 12px; color: var(--text-dim); cursor: pointer; }
+  .setup-modal .modal-actions { align-items: center; margin-top: 12px; }
+  .setup-modal .modal-actions .set-result { margin-right: auto; }
   /* Settings → Security → Sign-in: a password box and its buttons in each row. */
   .auth-fields { width: 220px; flex-wrap: wrap; }
   .auth-fields .modal-input { width: 100%; }
@@ -2716,6 +2729,40 @@
       <button class="toggle" id="plugFind">Find in list</button>
       <button class="toggle" id="plugCancel">Cancel</button>
       <button class="export-btn" id="plugSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="setupModal" hidden>
+  <div class="modal setup-modal" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+    <div class="modal-title" id="setupTitle">Welcome to BAMF</div>
+    <p class="modal-help">Two things before it gets going. Both can be changed later in Settings.</p>
+    <div class="setup-step">
+      <div class="setup-h">1. The networks to watch</div>
+      <p class="modal-help">These are the networks this machine is on. Tick the ones BAMF should scan.</p>
+      <div id="setupNets"></div>
+      <div class="set-net-add">
+        <input class="modal-input" id="setupNetNew" placeholder="192.168.1.0/24" aria-label="Another network to watch, like 192.168.1.0/24" autocomplete="off" spellcheck="false">
+        <button type="button" class="toggle" id="setupNetAdd">Add</button>
+      </div>
+    </div>
+    <div class="setup-step" id="setupPwStep">
+      <div class="setup-h">2. A password</div>
+      <div id="setupPwAsk">
+        <p class="modal-help">Without one, anyone on your network can open BAMF and change things. This browser stays signed in with it.</p>
+        <div class="setup-pw">
+          <input class="modal-input" id="setupPw" type="password" autocomplete="new-password" aria-label="Password">
+          <input class="modal-input" id="setupPw2" type="password" autocomplete="new-password" placeholder="Again" aria-label="The password again">
+        </div>
+        <label class="setup-open"><input type="checkbox" id="setupOpen"> Leave BAMF open to anyone on my network, with no password. A password can be set later in Settings → Security.</label>
+      </div>
+      <p class="modal-help" id="setupPwSet" hidden>A password is already set, in <span class="mono">appsettings.json</span>. It can be changed in Settings → Security.</p>
+    </div>
+    <p class="modal-help">Where alerts go (Discord, your phone, and more) is in Settings → Alerts, whenever you're ready.</p>
+    <div class="modal-actions">
+      <span class="set-result" id="setupMsg"></span>
+      <button type="button" class="toggle" id="setupSkip" title="Close this and leave everything as it is. It won't show again.">Skip</button>
+      <button type="button" class="export-btn" id="setupGo">Start watching</button>
     </div>
   </div>
 </div>
@@ -11514,6 +11561,107 @@ async function saveSettings() {
   }
 }
 
+// ---- The first-run setup ----
+// Shown once, on a new install: which networks, and a password. The server
+// only offers it when BAMF made its database at this start.
+let setupNets = [];   // { network, iface, problem, on }
+async function checkSetup() {
+  let s;
+  try {
+    const r = await fetch("/api/setup");
+    if (!r.ok) return;
+    s = await r.json();
+  } catch { return; }
+  if (!s.pending) return;
+  const n = s.networks;
+  setupNets = (n.found || []).map(f => ({ network: f.network, iface: f.interface, problem: f.problem, on: !f.problem && n.list.includes(f.network) }));
+  for (const net of n.list) if (!setupNets.some(x => x.network === net)) setupNets.push({ network: net, iface: "", problem: null, on: true });
+  renderSetupNets();
+  $("setupPwAsk").hidden = !!s.password;
+  $("setupPwSet").hidden = !s.password;
+  $("setupPw").placeholder = `At least ${s.minLength} characters`;
+  $("setupModal").hidden = false;
+  (s.password ? $("setupGo") : $("setupPw")).focus();
+}
+function renderSetupNets() {
+  const box = $("setupNets");
+  box.innerHTML = "";
+  if (!setupNets.length) {
+    box.innerHTML = '<p class="modal-help">BAMF didn\'t find a network it can watch on this machine. Add one below.</p>';
+    return;
+  }
+  for (const n of setupNets) {
+    const row = document.createElement("label");
+    row.className = "setup-net" + (n.problem ? " off" : "");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = n.on;
+    cb.disabled = !!n.problem;
+    cb.onchange = () => { n.on = cb.checked; };
+    const name = document.createElement("span");
+    name.className = "mono";
+    name.textContent = n.network;
+    row.append(cb, name);
+    if (n.iface || n.problem) {
+      const why = document.createElement("span");
+      why.className = "if";
+      why.textContent = n.problem ? "Can't be watched from here: " + n.problem : n.iface;
+      row.appendChild(why);
+    }
+    box.appendChild(row);
+  }
+}
+function setupMsg(text, kind) {
+  const el = $("setupMsg");
+  el.textContent = text;
+  el.className = "set-result" + (kind ? " " + kind : "");
+}
+$("setupNetAdd").onclick = () => {
+  const v = $("setupNetNew").value.trim();
+  if (!v) return;
+  if (!setupNets.some(n => n.network === v)) setupNets.push({ network: v, iface: "", problem: null, on: true });
+  $("setupNetNew").value = "";
+  renderSetupNets();
+  setupMsg("");
+};
+$("setupNetNew").onkeydown = e => { if (e.key === "Enter") $("setupNetAdd").click(); };
+async function finishSetup(skip) {
+  const body = { skip };
+  if (!skip) {
+    body.networks = setupNets.filter(n => n.on).map(n => n.network);
+    if (!body.networks.length) { setupMsg("Tick at least one network.", "err"); return; }
+    if (!$("setupPwAsk").hidden) {
+      body.open = $("setupOpen").checked;
+      if (!body.open) {
+        if ($("setupPw").value !== $("setupPw2").value) { setupMsg("The two passwords aren't the same.", "err"); $("setupPw2").focus(); return; }
+        body.password = $("setupPw").value;
+      }
+    }
+  }
+  setupMsg("Saving…");
+  try {
+    const r = await fetch("/api/setup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok && r.status !== 409) { setupMsg(d.error || "Couldn't save (HTTP " + r.status + ")", "err"); return; }
+  } catch (e) {
+    setupMsg("Couldn't save: " + e.message, "err");
+    return;
+  }
+  $("setupModal").hidden = true;
+  if (!skip) toast("BAMF is set up and scanning.");
+  refresh();
+}
+$("setupGo").onclick = () => finishSetup(false);
+$("setupSkip").onclick = () => finishSetup(true);
+$("setupOpen").onchange = () => {
+  const open = $("setupOpen").checked;
+  $("setupPw").disabled = $("setupPw2").disabled = open;
+};
+
 // ---- Settings → Scanning → Networks: adding and removing ----
 // Networks saved here replace appsettings.json's list; only private ones no
 // bigger than a sweep covers can be added (the server says why if not).
@@ -11756,6 +11904,7 @@ $("search").oninput = e => { query = e.target.value; render(); };
 // which is harmless with no data yet; refresh() re-renders when data lands.
 if (location.hash.length > 1) showView(location.hash.slice(1), { fromHash: true });
 refresh();
+checkSetup();
 setInterval(refresh, POLL_MS);
 </script>
 </body>
