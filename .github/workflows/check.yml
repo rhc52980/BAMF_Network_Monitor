@@ -1,7 +1,8 @@
 # Checks every pull request, and every push to main, before anything is
-# released: that BAMF builds, that the add-on's version matches the app's, and
-# that the dashboard's scripts, What's New and every theme are sound. A broken
-# change shows up on its pull request, not when a release is tagged.
+# released: that BAMF builds and its tests pass, that the add-on's version
+# matches the app's, and that the dashboard's scripts, What's New and every
+# theme are sound. A broken change shows up on its pull request, not when a
+# release is tagged.
 
 name: Check
 
@@ -28,6 +29,10 @@ jobs:
       - name: Build
         run: dotnet build BAMF/BAMF.csproj -c Release
 
+      # Theme sync and zip import, and when scheduled reports fall due.
+      - name: Tests
+        run: dotnet test tests/BAMF.Tests -c Release
+
       # The release fails on this; better to know on the pull request.
       - name: Add-on version matches the app
         run: |
@@ -48,3 +53,7 @@ jobs:
       # Node comes with the runner; the check needs nothing installed.
       - name: Scripts, What's New and themes
         run: node .github/scripts/check-web.mjs
+
+      # Which devices count as intruders, tested on the dashboard's own code.
+      - name: Tests
+        run: node --test tests/web/*.test.mjs

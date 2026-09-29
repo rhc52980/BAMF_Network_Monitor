@@ -87,6 +87,19 @@ dotnet publish -c Release -r linux-x64 -p:PublishSingleFile=true --self-containe
 > aside first and put it back after, or use the updaters below, which handle
 > this for you.
 
+### Tests
+
+From the repo root, the C# tests (theme sync and zip import, and when
+scheduled reports fall due) and the dashboard's (which devices count as
+intruders):
+
+```bash
+dotnet test tests/BAMF.Tests
+node --test tests/web/*.test.mjs
+```
+
+Every pull request runs both, along with a build and a check of the themes.
+
 ## Run it manually first
 
 ```powershell
