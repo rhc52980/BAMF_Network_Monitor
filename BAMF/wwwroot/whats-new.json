@@ -2,6 +2,16 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "1.56.0",
+      "date": "2026-09-29",
+      "items": [
+        "Passwords in Settings, under Security: set, change or remove the main and view-only passwords here, kept hashed. With one set, a browser signs in on a page of its own and stays signed in for 30 days; scripts and Home Assistant send it as before.",
+        "Five wrong passwords from one address lock it out for 15 minutes, with a security alert. A forgotten password is reset from the machine BAMF runs on; the README says how.",
+        "Add and remove the networks BAMF watches in Settings, under Scanning, with one click for each network this machine is on.",
+        "A new install asks two things the first time it opens: which networks to watch, and a password."
+      ]
+    },
+    {
       "version": "1.55.1",
       "date": "2026-09-29",
       "items": [
