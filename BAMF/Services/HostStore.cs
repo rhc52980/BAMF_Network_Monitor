@@ -43,7 +43,11 @@ public partial class HostStore
 
         _dbPath = dbPath;
         _connString = $"Data Source={dbPath}";
+        // A database made just now is a new install: the dashboard offers it the
+        // first-run setup. One that was already there never sees it.
+        var isNew = !File.Exists(dbPath);
         Init();
+        if (isNew) SetSetting("setupPending", "1");
     }
 
     private void Init()
