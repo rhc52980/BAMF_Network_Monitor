@@ -63,10 +63,12 @@ apt-get update -qq
 apt-get install -y -qq libpcap0.8 curl ca-certificates >/dev/null
 
 # --- .NET SDK (distro-agnostic install, works on any Debian version) ---
-if [ ! -x "$DOTNET_DIR/dotnet" ]; then
-    step "Installing .NET 8 SDK to $DOTNET_DIR (one-time, ~200 MB)"
+# BAMF builds with .NET 10. An install from before has only the .NET 8 SDK in
+# $DOTNET_DIR, so 10 is added beside it.
+if [ ! -x "$DOTNET_DIR/dotnet" ] || ! "$DOTNET_DIR/dotnet" --list-sdks 2>/dev/null | grep -q '^10\.'; then
+    step "Installing .NET 10 SDK to $DOTNET_DIR (one-time, ~200 MB)"
     curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
-    bash /tmp/dotnet-install.sh --channel 8.0 --install-dir "$DOTNET_DIR"
+    bash /tmp/dotnet-install.sh --channel 10.0 --install-dir "$DOTNET_DIR"
 fi
 export DOTNET_ROOT="$DOTNET_DIR"
 export PATH="$DOTNET_DIR:$PATH"

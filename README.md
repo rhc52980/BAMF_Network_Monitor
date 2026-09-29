@@ -242,7 +242,7 @@ Extract, run the binary, open `http://localhost:8840`, and set your subnets in
 
 Prefer the installer to manage the service, updates and backups for you? Build
 from source instead — `windows\Install-BAMF.bat` or `linux/install.sh`, both of
-which install *and* update. That route needs the .NET 8 SDK on the machine
+which install *and* update. That route needs the .NET 10 SDK on the machine
 (Linux fetches it for you).
 
 **Full documentation:** [`BAMF/README.md`](BAMF/README.md) ·

@@ -13,7 +13,7 @@
 # appsettings.json over /app/appsettings.json. The database lives in /data,
 # and so do the themes, so the ones you've added or removed survive an update.
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY BAMF/BAMF.csproj BAMF/
 RUN dotnet restore BAMF/BAMF.csproj
@@ -22,11 +22,14 @@ COPY BAMF/ BAMF/
 COPY themes/ themes/
 RUN dotnet publish BAMF/BAMF.csproj -c Release -o /out --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 # libpcap for the active ARP scan and the traffic monitor; ca-certificates for
 # the OUI download and webhooks over HTTPS; curl for the health check; iproute2
-# for the IPv6 neighbour table.
-RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends libpcap0.8 ca-certificates curl iproute2 \
+# for the IPv6 neighbour table. The .NET 10 images are Ubuntu 24.04, where
+# libpcap's package is libpcap0.8t64; the old name is tried if that's missing.
+RUN apt-get update -qq \
+    && (apt-get install -y -qq --no-install-recommends libpcap0.8t64 || apt-get install -y -qq --no-install-recommends libpcap0.8) \
+    && apt-get install -y -qq --no-install-recommends ca-certificates curl iproute2 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /out .
