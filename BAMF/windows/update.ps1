@@ -191,8 +191,16 @@ try {
         }
     }
 
+    # BAMF builds with the .NET 10 SDK. Check before anything is stopped, so a
+    # machine without it is left running the version it has.
+    $sdkUrl = "https://dotnet.microsoft.com/download/dotnet/10.0"
     if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
-        throw ".NET SDK not found. Install it from https://dotnet.microsoft.com/download/dotnet/8.0"
+        throw ".NET SDK not found. Install the .NET 10 SDK from $sdkUrl and run this again. Nothing was changed."
+    }
+    $sdks = @(& dotnet --list-sdks 2>$null | ForEach-Object { ($_ -split ' ')[0] })
+    if (-not ($sdks | Where-Object { $_ -match '^(\d+)\.' -and [int]$Matches[1] -ge 10 })) {
+        $have = if ($sdks) { "only " + ($sdks -join ", ") } else { "none" }
+        throw "BAMF now builds with the .NET 10 SDK, and this machine has $have. Install it from $sdkUrl and run this again. Nothing was changed."
     }
 
     # --- stop whatever is running ---

@@ -29,7 +29,7 @@ The dashboard at `http://<server>:8840` polls `/api/hosts` every 10 seconds.
 - **Windows**: Server 2022 (also fine on Win 10/11 and Server 2019).
 - **Linux**: any Debian-based distro (Debian 12 / Ubuntu 22.04+), bare metal,
   VM, or LXC container.
-- .NET 8 SDK to build (https://dotnet.microsoft.com/download/dotnet/8.0)
+- .NET 10 SDK to build (https://dotnet.microsoft.com/download/dotnet/10.0)
   — the published output can be fully self-contained, so the *server* needs
   nothing installed if you publish that way.
 - Optional, for active ARP scanning: Npcap on Windows, libpcap on Linux.
@@ -56,7 +56,7 @@ copying it, and removing BAMF means deleting it plus the service.
 - **Windows** — extract the source anywhere and double-click
   `windows\Install-BAMF.bat`. It elevates, builds to `C:\BAMF`, creates the
   `BAMF` service, and starts it; then open http://localhost:8840. Needs the
-  .NET 8 SDK on that machine (it builds there). `windows\Install-DesktopIcon.bat`
+  .NET 10 SDK on that machine (it builds there). `windows\Install-DesktopIcon.bat`
   adds a Desktop shortcut, and `windows\Update-BAMF.bat` handles updates later —
   it's the same script, so installing and updating are one operation. Prefer to
   do it by hand? See [Install as a Windows Service](#install-as-a-windows-service).
@@ -73,7 +73,7 @@ copying it, and removing BAMF means deleting it plus the service.
 From this folder:
 
 ```powershell
-# Framework-dependent (needs the .NET 8 runtime on the server):
+# Framework-dependent (needs the .NET 10 runtime on the server):
 dotnet publish -c Release -o publish
 
 # OR fully self-contained single file (no runtime needed on the server):
@@ -1375,7 +1375,7 @@ sc.exe delete BAMF
 
 ## Install as a systemd service (Linux)
 
-`linux/install.sh` does the whole job as root — installs libpcap and the .NET 8
+`linux/install.sh` does the whole job as root — installs libpcap and the .NET 10
 SDK (one-time), builds a self-contained binary to `/opt/bamf`, installs
 `linux/bamf.service`, enables it, and starts it:
 
