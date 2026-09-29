@@ -345,8 +345,22 @@ horizontal scrolling. The who's-home board and everything else adapt too:
 - Buttons in the cards and the map tools are finger sized, and the page
   respects the phone's safe areas (notch, home bar).
 
-Add the page to your home screen for a full-screen, app-like BAMF. A link with
-a `#tab` in it opens straight on that tab — see [Linking to a tab](#linking-to-a-tab).
+### On the home screen
+
+Add BAMF to a phone's home screen and it gets the BAMF star for an icon and
+opens in a window of its own, without the address bar. The status bar takes
+the colour of the theme you're using.
+
+- **iPhone and iPad:** in Safari, **Share → Add to Home Screen**.
+- **Android:** in Chrome, **⋮ → Add to Home screen** (or **Install app**).
+- **A computer:** Chrome and Edge show an install button in the address bar.
+
+Chrome and Edge only install it as an app over HTTPS (see
+[Serving the dashboard over HTTPS](#serving-the-dashboard-over-https)); over
+plain `http://` they add a shortcut that opens in an ordinary tab. Safari
+opens it in its own window either way. With a password set, it asks for it
+the first time, and stays signed in like any browser. A link with a `#tab` in
+it opens straight on that tab — see [Linking to a tab](#linking-to-a-tab).
 
 ## Notes
 
