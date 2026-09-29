@@ -46,6 +46,7 @@ builder.Host.UseWindowsService(o => o.ServiceName = "BAMF");
 builder.Host.UseSystemd();
 
 builder.Services.AddSingleton<HostStore>();
+builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<OuiLookup>();
 builder.Services.AddSingleton(sp => new UpdateChecker(
     sp.GetRequiredService<IHttpClientFactory>(),
@@ -101,77 +102,179 @@ if (!string.IsNullOrWhiteSpace(webhook) &&
         "Use https:// if the endpoint supports it.");
 }
 
-if (!string.IsNullOrEmpty(app.Configuration["Bamf:Password"]))
-{
-    var urls = app.Configuration["Urls"] ?? "";
-    if (!urls.Contains("https://", StringComparison.OrdinalIgnoreCase))
-    {
-        app.Logger.LogWarning(
-            "A password is set but the dashboard is served over http:// - HTTP Basic auth " +
-            "sends it base64-encoded, which is encoding, not encryption. Fine on a trusted " +
-            "LAN; serve HTTPS if this is reachable from anywhere else (see the README).");
-    }
-}
-
-// ---------- optional HTTP Basic auth ----------
-// Password opens everything. ViewerPassword, if set as well, opens the same
-// dashboard to look at but not change: every POST and DELETE is refused, and
-// so are the port scans, the only GETs that send packets, and the database
-// backup, which carries the saved webhook URL a viewer only ever sees masked.
-var password = app.Configuration["Bamf:Password"];
-var viewerPassword = app.Configuration["Bamf:ViewerPassword"];
+// ---------- sign-in ----------
+// See AuthService. With no main password BAMF is open, as it always was. With
+// one, a browser is sent to /signin and kept signed in by a cookie; scripts,
+// other BAMF servers and Home Assistant send the password with HTTP Basic auth,
+// as before. The view-only password opens the same dashboard to look at: every
+// POST and DELETE is refused, and so are the port scans, the only GETs that
+// send packets, and the database backup, which carries the saved webhook URL a
+// viewer only ever sees masked.
+var auth = app.Services.GetRequiredService<AuthService>();
 var hookToken = app.Configuration["Bamf:HookToken"];
-if (!string.IsNullOrEmpty(viewerPassword) && string.IsNullOrEmpty(password))
+if (!string.IsNullOrEmpty(app.Configuration["Bamf:ViewerPassword"]) && auth.Source("admin") is null)
+    app.Logger.LogWarning("Bamf:ViewerPassword is set without a main password, so it does nothing: " +
+        "with no main password the dashboard is open to everyone. Set Bamf:Password too, or set both in Settings → Security.");
+if (auth.Required && !(app.Configuration["Urls"] ?? "").Contains("https://", StringComparison.OrdinalIgnoreCase))
+    app.Logger.LogInformation(
+        "A password is set and the dashboard is served over http://, so the password crosses the network " +
+        "readable to anyone who can watch it. Fine on a trusted LAN; serve HTTPS if this is reachable from anywhere else (see the README).");
+// Someone keeps getting the password wrong: say so, as a security alert.
+auth.LockedOut = (address, count) =>
 {
-    app.Logger.LogWarning("Bamf:ViewerPassword is set without Bamf:Password, so it does nothing: " +
-        "with no main password the dashboard is open to everyone. Set Bamf:Password too.");
-    viewerPassword = null;
-}
+    var scanner = app.Services.GetRequiredService<ScannerService>();
+    _ = scanner.SendGenericAlert("Wrong passwords",
+        $"{count} wrong passwords for BAMF from {address}. That address can't sign in for {(int)AuthService.LockoutTime.TotalMinutes} minutes.",
+        "security", CancellationToken.None);
+};
 // An inbound webhook may carry the hook token instead of the password.
 static bool HookTokenOk(HttpContext ctx, string? token) =>
     !string.IsNullOrEmpty(token) && ctx.Request.Path.StartsWithSegments("/api/hooks") &&
     (CryptographicEquals(ctx.Request.Headers["X-BAMF-Token"].ToString(), token) || CryptographicEquals(ctx.Request.Query["token"].ToString(), token));
-if (!string.IsNullOrEmpty(password))
+// What the sign-in page needs, open to anyone.
+static bool OpenPath(PathString p) =>
+    p == "/signin" || p == "/api/signin" || p == "/api/signout" || p == "/fonts.css" || p == "/bamf-logo.svg" || p == "/bamf-icon.svg"
+    || p.StartsWithSegments("/fonts");
+app.Use(async (ctx, next) =>
 {
-    app.Use(async (ctx, next) =>
-    {
-        var header = ctx.Request.Headers.Authorization.ToString();
-        string? role = HookTokenOk(ctx, hookToken) ? "admin" : null;
-        if (role is null && header.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
-        {
-            try
-            {
-                var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(header[6..]));
-                var idx = decoded.IndexOf(':');
-                var provided = idx >= 0 ? decoded[(idx + 1)..] : "";
-                if (CryptographicEquals(provided, password)) role = "admin";
-                else if (!string.IsNullOrEmpty(viewerPassword) && CryptographicEquals(provided, viewerPassword)) role = "viewer";
-            }
-            catch { }
-        }
+    if (!auth.Required) { await next(); return; }
+    var address = ctx.Connection.RemoteIpAddress?.ToString() ?? "";
+    string? role = HookTokenOk(ctx, hookToken) ? "admin" : null;
 
-        if (role is null)
+    // A browser that has signed in. A session over half gone is renewed, so
+    // a dashboard that's in use stays signed in.
+    if (role is null && auth.Validate(ctx.Request.Cookies[AuthService.CookieName]) is { } session)
+    {
+        role = session.Role;
+        if (session.Expires - DateTime.UtcNow < AuthService.SessionLife / 2) SetSessionCookie(ctx, auth.Issue(role));
+    }
+
+    var header = ctx.Request.Headers.Authorization.ToString();
+    if (role is null && header.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
+    {
+        if (auth.IsLocked(address, out var left))
         {
-            ctx.Response.StatusCode = 401;
+            await TooManyTries(ctx, left);
+            return;
+        }
+        try
+        {
+            var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(header[6..]));
+            var idx = decoded.IndexOf(':');
+            role = auth.RoleFor(idx >= 0 ? decoded[(idx + 1)..] : "");
+        }
+        catch (FormatException) { }
+        if (role is null) auth.Failed(address); else auth.Succeeded(address);
+    }
+
+    if (role is null)
+    {
+        if (OpenPath(ctx.Request.Path)) { await next(); return; }
+        // A browser opening a page goes to the sign-in page, and one of the
+        // dashboard's own requests is told to; anything else (a script,
+        // another BAMF, curl) is asked for Basic auth, as before.
+        var mode = ctx.Request.Headers["Sec-Fetch-Mode"].ToString();
+        var navigating = mode == "navigate" || (mode.Length == 0 && HttpMethods.IsGet(ctx.Request.Method)
+            && ctx.Request.Headers.Accept.ToString().Contains("text/html", StringComparison.OrdinalIgnoreCase));
+        if (navigating)
+        {
+            var back = ctx.Request.Path + ctx.Request.QueryString;
+            ctx.Response.Redirect("/signin" + (back is "/" or "/index.html" ? "" : "?next=" + Uri.EscapeDataString(back)));
+            return;
+        }
+        ctx.Response.StatusCode = 401;
+        if (mode.Length > 0)
+        {
+            ctx.Response.Headers["X-BAMF-SignIn"] = "1";
+            await ctx.Response.WriteAsJsonAsync(new { error = "Sign in to BAMF." });
+        }
+        else
+        {
             ctx.Response.Headers.WWWAuthenticate = "Basic realm=\"BAMF\"";
             await ctx.Response.WriteAsync("Authentication required");
-            return;
         }
-        ctx.Items["bamfRole"] = role;
-        if (role == "viewer" && (!(HttpMethods.IsGet(ctx.Request.Method) || HttpMethods.IsHead(ctx.Request.Method))
-                                 || ctx.Request.Path.Value?.Contains("/portscan", StringComparison.OrdinalIgnoreCase) == true
-                                 || ctx.Request.Path.StartsWithSegments("/api/backup")))
-        {
-            ctx.Response.StatusCode = 403;
-            ctx.Response.Headers["X-BAMF-ViewOnly"] = "1";
-            await ctx.Response.WriteAsJsonAsync(new { error = ctx.Request.Path.StartsWithSegments("/api/backup")
-                ? "View-only: a backup carries the saved webhook URL, so it takes the main password."
-                : "View-only: this password can look at everything but not change anything." });
-            return;
-        }
-        await next();
+        return;
+    }
+    ctx.Items["bamfRole"] = role;
+    if (role == "viewer" && (!(HttpMethods.IsGet(ctx.Request.Method) || HttpMethods.IsHead(ctx.Request.Method))
+                             || ctx.Request.Path.Value?.Contains("/portscan", StringComparison.OrdinalIgnoreCase) == true
+                             || ctx.Request.Path.StartsWithSegments("/api/backup"))
+        && ctx.Request.Path != "/api/signout")
+    {
+        ctx.Response.StatusCode = 403;
+        ctx.Response.Headers["X-BAMF-ViewOnly"] = "1";
+        await ctx.Response.WriteAsJsonAsync(new { error = ctx.Request.Path.StartsWithSegments("/api/backup")
+            ? "View-only: a backup carries the saved webhook URL, so it takes the main password."
+            : "View-only: this password can look at everything but not change anything." });
+        return;
+    }
+    await next();
+});
+
+static void SetSessionCookie(HttpContext ctx, string? value) =>
+    ctx.Response.Cookies.Append(AuthService.CookieName, value ?? "", new CookieOptions
+    {
+        HttpOnly = true, SameSite = SameSiteMode.Strict, Secure = ctx.Request.IsHttps, Path = "/",
+        Expires = value is null ? DateTimeOffset.UnixEpoch : DateTimeOffset.UtcNow.Add(AuthService.SessionLife),
     });
+
+static async Task TooManyTries(HttpContext ctx, TimeSpan left)
+{
+    var minutes = Math.Max(1, (int)Math.Ceiling(left.TotalMinutes));
+    ctx.Response.StatusCode = 429;
+    ctx.Response.Headers.RetryAfter = ((int)left.TotalSeconds).ToString();
+    await ctx.Response.WriteAsJsonAsync(new { error = $"Too many wrong passwords. Try again in {minutes} minute{(minutes == 1 ? "" : "s")}." });
 }
+
+// The sign-in page, and signing in and out from it.
+app.MapGet("/signin", () =>
+    Results.File(Path.Combine(app.Environment.WebRootPath ?? Path.Combine(AppContext.BaseDirectory, "wwwroot"), "signin.html"), "text/html; charset=utf-8"));
+app.MapPost("/api/signin", async (SignInRequest body, HttpContext ctx) =>
+{
+    if (!auth.Required) return Results.Json(new { role = "open" });
+    var address = ctx.Connection.RemoteIpAddress?.ToString() ?? "";
+    if (auth.IsLocked(address, out var left))
+    {
+        await TooManyTries(ctx, left);
+        return Results.Empty;
+    }
+    var role = auth.RoleFor(body.Password ?? "");
+    if (role is null)
+    {
+        auth.Failed(address);
+        if (auth.IsLocked(address, out left)) { await TooManyTries(ctx, left); return Results.Empty; }
+        return Results.Json(new { error = "That password isn't right." }, statusCode: 401);
+    }
+    auth.Succeeded(address);
+    SetSessionCookie(ctx, auth.Issue(role));
+    return Results.Json(new { role });
+});
+app.MapPost("/api/signout", (HttpContext ctx) =>
+{
+    SetSessionCookie(ctx, null);
+    return Results.Ok();
+});
+
+// Settings → Security → Sign-in: who's signed in, and where each password
+// comes from; and setting, changing or removing one, which takes the current
+// main password once there is one. Setting or changing the main password
+// signs this browser in with it, so it isn't sent to the sign-in page.
+app.MapGet("/api/auth", (HttpContext ctx) => Results.Json(new
+{
+    required = auth.Required,
+    role = ctx.Items["bamfRole"] as string ?? "open",
+    session = auth.Validate(ctx.Request.Cookies[AuthService.CookieName]) is not null,
+    main = auth.Source("admin"),
+    viewer = auth.Source("viewer"),
+    minLength = AuthService.MinLength,
+}));
+app.MapPost("/api/settings/password", (PasswordRequest body, HttpContext ctx) =>
+{
+    var role = body.Role == "viewer" ? "viewer" : "admin";
+    if (auth.SetPassword(role, body.Current, body.Password) is { } problem) return Results.BadRequest(new { error = problem });
+    if (role == "admin") SetSessionCookie(ctx, auth.Required ? auth.Issue("admin") : null);
+    return Results.Ok();
+});
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
@@ -1460,7 +1563,7 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             autoDownloadOui = cfg.GetValue("Bamf:AutoDownloadOui", true),
             updateRepo = cfg["Bamf:UpdateRepo"] ?? "",
             hookToken = !string.IsNullOrEmpty(cfg["Bamf:HookToken"]),
-            viewerPassword = !string.IsNullOrEmpty(cfg["Bamf:ViewerPassword"]) && !string.IsNullOrEmpty(cfg["Bamf:Password"]),
+            viewerPassword = app.Services.GetRequiredService<AuthService>().Source("viewer") is not null,
             remotes = remotesSvc2.Statuses,
             mqtt = new
             {
@@ -2072,6 +2175,8 @@ record WebhookRequest(string? Url, string? Format);
 record IgnoreRequest(bool Ignored);
 record SnoozeRequest(int Minutes);
 record WatchRequest(bool Watched);
+record SignInRequest(string? Password);
+record PasswordRequest(string? Role, string? Current, string? Password);
 record ForgetRequest(bool Forgotten);
 record ActiveArpRequest(bool Enabled);
 record RouterNamesApply(bool Overwrite);

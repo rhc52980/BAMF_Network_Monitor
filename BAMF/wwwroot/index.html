@@ -640,6 +640,7 @@
   body.viewer .hy-actions .hint { display: none !important; }
   body.viewer .watch-star { pointer-events: none; }
   body.viewer #settingsWrap .set-main :is(button, input, select, textarea) { pointer-events: none; opacity: .5; }
+  body.viewer #settingsWrap .set-main #authSignOut { pointer-events: auto; opacity: 1; }
   body.viewer #settingsWrap::before {
     grid-column: 1 / -1;
     content: "View only: these are BAMF's settings, but the view-only password can't change them.";
@@ -905,6 +906,11 @@
   /* The speed test's schedule, Save and Run now: the schedule reads in full, and the buttons go under it. */
   .speed-fields { width: 180px; flex-wrap: wrap; }
   .speed-fields .modal-input { width: 100%; }
+  /* Settings → Security → Sign-in: a password box and its buttons in each row. */
+  .auth-fields { width: 220px; flex-wrap: wrap; }
+  .auth-fields .modal-input { width: 100%; }
+  .auth-state { color: var(--text-dim); font-size: 12px; }
+  .auth-state b { color: var(--text); font-weight: 600; }
   .night-fields input[type="time"] { width: auto; }
   .set-field.night-fields select.modal-input { width: auto; max-width: 200px; }
   .phone-setup { margin: -2px 0 12px; }
@@ -2060,6 +2066,42 @@
     </section>
     <section class="set-sec" data-sec="security" aria-label="Security">
       <h2 class="set-sec-title">Security</h2>
+      <div class="set-card" id="signinCard">
+        <div class="set-card-title">Sign-in</div>
+        <p class="modal-help" id="authStatus"></p>
+        <label class="set-row" id="authCurrentRow" hidden>
+          <span class="set-label">Current main password
+            <span class="set-hint">Needed to change or remove either password.</span>
+          </span>
+          <span class="set-field auth-fields"><input id="authCurrent" class="modal-input" type="password" autocomplete="current-password"></span>
+        </label>
+        <div class="set-row">
+          <span class="set-label">Main password
+            <span class="set-hint">Opens everything. A browser that signs in with it stays signed in for 30 days; scripts, Home Assistant and other BAMF servers send it with each request, as they always have.</span>
+            <span class="auth-state" id="authMainState"></span>
+          </span>
+          <span class="set-field auth-fields">
+            <input id="authMain" class="modal-input" type="password" autocomplete="new-password" placeholder="New password" aria-label="New main password">
+            <button type="button" class="export-btn" id="authMainSave">Save</button>
+            <button type="button" class="toggle" id="authMainRemove" hidden>Remove</button>
+          </span>
+        </div>
+        <div class="set-row">
+          <span class="set-label">View-only password
+            <span class="set-hint">Optional, for family or a wall display: it opens the same dashboard, but nothing can be changed, scanned or woken. Only counts alongside a main password.</span>
+            <span class="auth-state" id="authViewerState"></span>
+          </span>
+          <span class="set-field auth-fields">
+            <input id="authViewer" class="modal-input" type="password" autocomplete="new-password" placeholder="New password" aria-label="New view-only password">
+            <button type="button" class="export-btn" id="authViewerSave">Save</button>
+            <button type="button" class="toggle" id="authViewerRemove" hidden>Remove</button>
+          </span>
+        </div>
+        <div class="set-actions">
+          <button type="button" class="toggle" id="authSignOut" hidden>Sign out</button>
+          <span class="set-result" id="authResult"></span>
+        </div>
+      </div>
       <div class="set-card">
         <div class="set-card-title">Security</div>
         <p class="modal-help">These apply the moment you click them — no Save needed.</p>
@@ -2896,10 +2938,18 @@ let trafficCache = null;    // the last /api/traffic answer, for the Activity ca
 // an X-BAMF-ViewOnly header. Say so once per refusal, whichever control it was.
 {
   const plainFetch = window.fetch.bind(window);
+  // And a sign-in that has run out (or a password changed elsewhere) sends
+  // the page to sign in again, and back here after.
+  let signingIn = false;
   window.fetch = async (...args) => {
     const r = await plainFetch(...args);
     if (r.status === 403 && r.headers.get("X-BAMF-ViewOnly")) {
       try { toast("View only: this password can look at everything but not change anything"); } catch { }
+    }
+    if (r.status === 401 && r.headers.get("X-BAMF-SignIn") && !signingIn) {
+      signingIn = true;
+      const here = location.pathname + location.search + location.hash;
+      location.href = "/signin" + (here === "/" ? "" : "?next=" + encodeURIComponent(here));
     }
     return r;
   };
@@ -11264,6 +11314,7 @@ async function loadSettings() {
   loadSpeed().then(renderSpeedSetting);
   $("setNewDays").value = newDays;
   loadRouterImport();
+  loadAuth();
 
   // The instant-apply toggles and the notifications card draw from the last
   // /api/hosts poll rather than this endpoint, so refresh them here too.
@@ -11421,6 +11472,69 @@ async function saveSettings() {
     setMsg("Save failed: " + e.message, "err");
   }
 }
+
+// ---- Settings → Security → Sign-in ----
+let authInfo = null;
+async function loadAuth() {
+  try {
+    const r = await fetch("/api/auth");
+    if (r.ok) authInfo = await r.json();
+  } catch { }
+  renderAuth();
+}
+function renderAuth() {
+  const a = authInfo;
+  if (!a) return;
+  const where = s => s === "file" ? "Set in <span class=\"mono\">appsettings.json</span>. Saving one here replaces it." : "Set here.";
+  $("authStatus").innerHTML = a.required
+    ? "BAMF asks for a password." + (a.role === "viewer" ? " You're signed in with the view-only one." : "")
+    : "<b>Anyone who can reach BAMF can open it and change things.</b> Set a main password and it will ask for one.";
+  $("authCurrentRow").hidden = !a.required;
+  $("authMainState").innerHTML = a.main ? where(a.main) : "Not set.";
+  $("authViewerState").innerHTML = !a.main ? "Needs a main password first." : a.viewer ? where(a.viewer) : "Not set.";
+  $("authViewer").disabled = $("authViewerSave").disabled = !a.main;
+  $("authMainRemove").hidden = a.main !== "settings";
+  $("authViewerRemove").hidden = a.viewer !== "settings";
+  $("authSignOut").hidden = !a.session;
+  $("authMain").placeholder = a.main ? "New password" : `At least ${a.minLength} characters`;
+  $("authViewer").placeholder = a.viewer ? "New password" : `At least ${a.minLength} characters`;
+}
+function authMsg(text, kind) {
+  const el = $("authResult");
+  el.textContent = text;
+  el.className = "set-result" + (kind ? " " + kind : "");
+}
+async function savePassword(role, remove) {
+  const box = $(role === "viewer" ? "authViewer" : "authMain");
+  if (!remove && !box.value) { authMsg("Type the new password first.", "err"); box.focus(); return; }
+  if (remove && role === "admin" && !confirm("Remove the main password? Anyone who can reach BAMF will be able to open it and change things, and the view-only password goes too.")) return;
+  authMsg("Saving…");
+  try {
+    const r = await fetch("/api/settings/password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role, current: $("authCurrent").value, password: remove ? "" : box.value }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { authMsg(d.error || "Couldn't save (HTTP " + r.status + ")", "err"); return; }
+    box.value = "";
+    $("authCurrent").value = "";
+    await loadAuth();
+    authMsg(remove ? "Removed." : role === "viewer" ? "View-only password saved." : "Saved. This browser is signed in with it.", "ok");
+  } catch (e) {
+    authMsg("Couldn't save: " + e.message, "err");
+  }
+}
+$("authMainSave").onclick = () => savePassword("admin", false);
+$("authMainRemove").onclick = () => savePassword("admin", true);
+$("authViewerSave").onclick = () => savePassword("viewer", false);
+$("authViewerRemove").onclick = () => savePassword("viewer", true);
+$("authMain").onkeydown = e => { if (e.key === "Enter") savePassword("admin", false); };
+$("authViewer").onkeydown = e => { if (e.key === "Enter") savePassword("viewer", false); };
+$("authSignOut").onclick = async () => {
+  try { await fetch("/api/signout", { method: "POST" }); } catch { }
+  location.href = "/signin";
+};
 
 $("setSave").onclick = saveSettings;
 // History retention sits under System, but it's saved with the scanning
