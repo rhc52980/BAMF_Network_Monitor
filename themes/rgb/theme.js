@@ -12,8 +12,8 @@
 //
 // A new device nobody has marked known is an intruder: an unknown stick
 // plugged into the rig. Every light on the rig turns red, the frame strobing,
-// and the room goes red; the stick sits in the bottom of the frame, its light pulsing red, tagged, until
-// the device is marked known. Then its light goes green, it ejects, and the
+// and the room goes red; the stick sits in the bottom of the frame, its light
+// pulsing red, tagged, until the device is marked known. Then its light goes green, it ejects, and the
 // rig flashes white for the device.
 const RGB_STICK = `<svg viewBox="0 0 40 78" width="40" height="78"><defs><linearGradient id="rgbStripe" x1="0" x2="0" y1="0" y2="1">
   <stop offset="0" stop-color="#ff0040"/><stop offset=".25" stop-color="#ffe600"/><stop offset=".5" stop-color="#2bff5a"/><stop offset=".75" stop-color="#00e5ff"/><stop offset="1" stop-color="#c43dff"/></linearGradient></defs>
