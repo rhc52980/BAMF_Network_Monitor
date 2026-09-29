@@ -45,17 +45,14 @@ public static partial class DropInThemes
 
     public static List<DropInTheme> List(string dir)
     {
-        var themes = new List<DropInTheme>();
-        if (!Directory.Exists(dir)) return themes;
-        var seen = new HashSet<string>();
-        foreach (var folder in Directory.GetDirectories(dir).OrderBy(d => d, StringComparer.Ordinal))
-        {
-            var t = Read(folder);
-            if (t is null || !seen.Add(t.Id)) continue;
-            // A variant can't take a name another theme already has.
-            t.Variants.RemoveAll(v => !seen.Add(v.Id));
-            themes.Add(t);
-        }
+        if (!Directory.Exists(dir)) return [];
+        var themes = Directory.GetDirectories(dir).OrderBy(d => d, StringComparer.Ordinal)
+            .Select(Read).OfType<DropInTheme>().ToList();
+        // A variant can't take a name another theme already has: a theme's own
+        // folder always keeps its name, whichever comes first, and the first
+        // variant to a name keeps it.
+        var seen = new HashSet<string>(themes.Select(t => t.Id));
+        foreach (var t in themes) t.Variants.RemoveAll(v => !seen.Add(v.Id));
         return themes;
     }
 

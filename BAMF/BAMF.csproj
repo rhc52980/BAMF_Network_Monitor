@@ -29,6 +29,11 @@
     <PackageReference Include="SharpPcap" Version="6.3.1" />
   </ItemGroup>
 
+  <!-- The tests in tests/BAMF.Tests can reach what's internal here. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="BAMF.Tests" />
+  </ItemGroup>
+
   <ItemGroup>
     <Content Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

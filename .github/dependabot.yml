@@ -1,12 +1,12 @@
 # Opens a pull request when something BAMF depends on has a new version: the
-# NuGet packages, the GitHub Actions the workflows use, and the container's
+# NuGet packages (BAMF's and its tests'), the GitHub Actions the workflows use, and the container's
 # base images. Weekly, a few at a time, so it's never a flood. Each one gets
 # the checks in workflows/check.yml like any other pull request.
 
 version: 2
 updates:
   - package-ecosystem: nuget
-    directory: /BAMF
+    directories: [/BAMF, /tests/BAMF.Tests]
     schedule:
       interval: weekly
     open-pull-requests-limit: 5

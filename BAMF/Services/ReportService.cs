@@ -26,21 +26,45 @@ public sealed class ReportService : BackgroundService
     public DateTime? LastSent => DateTime.TryParse(_store.GetSetting("reportLastSent"), null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var t) ? t : null;
 
     /// <summary>When the next report is due, in UTC, or null when off.</summary>
-    public DateTime? NextDue()
+    public DateTime? NextDue() => NextDue(Schedule, Hour, Day, DateTime.UtcNow, TimeZoneInfo.Local);
+
+    /// <summary>
+    /// When a report on this schedule is next due after utcNow, in UTC, or null
+    /// when off. The hour is local to tz. An hour a clock change skips never
+    /// comes, so neither does a report at it: the next one is the one due.
+    /// </summary>
+    internal static DateTime? NextDue(string schedule, int hour, int day, DateTime utcNow, TimeZoneInfo tz)
     {
-        var schedule = Schedule;
         if (schedule == "off") return null;
-        var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.Local);
-        var at = new DateTime(local.Year, local.Month, local.Day, Hour, 0, 0, DateTimeKind.Unspecified);
+        var local = TimeZoneInfo.ConvertTimeFromUtc(utcNow, tz);
+        var at = new DateTime(local.Year, local.Month, local.Day, hour, 0, 0, DateTimeKind.Unspecified);
         for (var i = 0; i < 40; i++)
         {
             var candidate = at.AddDays(i);
             if (candidate <= local) continue;
-            if (schedule == "weekly" && (int)candidate.DayOfWeek != Day) continue;
+            if (schedule == "weekly" && (int)candidate.DayOfWeek != day) continue;
             if (schedule == "monthly" && candidate.Day != 1) continue;
-            return TimeZoneInfo.ConvertTimeToUtc(candidate, TimeZoneInfo.Local);
+            if (tz.IsInvalidTime(candidate)) continue;
+            return TimeZoneInfo.ConvertTimeToUtc(candidate, tz);
         }
         return null;
+    }
+
+    /// <summary>
+    /// Whether a report should go at utcNow: it's the hour, on the right day,
+    /// and one hasn't gone already this time round. Checked every minute, so
+    /// the last of those is what stops a report going out sixty times.
+    /// </summary>
+    internal static bool IsDue(string schedule, int hour, int day, DateTime utcNow, DateTime? lastSent, TimeZoneInfo tz)
+    {
+        if (schedule == "off") return false;
+        var local = TimeZoneInfo.ConvertTimeFromUtc(utcNow, tz);
+        var due = local.Hour == hour && (schedule == "daily"
+            || (schedule == "weekly" && (int)local.DayOfWeek == day)
+            || (schedule == "monthly" && local.Day == 1));
+        var recent = lastSent is { } last && (utcNow - last) <
+            (schedule == "daily" ? TimeSpan.FromHours(20) : schedule == "weekly" ? TimeSpan.FromDays(6) : TimeSpan.FromDays(27));
+        return due && !recent;
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -52,13 +76,7 @@ public sealed class ReportService : BackgroundService
                 var schedule = Schedule;
                 if (schedule != "off")
                 {
-                    var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.Local);
-                    var due = local.Hour == Hour && (schedule == "daily"
-                        || (schedule == "weekly" && (int)local.DayOfWeek == Day)
-                        || (schedule == "monthly" && local.Day == 1));
-                    var recent = LastSent is { } last && (DateTime.UtcNow - last) <
-                        (schedule == "daily" ? TimeSpan.FromHours(20) : schedule == "weekly" ? TimeSpan.FromDays(6) : TimeSpan.FromDays(27));
-                    if (due && !recent)
+                    if (IsDue(schedule, Hour, Day, DateTime.UtcNow, LastSent, TimeZoneInfo.Local))
                     {
                         var ok = await SendAsync(schedule, ct);
                         _log.LogInformation("Scheduled {Schedule} report {Result}", schedule, ok ? "sent" : "not sent");
