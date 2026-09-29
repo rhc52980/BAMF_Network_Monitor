@@ -22,7 +22,7 @@ COPY BAMF/ BAMF/
 COPY themes/ themes/
 RUN dotnet publish BAMF/BAMF.csproj -c Release -o /out --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 # libpcap for the active ARP scan and the traffic monitor; ca-certificates for
 # the OUI download and webhooks over HTTPS; curl for the health check; iproute2
 # for the IPv6 neighbour table.
