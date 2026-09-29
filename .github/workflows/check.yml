@@ -1,0 +1,50 @@
+# Checks every pull request, and every push to main, before anything is
+# released: that BAMF builds, that the add-on's version matches the app's, and
+# that the dashboard's scripts, What's New and every theme are sound. A broken
+# change shows up on its pull request, not when a release is tagged.
+
+name: Check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build
+        run: dotnet build BAMF/BAMF.csproj -c Release
+
+      # The release fails on this; better to know on the pull request.
+      - name: Add-on version matches the app
+        run: |
+          APP=$(grep -oPm1 '(?<=<Version>)[^<]+' BAMF/BAMF.csproj)
+          ADDON=$(grep -oPm1 '^version:\s*"?\K[^"]+' homeassistant/bamf/config.yaml)
+          echo "app $APP, add-on $ADDON"
+          if [ "$APP" != "$ADDON" ]; then
+            echo "::error file=homeassistant/bamf/config.yaml::The add-on's version ($ADDON) must match BAMF.csproj ($APP)."
+            exit 1
+          fi
+
+  web:
+    name: Dashboard and themes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Node comes with the runner; the check needs nothing installed.
+      - name: Scripts, What's New and themes
+        run: node .github/scripts/check-web.mjs
