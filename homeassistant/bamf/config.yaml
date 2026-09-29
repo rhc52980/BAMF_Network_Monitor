@@ -27,6 +27,7 @@ options:
   scan_interval_seconds: 60
   password: ""
   viewer_password: ""
+  reset_password: false
   wan_watch: false
   wan_target: "8.8.8.8"
   speed_test: "off"
@@ -42,6 +43,7 @@ schema:
   scan_interval_seconds: int(10,86400)
   password: password?
   viewer_password: password?
+  reset_password: bool
   wan_watch: bool
   wan_target: str?
   speed_test: list(off|daily|6h)

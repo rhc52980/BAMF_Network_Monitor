@@ -215,6 +215,30 @@ public class AuthServiceTests : IDisposable
     }
 
     [Fact]
+    public void A_forgotten_password_is_reset_from_the_server()
+    {
+        var a = Bamf();
+        a.SetPassword("admin", null, "forgotten-password");
+        a.SetPassword("viewer", "forgotten-password", "viewer-password");
+        var s = a.Issue("admin");
+        Assert.True(a.ResetSettingsPasswords("a test"));
+        Assert.False(a.Required);
+        Assert.Null(a.Validate(s));
+        Assert.Null(a.SetPassword("admin", null, "new-password"));   // a new one, no old one needed
+        Assert.True(a.ResetSettingsPasswords("a test"));   // the new one, cleared too
+    }
+
+    [Fact]
+    public void A_reset_leaves_the_password_in_appsettings()
+    {
+        var a = Bamf("file-password");
+        a.SetPassword("admin", "file-password", "settings-password");
+        a.ResetSettingsPasswords("a test");
+        Assert.Equal("file", a.Source("admin"));
+        Assert.Equal("admin", a.RoleFor("file-password"));
+    }
+
+    [Fact]
     public void Five_wrong_passwords_lock_an_address_out()
     {
         var a = Bamf("file-password");
