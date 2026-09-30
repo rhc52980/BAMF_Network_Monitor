@@ -29,7 +29,8 @@ public class IntegrationSettingsTests : IDisposable
         return (new HostStore(config), config);
     }
 
-    private static MqttPublisher Mqtt(HostStore store, IConfiguration config) => new(store, config, NullLogger<MqttPublisher>.Instance);
+    // Only its settings are read here, so it has no internet watch.
+    private static MqttPublisher Mqtt(HostStore store, IConfiguration config) => new(store, null!, config, NullLogger<MqttPublisher>.Instance);
     private static RemoteService Remotes(HostStore store, IConfiguration config) => new(config, null!, store, NullLogger<RemoteService>.Instance);
 
     private static void SaveMqtt(HostStore store, MqttPublisher.Saved saved) => store.SetSetting("mqtt", JsonSerializer.Serialize(saved));

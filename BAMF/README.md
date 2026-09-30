@@ -102,9 +102,12 @@ the bodies they take in `Requests.cs`. The work itself is in `Services/`.
 
 ### Tests
 
-From the repo root, the C# tests (theme sync and zip import, and when
-scheduled reports fall due) and the dashboard's (which devices count as
-intruders):
+From the repo root, the C# tests and the dashboard's (which devices count as
+intruders). The C# ones test BAMF's parts (themes, reports, passwords, the
+network rules, certificates) and, in `EndpointTests`, BAMF itself: each starts
+it in memory on a database of its own, with nothing scanned or sent, and
+calls its API as a browser, a script or another BAMF would, from signing in
+and the view-only password to the saved-password rules:
 
 ```bash
 dotnet test tests/BAMF.Tests
@@ -343,8 +346,8 @@ Home Assistant and other BAMF servers carry on unchanged.
   BAMF starts on plain HTTP anyway, and the card says why.
 - **New certificate** replaces it at the next start. A device that trusted
   the old one will warn again. The certificate lasts 825 days, the longest
-  Apple's devices accept, and the certificate watch doesn't cover BAMF's own
-  port, so make a new one when the card says it's close.
+  Apple's devices accept. The [certificate watch](#certificate-watch) sends an
+  alert 14 days and 3 days before it runs out, and the card says so too.
 - **Turn off** removes it, and HTTPS stops at the next start.
 - It's a file, `bamf-https.pfx`, beside the database, not in it. An update
   leaves it alone. A backup doesn't carry it, so after restoring onto a new
@@ -2887,6 +2890,11 @@ relying on it: a self-signed certificate on a NAS is normal. Only ports that a
 scan has already found open are touched: 443, 8443, 5001, 9443, 10443 and
 4443.
 
+BAMF's own certificate, if you made one under **Settings → Security →
+HTTPS**, is read from its file on the same run and warned about the same way,
+with what to do: make a new one and restart BAMF. A new certificate starts
+the warnings over.
+
 With **Watch ports daily** on, the morning run also sends the UPnP search.
 Both are active checks, and the port watch is already the one you switched on
 for that.
@@ -3351,7 +3359,45 @@ back:
   message on `bamf/speed` (`download` and `upload` in Mbps, `ping` and `jitter`
   in ms, `server`, `tested_at`), and with Discovery on it's three sensors,
   Download speed, Upload speed and Speed test ping, on a device called BAMF.
+- The network as a whole is a retained JSON message on `bamf/network`:
+  `online` and `total` (devices BAMF tracks, so not ignored or forgotten),
+  `unknown` (those not marked known) and `unknown_devices` (their names). With
+  Discovery on, that's three more sensors on the BAMF device: Devices online,
+  Devices and Unknown devices, the last with the names as an attribute.
+- While the [internet watch](#internet-watch) is on, `bamf/internet` is `up`
+  or `down`, and with Discovery on it's an Internet connectivity sensor on the
+  BAMF device. Turning the watch off takes the sensor away.
 - `Tls: true` (or the **TLS** switch) for a broker on 8883.
+
+For example, a notification on your phone when a device BAMF doesn't know
+joins the network, or when the internet goes down:
+
+```yaml
+automation:
+  - alias: Unknown device on the network
+    trigger:
+      - platform: state
+        entity_id: sensor.bamf_unknown_devices
+    condition: "{{ trigger.to_state.state | int(0) > trigger.from_state.state | int(0) }}"
+    action:
+      - service: notify.mobile_app_your_phone
+        data:
+          message: "New on the network: {{ state_attr('sensor.bamf_unknown_devices', 'devices') | join(', ') }}"
+  - alias: Internet down
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.bamf_internet
+        to: "off"
+        for: "00:02:00"
+    action:
+      - service: notify.mobile_app_your_phone
+        data:
+          message: "The internet has been down for two minutes."
+```
+
+Home Assistant names the entities after the BAMF device, as above. If yours
+come out differently, pick them from the list under **Settings → Devices &
+services → MQTT → BAMF**.
 
 BAMF speaks MQTT 3.1.1 itself (connect, publish, ping), so there's no extra
 dependency, and it never subscribes to anything.
