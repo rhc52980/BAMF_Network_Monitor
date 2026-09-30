@@ -3345,7 +3345,45 @@ back:
   message on `bamf/speed` (`download` and `upload` in Mbps, `ping` and `jitter`
   in ms, `server`, `tested_at`), and with Discovery on it's three sensors,
   Download speed, Upload speed and Speed test ping, on a device called BAMF.
+- The network as a whole is a retained JSON message on `bamf/network`:
+  `online` and `total` (devices BAMF tracks, so not ignored or forgotten),
+  `unknown` (those not marked known) and `unknown_devices` (their names). With
+  Discovery on, that's three more sensors on the BAMF device: Devices online,
+  Devices and Unknown devices, the last with the names as an attribute.
+- While the [internet watch](#internet-watch) is on, `bamf/internet` is `up`
+  or `down`, and with Discovery on it's an Internet connectivity sensor on the
+  BAMF device. Turning the watch off takes the sensor away.
 - `Tls: true` (or the **TLS** switch) for a broker on 8883.
+
+For example, a notification on your phone when a device BAMF doesn't know
+joins the network, or when the internet goes down:
+
+```yaml
+automation:
+  - alias: Unknown device on the network
+    trigger:
+      - platform: state
+        entity_id: sensor.bamf_unknown_devices
+    condition: "{{ trigger.to_state.state | int(0) > trigger.from_state.state | int(0) }}"
+    action:
+      - service: notify.mobile_app_your_phone
+        data:
+          message: "New on the network: {{ state_attr('sensor.bamf_unknown_devices', 'devices') | join(', ') }}"
+  - alias: Internet down
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.bamf_internet
+        to: "off"
+        for: "00:02:00"
+    action:
+      - service: notify.mobile_app_your_phone
+        data:
+          message: "The internet has been down for two minutes."
+```
+
+Home Assistant names the entities after the BAMF device, as above. If yours
+come out differently, pick them from the list under **Settings → Devices &
+services → MQTT → BAMF**.
 
 BAMF speaks MQTT 3.1.1 itself (connect, publish, ping), so there's no extra
 dependency, and it never subscribes to anything.
