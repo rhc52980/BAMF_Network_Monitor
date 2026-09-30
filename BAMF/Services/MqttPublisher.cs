@@ -29,6 +29,7 @@ public sealed class MqttPublisher : BackgroundService
     public sealed record Saved(string? Server, int? Port, string? Username, string? Password, bool? Tls, bool? Discovery, string? TopicPrefix);
 
     private readonly HostStore _store;
+    private readonly WanWatch _wan;
     private readonly IConfiguration _config;
     private readonly ILogger<MqttPublisher> _log;
     private readonly SemaphoreSlim _send = new(1, 1);
@@ -36,6 +37,8 @@ public sealed class MqttPublisher : BackgroundService
     private TcpClient? _tcp;
     private readonly Dictionary<string, string> _published = new();   // mac id -> last state/ip/name fingerprint
     private string? _speedPublished;                                   // the speed test last sent, by its time
+    private string? _networkPublished;                                 // the network summary last sent
+    private bool? _internetConfigured;                                 // whether the internet sensor is in Home Assistant
 
     // The settings of the connection now open, read once when it opens.
     private MqttSettings _cfg = new("", 1883, null, null, false, true, "bamf", "homeassistant", "bamf");
@@ -84,9 +87,9 @@ public sealed class MqttPublisher : BackgroundService
     private string DiscoveryPrefix => _cfg.DiscoveryPrefix;
     private bool Discovery => _cfg.Discovery;
 
-    public MqttPublisher(HostStore store, IConfiguration config, ILogger<MqttPublisher> log)
+    public MqttPublisher(HostStore store, WanWatch wan, IConfiguration config, ILogger<MqttPublisher> log)
     {
-        _store = store; _config = config; _log = log;
+        _store = store; _wan = wan; _config = config; _log = log;
     }
 
     /// <summary>The settings changed: act on them now rather than at the next look.</summary>
@@ -123,6 +126,8 @@ public sealed class MqttPublisher : BackgroundService
                 _log.LogInformation("MQTT connected to {Server}:{Port}; publishing under {Prefix}/", cfg.Server, cfg.Port, Prefix);
                 _published.Clear();
                 _speedPublished = null;
+                _networkPublished = null;
+                _internetConfigured = null;
                 await PublishAsync($"{Prefix}/status", "online", true, ct);
                 var lastPing = DateTime.UtcNow;
                 while (!ct.IsCancellationRequested && Connected)
@@ -130,6 +135,7 @@ public sealed class MqttPublisher : BackgroundService
                     if (Current() != cfg) { changed = true; break; }
                     await PublishDevicesAsync(ct);
                     await PublishSpeedAsync(ct);
+                    await PublishNetworkAsync(ct);
                     await Wait(TimeSpan.FromSeconds(5), ct);
                     if ((DateTime.UtcNow - lastPing).TotalSeconds >= 30)
                     {
@@ -248,6 +254,78 @@ public sealed class MqttPublisher : BackgroundService
         }), true, ct);
         _speedPublished = last.At;
     }
+
+    // ------------------------------------------------------------ the network
+
+    /// <summary>
+    /// The network as a whole, as sensors on the BAMF device in Home Assistant:
+    /// devices online, devices in all and unknown devices (with their names, as
+    /// an attribute), from one retained message on {prefix}/network; and, while
+    /// the internet watch is on, whether the internet is up, on {prefix}/internet.
+    /// Sent when something changes.
+    /// </summary>
+    private async Task PublishNetworkAsync(CancellationToken ct)
+    {
+        var tracked = _store.GetAll().Where(h => !h.Ignored && !h.Forgotten).ToList();
+        var unknown = tracked.Where(h => !h.Known)
+            .Select(h => h.CustomName != "" ? h.CustomName : h.Hostname != "" ? h.Hostname : h.Ip).OrderBy(n => n).ToList();
+        var wan = _wan.Now();
+        var internet = wan.Enabled ? wan.Up : null;
+        var print = $"{tracked.Count(h => h.Online)}|{tracked.Count}|{string.Join(",", unknown)}|{internet}";
+        if (print == _networkPublished) return;
+
+        var device = new { identifiers = new[] { $"{Prefix}_server" }, name = "BAMF", manufacturer = "BAMF", model = "Network monitor" };
+        if (Discovery && _networkPublished is null)
+        {
+            foreach (var (key, name, icon) in new[]
+            {
+                ("online", "Devices online", "mdi:lan-connect"),
+                ("total", "Devices", "mdi:lan"),
+                ("unknown", "Unknown devices", "mdi:help-network"),
+            })
+            {
+                await PublishAsync($"{DiscoveryPrefix}/sensor/{Prefix}_network_{key}/config", JsonSerializer.Serialize(new
+                {
+                    name,
+                    unique_id = $"{Prefix}_network_{key}",
+                    state_topic = $"{Prefix}/network",
+                    value_template = $"{{{{ value_json.{key} }}}}",
+                    json_attributes_topic = key == "unknown" ? $"{Prefix}/network" : null,
+                    json_attributes_template = key == "unknown" ? "{{ {'devices': value_json.unknown_devices} | tojson }}" : null,
+                    unit_of_measurement = "devices",
+                    state_class = "measurement",
+                    icon,
+                    availability_topic = $"{Prefix}/status",
+                    device,
+                }, SkipNulls), true, ct);
+            }
+        }
+        // The internet sensor only while there's an internet watch to feed it.
+        if (_internetConfigured != wan.Enabled)
+        {
+            // Turned off: no sensor, and no last reading left on the broker.
+            if (!wan.Enabled) await PublishAsync($"{Prefix}/internet", "", true, ct);
+            if (Discovery) await PublishAsync($"{DiscoveryPrefix}/binary_sensor/{Prefix}_internet/config", !wan.Enabled ? "" : JsonSerializer.Serialize(new
+            {
+                name = "Internet",
+                unique_id = $"{Prefix}_internet",
+                state_topic = $"{Prefix}/internet",
+                payload_on = "up", payload_off = "down",
+                device_class = "connectivity",
+                availability_topic = $"{Prefix}/status",
+                device,
+            }), true, ct);
+            _internetConfigured = wan.Enabled;
+        }
+        await PublishAsync($"{Prefix}/network", JsonSerializer.Serialize(new
+        {
+            online = tracked.Count(h => h.Online), total = tracked.Count, unknown = unknown.Count, unknown_devices = unknown,
+        }), true, ct);
+        if (internet is { } up) await PublishAsync($"{Prefix}/internet", up ? "up" : "down", true, ct);
+        _networkPublished = print;
+    }
+
+    private static readonly JsonSerializerOptions SkipNulls = new() { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
 
     // ------------------------------------------------------------ the wire
 
