@@ -170,6 +170,18 @@ rather than your Wi-Fi. Press **Run now**, or have it test every morning or
 every six hours and chart the last month; a test well under your usual is an
 alert. Each test is capped at about 125 MB, and it's off until you ask for it.
 
+<img src="docs/activity.png" width="442" align="right" alt="Two cards from the Activity tab. What changed, for this week: one device arrived, sonos-kitchen, two days ago, and three left, an unnamed device, garage-cam and workshop-pi, last seen nine hours ago. Under it, Settings changes: Test the internet speed, Watch the internet connection, How long a device is new, Quiet hours and The alerts-off banner, each changed two minutes ago, with no password set, from 127.0.0.1">
+
+The rest of **Activity** keeps count. **What changed** lists the devices that
+arrived and the ones that left, today, this week or this month. **Settings
+changes** lists every change made in Settings, with which password and from
+where; only the name of each setting is kept, never what it was set to. Beside
+them are the alerts BAMF raised, the busiest devices (with the traffic monitor
+on), network hygiene (open ports, UPnP, certificates about to run out) and the
+DHCP and DNS servers in use.
+
+<br clear="right">
+
 ### Tune it without touching the server
 
 ![The Settings tab: a Find a setting box and a list of sections down the side (Scanning, Internet, Security, Alerts, Your network, Appearance and System) with Scanning open: the default scan interval, probe concurrency, offline after missed scans and mDNS listening, each network with an on/off switch and its own interval, Reset to file defaults and Save, then the switches that apply at once: active ARP, randomised MACs, latency, IPv6 neighbours, the traffic monitor and the daily port watch](docs/settings.png)
