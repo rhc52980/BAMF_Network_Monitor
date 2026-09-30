@@ -104,7 +104,7 @@ public partial class ScannerService
     public async Task<string?> SendTestNotification(CancellationToken ct, string destination = "main")
     {
         if (!Destinations().Any(d => d.Id == destination))
-            return destination == "main" ? "No webhook URL saved. Add one under Tools → Notifications." : "That destination isn't saved.";
+            return destination == "main" ? "No webhook URL saved. Add one under Settings → Alerts." : "That destination isn't saved.";
         try
         {
             var ok = await SendWebhook("AA:BB:CC:DD:EE:FF", "192.0.2.123", "test-device",
