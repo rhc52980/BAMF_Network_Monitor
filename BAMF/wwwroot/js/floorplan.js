@@ -657,4 +657,3 @@ document.getElementById("floorDelete").onclick = async () => {
   floorId = null; floorEditing = false;
   await loadFloors(true); renderFloor();
 };
-

@@ -898,16 +898,69 @@ function renderDensityToggle() {
   const t = $("setCompact");
   if (t) setToggleState(t, on);
 }
-// ---- The New tab's length ----
-$("setNewDaysSave").onclick = async () => {
-  const days = Math.round(Number($("setNewDays").value));
+
+$("setCompact").onclick = () => {
+  const on = !document.documentElement.classList.contains("compact");
+  document.documentElement.classList.toggle("compact", on);
+  try { localStorage.setItem("bamf-density", on ? "compact" : "comfortable"); } catch {}
+  renderDensityToggle();
+};
+renderDensityToggle();
+
+// Restore the saved theme: localStorage first (survives restarts and new
+// tabs), then window.name (same-tab reload only) for anyone who chose a theme
+// before storage was used, then dark. Each read is guarded separately so a
+// browser that throws on storage access still gets a theme.
+(function initTheme() {
+  // A name that isn't built in may be a theme from the themes folder;
+  // applyTheme checks, and falls back to Dark if there's no such folder.
+  const valid = t => THEMES.some(x => x.id === t && (!x.secret || secretUnlocked())) || (DROPIN_ID.test(t) && !builtInTheme(t));
+  let saved = null;
   try {
-    const r = await fetch("/api/settings/newdays", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ days }) });
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) { toast(d.error || "Couldn't save that"); return; }
-    newDays = d.days;
-    render();
-    toast(`A device counts as new for ${d.days} day${d.days === 1 ? "" : "s"}, or until it's marked known`);
-  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
+    const t = localStorage.getItem("bamf-theme");
+    if (t && valid(t)) saved = t;
+  } catch {}
+  if (!saved) {
+    try {
+      if (window.name && window.name.startsWith("bamf-theme:")) {
+        const t = window.name.split(":")[1];
+        if (valid(t)) saved = t;
+      }
+    } catch {}
+  }
+  applyTheme(saved || "dark");
+  applyHolidaySpirit();
+  applyNightMode();
+  // The clock moves on its own, so look once a minute even between polls.
+  setInterval(applyNightMode, 60e3);
+})();
+
+$("setHoliday").onclick = async () => {
+  const next = !holidaySpirit;
+  try {
+    const r = await fetch("/api/settings/holiday-spirit", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }),
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    holidaySpirit = next;
+    try { localStorage.setItem("bamf-holiday-spirit", next ? "1" : "0"); localStorage.removeItem("bamf-holiday-kept"); } catch {}
+    applyHolidaySpirit();
+    renderHolidayToggle();
+    toast(next ? "Holiday Spirit is on: Halloween through October, Christmas from December 1st to 25th"
+      : "Holiday Spirit is off: dashboards keep their own theme all year");
+  } catch (e) { console.error(e); toast("Couldn't save Holiday Spirit - see the server log"); }
 };
 
+$("setNight").onclick = async () => {
+  if (await saveNight({ enabled: !nightMode.enabled })) {
+    const name = THEMES.find(x => x.id === nightMode.theme)?.name || nightMode.theme;
+    toast(nightMode.enabled ? `Night mode is on: ${name} from ${fmtClock(nightMode.from)} to ${fmtClock(nightMode.to)}`
+      : "Night mode is off: dashboards keep their own theme all night");
+  }
+};
+$("nightFrom").onchange = e => { if (e.target.value) saveNight({ from: e.target.value }); };
+$("nightTo").onchange = e => { if (e.target.value) saveNight({ to: e.target.value }); };
+$("nightTheme").onchange = e => saveNight({ theme: e.target.value });
+// Once the list of installed themes is in, the season and the night can be
+// checked against it.
+loadDropInList().then(() => { applyHolidaySpirit(); applyNightMode(); });

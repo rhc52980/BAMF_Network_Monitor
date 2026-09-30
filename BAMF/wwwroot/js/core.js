@@ -104,113 +104,195 @@ function fmtDur(ms) {
   return Math.floor(h / 24) + " d " + (h % 24) + " h";
 }
 
-async function loadFeed() {
-  const r = await fetch("/api/events");
-  if (!r.ok) throw new Error("API " + r.status);
-  return r.json();
+const $ = id => document.getElementById(id);
+
+function fmtAgo(iso) {
+  if (!iso) return "—";
+  const s = Math.max(0, (Date.now() - new Date(iso)) / 1000);
+  if (s < 90) return "just now";
+  if (s < 3600) return Math.round(s / 60) + " min ago";
+  if (s < 86400) return Math.round(s / 3600) + " h ago";
+  return Math.round(s / 86400) + " d ago";
 }
 
-function renderHome() {
-  // The board shows watched devices, or every device carrying one tag.
-  const sel = $("homeGroup");
-  const tags = allTags();
-  const want = "" + (sel.value || "");
-  sel.innerHTML = `<option value="">Watched devices</option>` + tags.map(t => `<option value="${esc(t)}">Tagged ${esc(t)}</option>`).join("");
-  sel.value = tags.some(t => t === want) ? want : "";
-  const group = sel.value;
-  const watched = hosts.filter(x => (group ? hasTag(x, group) : x.watched) && !x.forgotten && !x.ignored && inNetwork(x));
-  const grid = $("homeGrid");
-  grid.innerHTML = "";
-  const he = $("homeEmpty");
-  he.hidden = watched.length > 0;
-  if (watched.length === 0)
-    he.innerHTML = !loadedOnce ? `<span class="empty-scan">Scanning your network…</span>`
-      : group ? `No device is tagged ${esc(group)} on this network.`
-      : "No watched devices yet. Tap the camera on a device to watch it — it'll show up here as home/away.";
-  // online first, then by name
-  watched.sort((a, b) => (b.online - a.online) || dispName(a).localeCompare(dispName(b)));
-  for (const x of watched) {
-    const card = document.createElement("div");
-    card.className = "home-card" + (x.online ? " here" : "");
-    card.innerHTML = `
-      <div class="halo">${x.online ? "\u25cf" : "\u25cb"}</div>
-      <div class="hn">${esc(dispName(x))}</div>
-      <div class="hs">${x.online ? "home" : "away"}</div>`;
-    grid.appendChild(card);
-  }
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-function buildSpark(host) {
-  const wrap = document.createElement("span");
-  wrap.className = "spark";
-  wrap.title = "Activity over the last 24 hours";
-  // derive hourly online coverage from this host's events in the feed
-  const now = Date.now();
-  const events = feedCache
-    .filter(e => e.hostId === host.id)
-    .map(e => ({ type: e.type, t: new Date(e.at).getTime() }))
-    .sort((a, b) => a.t - b.t);
-
-  // reconstruct state across 24 buckets
-  const buckets = new Array(24).fill(null);
-  const start = now - 24 * 36e5;
-  // starting state: if currently online and no events, assume on the whole time
-  let state = host.online;
-  // walk hours; for each hour see if any event flips within, else carry state
-  // simpler: for each event set state; sample state at each hour boundary end
-  let ei = 0;
-  // find state at 'start' by replaying events before start
-  for (const e of events) { if (e.t <= start) state = (e.type === "online"); }
-  for (let hbar = 0; hbar < 24; hbar++) {
-    const hEnd = start + (hbar + 1) * 36e5;
-    let onDuring = state;
-    while (ei < events.length && events[ei].t <= hEnd) {
-      if (events[ei].t >= start && events[ei].type === "online") onDuring = true;
-      state = (events[ei].type === "online");
-      ei++;
-    }
-    buckets[hbar] = onDuring || state;
-  }
-  for (let i = 0; i < 24; i++) {
-    const bar = document.createElement("i");
-    const on = buckets[i];
-    bar.className = on ? "on" : "";
-    bar.style.height = on ? "14px" : "5px";
-    wrap.appendChild(bar);
-  }
-  return wrap;
+function toast(msg) {
+  const t = $("toast");
+  t.innerHTML = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 8000);
 }
 
-// Where a device's traffic figure comes from, for its tooltip.
-function trafficSince(t) {
-  if (t && t.source === "switch") return `counted by ${t.where || "the switch"} since BAMF started reading it`;
-  if (t && t.source === "router") return `counted by ${t.where || "the router"} since BAMF started reading it`;
-  return "since the monitor started";
-}
-async function loadTraffic() {
-  const r = await fetch("/api/traffic");
-  if (!r.ok) throw new Error("API " + r.status);
-  return r.json();
-}
-// The Activity tab's two cards: who's moving the most bytes, and the DHCP
-// and DNS servers in use with any alerts about them.
-// The Activity tab's log of settings changes.
-async function loadSettingsLog() {
+async function refresh() {
+  // Don't redraw while a rename is in progress: the input lives in a row that
+  // render() rebuilds, so a redraw mid-word would throw away what was typed.
+  // Notes no longer need this - they are edited in a dialog outside the table.
+  if (document.querySelector(".name-input")) return;
   try {
-    const r = await fetch("/api/settings/log");
-    if (r.ok) renderSettingsLog(await r.json());
-  } catch { /* the next refresh tries again */ }
+    const data = await loadHosts();
+    $("connDot").classList.remove("err");
+
+    scanInterval = data.scanIntervalSeconds || 60;
+    if (lastScan && data.lastScan && data.lastScan !== lastScan) { festiveHooks.scanDone?.(); watchtower?.event("scan"); }
+    lastScan = data.lastScan;
+    subnets = data.subnets || [];
+    scanModes = data.scanModes || {};
+    subnetIntervals = data.subnetIntervalSeconds || {};
+    subnetNextDue = data.subnetNextDue || {};
+    networkPlaces = data.networkPlaces || {};
+    declaredGws = data.gateways || [];
+    switches = data.switches || [];
+    mapPositions = data.mapPositions || {};
+    typeIcons = data.typeIcons || {};
+    syncBlink(data.blink, data.serverTime);
+    activeArp = data.activeArp || activeArp;
+    autoIgnoreRandom = !!data.autoIgnoreRandom;
+    if (typeof data.latencyProbe === "boolean") latencyProbe = data.latencyProbe;
+    trafficStatus = data.traffic || {};
+    document.body.classList.toggle("has-traffic", !!trafficStatus.running);
+    if (typeof data.holidaySpirit === "boolean" && data.holidaySpirit !== holidaySpirit) {
+      holidaySpirit = data.holidaySpirit;
+      try { localStorage.setItem("bamf-holiday-spirit", holidaySpirit ? "1" : "0"); } catch {}
+    }
+    if (data.night && typeof data.night === "object") {
+      nightMode = { ...nightMode, ...data.night };
+      try { localStorage.setItem("bamf-night", JSON.stringify(nightMode)); } catch {}
+    }
+    updateInfo = data.update || null;
+    appVersion = data.version || appVersion;
+    if (data.role && data.role !== role) {
+      role = data.role;
+      document.body.classList.toggle("viewer", role === "viewer");
+      $("viewOnly").hidden = role !== "viewer";
+    }
+    buildDate = data.buildDate || buildDate;
+    webhookConfigured = !!data.webhookConfigured;
+    alertsConfigured = data.alertsConfigured ?? webhookConfigured;
+    alertsNudgeOff = !!data.alertsNudgeOff;
+    if (data.newDays) newDays = data.newDays;
+    renderAlertsOff();
+    webhookMasked = data.webhookMasked || null;
+    webhookFormat = data.webhookFormat || "auto";
+    repoUrl = data.repoUrl || repoUrl;
+    $("notifyTest").style.display = webhookConfigured ? "" : "none";
+    renderArpToggle();
+    renderRandToggle();
+    renderLatencyToggle();
+    renderTrafficToggle();
+    renderHolidayToggle();
+    applyHolidaySpirit();
+    applyNightMode();
+    renderUpdateToggle();
+    $("subnetLabel").textContent = subnets.length === 1
+      ? subnets[0]
+      : subnets.length + " networks";
+    if (data.version) {
+      const el = $("version");
+      el.textContent = "v" + data.version + (data.buildDate ? " · " + data.buildDate.slice(0, 10) : "");
+      el.title = "BAMF " + data.version + (data.buildDate ? " — built " + data.buildDate + " UTC" : "") + ". Click for what's new.";
+      checkNews();
+    }
+    $("feedbackLink").href = feedbackHref();
+
+    const raw = data.hosts || [];
+
+    // toast on newly-appearing unknown hosts (after first load)
+    const arrivals = [];
+    if (knownMacs) {
+      for (const h of raw) {
+        if (!knownMacs.has(h.mac) && !h.known && !h.ignored && !h.forgotten) {
+          toast(`New host on <span class="mono">${esc(h.subnet)}</span>: <span class="mono">${esc(h.mac)}</span> at <span class="mono">${esc(h.ip)}</span>`);
+          arrivals.push(h);
+          festiveHooks.newDevice?.(h);
+          if (saverStyle.startsWith("watch")) { watchAlert(h); watchtower?.redraw(); }
+        }
+      }
+    }
+    knownMacs = new Set(raw.map(h => h.mac));
+    const incoming = foldInterfaces(raw);
+    // Other sites' devices ride along, read-only, under networks named after the site.
+    for (const rh of (data.remotes || [])) { rh.remote = rh.remote || "remote"; rh.tags = rh.tags || []; rh.addresses = rh.addresses || []; incoming.push(rh); }
+    remoteStatus = data.remoteStatus || [];
+
+    // For the Matrix glitch: devices that just went offline or moved address.
+    const before = new Map(hosts.map(h => [h.id, h]));
+    glitchIds = loadedOnce ? incoming.filter(h => { const b = before.get(h.id); return b && ((b.online && !h.online) || b.ip !== h.ip); }).map(h => h.id) : [];
+    const watching = h => !h.ignored && !h.forgotten;
+    wentOffIds = loadedOnce ? incoming.filter(h => { const b = before.get(h.id); return b && watching(h) && b.online && !h.online; }).map(h => h.id) : [];
+    const cameBack = loadedOnce ? incoming.filter(h => { const b = before.get(h.id); return b && !b.online && h.online; }).map(h => h.id) : [];
+    if (wentOffIds.length || cameBack.length) { festiveHooks.netChange?.(wentOffIds, cameBack); watchtower?.event("change", { off: wentOffIds, back: cameBack }); }
+    hosts = incoming;
+    loadedOnce = true;
+    // To a theme with an intruder scene, each of them is an intruder.
+    for (const a of arrivals) { try { festiveHooks.intruder?.(hosts.find(x => x.id === a.id) || a); } catch (e) { console.error("theme intruder failed", e); } }
+    try { feedCache = await loadFeed(); } catch { /* keep old feed */ }
+    render();
+    renderSwitchList();
+    renderTypeIconList();
+  } catch (e) {
+    $("connDot").classList.add("err");
+    console.error("refresh failed", e);
+  }
 }
-function renderSettingsLog(list) {
-  $("setLogBody").innerHTML = list.length ? list.slice(0, 15).map(c =>
-    `<div class="alert-item k-settings"><div><b>${esc(c.what)}</b><span class="when">${esc(fmtAgo(c.at))}</span></div>`
-    + `<div class="det">With ${esc(c.who)}${c.address ? ", from " + esc(c.address) : ""}</div></div>`).join("")
-    : `<div class="watch-note">Nothing changed yet. Each change made in Settings is listed here.</div>`;
+
+// Countdown to the next scan. The scanner reports when each network is next
+// due, so this is its schedule, not a guess from the default interval - which
+// went wrong the moment networks had intervals of their own. The header shows
+// the selected network if one is, otherwise whichever is soonest, and names
+// it when there's more than one to choose from. Each network tab and the
+// Settings table carry their own figure from the same source.
+function secondsUntil(iso) {
+  return Math.max(0, Math.round((new Date(iso) - Date.now()) / 1000));
 }
-function renderAlertsCard() {
-  const body = $("alertsBody");
-  const list = alertsCache || [];
-  body.innerHTML = list.length ? list.slice(0, 12).map(a =>
-    `<div class="alert-item k-${esc(a.kind)}"><div><b>${esc(a.title)}</b><span class="when">${esc(fmtAgo(a.at))}</span></div><div class="det">${esc(a.detail)}</div></div>`).join("")
-    : `<div class="watch-note">Nothing yet. Rules, the port watch and the DHCP/DNS watch put their alerts here.</div>`;
+function dueText(iso, fmt) {
+  const s = secondsUntil(iso);
+  if (fmt === "in") return s === 0 ? "scanning now" : "next in " + s + "s";
+  return s === 0 ? "now" : "~" + s + "s";
+}
+setInterval(() => {
+  // A network with no local interface is re-checked on its interval in case
+  // one appears, but that isn't a scan worth counting down to.
+  const nets = Object.keys(subnetNextDue).filter(n => scanModes[n] !== "skipped");
+  if (!nets.length && Object.keys(subnetNextDue).length) {
+    $("nextScan").textContent = "nothing to scan";
+    $("nextScan").title = "Every configured network is paused or has no interface on this machine";
+    $("scanFill").style.width = "0%";
+    return;
+  }
+  if (!nets.length) {
+    // Older backend, or nothing scheduled yet: the old estimate.
+    if (!lastScan) return;
+    const elapsed = (Date.now() - new Date(lastScan)) / 1000;
+    const left = Math.max(0, Math.round(scanInterval - (elapsed % scanInterval)));
+    $("nextScan").textContent = "next scan ~" + left + "s";
+    $("scanFill").style.width = (100 * (1 - left / scanInterval)) + "%";
+    return;
+  }
+  let pick = (network !== "all" && subnetNextDue[network]) ? network : null;
+  if (!pick) pick = nets.reduce((a, b) => new Date(subnetNextDue[a]) <= new Date(subnetNextDue[b]) ? a : b);
+  const left = secondsUntil(subnetNextDue[pick]);
+  const interval = subnetIntervals[pick] || scanInterval;
+  const who = nets.length > 1 ? " · " + pick : "";
+  $("nextScan").textContent = (left === 0 ? "scanning now" : "next scan ~" + left + "s") + who;
+  $("nextScan").title = nets.length > 1
+    ? nets.map(n => n + ": " + secondsUntil(subnetNextDue[n]) + "s").join("\n")
+    : "Next scan";
+  $("scanFill").style.width = (100 * (1 - Math.min(left, interval) / interval)) + "%";
+  document.querySelectorAll("[data-due-net]").forEach(el => {
+    const due = subnetNextDue[el.dataset.dueNet];
+    el.textContent = due ? dueText(due, el.dataset.dueFmt) : "";
+  });
+}, 1000);
+
+// Shared by the three instant-apply toggles in Settings: pill colour, the
+// word beside it, and the state for screen readers.
+function setToggleState(t, on) {
+  t.classList.toggle("on", on);
+  t.setAttribute("aria-pressed", on ? "true" : "false");
+  const w = t.querySelector(".tstate");
+  if (w) w.textContent = on ? "On" : "Off";
 }
