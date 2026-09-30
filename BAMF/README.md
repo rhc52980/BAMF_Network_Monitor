@@ -1666,6 +1666,14 @@ reading this one as a remote. Set on its own, without `Bamf:Password`, it does
 nothing, because the dashboard would be open to everyone anyway; BAMF logs a
 warning.
 
+**Who changed what.** Every change made in Settings (and setup, restoring a
+backup, and adding or removing a theme) is listed on the Activity tab under
+**Settings changes**: when, what, with which password (the main one, the
+view-only one, or none set), and from which address. Only the name of each
+setting is kept, never what it was set to, so a password, a token or a
+webhook URL never ends up in it. It ages out with the rest of the history
+(`Bamf:HistoryRetentionDays`).
+
 **Reading.** `GET /api/hosts` is the full JSON picture - devices plus scan
 metadata (`version`, `buildDate`, `subnets`, `lastScan`, per-network scan
 modes). Each device carries an `id`, which is what the per-host routes take:
@@ -1764,6 +1772,7 @@ scan, or delete a thing.
 | POST | `/api/hooks/scan` | Ask for a scan now, of every network or `?subnet=192.168.1.0/24`. See [Inbound webhooks](#inbound-webhooks) |
 | POST | `/api/hooks/wake/{mac}` | Send a Wake-on-LAN packet to a MAC (`AA:BB:…`, `AA-BB-…` or `AABB…`), known to BAMF or not |
 | GET | `/api/remotes` | The other BAMF servers being watched, their status, and their devices |
+| GET | `/api/settings/log` | The last 50 changes made in Settings, newest first, each `{"at", "what", "who", "address"}` |
 | GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
 | GET | `/api/settings/rules` | The alert rules, quiet hours and port watch: `{"rules": [...], "quiet": {"from", "to", "digest", "now", "held"}, "portWatch"}` |
 | POST | `/api/settings/rules` | Body: the whole rule list, each `{"id", "name", "kind": "offline"\|"online"\|"hours", "target": "any"\|"watched"\|"tag:kids"\|"host:12", "minutes", "from", "to", "enabled"}`. `id` empty for a new rule |

@@ -189,6 +189,21 @@ auth.LockedOut = (address, count) =>
         $"{count} wrong passwords for BAMF from {address}. That address can't sign in for {(int)AuthService.LockoutTime.TotalMinutes} minutes.",
         "security", CancellationToken.None);
 };
+// The log of settings changes, on the Activity tab: once a change has gone
+// through, what it was (by name, never the values), by which password, and
+// from where. Outside the sign-in check, so it sees who that decided it was.
+app.Use(async (ctx, next) =>
+{
+    var passwordSet = auth.Required;   // as it was: setting the first password isn't by "someone"
+    await next();
+    if (ctx.Response.StatusCode is < 200 or >= 300) return;
+    if (SettingsLog.Label(ctx.Request.Method, ctx.Request.Path.Value ?? "") is not { } what) return;
+    var from = ctx.Connection.RemoteIpAddress;
+    var address = from is null ? "" : (from.IsIPv4MappedToIPv6 ? from.MapToIPv4() : from).ToString();
+    try { app.Services.GetRequiredService<HostStore>().LogSettingsChange(what, SettingsLog.Who(ctx.Items["bamfRole"] as string, passwordSet), address); }
+    catch (Exception ex) { app.Logger.LogWarning("Couldn't log a settings change: {Error}", ex.Message); }
+});
+
 app.Use(async (ctx, next) =>
 {
     if (!auth.Required) { await next(); return; }

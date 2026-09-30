@@ -585,6 +585,7 @@
   .alert-item { border-left: 3px solid var(--led-warn); padding: 4px 10px; margin: 4px 0; font-size: 12.5px; }
   /* Kinds are prefixed: a bare .port is the segment grid's LED square. */
   .alert-item.k-rule { border-color: var(--focus); } .alert-item.k-dhcp, .alert-item.k-dns, .alert-item.k-security { border-color: var(--danger); }
+  .alert-item.k-settings { border-color: var(--text-dim); }
   .alert-item.k-cert { border-color: var(--led-warn); } .alert-item.k-wake { border-color: var(--led-on); }
   /* The hygiene card: one line per finding, worst first. */
   .hy-item { display: grid; grid-template-columns: 58px 1fr; gap: 8px; align-items: start; padding: 6px 4px; border-top: 1px solid var(--line); font-size: 12.5px; }

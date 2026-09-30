@@ -10,6 +10,9 @@ internal static class SettingsEndpoints
 {
     public static void Map(WebApplication app, string version, Func<string?> HookToken, Func<object> HttpsJson)
     {
+        // The log of settings changes, newest first.
+        app.MapGet("/api/settings/log", (HostStore store) => Results.Json(store.GetSettingsLog(50)));
+
         // The wall display, /wall: a big-screen status board with no controls, for a
         // TV or a spare tablet. Static, so it sits behind the same Basic auth as the
         // dashboard.
