@@ -137,9 +137,15 @@ fi
 # --- prove the build produced what we expect ---
 [ -x "$APP_DIR/BAMF" ] || { echo "Build finished but $APP_DIR/BAMF is missing - nothing was installed."; exit 1; }
 [ -f "$APP_DIR/wwwroot/index.html" ] || { echo "Build finished but $APP_DIR/wwwroot is missing - the dashboard would not load."; exit 1; }
-if [ -f "$SRC_DIR/wwwroot/index.html" ] &&    [ "$(wc -c < "$SRC_DIR/wwwroot/index.html")" != "$(wc -c < "$APP_DIR/wwwroot/index.html")" ]; then
-    echo "The dashboard in $APP_DIR/wwwroot does not match this package - the update would look like it worked while serving the old dashboard."
-    exit 1
+# The page and every script and stylesheet it loads.
+if [ -d "$SRC_DIR/wwwroot" ]; then
+    while IFS= read -r f; do
+        rel="${f#"$SRC_DIR/wwwroot/"}"
+        if [ ! -f "$APP_DIR/wwwroot/$rel" ] || [ "$(wc -c < "$f")" != "$(wc -c < "$APP_DIR/wwwroot/$rel")" ]; then
+            echo "The dashboard in $APP_DIR/wwwroot does not match this package ($rel) - the update would look like it worked while serving the old dashboard."
+            exit 1
+        fi
+    done < <(find "$SRC_DIR/wwwroot" -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' \))
 fi
 
 # --- service ---

@@ -1,0 +1,1670 @@
+  :root, [data-theme="dark"] {
+    --bg: #10141a;
+    --panel: #171d26;
+    --panel-2: #1d2530;
+    --line: #263040;
+    --text: #d5dde8;
+    --text-dim: #7e8b9d;
+    --led-on: #3fdb7f;
+    --led-warn: #ffb454;
+    --led-off: #3a4656;
+    --danger: #f2716f;
+    --focus: #6db7d8;
+    --radius: 8px;
+  }
+  [data-theme="light"] {
+    --bg: #eef1f5;
+    --panel: #ffffff;
+    --panel-2: #e6eaf0;
+    --line: #d0d7e2;
+    --text: #1c2430;
+    --text-dim: #66717f;
+    --led-on: #1ba85a;
+    --led-warn: #d67d00;
+    --led-off: #b6bfcc;
+    --danger: #d63b39;
+    --focus: #2b7fb0;
+    --radius: 8px;
+  }
+
+  [data-theme="contrast"] {
+    --bg:#000000; --panel:#0a0a0a; --panel-2:#161616; --line:#ffffff;
+    --text:#ffffff; --text-dim:#c0c0c0; --led-on:#00ff00; --led-warn:#ffff00;
+    --led-off:#555555; --danger:#ff0000; --focus:#00ffff; --radius:4px;
+  }
+  /* The totals only where the header has room for them on one line. */
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: "IBM Plex Mono", monospace; }
+
+  /* Wraps at every width, not just under 700px: between roughly 700 and 915px
+     the brand and the scan countdown don't fit on one line, and without wrap
+     the countdown's fixed-width track pushed the page into sideways scrolling.
+     When it wraps, margin-left: auto keeps the countdown on the right. */
+  header {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark { flex-shrink: 0; }
+  .brand h1 { font-size: 17px; font-weight: 700; letter-spacing: 0.06em; color: var(--led-on); line-height: 1; }
+  /* Version, network count and (when there is one) the update badge sit in
+     one row of matching chips, on the same centre line as the wordmark: the
+     old layout floated a 10px version up to the top while the network count
+     sat in the middle, and the two never lined up. */
+  .brand .meta { display: flex; align-items: center; gap: 6px; margin-left: 8px; padding-left: 14px; border-left: 1px solid var(--line); }
+  .brand .chip {
+    display: inline-flex; align-items: center; height: 20px; padding: 0 8px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2);
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; line-height: 1;
+    color: var(--text-dim); white-space: nowrap;
+  }
+  .brand .chip.ver { color: var(--text); }
+  /* Feedback: a quiet text link at the end of the brand row, beside the
+     version it will report. Deliberately not a chip, so it doesn't read as
+     status the way the version and network count do. */
+  .brand .fb-link {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; line-height: 1;
+    color: var(--text-dim); text-decoration: none; margin-left: 4px; white-space: nowrap;
+  }
+  .brand .fb-link:hover, .brand .fb-link:focus-visible { color: var(--focus); text-decoration: underline; }
+  .os-guess { display: block; font-size: 10px; color: var(--text-dim); opacity: 0.85; }
+  .link-flag { font-size: 10px; opacity: 0.7; margin-left: 3px; }
+  .modal-help { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin: 0 0 12px; }
+  .modal-note { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim); margin: 6px 0 0; word-break: break-all; }
+  /* The backup card's notes are sentences, not URLs: wrap them at words, and
+     break only a long file name that won't fit. */
+  #backupCard .modal-note { word-break: normal; overflow-wrap: anywhere; }
+  .update-badge {
+    display: inline-flex; align-items: center; height: 20px; padding: 0 8px;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; line-height: 1;
+    text-decoration: none; border-radius: 999px; white-space: nowrap;
+    background: var(--warn, #ffb454); border: 1px solid var(--warn, #ffb454);
+    color: #1b1200; font-weight: 600;
+  }
+  .update-badge[hidden] { display: none; } /* display:inline-flex would otherwise beat the hidden attribute */
+  .update-badge:hover { filter: brightness(1.1); }
+  .scanline {
+    margin-left: auto; display: flex; align-items: center; gap: 12px;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim);
+  }
+  .scanline .lbl-next { white-space: nowrap; }
+  .scanline .scan-wrap { display: flex; }
+  .scan-track {
+    width: 140px; height: 4px; background: var(--panel-2);
+    border-radius: 2px; overflow: hidden;
+  }
+  .scan-fill { height: 100%; width: 0%; background: var(--focus); transition: width 1s linear; }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--led-on); }
+  .arp-toggle {
+    display: flex; align-items: center; gap: 7px; cursor: pointer;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim);
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 6px 10px; user-select: none;
+  }
+  .arp-toggle:hover { border-color: var(--focus); }
+  .arp-toggle .pill {
+    width: 28px; height: 15px; border-radius: 8px; background: var(--led-off);
+    position: relative; transition: background .15s; flex-shrink: 0;
+  }
+  .arp-toggle .pill::after {
+    content: ""; position: absolute; top: 2px; left: 2px;
+    width: 11px; height: 11px; border-radius: 50%; background: var(--bg);
+    transition: left .15s;
+  }
+  .arp-toggle.on .pill { background: var(--led-on); }
+  .arp-toggle.on .pill::after { left: 15px; }
+  .arp-toggle.nodriver { opacity: .6; }
+  .arp-toggle.nodriver .pill { background: var(--led-warn); }
+  .arp-toggle .tstate { min-width: 22px; }
+  .conn-dot.err { background: var(--danger); }
+
+  .netbar {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 14px 24px 0; flex-wrap: wrap;
+  }
+  .netbar .lbl {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
+    /* keeps the label on the first row's baseline when the chips wrap */
+    padding-top: 9px;
+  }
+  /* Separate chips rather than one segmented bar. A segmented control only
+     reads as one control while it fits on a line; with a dozen networks it
+     wrapped to three rows and the shared borders turned into a grid of
+     half-boxes. Chips wrap the way they look like they should. */
+  .nettabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .nettab {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--panel); color: var(--text-dim);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 7px 11px; font: inherit; cursor: pointer;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px;
+  }
+  .nettab:hover { color: var(--text); border-color: var(--focus); }
+  .nettab.active { background: var(--panel-2); color: var(--text); border-color: var(--focus); }
+  .nettab .cnt { color: var(--text-dim); }
+  /* Fixed slot, lining figures: the seconds tick every second, and without
+     this every chip changed width on the digit boundaries and shoved the
+     rows around underneath them. */
+  .nettab .due {
+    color: var(--text-dim); font-size: 11px; opacity: .8;
+    font-variant-numeric: tabular-nums; min-width: 46px; text-align: right;
+  }
+  .nettab.active .cnt { color: var(--focus); }
+  .nettab.paused { color: var(--text-dim); font-style: italic; }
+  .nettab .paused-tag, .nettab .noif-tag {
+    padding: 1px 6px; border-radius: 999px; font-style: normal;
+    font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--led-warn); border: 1px solid var(--led-warn); opacity: .85;
+  }
+  .nettab .noif-tag { color: var(--text-dim); border-color: var(--text-dim); }
+  .nettab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+  .portstrip-wrap { padding: 18px 24px 6px; }
+  .portstrip-label {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+  .legend-swatch {
+    width: 16px; height: 16px; border-radius: 3px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    position: relative; flex-shrink: 0;
+  }
+  .legend-swatch::after {
+    content: ""; position: absolute; inset: 4px;
+    border-radius: 2px; background: var(--led-off);
+  }
+  .legend-swatch.on::after { background: var(--led-on); box-shadow: 0 0 5px rgba(63,219,127,.55); }
+  .legend-swatch.warn::after { background: var(--led-warn); box-shadow: 0 0 5px rgba(255,180,84,.6); animation: blink 1.1s steps(2) infinite; }
+  @media (prefers-reduced-motion: reduce) { .legend-swatch.warn::after { animation: none; } }
+  .portstrip {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 12px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    min-height: 48px;
+  }
+  .port {
+    width: 22px; height: 22px; border-radius: 4px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    cursor: pointer; position: relative; padding: 0;
+  }
+  .port::after {
+    content: ""; position: absolute; inset: 6px;
+    border-radius: 2px; background: var(--led-off);
+  }
+  .port.on::after { background: var(--led-on); box-shadow: 0 0 6px rgba(63,219,127,.55); }
+  .port.warn::after { background: var(--led-warn); box-shadow: 0 0 6px rgba(255,180,84,.6); animation: blink 1.1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) {
+    .port.warn::after { animation: none; }
+    .scan-fill { transition: none; }
+  }
+
+  .stats { display: flex; gap: 12px; padding: 14px 24px; flex-wrap: wrap; }
+  .alerts-off { display: flex; align-items: center; gap: 12px 18px; flex-wrap: wrap;
+    margin: 0 24px 14px; padding: 10px 14px; background: var(--panel);
+    border: 1px solid var(--line); border-left: 3px solid var(--led-warn); border-radius: var(--radius); }
+  .alerts-off[hidden] { display: none; }
+  .alerts-off .ao-text { flex: 1 1 360px; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  .alerts-off .ao-text b { color: var(--led-warn); margin-right: 4px; }
+  .alerts-off .ao-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  @media (max-width: 640px) { .alerts-off { margin: 0 12px 12px; } }
+  /* The screen saver: everything but the scenery fades away, and a card drifts. */
+  body.saver-anim > :not(#themeBg):not(#festive):not(#saver):not(script) { transition: opacity .8s; }
+  body.saving { overflow: hidden; }
+  body.saving > :not(#themeBg):not(#festive):not(#saver):not(script) { opacity: 0; pointer-events: none; }
+  .saver { position: fixed; inset: 0; z-index: 44; cursor: none; }
+  .saver[hidden] { display: none; }
+  .saver-dots { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .saver-card { position: absolute; left: 0; top: 0; min-width: 240px; padding: 16px 20px 18px; box-sizing: border-box;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; color: var(--text);
+    box-shadow: 0 12px 44px rgba(0,0,0,.35); transition: transform 1.2s linear, opacity .8s; }
+  .saver.waking .saver-card { opacity: 0; }
+  .sv-top { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+  .sv-brand { font: 600 12px "IBM Plex Mono", monospace; letter-spacing: .14em; color: var(--focus); }
+  .sv-time { font: 600 16px "IBM Plex Mono", monospace; color: var(--text-dim); }
+  .sv-count { margin-top: 8px; font-size: 15px; color: var(--text-dim); }
+  .sv-count b { font: 600 38px/1 "IBM Plex Mono", monospace; color: var(--led-on); margin-right: 6px; }
+  .sv-sub { margin-top: 6px; font-size: 13px; color: var(--text-dim); }
+  .sv-alert { margin-top: 8px; font-size: 13.5px; color: var(--danger); }
+  .sv-alert:empty { display: none; }
+  body.saver-watch #festive, body.saver-watch #themeBg { visibility: hidden; }
+  .saver.watch { background: #05070b; }
+  .saver.watch .saver-card { background: rgba(9,13,20,.88); border-color: rgba(80,110,150,.5); color: #e6eef5; border-radius: 4px; }
+  .saver.watch .sv-brand { color: #7fd6ff; }
+  .saver.watch .sv-time, .saver.watch .sv-count, .saver.watch .sv-sub { color: #9fb0c2; }
+  .saver.watch .sv-count b { color: #3fdb7f; }
+  .saver.watch .sv-alert { color: #ff6b5c; }
+  .saver.watch.alert .saver-card { border-color: rgba(255,77,61,.7); }
+  .saver.watch.alert .sv-brand { color: #ff6b5c; }
+  .saver.pointer { cursor: default; }
+  .saver-actions { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 8px; }
+  .saver-actions[hidden] { display: none; }
+  .sv-queue { font: 600 12px "IBM Plex Mono", monospace; color: #ff9d92; margin-right: auto; padding-right: 8px; }
+  .sv-btn { font: 600 13px "Space Grotesk", sans-serif; padding: 8px 14px; border-radius: 4px; cursor: pointer;
+    background: rgba(12,7,9,.92); color: #fff1ee; border: 1px solid rgba(255,77,61,.8); }
+  .sv-btn:hover { background: #ff4d3d; color: #140504; }
+  body.viewer #svKnown { display: none; }
+
+  /* After an update: the same strip, in the accent colour rather than a warning. */
+  .alerts-off.whats-new { border-left-color: var(--focus); }
+  .alerts-off.whats-new .ao-text b { color: var(--focus); }
+  .chip.ver { cursor: pointer; }
+  .chip.ver:hover, .chip.ver:focus-visible { border-color: var(--focus); color: var(--text); outline: none; }
+  .news-ver { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 4px; font-weight: 600; }
+  .news-ver:first-child { margin-top: 4px; }
+  .news-ver span { font-weight: 400; font-size: 12px; color: var(--text-dim); }
+  .news-list { margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.5; }
+  .news-list li { margin: 2px 0; }
+  .stat {
+    flex: 1; min-width: 130px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 12px 16px;
+  }
+  .stat .num { font-family: "IBM Plex Mono", monospace; font-size: 22px; font-weight: 600; }
+  .stat .lbl { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .stat.alert .num { color: var(--led-warn); }
+
+  .controls {
+    display: flex; gap: 10px; align-items: center;
+    padding: 4px 24px 14px; flex-wrap: wrap;
+  }
+  .tabs { display: flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .tab {
+    background: var(--panel); color: var(--text-dim);
+    border: none; padding: 8px 16px; font: inherit; cursor: pointer;
+  }
+  .tab + .tab { border-left: 1px solid var(--line); }
+  .tab.active { background: var(--panel-2); color: var(--text); }
+
+  /* Device-type chips. One row under the status tabs, wrapping on narrow
+     screens. Deliberately not a second set of .tab segments: these are an
+     optional narrowing of what's already shown, not a mode. */
+  .chipbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 24px 14px; flex-wrap: wrap;
+  }
+  /* display:flex on the class would otherwise beat the hidden attribute */
+  .chipbar[hidden] { display: none; }
+  .chipbar-label {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
+    margin-right: 2px;
+  }
+  .chip-btn {
+    background: var(--panel); color: var(--text-dim);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 5px 12px; font: inherit; font-size: 12px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip-btn:hover { color: var(--text); border-color: var(--focus); }
+  .chip-btn.active { background: var(--panel-2); color: var(--text); border-color: var(--focus); }
+  .chip-btn .chip-cnt { color: var(--text-dim); font-size: 11px; }
+  .chip-btn.active .chip-cnt { color: var(--focus); }
+  .chip-btn.none { font-style: italic; }
+  /* Where alerts go: the kinds each destination takes, and the list of them. */
+  .dest-kinds { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 10px 0 4px; }
+  .dest-kinds label { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
+  .dest-kinds-lbl { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim); letter-spacing: .08em; text-transform: uppercase; }
+  .dest-row { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px solid var(--line); }
+  .dest-row .what { flex: 1; min-width: 0; }
+  .dest-row .what small { display: block; color: var(--text-dim); font-size: 12px; margin-top: 2px; overflow-wrap: anywhere; }
+  .dest-row .none { color: var(--led-warn); }
+  .dest-form { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 10px 0; background: var(--panel-2); }
+  .chip-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .search {
+    margin-left: auto; background: var(--panel);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--text); padding: 8px 12px; font: inherit; width: 240px;
+  }
+  .search::placeholder { color: var(--text-dim); }
+  .tab:focus-visible, .toggle:focus-visible, input:focus-visible, .port:focus-visible {
+    outline: 2px solid var(--focus); outline-offset: 2px;
+  }
+
+  .table-wrap { padding: 0 24px 32px; overflow-x: auto; }
+  /* Forgotten has no status filters above the table, so the table would start
+     right under the search and Settings buttons. */
+  .table-wrap.bare { padding-top: 14px; }
+  table { width: 100%; border-collapse: collapse; min-width: 880px; }
+  thead th {
+    text-align: left; font-family: "IBM Plex Mono", monospace;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-dim);
+    padding: 10px 12px; border-bottom: 1px solid var(--line);
+  }
+  thead th[data-sort] { cursor: pointer; user-select: none; }
+  thead th[data-sort]:hover { color: var(--text); }
+  thead th[data-sort].sorted { color: var(--focus); }
+  thead th[data-sort].sorted::after { content: " \25B4"; }
+  thead th[data-sort].sorted.desc::after { content: " \25BE"; }
+  .export-btn {
+    background: var(--panel); color: var(--text-dim);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 8px 14px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .export-btn:hover { color: var(--text); border-color: var(--focus); }
+  tbody td { padding: 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  /* Compact rows: about half the height, for /24s with a hundred hosts.
+     Nothing is hidden, the secondary lines just get tighter. Chosen in
+     Settings, kept in localStorage, and applied from the head script so
+     a reload doesn't paint tall rows first. */
+  .compact tbody td { padding: 5px 10px; font-size: 13px; }
+  .compact thead th { padding-top: 8px; padding-bottom: 8px; }
+  .compact .hostname .dns, .compact .os-guess { font-size: 10px; line-height: 1.2; }
+  .compact .vendor, .compact .seen { font-size: 12px; }
+  .compact .spark { height: 12px; }
+  .compact .actions .toggle { padding-top: 3px; padding-bottom: 3px; }
+  tbody tr:hover { background: var(--panel); }
+  tbody tr.is-unknown { background: rgba(255,180,84,.05); }
+  tbody tr.is-ignored { opacity: 0.55; }
+  tbody tr.is-ignored:hover { opacity: 1; }
+  .led { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: var(--led-off); }
+  .led.on { background: var(--led-on); box-shadow: 0 0 6px rgba(63,219,127,.55); }
+  .hostname { font-weight: 500; cursor: pointer; }
+  .hostname:hover .name-text { text-decoration: underline; text-decoration-color: var(--focus); text-underline-offset: 3px; }
+  .hostname .dns { display: block; font-weight: 400; font-size: 11px; color: var(--text-dim); font-family: "IBM Plex Mono", monospace; }
+  .name-input {
+    background: var(--panel-2); border: 1px solid var(--focus); border-radius: 4px;
+    color: var(--text); font: inherit; padding: 4px 8px; width: 160px;
+  }
+  .vendor, .seen { color: var(--text-dim); font-size: 13px; }
+  .mac, .ip { font-family: "IBM Plex Mono", monospace; font-size: 13px; }
+  .ip a { color: var(--text); text-decoration: none; border-bottom: 1px dotted var(--text-dim); }
+  .ip a:hover { color: var(--focus); border-bottom-color: var(--focus); }
+  .ports-cell { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+  .spark { display: inline-flex; height: 16px; gap: 1px; align-items: flex-end; }
+  /* Latency: the last echo's round-trip, coloured by how it feels. */
+  td.lat { font-family: "IBM Plex Mono", monospace; font-size: 12px; white-space: nowrap; }
+  td.lat.fast { color: var(--led-on); } td.lat.slow { color: var(--led-warn); } td.lat.bad { color: var(--danger); } td.lat.none { color: var(--text-dim); }
+  .lat-spark { display: block; width: 100%; max-width: 640px; height: 56px; margin: 6px 0 2px; }
+  .lat-spark .fill { fill: var(--led-on); opacity: .18; } .lat-spark .line { fill: none; stroke: var(--led-on); stroke-width: 1.5; }
+  .lat-spark .miss { stroke: var(--danger); stroke-width: 1.5; }
+  .lat-sum { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+  .lat-sum b { color: var(--text); font-weight: 600; }
+  /* Tags: small chips under a device's name, and a chip bar to filter by them. */
+  .tag-chip { display: inline-block; padding: 0 7px; margin: 2px 4px 0 0; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2);
+    color: var(--text-dim); font-size: 10.5px; line-height: 16px; letter-spacing: .02em; white-space: nowrap; }
+  .tag-row { display: block; margin-top: 2px; }
+  .tag-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+  .tag-pick .chip-btn { font-size: 12px; }
+  .home-tools { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 13px; color: var(--text-dim); }
+  .home-tools select { max-width: 260px; }
+  .tab .tab-cnt { display: inline-block; min-width: 16px; padding: 0 5px; margin-left: 4px; border-radius: 999px; background: var(--led-warn); color: #000; font-size: 10px; line-height: 16px; font-weight: 700; }
+  .tab .tab-cnt[hidden] { display: none; }
+  .spark i { width: 3px; background: var(--led-off); border-radius: 1px; display: block; }
+  .spark i.on { background: var(--led-on); }
+  .port-chip {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    padding: 2px 7px; border-radius: 4px;
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--text-dim);
+  }
+  .port-chip.web { color: var(--led-on); border-color: rgba(63,219,127,.4); cursor: pointer; }
+  .port-chip.web:hover { background: rgba(63,219,127,.1); }
+  .ports-scanning { color: var(--text-dim); font-size: 12px; font-family: "IBM Plex Mono", monospace; }
+  .badge {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    padding: 3px 8px; border-radius: 4px;
+    white-space: nowrap;   /* a theme's icon before the word stays on the same line */
+  }
+  .badge.known { color: var(--led-on); background: rgba(63,219,127,.1); }
+  .badge.unknown { color: var(--led-warn); background: rgba(255,180,84,.12); }
+  .toggle {
+    background: none; border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--text-dim); padding: 6px 12px; font: inherit; font-size: 12px; cursor: pointer;
+  }
+  .toggle:hover { color: var(--text); border-color: var(--focus); }
+  .toggle.del:hover { color: var(--danger); border-color: var(--danger); }
+  .watch-star {
+    background: none; border: none; cursor: pointer; padding: 4px 6px;
+    line-height: 0; display: inline-flex; align-items: center;
+  }
+  .watch-star img { width: 22px; height: auto; display: block; transition: transform .12s ease; }
+  .watch-star:hover img { transform: scale(1.12); }
+  .watch-star .cam { position: relative; display: inline-block; width: 22px; }
+  .watch-star .cam img { position: absolute; inset: 0; }
+  .watch-star .cam .cam-nodot { position: static; }
+  .watch-star .cam .cam-dot { animation: recBlink 1.3s steps(1) infinite; }
+  @keyframes recBlink {
+    0%, 55%  { opacity: 1; }
+    56%,100% { opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .watch-star .cam .cam-dot { animation: none; opacity: 1; }
+    .watch-star:hover img { transform: none; }
+  }
+  .watch-star:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+  .toggle.del.confirming { color: var(--bg); background: var(--danger); border-color: var(--danger); }
+  /* The row's last cell: the watch camera, History and the menu. It stays a
+     table cell, so its bottom line is the row's. As a flex box it was sized
+     to its buttons rather than the row, and drew its line a few pixels above
+     the rest of it. The gap comes from margins instead. */
+  .actions { white-space: nowrap; }
+  .actions > * { vertical-align: middle; }
+  .actions > * + * { margin-left: 6px; }
+  .empty { text-align: center; color: var(--text-dim); padding: 48px 20px; font-size: 14px; }
+  .empty-scan {
+    display: inline-block; color: var(--text-dim);
+    background: linear-gradient(90deg, var(--text-dim) 25%, var(--focus) 50%, var(--text-dim) 75%);
+    background-size: 200% 100%; -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; animation: shimmer 1.6s linear infinite;
+    font-family: "IBM Plex Mono", monospace;
+  }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  @media (prefers-reduced-motion: reduce) { .empty-scan { animation: none; -webkit-text-fill-color: var(--focus); } }
+
+  tr.history-row td {
+    background: var(--panel); padding: 14px 16px 16px;
+  }
+  .history-title {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
+    margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  /* An explicit way out of the panel. The row's own button does close it, but
+     only after silently relabelling itself "Hide", which nobody thinks to look
+     for. Escape works too. */
+  .history-close {
+    background: none; border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--text-dim); font: inherit; font-size: 11px; letter-spacing: .08em;
+    text-transform: uppercase; padding: 3px 10px; cursor: pointer;
+  }
+  .history-close:hover { color: var(--text); border-color: var(--focus); }
+  .history-sub {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim);
+    letter-spacing: 0.08em; text-transform: uppercase; margin: 14px 0 8px;
+  }
+  .sessions { display: flex; flex-direction: column; gap: 6px; }
+  .session {
+    display: flex; align-items: center; gap: 10px;
+    font-family: "IBM Plex Mono", monospace; font-size: 12.5px;
+  }
+  .session .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .session .dot.on { background: var(--led-on); }
+  .session .dot.off { background: var(--led-off); }
+  .session .dur { color: var(--text-dim); }
+  .session .ongoing { color: var(--led-on); }
+  .history-empty { color: var(--text-dim); font-size: 13px; }
+  .note-flag { margin-left: 6px; font-size: 11px; opacity: .8; cursor: help; }
+  .snooze-chip { margin-left: 6px; font-size: 11px; color: var(--text-dim); white-space: nowrap; cursor: pointer; }
+  .snooze-chip:hover { color: var(--text); }
+  .snooze-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin: 12px 0 4px; }
+  .snmp-grid { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; align-items: center; margin: 12px 0; }
+  .snmp-grid label { font-size: 13px; color: var(--text-dim); }
+  .snmp-result { font-size: 13px; margin: 6px 0 2px; }
+  .snmp-result.bad { color: var(--danger); }
+  .snmp-wrap { max-height: 280px; overflow-y: auto; margin-top: 6px; }
+  .snmp-ports { width: 100%; min-width: 0; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+  .snmp-ports col.n { width: 34%; }
+  .snmp-ports td { padding: 3px 6px; border-top: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; white-space: normal; }
+  .snmp-ports td.n { font-family: "IBM Plex Mono", monospace; color: var(--text-dim); white-space: nowrap; }
+  .snmp-ports tr.counted td.who { color: var(--text); font-weight: 600; }
+  .snmp-ports td.why { color: var(--text-dim); }
+  .note-box { margin-top: 14px; }
+  .note-box label {
+    display: block; font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--text-dim); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px;
+  }
+  .note-box textarea {
+    width: 100%; min-height: 54px; resize: vertical; box-sizing: border-box;
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 8px 10px; font: inherit; font-size: 13px;
+  }
+  .note-box textarea:focus { outline: none; border-color: var(--focus); }
+  .note-box .note-save {
+    margin-top: 8px; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 6px 14px; font: inherit; font-size: 12px; cursor: pointer;
+  }
+  .note-box .note-save:hover { border-color: var(--focus); }
+
+  /* The same top padding as the other views. Devices gets its breathing room
+     from the status filters above it; Activity has nothing there, so without
+     this the cards sit right under the search and Settings buttons. */
+  .feed-wrap { padding: 14px 24px 32px; }
+  /* Traffic: a column when the monitor runs, and the cards on the Activity tab. */
+  body:not(.has-traffic) .traffic-col { display: none; }
+  td.traf { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; white-space: nowrap; color: var(--text-dim); }
+  td.traf b { font-weight: 500; color: var(--text); }
+  td.traf.quiet { color: var(--led-off); }
+  /* At least 340px a card, and up to four across, but never wider than the
+     room there is: a 320px phone has 288px once the page's margins are off. */
+  .act-cards { display: grid; gap: 14px; margin: 0 0 18px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, max(340px, (100% - 42px) / 4)), 1fr)); }
+  .act-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+  .act-card h3 { margin: 0 0 4px; font-size: 14px; }
+  .act-card .sub { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+  .talkers { display: flex; flex-direction: column; gap: 6px; }
+  .talker { display: grid; grid-template-columns: minmax(90px, 1.3fr) 110px 1fr; gap: 10px; align-items: center; font-size: 12.5px; }
+  .talker .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .talker .nm small { display: block; color: var(--text-dim); font-family: "IBM Plex Mono", monospace; font-size: 10.5px; }
+  .talker .amt { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--text-dim); text-align: right; }
+  .talker .amt b { color: var(--text); font-weight: 500; }
+  .talker .strip { display: flex; align-items: flex-end; gap: 1px; height: 22px; }
+  .talker .strip i { flex: 1; background: var(--led-on); opacity: .7; min-height: 1px; border-radius: 1px 1px 0 0; }
+  .watch-list { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
+  .watch-row { display: flex; align-items: center; gap: 10px; }
+  .watch-row .mono { font-size: 12px; }
+  .watch-row .meta { color: var(--text-dim); font-size: 11.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .watch-row .toggle { padding: 2px 8px; font-size: 11px; }
+  .watch-alert { border-left: 3px solid var(--danger); padding: 4px 10px; margin: 4px 0; font-size: 12.5px; }
+  .watch-alert .when { color: var(--text-dim); font-size: 11px; }
+  .watch-alert .det { color: var(--text-dim); }
+  .watch-note { font-size: 11.5px; color: var(--text-dim); margin-top: 8px; }
+  .traf-strip { display: flex; align-items: flex-end; gap: 2px; height: 28px; width: 100%; max-width: 640px; margin: 4px 0 8px; }
+  .traf-strip i { flex: 1; background: var(--led-on); opacity: .6; min-height: 1px; }
+  .report-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 10px 0 6px; }
+  .report-row select { min-width: 110px; }
+  .report-preview { white-space: pre-wrap; font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--text-dim); background: var(--panel-2); border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
+  .layout-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  .layout-actions .note { font-size: 12px; color: var(--text-dim); }
+  .rule-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+  .rule-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .rule-row .txt { flex: 1; min-width: 0; }
+  .rule-row .txt small { display: block; color: var(--text-dim); font-size: 11.5px; }
+  .rule-row.off .txt { opacity: .55; }
+  .rule-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  .rule-form select, .rule-form input { min-width: 0; }
+  .rule-form input[type=number] { width: 70px; } .rule-form input[type=time] { width: 110px; }
+  .quiet-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 8px 0; font-size: 13px; }
+  .quiet-row input[type=time] { width: 110px; }
+  .alert-item { border-left: 3px solid var(--led-warn); padding: 4px 10px; margin: 4px 0; font-size: 12.5px; }
+  /* Kinds are prefixed: a bare .port is the segment grid's LED square. */
+  .alert-item.k-rule { border-color: var(--focus); } .alert-item.k-dhcp, .alert-item.k-dns, .alert-item.k-security { border-color: var(--danger); }
+  .alert-item.k-cert { border-color: var(--led-warn); } .alert-item.k-wake { border-color: var(--led-on); }
+  /* The hygiene card: one line per finding, worst first. */
+  .hy-item { display: grid; grid-template-columns: 58px 1fr; gap: 8px; align-items: start; padding: 6px 4px; border-top: 1px solid var(--line); font-size: 12.5px; }
+  .hy-item:first-child { border-top: 0; }
+  .hy-item.link { cursor: pointer; }
+  .hy-item.link:hover { background: var(--panel-2); }
+  .hy-sev { font: 600 10.5px "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .06em; text-align: center; padding: 2px 0; border-radius: 4px; }
+  .hy-item.high .hy-sev { background: rgba(232, 72, 59, .16); color: var(--danger); }
+  .hy-item.medium .hy-sev { background: rgba(255, 180, 84, .14); color: var(--led-warn); }
+  .hy-item.low .hy-sev { background: var(--panel-2); color: var(--text-dim); }
+  .hy-item .who { color: var(--text-dim); margin-left: 6px; }
+  .hy-item .det { color: var(--text-dim); margin-top: 2px; }
+  /* When a device is usually online: a week of hours, Monday first. */
+  .pz { display: grid; grid-template-columns: 34px repeat(24, minmax(8px, 1fr)); gap: 2px; max-width: 560px; margin: 4px 0 10px; font-size: 10.5px; }
+  .pz .d { color: var(--text-dim); font-family: "IBM Plex Mono", monospace; align-self: center; }
+  .pz .hr { color: var(--text-dim); font-family: "IBM Plex Mono", monospace; white-space: nowrap; overflow: visible; }
+  .pz i { display: block; height: 13px; border-radius: 2px; background: color-mix(in srgb, var(--led-on) calc(var(--v) * 100%), var(--panel-2)); }
+  .pz i.na { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+  .pz-note { color: var(--text-dim); font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 6px; }
+  .v6-chip { margin-left: 6px; padding: 0 5px; font: 600 10px "IBM Plex Mono", monospace; line-height: 1.6; border-radius: 4px;
+    border: 1px solid var(--line); color: var(--text-dim); vertical-align: 1px; cursor: help; }
+  /* View only: the editing controls go, or go quiet. The server refuses the
+     changes anyway; this just stops offering them. */
+  .chip.viewonly { border-color: var(--focus); color: var(--focus); }
+  .brand .chip[hidden] { display: none; } /* display:inline-flex would otherwise beat the hidden attribute */
+  body.viewer tr .actions .more-wrap, body.viewer .map-tools .edit-only, body.viewer .scan-wrap, body.viewer #notifyTest,
+  body.viewer .hy-actions .hint { display: none !important; }
+  body.viewer .watch-star { pointer-events: none; }
+  body.viewer #settingsWrap .set-main :is(button, input, select, textarea) { pointer-events: none; opacity: .5; }
+  body.viewer #settingsWrap .set-main #authSignOut { pointer-events: auto; opacity: 1; }
+  body.viewer #settingsWrap::before {
+    grid-column: 1 / -1;
+    content: "View only: these are BAMF's settings, but the view-only password can't change them.";
+    display: block; margin: 0 0 12px; padding: 8px 12px; border-radius: var(--radius); font-size: 13px;
+    border: 1px solid var(--focus); color: var(--text);
+  }
+  /* Floor plan: the plan as an image, with a pin per device at its spot. */
+  .floor-wrap { padding: 8px 24px 32px; }
+  .floor-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .floor-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .floor-tab { background: var(--panel); color: var(--text-dim); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  .floor-tab.active { color: var(--text); border-color: var(--focus); background: var(--panel-2); }
+  .floor-tab .n { margin-left: 6px; font-size: 11px; color: var(--text-dim); }
+  .floor-tab .n.off { color: var(--danger); }
+  .floor-tools { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--text-dim); }
+  .floor-tools select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; font: inherit; }
+  #floorEdit[aria-pressed="true"] { border-color: var(--focus); color: var(--focus); }
+  .floor-edit-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; font-size: 12.5px; }
+  .floor-edit-bar .hint { color: var(--text-dim); }
+  .danger-text { color: var(--danger); }
+  .floor-main { display: flex; gap: 14px; align-items: flex-start; }
+  /* display:flex would otherwise beat the hidden attribute, so the editing
+     controls and the empty state would both sit there whatever's going on. */
+  .floor-main[hidden], .floor-edit-bar[hidden], .floor-side[hidden] { display: none; }
+  .floor-stage { position: relative; flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); overflow: hidden; user-select: none; }
+  .floor-stage img { display: block; width: 100%; height: auto; pointer-events: none; }
+  .floor-stage.editing { touch-action: none; }
+  .floor-stage.arming { cursor: crosshair; }
+  .floor-pins { position: absolute; inset: 0; }
+  .fp-pin { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; z-index: 1; }
+  .fp-pin:hover { z-index: 3; }
+  .fp-pin .ico { position: relative; width: 30px; height: 30px; border-radius: 50%; background: var(--panel); border: 2.5px solid var(--led-off);
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0, 0, 0, .45); }
+  .fp-pin .ico svg { width: 17px; height: 17px; fill: none; stroke: var(--text); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .fp-pin.on .ico { border-color: var(--led-on); }
+  .fp-pin.warn .ico { border-color: var(--led-warn); }
+  .fp-pin.off .ico { border-color: var(--danger); }
+  .fp-pin.off .ico svg { opacity: .55; }
+  /* An offline device calls out: a ring that swells and fades. */
+  .fp-pin.off .ico::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--danger); animation: fp-ring 1.8s ease-out infinite; }
+  @keyframes fp-ring { from { transform: scale(.7); opacity: .9; } to { transform: scale(1.5); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .fp-pin.off .ico::after { animation: none; opacity: .6; } }
+  .fp-pin .lbl { font-size: 11px; line-height: 1.4; background: rgba(10, 14, 20, .78); color: #f2f5f8; padding: 0 6px; border-radius: 8px; white-space: nowrap; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+  .fp-pin.sel .ico { outline: 2px solid var(--focus); outline-offset: 3px; }
+  .fp-pin .rm { position: absolute; top: -10px; right: -12px; width: 18px; height: 18px; border-radius: 50%; border: 0; padding: 0;
+    background: var(--danger); color: #fff; font: 700 11px/18px sans-serif; cursor: pointer; display: none; }
+  .fp-pin.sel .rm { display: block; }
+  .floor-stage.dragging .fp-pin { cursor: grabbing; }
+  .floor-side { width: 270px; flex: none; display: flex; flex-direction: column; gap: 8px; }
+  .floor-side .modal-input { width: 100%; min-width: 0; margin: 0; }
+  .floor-list { max-height: 70vh; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+  .fl-sec { padding: 6px 10px 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-dim); }
+  /* A group of devices that share a switch or an SSID, with the button that
+     puts the lot of them on the plan at once. */
+  .fl-sec.grp { display: flex; align-items: baseline; gap: 8px; }
+  .fl-sec.grp button { margin-left: auto; background: none; border: 0; padding: 2px 4px; color: var(--focus); font: inherit; font-size: 11px; text-transform: none; letter-spacing: 0; cursor: pointer; }
+  .fl-sec.grp button:hover { text-decoration: underline; }
+  .fl-sec.grp.armed button { color: var(--led-warn); }
+  .fl-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; border: 0; background: none; color: var(--text); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+  .fl-item:hover { background: var(--panel-2); }
+  .fl-item.armed { background: var(--panel-2); box-shadow: inset 3px 0 0 var(--focus); }
+  .fl-item .d { width: 8px; height: 8px; border-radius: 50%; background: var(--led-off); flex: none; }
+  .fl-item .d.on { background: var(--led-on); }
+  .fl-item small { margin-left: auto; color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+  body.viewer .floor-wrap .edit-only { display: none !important; }
+  /* ---- Drawing a plan ---- */
+  .plan-ed { position: fixed; inset: 0; z-index: 9000; display: flex; flex-direction: column; background: var(--bg); }
+  .plan-ed[hidden] { display: none; }
+  .plan-top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .plan-top .sp { flex: 1 1 auto; }
+  .plan-tool { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  .plan-tool.on { border-color: var(--focus); color: var(--focus); }
+  .plan-scale { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-dim); }
+  .plan-scale input { width: 56px; }
+  .plan-scale input, .plan-scale select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; font: inherit; font-size: 12.5px; }
+  .plan-hint { padding: 6px 16px; font-size: 12px; color: var(--text-dim); border-bottom: 1px solid var(--line); background: var(--panel); }
+  .plan-canvas { flex: 1; min-height: 0; overflow: auto; padding: 16px; display: flex; justify-content: center; align-items: flex-start; position: relative; }
+  .plan-canvas svg { background: #f6f3ec; border: 1px solid var(--line); border-radius: 6px; touch-action: none; }
+  .plan-len { position: absolute; width: 92px; padding: 4px 6px; font: 12px "IBM Plex Mono", monospace; text-align: center;
+    background: var(--panel); color: var(--text); border: 1px solid var(--focus); border-radius: 6px; }
+  .plan-len[hidden] { display: none; }
+  .floor-plan-svg svg { display: block; width: 100%; height: auto; }
+  .floor-plan-svg[hidden] { display: none; }
+  /* The plan itself, drawn the same way in the editor and on the floor. */
+  .fp-wall { stroke: #2f2a24; stroke-width: calc(7 * var(--fpk, 1)); stroke-linecap: square; }
+  .fp-open { stroke: #f6f3ec; stroke-width: calc(9 * var(--fpk, 1)); stroke-linecap: butt; }
+  .fp-door { stroke: #8a7a63; stroke-width: calc(2 * var(--fpk, 1)); fill: none; }
+  .fp-win { stroke: #5f7f9a; stroke-width: calc(3 * var(--fpk, 1)); }
+  .fp-label { fill: #4a4034; font: 600 calc(17px * var(--fpk, 1)) "Space Grotesk", system-ui, sans-serif; }
+  .fp-meas { fill: #8a7a63; font: calc(11px * var(--fpk, 1)) "IBM Plex Mono", monospace; }
+  .fp-grid { stroke: #ded7c8; stroke-width: calc(1 * var(--fpk, 1)); }
+  .fp-grid.big { stroke: #cdc3ae; }
+  .fp-ghost { stroke: #2f80c2; stroke-width: calc(5 * var(--fpk, 1)); stroke-linecap: round; stroke-dasharray: 8 6; }
+  .fp-snap { fill: none; stroke: #2f80c2; stroke-width: calc(2 * var(--fpk, 1)); }
+  @media (max-width: 700px) {
+    .plan-top { padding: 8px 12px; }
+    .plan-canvas { padding: 8px; }
+  }
+  @media (max-width: 700px) {
+    .floor-wrap { padding-left: 16px; padding-right: 16px; }
+    .floor-main { flex-direction: column; }
+    .floor-side { width: 100%; }
+    .floor-list { max-height: 40vh; }
+    .fp-pin .lbl { max-width: 90px; }
+  }
+  /* What changed. */
+  .chg-sec { margin-top: 8px; }
+  .chg-sec:first-child { margin-top: 0; }
+  .chg-sec h4 { margin: 0 0 3px; font-size: 12px; font-weight: 600; color: var(--text-dim); }
+  .chg-item { display: flex; gap: 8px; align-items: baseline; font-size: 12.5px; padding: 2px 4px; border-radius: 4px; }
+  .chg-item.link { cursor: pointer; } .chg-item.link:hover { background: var(--panel-2); }
+  .chg-item .det { color: var(--text-dim); font-family: "IBM Plex Mono", monospace; font-size: 11.5px; }
+  .chg-item .when { margin-left: auto; color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+  .chg-more { font-size: 11.5px; color: var(--text-dim); padding-left: 4px; }
+  .act-card h3 .free-days { font-size: 12px; font-weight: 400; margin-left: 6px; }
+  /* Find a free address. */
+  .free-days { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; font: inherit; }
+  .free-net { padding: 10px 0; border-top: 1px solid var(--line); }
+  .free-net:first-child { border-top: 0; }
+  .free-head { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; flex-wrap: wrap; }
+  .free-head span { color: var(--text-dim); font-size: 12px; }
+  .free-gauge { height: 8px; border-radius: 4px; background: var(--panel-2); margin: 6px 0; overflow: hidden; box-shadow: inset 0 0 0 1px var(--line); }
+  .free-gauge i { display: block; height: 100%; background: var(--led-on); border-radius: 4px; }
+  .free-gauge.busy i { background: var(--led-warn); } .free-gauge.full i { background: var(--danger); }
+  .free-pick { font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .free-pick .toggle { padding: 2px 10px; font-size: 12px; }
+  .free-runs { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--text-dim); }
+  .free-runs .n { margin-left: 5px; font-size: 11px; opacity: .8; }
+  .free-runs .n::before { content: "("; } .free-runs .n::after { content: ")"; }
+  /* The internet watch: a day of minutes as one strip, newest on the right. */
+  .wan-state { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .wan-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--led-off); flex: none; }
+  .wan-dot.up { background: var(--led-on); }
+  .wan-dot.down { background: var(--danger); }
+  .wan-dot.slow { background: var(--led-warn); }
+  .wan-now { font: 600 14px "Space Grotesk", system-ui, sans-serif; }
+  .wan-ms { color: var(--text-dim); font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+  .wan-strip { display: flex; gap: 1px; height: 26px; align-items: flex-end; margin: 8px 0 4px; overflow: hidden; }
+  .wan-strip i { flex: 1 1 0; min-width: 2px; background: var(--led-on); border-radius: 1px; height: 40%; }
+  .wan-strip i.down { background: var(--danger); height: 100%; }
+  .wan-strip i.local { background: var(--led-warn); height: 100%; }
+  .wan-strip i.gap { background: var(--line); height: 18%; }
+  .wan-strip i.slow { background: var(--led-warn); height: 70%; }
+  .wan-scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); }
+  .wan-outage { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; padding: 3px 0; border-top: 1px solid var(--line); }
+  .wan-outage .dur { color: var(--danger); font-family: "IBM Plex Mono", monospace; }
+  .wan-outage.local .dur { color: var(--led-warn); }
+  .wan-outage.slow .dur { color: var(--led-warn); }
+  .wan-outage.running .dur::after { content: " so far"; color: var(--text-dim); }
+  /* The speed test, under the internet watch on the same card. */
+  .spd { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .spd-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .spd-head h4 { margin: 0; font-size: 13px; font-weight: 600; }
+  .spd-now { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+  .spd-now .v { font: 600 22px/1.1 "IBM Plex Mono", monospace; }
+  .spd-now .u { font-size: 12px; color: var(--text-dim); margin-left: 3px; }
+  .spd-now .arrow { color: var(--text-dim); margin-right: 3px; }
+  .spd-meta { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+  .spd-meta .bad { color: var(--led-warn); }
+  .spd-chart { display: block; width: 100%; height: 64px; margin: 10px 0 2px; }
+  .spd-chart .dn { fill: var(--focus); opacity: .75; }
+  .spd-chart .upl { fill: none; stroke: var(--text); stroke-width: 2; opacity: .85; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+  .spd-chart .fail { fill: var(--danger); }
+  .spd-chart .grid { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .spd-key { display: inline-flex; align-items: center; gap: 4px; }
+  .spd-key i { display: inline-block; width: 10px; height: 8px; border-radius: 1px; background: var(--focus); opacity: .75; }
+  .spd-key i.up { height: 2px; background: var(--text); opacity: .85; }
+  .spd-running { font-family: "IBM Plex Mono", monospace; font-size: 13px; }
+  .spd-running::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px;
+    background: var(--focus); animation: spd-pulse 1s ease-in-out infinite alternate; }
+  @keyframes spd-pulse { from { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { .spd-running::before { animation: none; } }
+  body.viewer #spdRun, body.viewer #setSpeedRun { display: none !important; }
+  .gn-row { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12.5px; }
+  .gn-row a { color: var(--focus); text-decoration: none; }
+  .gn-row a:hover { text-decoration: underline; }
+  /* The GreyNoise check is a button, not a line of link text: it reads as
+     something you press. Full width because it carries its question. */
+  .gn-row a.gn-btn, .gn-row a.gn-btn:hover { text-decoration: none; }
+  .gn-btn {
+    display: flex; flex-direction: column; gap: 3px; width: 100%; box-sizing: border-box;
+    margin-top: 2px; padding: 10px 14px; text-align: left;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  .gn-btn:hover { border-color: var(--focus); }
+  .gn-btn .gn-go { font-size: 13px; color: var(--focus); }
+  .gn-btn .gn-ask { font-size: 11.5px; color: var(--text-dim); }
+  .gn-status { margin-top: 4px; color: var(--text-dim); font-size: 12px; }
+  .gn-status.bad { color: var(--danger); }
+  .hy-more { margin-top: 6px; background: none; border: 0; padding: 2px 4px; color: var(--focus); font: inherit; font-size: 12px; cursor: pointer; }
+  .hy-more:hover { text-decoration: underline; }
+  .hy-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .hy-actions .export-btn { white-space: nowrap; flex-shrink: 0; }
+  .hy-actions .hint { font-size: 11.5px; color: var(--text-dim); }
+  .alert-item .when { color: var(--text-dim); font-size: 11px; margin-left: 6px; }
+  .alert-item .det { color: var(--text-dim); }
+  .port-hist { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+  .port-hist .port-chip.was { opacity: .55; text-decoration: line-through; }
+  .traf-week { display: flex; align-items: flex-end; gap: 1px; height: 44px; width: 100%; max-width: 640px; margin: 4px 0 8px; }
+  .traf-week i { flex: 1; background: var(--led-on); opacity: .65; min-height: 1px; }
+  .traf-week i.day { border-left: 1px solid var(--line); }
+  .tl { display: flex; flex-direction: column; gap: 3px; margin: 4px 0 10px; max-height: 260px; overflow-y: auto; }
+  .tl-item { display: grid; grid-template-columns: 118px 14px 1fr; gap: 8px; align-items: baseline; font-size: 12.5px; }
+  .tl-item .when { color: var(--text-dim); font-family: "IBM Plex Mono", monospace; font-size: 11px; white-space: nowrap; }
+  .tl-item .ico { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); display: inline-block; }
+  /* Kinds are prefixed, as on alerts: a bare .port is the segment grid's LED square. */
+  .tl-item.k-online .ico { background: var(--led-on); } .tl-item.k-offline .ico { background: var(--led-off); }
+  .tl-item.k-address .ico { background: var(--focus); } .tl-item.k-port .ico { background: var(--led-warn); border-radius: 2px; }
+  .tl-item.k-portclosed .ico { background: var(--led-off); border-radius: 2px; } .tl-item.k-alert .ico { background: var(--danger); }
+  .tl-item.k-first .ico { background: var(--text); }
+  tr.is-remote td { opacity: .9; }
+  .remote-chip { display: inline-block; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+  .nettab .remote-tag { margin-left: 6px; font-size: 10px; color: var(--text-dim); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; }
+  /* Settings: a list of sections down the side, one section showing at a time. */
+  .settings-wrap { padding: 8px 24px 32px; max-width: 1060px; display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 24px; align-items: start; }
+  .settings-wrap[hidden] { display: none; }
+  .set-nav { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 2px; }
+  .set-nav .set-find { width: 100%; min-width: 0; margin: 0 0 8px; box-sizing: border-box; }
+  .set-nav button { text-align: left; background: none; border: 1px solid transparent; border-radius: var(--radius);
+    padding: 8px 12px; color: var(--text-dim); font: inherit; font-size: 14px; cursor: pointer; }
+  .set-nav button:hover { color: var(--text); background: var(--panel); }
+  .set-nav button.active { color: var(--text); background: var(--panel); border-color: var(--line); }
+  .set-sec { display: none; }
+  .set-sec.show { display: block; }
+  .set-sec > .set-actions { margin-bottom: 16px; }
+  .set-sec-title { display: none; margin: 4px 0 8px; font: 600 11px "IBM Plex Mono", monospace; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--text-dim); }
+  .settings-wrap.searching .set-sec-title { display: block; }
+  .settings-wrap .set-miss { display: none !important; }
+  .set-none { color: var(--text-dim); padding: 24px 4px; }
+  @media (max-width: 760px) {
+    .settings-wrap { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .set-nav { position: static; flex-direction: row; flex-wrap: wrap; gap: 6px; }
+    .set-nav .set-find { flex-basis: 100%; margin: 0 0 2px; }
+    .set-nav button { padding: 6px 12px; font-size: 13px; border-color: var(--line); }
+  }
+  .set-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; margin-bottom: 16px;
+  }
+  .set-card-title { font-weight: 600; margin-bottom: 6px; }
+  .set-row {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; padding: 10px 0; border-top: 1px solid var(--line);
+  }
+  .set-label { display: flex; flex-direction: column; gap: 2px; }
+  .set-hint { color: var(--text-dim); font-size: 12px; font-weight: 400; }
+  /* Fixed width so the input's left edge lines up down the column: without it
+     the rows carrying a unit label ("seconds", "days") sit further left than
+     the ones that don't. */
+  .set-field { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; width: 180px; }
+  /* Three overrides of the dialog input styling, all needed:
+     min-width, because .modal-input carries min-width:220px, which wins over
+     a narrower width and leaves the box its full size; width, for the box
+     itself; and margin-left, because .modal-input is pushed right by
+     margin-left:auto for dialogs. That last one was why these boxes never
+     lined up - each was shoved against its own unit word, so "seconds",
+     "days", "scans" and no unit at all each put the box somewhere different.
+     Flush left in the field instead, and the units line up as their own
+     column after them. */
+  .set-field .modal-input { width: 110px; min-width: 0; margin-left: 0; }
+  .night-fields { width: auto; flex-wrap: wrap; }
+  /* The speed test's schedule, Save and Run now: the schedule reads in full, and the buttons go under it. */
+  .speed-fields { width: 180px; flex-wrap: wrap; }
+  .speed-fields .modal-input { width: 100%; }
+  /* Settings → Scanning → Networks: adding one, and the ones this machine is on. */
+  .set-net-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+  .set-net-add .modal-input { width: 180px; min-width: 0; margin-left: 0; }
+  .set-net-found { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; font-size: 12px; color: var(--text-dim); }
+  .set-net-found button { font: inherit; font-size: 12px; cursor: pointer; color: var(--text); background: var(--panel-2);
+    border: 1px dashed var(--line); border-radius: 999px; padding: 3px 10px; }
+  .set-net-found button:hover { border-color: var(--focus); }
+  .set-net-rm { font: inherit; font-size: 15px; line-height: 1; cursor: pointer; color: var(--text-dim); background: none;
+    border: 1px solid transparent; border-radius: 6px; padding: 2px 7px; }
+  .set-net-rm:hover { color: var(--danger); border-color: var(--line); }
+  .set-net-source { margin-top: 10px; font-size: 12px; color: var(--text-dim); }
+  /* On a phone the table stacks, so the remove button sits in each network's corner. */
+  @media (max-width: 700px) {
+    #setNetTable tr { position: relative; }
+    #setNetTable td.set-net-rm-cell { position: absolute; top: 6px; right: 0; border: 0; padding: 0; }
+  }
+  .set-net-source button { font: inherit; font-size: 12px; color: var(--focus); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+  /* The first-run setup, on a new install. */
+  .setup-modal { width: min(520px, 94vw); }
+  .setup-step { border-top: 1px solid var(--line); padding: 14px 0 6px; }
+  .setup-h { font-weight: 600; margin-bottom: 6px; }
+  .setup-net { display: flex; align-items: center; gap: 10px; padding: 5px 0; font-size: 13px; }
+  .setup-net .mono { font-size: 13px; }
+  .setup-net .if { color: var(--text-dim); font-size: 12px; }
+  .setup-net.off { color: var(--text-dim); }
+  .setup-pw { display: flex; flex-wrap: wrap; gap: 8px; }
+  .setup-pw .modal-input { flex: 1 1 180px; min-width: 0; margin-left: 0; }
+  .setup-open { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-size: 12px; color: var(--text-dim); cursor: pointer; }
+  .setup-modal .modal-actions { align-items: center; margin-top: 12px; }
+  .setup-modal .modal-actions .set-result { margin-right: auto; }
+  /* Settings → System: MQTT, other BAMF servers and the webhooks' token. */
+  .int-fields { width: 260px; flex-wrap: wrap; }
+  .int-fields .modal-input { width: 100%; }
+  .int-status { font-size: 12px; color: var(--text-dim); margin: 0 0 8px; }
+  .int-status b { color: var(--text); font-weight: 600; }
+  .int-status.bad b { color: var(--danger); }
+  .int-token { display: block; margin-top: 8px; padding: 8px 10px; border: 1px dashed var(--focus); border-radius: var(--radius);
+    font: 13px "IBM Plex Mono", monospace; word-break: break-all; user-select: all; }
+  .rm-table td { vertical-align: middle; }
+  .rm-table .rm-url { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim); }
+  .rm-table .rm-none { color: var(--text-dim); font-size: 12px; text-align: left; padding: 6px 0; }
+  .rm-add { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 10px; }
+  .rm-add .modal-input { flex: 1 1 140px; min-width: 0; margin-left: 0; }
+  /* Settings → Security → Sign-in: a password box and its buttons in each row. */
+  .auth-fields { width: 220px; flex-wrap: wrap; }
+  .auth-fields .modal-input { width: 100%; }
+  .auth-state { color: var(--text-dim); font-size: 12px; }
+  .auth-state b { color: var(--text); font-weight: 600; }
+  .night-fields input[type="time"] { width: auto; }
+  .set-field.night-fields select.modal-input { width: auto; max-width: 200px; }
+  .phone-setup { margin: -2px 0 12px; }
+  .phone-steps { margin: 12px 0 0; padding-left: 20px; color: var(--text-dim); font-size: 13px; line-height: 1.55; }
+  .phone-steps li + li { margin-top: 10px; }
+  .phone-steps b { color: var(--text); }
+  .phone-steps .note { display: block; margin-top: 4px; font-size: 12px; color: var(--text-dim); }
+  .phone-topic { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 4px; }
+  .phone-topic .mono { color: var(--text); background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 9px; user-select: all; word-break: break-all; }
+  .phone-go { margin-top: 8px; }
+
+  /* In the Notifications card the URL is the point of the row: let it and the
+     format picker take the width the dialog never had. */
+  .set-card .modal-row .modal-input, .set-card .modal-row select { flex: 1 1 auto; min-width: 0; max-width: 560px; }
+  .set-unit { color: var(--text-dim); font-size: 12px; white-space: nowrap; }
+  /* min-width:0 undoes the global `table { min-width: 880px }`, which exists so
+     the devices grid scrolls horizontally. Inherited here it pushes this table
+     clean past the card it sits in. */
+  .set-table { width: 100%; border-collapse: collapse; min-width: 0; }
+  .set-table td { padding: 8px 0; border-top: 1px solid var(--line); vertical-align: middle; }
+  .set-table td:last-child { text-align: right; }
+  .set-table .set-net { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .set-table td:first-child { width: 1%; padding-right: 12px; white-space: nowrap; }
+  .set-table .set-net-toggle { padding: 4px 6px; }
+  .set-table tr.set-net-paused .set-net,
+  .set-table tr.set-net-paused .set-eff { color: var(--text-dim); }
+  .set-table tr.set-net-paused .set-net-input { opacity: .45; }
+  .set-table .set-eff { color: var(--text-dim); font-size: 12px; }
+  /* Settings → Security → HTTPS: what the certificate covers. */
+  .https-cert { margin: 4px 0 10px; font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+  #httpsStatus.bad { color: var(--danger); }
+  #httpsStatus a { color: var(--focus); text-decoration: none; }
+  #httpsDownload { text-decoration: none; }
+  .https-late { color: var(--led-warn); font-weight: 600; }
+  .https-cert .mono { font-family: "IBM Plex Mono", monospace; overflow-wrap: anywhere; }
+  /* Same min-width override as above; left inherited, the 220px box shoves the
+     whole table past the card's right edge. */
+  .set-table .set-net-input { width: 110px; min-width: 0; }
+  .set-ro { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 13px; }
+  .set-ro dt, .set-ro .set-ro-k { color: var(--text-dim); }
+  .set-ro .set-ro-v { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+  .set-actions { display: flex; align-items: center; gap: 10px; }
+  .set-result { font-size: 13px; }
+  .set-result.ok { color: var(--led-on); }
+  .set-result.err { color: var(--danger); }
+  .set-table .sw-name { font-weight: 600; }
+  #swDelete { color: var(--danger); margin-right: auto; }
+  #plugNewSwitch { margin-right: auto; }
+  #portsEditSwitch { margin-right: auto; }
+  /* The Ports dialog: one row per port, a device picker in each. */
+  .ports-table { width: 100%; border-collapse: collapse; min-width: 0; margin-bottom: 10px; }
+  .ports-table td { padding: 4px 0; vertical-align: middle; }
+  .ports-table td.pn { width: 1%; white-space: nowrap; padding-right: 12px; color: var(--text-dim);
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+  .ports-table select {
+    width: 100%; min-width: 0; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 8px; font: inherit; font-size: 13px;
+  }
+  .ports-table select.dup { border-color: var(--danger); }
+  /* Location: where the port's cable goes, e.g. "Living Room". */
+  .ports-table td.loc { width: 36%; padding-left: 8px; }
+  .ports-table input.loc-input {
+    width: 100%; min-width: 0; box-sizing: border-box; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 8px; font: inherit; font-size: 13px;
+  }
+  .ports-table th { text-align: left; font-weight: 400; color: var(--text-dim); font-size: 11px;
+    font-family: "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .05em; padding: 0 0 4px; }
+  .ports-table th.loc { padding-left: 8px; }
+  /* Stays a table on phones. The phone layout turns every table, thead, tr and
+     td into stacked cards for the device list; these class selectors outrank
+     those bare ones, and undo the card styling that comes with them. */
+  .ports-table { display: table; }
+  .ports-table tbody { display: table-row-group; }
+  .ports-table tr { display: table-row; background: none; border: 0; border-radius: 0; margin: 0; padding: 0; position: static; }
+  .ports-table td, .ports-table th { display: table-cell; border: 0; }
+  .ports-table .sub-sw { font-size: 13px; color: var(--text-dim); padding: 6px 0; }
+  /* Find port: BAMF pulses a device's traffic so its switch-port light blinks. */
+  .blink-box {
+    margin: 2px 0 12px; padding: 10px 12px; font-size: 13px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  .blink-line { display: flex; align-items: center; gap: 10px; }
+  .blink-text { flex: 1; min-width: 0; }
+  /* The dots pulse in step with the switch light: bright while a burst is
+     going out, dim between bursts. */
+  .blink-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--led-off); flex: 0 0 auto; }
+  .blink-on .blink-dot { background: var(--led-on); box-shadow: 0 0 8px var(--led-on); }
+  .blink-box.done .blink-dot, .blink-box.err .blink-dot { background: var(--led-off); box-shadow: none; }
+  .blink-bar {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 450;
+    display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px);
+    background: var(--panel); border: 1px solid var(--focus); border-radius: 999px;
+    padding: 8px 10px 8px 14px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
+  .blink-bar[hidden] { display: none; }
+  /* The device being blinked, on the Map and in the list: a dashed ring for
+     the whole run, filled while each burst goes out. */
+  .map-svg .blink-ring { fill: none; stroke: none; }
+  .map-svg .node.blinking .blink-ring { stroke: var(--focus); stroke-width: 2; stroke-dasharray: 3 3; }
+  .map-svg .node.blink-on .blink-ring { fill: var(--focus); fill-opacity: .35; stroke-width: 2.5; stroke-dasharray: none; }
+  .map-svg .node.blink-on .dot { fill: var(--focus); }
+  tr.blinking td:first-child { box-shadow: inset 3px 0 0 var(--focus); }
+
+  /* ---- topology Map ---- */
+  .map-style { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin: 0 0 12px; }
+  .map-style button { background: none; border: 0; color: var(--text-dim); padding: 6px 12px; font: inherit; font-size: 12.5px; cursor: pointer; }
+  .map-style button.active { background: var(--panel-2); color: var(--text); }
+  .map-scope { margin-left: 8px; }
+  .map-scope[hidden] { display: none; }
+  .map-net-legend { margin-top: -6px; }
+  .map-net-legend[hidden] { display: none; }
+  .map-svg .t-net { stroke: var(--panel); stroke-width: 1.5; }
+  .map-tools { display: inline-flex; gap: 6px; margin-left: 8px; }
+  .map-tools button { padding: 3px 9px; font-size: 12px; }
+  .map-clusters.single.topo { max-width: none; }
+  .topo-frame { position: relative; height: min(640px, 76vh); border-top: 1px solid var(--line); margin: 8px -14px -8px; overflow: hidden; }
+  /* The wheel and a one-finger swipe scroll the page past a map; zooming is
+     Ctrl + wheel, a pinch, or the buttons. On touch, pan-y hands vertical
+     swipes on the background to the page; nodes keep every gesture so they
+     can still be dragged. */
+  .map-svg.topo { width: 100%; height: 100%; touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
+  .map-svg.topo .tnode, .map-svg.topo .tbox { touch-action: none; }
+  .topo-hint {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 8px 14px; font-size: 13px; color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    opacity: 0; transition: opacity .2s;
+  }
+  .topo-hint.show { opacity: 1; }
+  .map-svg.topo.panning { cursor: grabbing; }
+  .map-svg path.spoke { fill: none; }
+  .map-svg .tnode { cursor: pointer; }
+  .map-svg .tnode.dragging { cursor: grabbing; opacity: .85; }
+  .map-svg .t-tile { fill: var(--panel-2); stroke: var(--line); stroke-width: 1.5; }
+  .map-svg .node.on .t-tile { stroke: var(--led-on); }
+  .map-svg .node.unknown .t-tile { stroke: var(--led-warn); stroke-width: 2.5; }
+  .map-svg .node.gw .t-tile, .map-svg .node.self .t-tile { stroke: var(--focus); stroke-width: 2; }
+  .map-svg .node.sw .t-tile { stroke-width: 2; }
+  .map-svg .node.sw.on .t-tile { stroke: var(--led-on); }
+  .map-svg .t-watch { fill: none; stroke: var(--focus); stroke-width: 1.5; display: none; }
+  .map-svg .node.watched .t-watch { display: inline; }
+  .map-svg .t-icon { fill: none; stroke: var(--text); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .map-svg .node.off .t-icon { opacity: .45; }
+  .map-svg .t-name { font: 600 11px "IBM Plex Mono", monospace; fill: var(--text); }
+  .map-svg .node.off .t-name { fill: var(--text-dim); }
+  .map-svg .t-sub { font: 10px "IBM Plex Mono", monospace; fill: var(--text-dim); }
+  .map-svg .t-port { font: 10px "IBM Plex Mono", monospace; fill: var(--text-dim); }
+  .map-svg .t-box { fill: color-mix(in srgb, var(--panel-2) 45%, transparent); stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 5 4; }
+  .map-svg .t-box-title { font: 600 11px "IBM Plex Mono", monospace; fill: var(--text-dim); }
+  /* A virtual switch lives inside its machine: dashed tile, dashed link to it. */
+  .map-svg .node.virtual .t-tile { stroke-dasharray: 3 2; }
+  .map-svg path.spoke.vlink { stroke: var(--text-dim); stroke-dasharray: 4 3; }
+  /* The Map icon picker. */
+  .os-guess.type-set { cursor: pointer; }
+  .os-guess.type-set:hover { color: var(--text); text-decoration: underline dotted; }
+  .type-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; margin: 10px 0 12px; }
+  .type-opt {
+    display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 9px 4px 7px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--text); font: inherit; font-size: 12px; cursor: pointer; text-align: center;
+  }
+  .type-opt:hover { border-color: var(--focus); }
+  .type-opt.sel { border-color: var(--focus); box-shadow: inset 0 0 0 1px var(--focus); }
+  .type-opt svg, .type-ico { width: 24px; height: 24px; flex: 0 0 auto; }
+  .type-opt path, .type-ico path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .type-opt .auto-note { color: var(--text-dim); font-size: 10.5px; }
+  .type-all { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 0 0 8px; }
+  .set-table .type-cell { display: inline-flex; align-items: center; gap: 8px; }
+  .vm-badge { font-size: 11px; color: var(--focus); margin-left: 6px; white-space: nowrap; }
+  .vm-table { width: 100%; border-collapse: collapse; min-width: 0; margin-bottom: 10px; display: table; }
+  .vm-table tbody { display: table-row-group; }
+  .vm-table tr { display: table-row; background: none; border: 0; border-radius: 0; margin: 0; padding: 0; position: static; }
+  .vm-table td { display: table-cell; border: 0; padding: 5px 0; font-size: 13px; vertical-align: middle; }
+  .vm-table td:first-child { width: 1%; padding-right: 10px; }
+  .vm-table td.vm-net { padding: 10px 0 3px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
+  .vm-table tr:first-child td.vm-net { padding-top: 0; }
+  .vm-table .vm-ip { color: var(--text-dim); font-family: "IBM Plex Mono", monospace; font-size: 12px; margin-left: 6px; }
+  .map-svg .drop-target .t-tile, .map-svg .t-box.drop-target { stroke: var(--focus); stroke-width: 3; stroke-dasharray: none; }
+  .map-svg .node:focus-visible .t-tile { stroke: var(--focus); stroke-width: 3; }
+  @media (max-width: 700px) { .topo-frame { height: 70vh; margin: 8px -14px -8px; } }
+  /* A map opened full screen: the card covers the window, its drawing fills it. */
+  body.map-expanded { overflow: hidden; }
+  .map-card.expanded { position: fixed; inset: 0; z-index: 420; border-radius: 0; border: 0; display: flex; flex-direction: column; }
+  .map-card.expanded .topo-frame { flex: 1; height: auto !important; margin: 8px -14px -8px; }
+  tr.blink-on td { background: color-mix(in srgb, var(--focus) 16%, transparent); }
+  .blink-box.err .blink-text { color: var(--danger); }
+  .blink-help { color: var(--text-dim); font-size: 12px; margin-top: 6px; line-height: 1.5; }
+  .ports-find { display: flex; gap: 8px; margin-bottom: 8px; }
+  .ports-find select {
+    flex: 1 1 auto; min-width: 0; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 8px; font: inherit; font-size: 13px;
+  }
+  /* A 16- or 24-port switch is taller than the dialog; keep Save in view
+     while the ports scroll, rather than parking it below the last port. */
+  #portsModal .modal-actions {
+    position: sticky; bottom: -20px; margin: 6px -20px -20px; padding: 12px 20px 20px;
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  @media (max-width: 620px) {
+    .set-row { flex-direction: column; gap: 6px; }
+    .set-ro { grid-template-columns: 1fr; }
+  }
+  .home-wrap { padding: 8px 24px 32px; }
+  .home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+
+  /* Network map. One card per network; the drawing scales with its viewBox,
+     so a card never scrolls sideways. */
+  .map-wrap { padding: 4px 24px 32px; }
+  .map-note { color: var(--text-dim); font-size: 12.5px; line-height: 1.55; margin: 8px 0 10px; max-width: 900px; }
+  .map-note strong { color: var(--text); font-weight: 600; }
+  .map-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; margin-bottom: 14px;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim); }
+  .map-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .map-legend svg { width: 16px; height: 16px; overflow: visible; }
+  .map-clusters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 14px; }
+  .map-clusters.single { grid-template-columns: minmax(0, 1fr); max-width: 900px; }
+  .map-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px 8px; min-width: 0; }
+  .map-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+  .map-net { color: var(--text); font-weight: 600; }
+  .map-cnt { color: var(--text-dim); }
+  .map-tag { margin-left: auto; color: var(--text-dim); font-size: 11px; }
+  .map-empty { color: var(--text-dim); font-size: 13px; padding: 28px 4px; text-align: center; }
+  .map-svg { display: block; width: 100%; height: auto; }
+  .map-svg .spoke { stroke: var(--line); stroke-width: 1; }
+  .map-svg .spoke.off { stroke-dasharray: 3 3; }
+  /* A wireless connection: a lightning bolt from an SSID to its device. */
+  .map-svg .spoke.bolt { fill: none; stroke: var(--led-warn); stroke-width: 1.8; stroke-linejoin: miter; stroke-linecap: round; }
+  .map-svg .spoke.bolt.off { stroke: var(--led-off); }
+  /* A VPN client: a dotted tunnel, not a cable. */
+  .map-svg .spoke.tunnel { fill: none; stroke: var(--focus); stroke-width: 1.6; stroke-dasharray: 1 4; stroke-linecap: round; }
+  .map-svg .spoke.tunnel.off { stroke: var(--led-off); }
+  .map-head .map-nets { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; color: var(--text-dim); }
+  .map-head .map-nets span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .map-head .map-nets i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .gw-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+  .gw-row { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; cursor: pointer; }
+  .gw-row input { grid-row: span 2; align-self: center; }
+  .gw-row .gw-now { grid-column: 2; font-size: 12px; color: var(--text-dim); }
+  .gw-row.disabled { cursor: default; opacity: .6; }
+  .card-row { display: flex; align-items: center; gap: 10px; }
+  .card-row .card-what { flex: 1; min-width: 0; }
+  .card-row .card-what small { display: block; color: var(--text-dim); font-size: 12px; }
+  .map-svg .hub { fill: var(--panel-2); stroke: var(--line); stroke-width: 1.5; }
+  .map-svg .hub-txt { font: 600 11px "IBM Plex Mono", monospace; fill: var(--text); text-anchor: middle; dominant-baseline: central; }
+  .map-svg .node { cursor: pointer; }
+  .map-svg .node:focus { outline: none; }
+  .map-svg .dot { fill: var(--led-off); stroke: var(--panel); stroke-width: 1.5; }
+  .map-svg .node.on .dot { fill: var(--led-on); }
+  .map-svg .node.unknown .dot { stroke: var(--led-warn); stroke-width: 2.5; }
+  .map-svg .watch { fill: none; stroke: var(--focus); stroke-width: 1.5; display: none; }
+  .map-svg .node.watched .watch { display: inline; }
+  .map-svg .gw-shape { fill: var(--led-off); stroke: var(--focus); stroke-width: 2; }
+  .map-svg .node.on .gw-shape { fill: var(--led-on); }
+  .map-svg .self-shape { fill: var(--panel); stroke: var(--focus); stroke-width: 2.5; }
+  .map-svg .self-core { fill: var(--focus); }
+  .map-svg .node:hover .shape, .map-svg .node:focus-visible .shape { stroke: var(--focus); stroke-width: 3; }
+  .map-svg .node.synthetic { cursor: default; }
+  .map-svg .node.synthetic.gw { opacity: .75; }
+  .map-svg .lbl { font: 10px "IBM Plex Mono", monospace; fill: var(--text-dim); }
+  .map-svg .node.on .lbl { fill: var(--text); }
+  .map-svg .lbl.special { font-size: 10.5px; fill: var(--focus); }
+  .map-legend .lg-dot { fill: var(--led-off); stroke: var(--panel); stroke-width: 1.5; }
+  .map-legend .lg-dot.on { fill: var(--led-on); }
+  .map-legend .lg-dot.unknown { stroke: var(--led-warn); stroke-width: 2.5; }
+  .map-legend .lg-watch { fill: none; stroke: var(--focus); stroke-width: 1.5; }
+  .map-legend .lg-gw { fill: var(--led-on); stroke: var(--focus); stroke-width: 2; }
+  .map-legend .lg-self { fill: var(--panel); stroke: var(--focus); stroke-width: 2.5; }
+  .map-legend .lg-self-core { fill: var(--focus); }
+  /* Switches and the cabling the user recorded. A cable is drawn heavier than
+     the thin "on this network" spoke, because it says more: where something
+     is plugged in, as the user described it. */
+  .map-svg .spoke.cable { stroke: var(--text-dim); stroke-width: 1.6; }
+  .map-svg .sw-shape { fill: var(--panel-2); stroke: var(--text-dim); stroke-width: 1.5; }
+  .map-svg .sw-port { fill: var(--text-dim); }
+  .map-svg .node.sw.on .sw-shape { stroke: var(--led-on); }
+  .map-svg .node.sw.on .sw-port { fill: var(--led-on); }
+  .map-svg .lbl.sw-lbl { fill: var(--text); font-weight: 600; paint-order: stroke; stroke: var(--panel); stroke-width: 3px; stroke-linejoin: round; }
+  .map-legend .lg-sw { fill: var(--panel-2); stroke: var(--text-dim); stroke-width: 1.5; }
+  .map-legend .lg-cable { stroke: var(--text-dim); stroke-width: 1.6; }
+  .map-legend .lg-spoke { stroke: var(--line); stroke-width: 1.5; }
+  .home-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px; display: flex; flex-direction: column; gap: 8px; align-items: center;
+    text-align: center; position: relative; transition: border-color .2s;
+  }
+  .home-card.here { border-color: var(--led-on); }
+  .home-card .halo {
+    width: 46px; height: 46px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--panel-2); font-size: 22px; color: var(--text-dim);
+  }
+  .home-card.here .halo { background: rgba(63,219,127,.14); color: var(--led-on); box-shadow: 0 0 0 3px rgba(63,219,127,.12); }
+  .home-card .hn { font-weight: 500; font-size: 14px; word-break: break-word; }
+  .home-card .hs { font-size: 12px; color: var(--text-dim); font-family: "IBM Plex Mono", monospace; }
+  .home-card.here .hs { color: var(--led-on); }
+  .feed { display: flex; flex-direction: column; }
+  .feed-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-bottom: 1px solid var(--line);
+    font-size: 13.5px;
+  }
+  .feed-item .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .feed-item .dot.on { background: var(--led-on); box-shadow: 0 0 5px rgba(63,219,127,.5); }
+  .feed-item .dot.off { background: var(--led-off); }
+  .feed-item .who { font-weight: 500; }
+  .feed-item .what { color: var(--text-dim); }
+  .feed-item .meta {
+    margin-left: auto; color: var(--text-dim);
+    font-family: "IBM Plex Mono", monospace; font-size: 12px;
+    display: flex; gap: 14px; flex-shrink: 0;
+  }
+  .feed-day {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 16px 12px 8px;
+  }
+
+  .timeline {
+    display: flex; height: 14px; border-radius: 4px; overflow: hidden;
+    background: var(--panel-2); border: 1px solid var(--line); margin: 10px 0 4px;
+  }
+  .timeline .seg-on { background: var(--led-on); opacity: .85; }
+  .timeline-lbl {
+    display: flex; justify-content: space-between;
+    font-family: "IBM Plex Mono", monospace; font-size: 10px;
+    color: var(--text-dim); margin-bottom: 12px;
+  }
+
+  .scan-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 92vw);
+    z-index: 600; background: var(--panel); border-left: 1px solid var(--line);
+    box-shadow: -8px 0 30px rgba(0,0,0,.35); display: flex; flex-direction: column;
+  }
+  .scan-panel[hidden] { display: none; }
+  .scan-panel-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; border-bottom: 1px solid var(--line); flex-shrink: 0;
+  }
+  .scan-panel-title { font-weight: 700; font-size: 15px; }
+  .scan-panel-actions { margin-left: auto; display: flex; gap: 6px; }
+  .scan-panel-actions button {
+    background: var(--panel-2); color: var(--text-dim); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer;
+  }
+  .scan-panel-actions button:hover { color: var(--text); border-color: var(--focus); }
+  .scan-panel-body { overflow-y: auto; padding: 12px 16px; flex: 1; }
+  .scan-entry { border-bottom: 1px solid var(--line); padding: 12px 0; }
+  .scan-entry:first-child { padding-top: 2px; }
+  .scan-entry-head {
+    display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;
+  }
+  .scan-entry-head .nm { font-weight: 600; }
+  .scan-entry-head .ipx { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim); }
+  .scan-entry-head .ts { margin-left: auto; font-size: 11px; color: var(--text-dim); font-family: "IBM Plex Mono", monospace; }
+  .scan-entry.busy .nm::after { content: " · scanning…"; color: var(--focus); font-weight: 400; font-size: 12px; }
+  .scan-entry .none { color: var(--text-dim); font-size: 13px; }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,.5);
+    display: flex; align-items: flex-start; justify-content: center; padding-top: 8vh;
+  }
+  .modal-backdrop[hidden] { display: none; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    width: min(560px, 92vw); padding: 20px; max-height: 80vh; overflow: auto;
+  }
+  .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+  .modal-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; font-size: 13px; color: var(--text-dim); }
+  .modal-row select, .modal-input {
+    margin-left: auto; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 10px; font: inherit;
+    min-width: 220px;
+  }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+  .modal-result { margin-top: 16px; }
+  .modal-result .scan-host {
+    padding: 10px 0; border-top: 1px solid var(--line);
+    display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap;
+  }
+  .modal-result .scan-host .nm { font-weight: 500; min-width: 140px; }
+  .modal-result .scan-host .ipx { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim); }
+  .scan-progress { color: var(--text-dim); font-size: 13px; font-family: "IBM Plex Mono", monospace; }
+
+  .splat {
+    position: fixed; inset: 0; z-index: 9999;
+    display: none; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .splat.show { display: flex; }
+  .splat svg { width: min(60vw, 460px); height: auto; }
+  .splat .burst-group {
+    animation: splatPop 0.7s cubic-bezier(.18,1.4,.4,1) forwards;
+    transform-origin: center;
+  }
+  @keyframes splatPop {
+    0%   { transform: scale(0.2) rotate(-18deg); opacity: 0; }
+    40%  { transform: scale(1.15) rotate(6deg);  opacity: 1; }
+    60%  { transform: scale(0.97) rotate(-3deg); }
+    78%  { transform: scale(1.04) rotate(1deg); }
+    100% { transform: scale(1) rotate(-4deg);    opacity: 1; }
+  }
+  .splat.fade .burst-group { animation: splatFade 0.35s ease-in forwards; }
+  @keyframes splatFade {
+    to { transform: scale(1.25) rotate(-4deg); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .splat .burst-group { animation: none; }
+    .splat.fade .burst-group { animation: none; opacity: 0; transition: opacity .2s; }
+  }
+
+  /* minmax(0, 1fr) and min-width: 0 let a long name shrink to "…" instead
+     of pushing the grid wider than the menu, which made it scroll sideways. */
+  .theme-menu {
+    position: fixed; z-index: 10000; display: none;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 8px; width: min(300px, calc(100vw - 16px)); max-height: 70vh; overflow-y: auto; overflow-x: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,.4);
+    grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px;
+  }
+  .theme-menu .theme-head {
+    grid-column: 1 / -1; font: 600 10.5px "IBM Plex Mono", monospace; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: .08em; padding: 8px 8px 2px;
+  }
+  .theme-menu.show { display: grid; }
+  .theme-item {
+    display: flex; align-items: center; gap: 8px; min-width: 0;
+    background: none; border: 1px solid transparent; border-radius: 8px;
+    padding: 8px; cursor: pointer; font: inherit; color: var(--text); text-align: left;
+  }
+  .theme-item:hover { background: var(--panel-2); border-color: var(--line); }
+  .theme-item.active { border-color: var(--focus); }
+  .theme-item .sw { display: inline-flex; gap: 2px; flex-shrink: 0; }
+  .theme-item .sw i { width: 9px; height: 16px; border-radius: 2px; display: block; }
+  .theme-item .tn { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .theme-menu .theme-manage { grid-column: 1 / -1; justify-content: center; color: var(--text-dim); font-size: 12px; margin-top: 4px; border-top-color: var(--line); border-radius: 0 0 8px 8px; }
+  .map-svg .ww-tag { display: none; }
+  .map-svg .aq-shell { display: none; }
+
+  /* ---- holiday decorations: drawn over the page, never in the way ---- */
+  #festive { position: fixed; inset: 0; pointer-events: none; z-index: 45; overflow: hidden; }
+  #festive > svg { position: absolute; overflow: visible; }
+  .drift { position: absolute; left: 0; bottom: 0; width: 100%; height: 16px; transform-origin: 50% 100%; transition: transform 18s linear; }
+  .drift svg { position: static; display: block; width: 100%; height: 16px; }
+  /* On the map, online devices wear Santa hats and unknown ones arrive as presents. */
+  .map-svg .t-hat, .map-svg .t-gift { display: none; }
+  .snow { position: absolute; top: -12px; border-radius: 50%; background: #fff; opacity: .7;
+    animation: snow-fall var(--d) linear var(--o) infinite; }
+  @keyframes snow-fall { to { transform: translate(var(--x), 108vh); } }
+  .web line, .web path { stroke: rgba(255,255,255,.2); stroke-width: 1; fill: none; }
+  .pumpkin { transition: transform .3s ease-out; transform-origin: 50% 100%; }
+  .moon { position: absolute; top: 6px; width: 46px; }
+  .moon svg { position: static; width: 46px; filter: drop-shadow(0 0 10px rgba(243,236,200,.45)); }
+  .eyes { position: absolute; display: flex; gap: 6px; opacity: 0; animation: eyes-life 3.4s ease-in-out forwards; }
+  .eyes i { width: 7px; height: 5px; border-radius: 50%; background: #d7ff3f; box-shadow: 0 0 6px #d7ff3f;
+    animation: eye-blink 3.4s linear forwards; }
+  @keyframes eyes-life { 0% { opacity: 0; } 15%, 80% { opacity: .9; } 100% { opacity: 0; } }
+  @keyframes eye-blink { 0%, 38% { transform: scaleY(1); } 40%, 43% { transform: scaleY(.1); } 45%, 60% { transform: scaleY(1); } 62%, 64% { transform: scaleY(.1); } 66%, 100% { transform: scaleY(1); } }
+  .leaf { position: absolute; top: -24px; animation: snow-fall var(--d) linear var(--o) infinite; }
+  .leaf svg { position: static; width: 14px; animation: leaf-spin var(--s) ease-in-out infinite alternate; }
+  @keyframes leaf-spin { from { transform: rotate(-50deg); } to { transform: rotate(70deg); } }
+  /* On the map, an offline device becomes a ghost and an unknown one gets a pumpkin. */
+  .map-svg .t-ghost, .map-svg .t-pk { display: none; }
+  @media (prefers-reduced-motion: reduce) { #festive, #festive * { animation: none !important; } }
+
+  /* ---- livelier everyday themes ---- */
+  /* A layer behind the whole page: the Matrix rain, the Synthwave sunset. */
+  .theme-bg { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none; }
+  /* A canvas with no size of its own shows at its pixel size, and the themes
+     draw theirs at the window's size times the screen's pixel ratio. On a 1x
+     screen that happens to fit; on a phone, a Retina screen or a Windows
+     laptop at 125% it showed the scene blown up by that ratio, with the top
+     left of it filling the window and the rest off the edge. */
+  .theme-bg > canvas { display: block; width: 100%; height: 100%; }
+  /* Data flowing along the cables you recorded on the Map. */
+  .map-svg .pkt { display: none; }
+  @keyframes term-blink { 50% { opacity: 0; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .map-svg .pkt { display: none; }
+  }
+  .map-svg .t-drip { display: none; }
+  /* The Map: mustard on everything that's online, a hot dog on the unknown, a paper hat on the router. */
+  .map-svg .t-mustard, .map-svg .t-hd, .map-svg .t-paperhat { display: none; }
+  .map-svg .t-cog, .map-svg .t-tophat { display: none; }
+  .map-svg .t-cog path { fill: #c99a3f; stroke: #4e3412; stroke-width: .6; transform-box: fill-box; transform-origin: center; animation: sp-turn 6s linear infinite; }
+  @keyframes sp-turn { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .map-svg .t-cog path { animation: none !important; }
+  }
+  /* Identify feeds a punch card; a port scan spins an orrery. */
+  .scan-entry.busy[data-kind="identify"] .scan-entry-body,
+  .scan-entry.busy[data-kind="ports"] .scan-entry-body { min-height: 0; }
+
+  /* ---- the secret ---- */
+  /* Settings → Appearance → Themes: a picture for each, and Add or Remove. */
+  #themesDir { overflow-wrap: anywhere; }
+  .theme-lib-actions { justify-content: flex-start; align-items: center; flex-wrap: wrap; margin: 4px 0 6px; }
+  .tl-head { margin: 16px 0 8px; font-weight: 600; font-size: 13px; }
+  .tl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 12px; }
+  .tl-tile { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius, 8px); background: var(--panel-2); overflow: hidden; }
+  .tl-tile.off .tl-pic { opacity: .55; filter: grayscale(.5); }
+  .tl-pic { aspect-ratio: 16 / 10; background: var(--bg); display: flex; align-items: center; justify-content: center; }
+  .tl-pic img { width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; }
+  .tl-sw { display: flex; gap: 6px; }
+  .tl-sw i { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line); }
+  .tl-body { padding: 8px 10px 4px; flex: 1; }
+  .tl-name { font-weight: 600; font-size: 13px; }
+  .tl-also { font-weight: 400; color: var(--text-dim); font-size: 12px; }
+  .tl-desc { color: var(--text-dim); font-size: 12px; margin-top: 3px; line-height: 1.4; }
+  .tl-state { color: var(--led-warn); font-size: 11.5px; margin-top: 4px; }
+  .tl-btn { margin: 6px 10px 10px; align-self: flex-start; }
+
+  /* The tag a theme's scene hangs on an intruder, when the scene is made of elements. */
+  .intruder-tag { position: absolute; pointer-events: none; white-space: nowrap; line-height: 1.35;
+    background: rgba(10, 7, 9, .88); border: 1px solid rgba(255, 77, 61, .85); border-left: 3px solid #ff4d3d; padding: 4px 9px 5px; }
+  .intruder-tag b { display: block; font: 700 9px "IBM Plex Mono", monospace; color: #ff8a7e; }
+  .intruder-tag span { display: block; font: 600 12px "Space Grotesk", sans-serif; color: #fff; }
+  .intruder-tag small { display: block; font: 500 9.5px "IBM Plex Mono", monospace; color: #c9d3dd; }
+  .intruder-tag.cleared { border-color: rgba(79, 224, 160, .85); border-left-color: #4fe0a0; }
+  .intruder-tag.cleared b { color: #7df0bf; }
+
+  .secret-modal { text-align: center; }
+  .secret-emoji { font-size: 52px; line-height: 1.1; margin-bottom: 6px; animation: secret-pop .6s cubic-bezier(.18,1.4,.4,1); }
+  @keyframes secret-pop { from { transform: scale(.2) rotate(-20deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  .secret-picks { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 12px 0 6px; }
+  .secret-picks button { font-size: 15px; padding: 10px 16px; }
+
+  .stat.clickable { cursor: pointer; transition: border-color .15s; }
+  .stat.clickable:hover { border-color: var(--focus); }
+
+  .viewbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 24px 0; flex-wrap: wrap;
+  }
+  .views { display: flex; gap: 2px; }
+  .view-btn {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: var(--text-dim); padding: 8px 14px; font: inherit; cursor: pointer;
+  }
+  .view-btn:hover { color: var(--text); }
+  .view-btn.active { color: var(--text); border-bottom-color: var(--focus); }
+  /* Settings lives with the tools, not the views: it isn't a way of looking at
+     the devices, it's where the scanner is configured. Styled as a button
+     rather than a tab to say so, with a selected state so it still reads as
+     the current view when you're in it. */
+  .settings-btn { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+  .settings-btn.active { background: var(--panel-2); color: var(--text); border-color: var(--focus); }
+  .tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .tools-menu-wrap { position: relative; }
+  .tools-menu {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 400;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 4px; min-width: 160px; display: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
+  .tools-menu.show { display: block; }
+  .tools-menu button {
+    display: block; width: 100%; text-align: left; background: none; border: none;
+    color: var(--text); padding: 8px 10px; font: inherit; cursor: pointer; border-radius: 6px;
+  }
+  .tools-menu button:hover { background: var(--panel-2); }
+  /* The Scan menu in the header: every scan you can start, in one place. */
+  .scan-wrap #scanBtn { font: inherit; font-size: 12px; white-space: nowrap; }
+  .scan-menu { min-width: 250px; font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 13px; }
+  .scan-menu .scan-h { padding: 8px 10px 2px; font: 600 10.5px "IBM Plex Mono", monospace; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-dim); }
+  .scan-menu .scan-h + button { margin-top: 2px; }
+  .scan-menu button small { display: block; color: var(--text-dim); font-size: 11.5px; margin-top: 1px; }
+  .scan-menu button:disabled { opacity: .55; cursor: default; background: none; }
+  .scan-menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 6px; }
+
+  .more-wrap { position: relative; display: inline-block; }
+  .more-btn { min-width: 30px; font-weight: 700; }
+  /* Fixed, not absolute: .table-wrap scrolls sideways, which also clips it
+     vertically, so an absolute menu under a lone filtered row got squeezed
+     into a tiny scroll box. placeRowMenu() sets top/left from the button. */
+  .row-menu {
+    position: fixed; z-index: 300; max-height: calc(100vh - 16px); overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 4px; min-width: 170px; display: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
+  .row-menu.show { display: block; }
+  .row-menu button {
+    display: block; width: 100%; text-align: left; background: none; border: none;
+    color: var(--text); padding: 8px 10px; font: inherit; cursor: pointer; border-radius: 6px;
+    white-space: nowrap;
+  }
+  .row-menu button:hover { background: var(--panel-2); }
+  .row-menu button.danger { color: var(--danger); }
+  /* A device's menu is grouped, with a small heading over each group. */
+  .row-menu .rm-h { padding: 7px 10px 2px; font: 600 10.5px "IBM Plex Mono", monospace; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-dim); white-space: nowrap; }
+  .row-menu .rm-h:not(:first-child) { margin-top: 4px; border-top: 1px solid var(--line); padding-top: 9px; }
+  /* The "+N" beside a device's IP: its other addresses. */
+  .ip-more {
+    margin-left: 6px; padding: 0 6px; font: inherit; font-size: 11px; line-height: 1.6;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--panel-2);
+    color: var(--text-dim); cursor: pointer; vertical-align: 1px;
+  }
+  .ip-more:hover { color: var(--text); border-color: var(--focus); }
+  .addr-menu { min-width: 250px; padding: 6px 4px; }
+  .addr-head { padding: 2px 10px 6px; font-size: 12px; color: var(--text-dim); }
+  .addr-row { display: flex; gap: 10px; align-items: baseline; padding: 5px 10px; border-radius: 6px; white-space: nowrap; }
+  .addr-row:hover { background: var(--panel-2); }
+  .addr-row a { color: var(--focus); text-decoration: none; }
+  .addr-row a:hover { text-decoration: underline; }
+  .addr-net, .addr-seen { font-size: 12px; color: var(--text-dim); }
+  .addr-seen { margin-left: auto; }
+  .addr-note { padding: 6px 10px 2px; font-size: 12px; color: var(--text-dim); max-width: 260px; white-space: normal; }
+
+  @media (max-width: 700px) {
+    header { flex-wrap: wrap; gap: 10px; padding: 12px 16px; }
+    .brand { flex-wrap: wrap; }
+    .brand .meta { margin-left: 0; padding-left: 0; border-left: 0; width: 100%; flex-wrap: wrap; row-gap: 6px; }
+    .scanline { width: 100%; margin-left: 0; }
+    .stats { padding: 12px 16px; }
+    .stat { min-width: calc(50% - 6px); }
+    .viewbar, .controls, .chipbar, .table-wrap, .feed-wrap, .home-wrap, .map-wrap, .portstrip-wrap, .netbar { padding-left: 16px; padding-right: 16px; }
+    .tools { width: 100%; margin-left: 0; }
+    .search { flex: 1; }
+
+    /* table -> cards */
+    table, thead, tbody, tr, td { display: block; }
+    thead { display: none; }
+    table { min-width: 0; }
+    tbody tr {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+      margin-bottom: 12px; padding: 14px 14px 10px; position: relative;
+    }
+    tbody tr:hover { background: var(--panel); }
+    tbody tr.history-row, tbody tr.ports-row {
+      background: var(--panel-2); border-radius: 0 0 12px 12px; margin-top: -12px; padding-top: 16px;
+    }
+    tbody td { border: none; padding: 3px 0; }
+    /* LED + name as a header line */
+    td.led-cell { position: absolute; top: 16px; right: 14px; padding: 0; }
+    td.hostname { font-size: 16px; padding-bottom: 8px; padding-right: 24px; }
+    /* labeled fields */
+    td[data-label] { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+    td[data-label]::before {
+      content: attr(data-label); color: var(--text-dim);
+      font-family: "IBM Plex Mono", monospace; font-size: 11px; text-transform: uppercase;
+      letter-spacing: .05em; flex-shrink: 0;
+    }
+    td.spark-cell { align-items: center; }
+    td.status-cell { padding-top: 8px; }
+    td.actions-cell { padding-top: 6px; }
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .actions > * + * { margin-left: 0; }
+    .tools-menu { right: auto; left: 0; }
+    /* home board: 2 per row on phones */
+    .home-grid { grid-template-columns: 1fr 1fr; }
+    /* other BAMF servers: one block each, the × at its top right */
+    .rm-table tr { position: relative; padding-right: 32px; border-top: 1px solid var(--line); }
+    .rm-table td { border-top: 0; padding: 4px 0; }
+    .rm-table td:first-child { padding-top: 8px; }
+    .rm-table td.set-net-rm-cell { position: absolute; top: 6px; right: 0; padding: 0; }
+
+    /* The row's ⋯ menu (and the +N address list) becomes a bottom sheet. A
+       menu hung under the button ran off the bottom of a phone screen, and
+       a sheet is where a thumb already is. placeRowMenu() still sets inline
+       top/left, hence the !important. The dim backdrop is body::before, so
+       a tap anywhere outside the sheet closes it via the document handler. */
+    .row-menu.show {
+      left: 0 !important; right: 0; top: auto !important; bottom: 0; max-height: 70vh;
+      min-width: 0; border-radius: 14px 14px 0 0; border-bottom: 0;
+      padding: 8px 10px calc(10px + env(safe-area-inset-bottom));
+      box-shadow: 0 -8px 24px rgba(0,0,0,.45);
+    }
+    .row-menu.show::before {
+      content: ""; display: block; width: 36px; height: 4px; border-radius: 2px;
+      background: var(--line); margin: 0 auto 8px;
+    }
+    .row-menu button { padding: 12px 14px; font-size: 15px; white-space: normal; }
+    .addr-menu { min-width: 0; }
+    .addr-note { max-width: none; }
+    body:has(.row-menu.show)::before {
+      content: ""; position: fixed; inset: 0; z-index: 299; background: rgba(0,0,0,.45);
+    }
+
+    /* Dialogs sit at the bottom too, full width, with their fields stacking
+       under their labels when the row is too narrow for both. */
+    .modal-backdrop { padding: 0; align-items: flex-end; }
+    .modal {
+      width: 100%; max-height: 92vh; border-radius: 14px 14px 0 0; border-bottom: 0;
+      padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    }
+    .modal-row { flex-wrap: wrap; }
+    .modal-row select, .modal-input { flex: 1 1 180px; min-width: 0; margin-left: 0; }
+    .modal-actions { flex-wrap: wrap; }
+    .modal-actions button { flex: 1 1 auto; padding: 10px 12px; }
+
+    /* Finger-sized targets in the card actions and the map tools. */
+    .actions button, .more-btn { padding: 8px 12px; min-height: 36px; }
+    .map-tools { flex-wrap: wrap; margin-left: 0; }
+    .toast { left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); max-width: none; }
+
+    /* Activity rows: name and what on one line, address / network / time on
+       the next, instead of one long line running off the right edge. */
+    .feed-item { flex-wrap: wrap; row-gap: 2px; padding: 10px 4px; }
+    .feed-item .who { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+    /* Its own line under the event, indented to line up with the text above:
+       the indent comes out of the width, or the line runs 21px past the entry. */
+    .feed-item .meta { flex-basis: calc(100% - 21px); margin-left: 21px; gap: 10px; flex-wrap: wrap; }
+    .feed-day { padding-left: 4px; }
+    .session { flex-wrap: wrap; row-gap: 0; }
+    .session .dur { flex-basis: 100%; padding-left: 18px; }
+  }
+  @media (max-width: 420px) {
+    /* The five view tabs and the five status tabs are each wider than a phone
+       screen at their normal padding, and pushed the page into sideways
+       scrolling. The view tabs wrap onto a second line; the status tabs are
+       one bordered group, so they get less padding and, on the narrowest
+       screens, scroll within their own box instead of moving the page. */
+    .views { flex-wrap: wrap; }
+    .view-btn { padding: 8px 10px; white-space: nowrap; }
+    .tab { padding: 8px 10px; white-space: nowrap; }
+    .tabs { min-width: 0; max-width: 100%; overflow-x: auto; }
+    .home-card { padding: 12px 8px; }
+    .stat { padding: 10px 12px; }
+    .stat .num { font-size: 20px; }
+  }
+
+  .toast {
+    position: fixed; bottom: 20px; right: 20px;
+    background: var(--panel-2); border: 1px solid var(--led-warn);
+    border-radius: var(--radius); padding: 12px 16px;
+    font-size: 13px; display: none; max-width: 340px;
+  }
+  .toast.show { display: block; }
+  .toast .mono { color: var(--led-warn); }
+
+  @media (max-width: 640px) {
+    .search { width: 100%; margin-left: 0; }
+    .scanline .lbl-next { display: none; }
+    .nettab .due { display: none; }
+  }
