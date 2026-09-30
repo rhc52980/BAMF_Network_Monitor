@@ -2,6 +2,16 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "1.57.0",
+      "date": "2026-09-29",
+      "items": [
+        "MQTT, other BAMF servers and the inbound webhooks' token are in Settings, under System, and apply without a restart. Saved passwords are never shown again, and only go back to the server they were saved for.",
+        "HTTPS in one click: Settings, Security, HTTPS makes a certificate for this machine, and after a restart BAMF also serves the dashboard at https://<server>:8843. Browsers warn once, since nothing vouches for it.",
+        "On a phone's home screen BAMF now has its own icon and opens in a window of its own, with the status bar in your theme's colour.",
+        "Under the hood, the dashboard and the server are split into files by what they do. Nothing about how they work has changed."
+      ]
+    },
+    {
       "version": "1.56.0",
       "date": "2026-09-29",
       "items": [
