@@ -30,6 +30,21 @@ for (const page of readdirSync(web).filter(f => f.endsWith(".html"))) {
     const start = html.slice(0, m.index + m[0].indexOf(">") + 1).split("\n").length - 1;
     syntax(page, m[2], start);
   }
+  // The script files it loads: each there and sound on its own, and all of
+  // them together, in order, as the one scope a page's scripts share (a name
+  // declared in two of them is an error only then).
+  const srcs = [...html.matchAll(/<script\s+src="([^"]+)"><\/script>/g)].map(m => m[1]);
+  const all = [];
+  for (const src of srcs) {
+    const path = join(web, src);
+    if (!existsSync(path)) { fail(page, `loads ${src}, which isn't there`); continue; }
+    const js = readFileSync(path, "utf8");
+    syntax(src, js);
+    all.push(js);
+  }
+  if (all.length > 1) syntax(`${page}'s scripts together`, all.join("\n;\n"));
+  for (const m of html.matchAll(/<link\s+href="([^"]+)"\s+rel="stylesheet">/g))
+    if (!m[1].startsWith("/") && !existsSync(join(web, m[1]))) fail(page, `links ${m[1]}, which isn't there`);
 }
 
 const json = (where) => {

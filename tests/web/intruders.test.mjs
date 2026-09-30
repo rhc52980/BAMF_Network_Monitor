@@ -8,13 +8,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 
-const html = readFileSync("BAMF/wwwroot/index.html", "utf8");
+// The dashboard's scripts, in the order the page loads them.
+const page = readFileSync("BAMF/wwwroot/index.html", "utf8");
+const html = [...page.matchAll(/<script\s+src="([^"]+)"><\/script>/g)]
+  .map(m => readFileSync("BAMF/wwwroot/" + m[1], "utf8")).join("\n");
 
 // A top-level declaration from the page, up to where it ends: its closing
 // brace for a function, the end of the line otherwise.
 function take(start) {
   const i = html.indexOf(start);
-  assert.notEqual(i, -1, `index.html no longer has "${start}"`);
+  assert.notEqual(i, -1, `the dashboard's scripts no longer have "${start}"`);
   if (!start.startsWith("function")) return html.slice(i, html.indexOf("\n", i));
   let depth = 0;
   for (let j = html.indexOf("{", i); j < html.length; j++) {
