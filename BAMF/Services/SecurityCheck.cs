@@ -15,7 +15,8 @@ namespace LanWatch.Services;
 /// issued it, when it expires), trusting anything, because it reads the
 /// certificate rather than relying on it. It warns 14 days and 3 days before
 /// one expires, and when it has. Only ports a scan already found open are
-/// touched.
+/// touched. BAMF's own certificate, if one was made under Settings → Security
+/// → HTTPS, is read from its file and warned about the same way.
 ///
 /// UPnP: one SSDP search for an Internet Gateway Device on each network BAMF
 /// scans. A router that answers lets any device on the network open ports to
@@ -31,12 +32,13 @@ public sealed class SecurityCheck
 
     private readonly HostStore _store;
     private readonly ScannerService _scanner;
+    private readonly IConfiguration _config;
     private readonly ILogger<SecurityCheck> _log;
     private readonly SemaphoreSlim _busy = new(1, 1);
 
-    public SecurityCheck(HostStore store, ScannerService scanner, ILogger<SecurityCheck> log)
+    public SecurityCheck(HostStore store, ScannerService scanner, IConfiguration config, ILogger<SecurityCheck> log)
     {
-        _store = store; _scanner = scanner; _log = log;
+        _store = store; _scanner = scanner; _config = config; _log = log;
     }
 
     public bool CertWatchEnabled => _store.GetSetting("certWatch") != "false";
@@ -63,7 +65,7 @@ public sealed class SecurityCheck
         {
             if (portScan is not null) await portScan(ct);
             if (upnp) await CheckUpnp(ct);
-            if (certs) await CheckCerts(ct);
+            if (certs) { await CheckCerts(ct); await CheckOwnCert(ct); }
             _store.SetSetting("securityChecked", DateTime.UtcNow.ToString("o"));
             return true;
         }
@@ -123,11 +125,45 @@ public sealed class SecurityCheck
         }
     }
 
+    /// <summary>Where a certificate is in its last fortnight: "14", "3", "expired", or "" for fine.</summary>
+    public static string ExpiryStage(DateTime notAfterUtc, DateTime nowUtc)
+    {
+        var days = (notAfterUtc - nowUtc).TotalDays;
+        return days < 0 ? "expired" : days <= 3 ? "3" : days <= 14 ? "14" : "";
+    }
+
+    /// <summary>
+    /// BAMF's own certificate, the one Settings → Security → HTTPS made: one
+    /// alert per stage, as for a device's, and a new certificate starts over.
+    /// One set in appsettings.json is the owner's to look after.
+    /// </summary>
+    public async Task CheckOwnCert(CancellationToken ct)
+    {
+        if (HttpsCert.FileHttps) return;
+        using var cert = HttpsCert.Load(HttpsCert.PathFor(_config));
+        if (cert is null) return;
+        var notAfter = cert.NotAfter.ToUniversalTime();
+        var stage = ExpiryStage(notAfter, DateTime.UtcNow);
+        var mark = cert.Thumbprint + ":" + stage;
+        if (stage == "" || _store.GetSetting("ownCertAlerted") == mark) return;
+        _store.SetSetting("ownCertAlerted", mark);
+        var port = _config.GetValue("Bamf:HttpsPort", HttpsCert.DefaultPort);
+        var date = TimeZoneInfo.ConvertTimeFromUtc(notAfter, TimeZoneInfo.Local).ToString("yyyy-MM-dd");
+        var days = Math.Max(1, (int)Math.Ceiling((notAfter - DateTime.UtcNow).TotalDays));
+        var (title, detail) = stage == "expired"
+            ? ("BAMF's HTTPS certificate has expired",
+               $"The certificate BAMF made for its own HTTPS, on port {port}, expired on {date}, so browsers now refuse it. Make a new one under Settings → Security → HTTPS, then restart BAMF.")
+            : ($"BAMF's HTTPS certificate expires in {days} days",
+               $"The certificate BAMF made for its own HTTPS, on port {port}, expires on {date}. Make a new one under Settings → Security → HTTPS, then restart BAMF.");
+        _store.AddAlert("cert", title, detail);
+        await _scanner.SendGenericAlert(title, detail, "cert", ct);
+    }
+
     /// <summary>One alert per stage (14 days, 3 days, expired) per certificate.</summary>
     private async Task MaybeAlert(HostRecord h, int port, string subject, DateTime notAfter, CancellationToken ct)
     {
         var days = (notAfter - DateTime.UtcNow).TotalDays;
-        var stage = days < 0 ? "expired" : days <= 3 ? "3" : days <= 14 ? "14" : "";
+        var stage = ExpiryStage(notAfter, DateTime.UtcNow);
         if (stage == "") return;
         var row = _store.GetCerts().FirstOrDefault(c => c.HostId == h.Id && c.Port == port);
         if (row is null || row.Alerted == stage) return;
