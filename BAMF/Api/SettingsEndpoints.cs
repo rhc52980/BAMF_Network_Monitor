@@ -10,6 +10,26 @@ internal static class SettingsEndpoints
 {
     public static void Map(WebApplication app, string version, Func<string?> HookToken, Func<object> HttpsJson)
     {
+        // Nightly backups: when, how many to keep, and back up now.
+        app.MapPost("/api/settings/backup", (BackupRequest body, HostStore store, NightlyBackup nightly) =>
+        {
+            if (body.Hour is < 0 or > 23) return Results.BadRequest(new { error = "The hour is 0 to 23." });
+            if (body.Keep is < 1 or > 60) return Results.BadRequest(new { error = "Keep 1 to 60 backups." });
+            if (body.Enabled is { } on) store.SetSetting("backupNightly", on ? "true" : "false");
+            if (body.Hour is { } h) store.SetSetting("backupHour", h.ToString());
+            if (body.Keep is { } k)
+            {
+                store.SetSetting("backupKeep", k.ToString());
+                if (Directory.Exists(store.BackupsDir)) NightlyBackup.Prune(store.BackupsDir, k);
+            }
+            return Results.Json(BackupJson(nightly));
+        });
+        app.MapPost("/api/settings/backup/run", async (NightlyBackup nightly, CancellationToken ct) =>
+        {
+            var r = await nightly.Run(ct);
+            return r.Error is null ? Results.Json(BackupJson(nightly)) : Results.Json(new { error = r.Error }, statusCode: 500);
+        });
+
         // The log of settings changes, newest first.
         app.MapGet("/api/settings/log", (HostStore store) => Results.Json(store.GetSettingsLog(50)));
 
@@ -126,6 +146,7 @@ internal static class SettingsEndpoints
                 editable = new
                 {
                     https = HttpsJson(),
+                    backup = BackupJson(app.Services.GetRequiredService<NightlyBackup>()),
                     scanIntervalSeconds = scanner.ConfiguredDefaultInterval,
                     subnetIntervalSeconds = scanner.SubnetIntervals,
                     subnetIntervalOverrides = overrides,

@@ -7,6 +7,17 @@ namespace LanWatch.Api;
 /// <summary>What the endpoints share: turning things into JSON, reading uploads, small checks.</summary>
 internal static class ApiHelpers
 {
+    // Settings → System → Back up the database: the nightly backups.
+    internal static object BackupJson(NightlyBackup n)
+    {
+        var list = n.Backups();
+        return new
+        {
+            enabled = n.Enabled, hour = n.Hour, keep = n.Keep, copyTo = n.CopyTo, last = n.Last,
+            count = list.Count, newest = list.FirstOrDefault()?.Name, totalBytes = list.Sum(f => f.Length),
+        };
+    }
+
     // An inbound webhook may carry the hook token instead of the password.
     internal static bool HookTokenOk(HttpContext ctx, string? token) =>
         !string.IsNullOrEmpty(token) && ctx.Request.Path.StartsWithSegments("/api/hooks") &&
