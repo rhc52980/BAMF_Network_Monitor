@@ -965,7 +965,8 @@
   .set-table .set-eff { color: var(--text-dim); font-size: 12px; }
   /* Settings → Security → HTTPS: what the certificate covers. */
   .https-cert { margin: 4px 0 10px; font-size: 12px; color: var(--text-dim); line-height: 1.6; }
-  #httpsStatus.bad { color: var(--danger); }
+  #httpsStatus.bad, #backupStatus.bad { color: var(--danger); }
+  #backupStatus { overflow-wrap: anywhere; }
   #httpsStatus a { color: var(--focus); text-decoration: none; }
   #httpsDownload { text-decoration: none; }
   .https-late { color: var(--led-warn); font-weight: 600; }

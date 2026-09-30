@@ -78,6 +78,8 @@ builder.Services.AddSingleton<RemoteService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RemoteService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RuleService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MqttPublisher>());
+builder.Services.AddSingleton<NightlyBackup>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<NightlyBackup>());
 builder.Services.AddHttpClient();
 
 // One-click HTTPS (Settings → Security): while its certificate is beside the

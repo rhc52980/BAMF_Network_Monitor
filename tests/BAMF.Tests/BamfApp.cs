@@ -17,11 +17,16 @@ public sealed class BamfApp : WebApplicationFactory<Program>
 {
     public string Dir { get; }
     private readonly bool _owns;
+    private readonly Dictionary<string, string> _settings;
 
-    /// <summary>A new install; or, given another's folder, the same install started again.</summary>
-    public BamfApp(string? dir = null)
+    /// <summary>
+    /// A new install; or, given another's folder, the same install started
+    /// again. <paramref name="settings"/> go on top, as appsettings.json would.
+    /// </summary>
+    public BamfApp(string? dir = null, Dictionary<string, string>? settings = null)
     {
         _owns = dir is null;
+        _settings = settings ?? [];
         Dir = dir ?? Path.Combine(Path.GetTempPath(), "bamf-app-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Dir);
     }
@@ -36,6 +41,7 @@ public sealed class BamfApp : WebApplicationFactory<Program>
         builder.UseSetting("Bamf:AutoDownloadOui", "false");
         builder.UseSetting("Bamf:ActiveArpScan", "false");
         builder.UseSetting("Bamf:WebhookUrl", "");
+        foreach (var (k, v) in _settings) builder.UseSetting(k, v);
         builder.ConfigureTestServices(services =>
         {
             // BAMF's own services are added by a factory; the web host's own isn't.
