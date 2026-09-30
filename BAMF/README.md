@@ -1804,6 +1804,8 @@ scan, or delete a thing.
 | GET | `/api/hosts/{id}/traffic` | Bytes per hour for a device over the last 7 days (`?days=` for more): `[{"hour", "rx", "tx"}]` |
 | POST | `/api/settings/backup` | Body `{"enabled": true, "hour": 3, "keep": 7}`, any of them: the nightly backups. `GET /api/settings` returns them as `editable.backup`, with the last one's result and how many are kept |
 | POST | `/api/settings/backup/run` | Take tonight's backup now |
+| GET | `/api/backup/saved` | The backups in `backups/` beside the database, newest first, each `{"name", "kind", "at", "size"}`; `kind` is `nightly`, `before an update` or `before a restore`. Refused with the view-only password |
+| POST | `/api/backup/saved/restore` | Body `{"name": "nightly-20260930.db"}` — put one of those back, keeping the database it replaces. Only a file name in that folder is accepted |
 | GET | `/api/backup` | The whole database as one SQLite file, named `bamf-YYYYMMDD-HHMM.db`, taken while BAMF runs. Refused with the view-only password, since it carries the saved webhook URL and the MQTT and other servers' passwords |
 | POST | `/api/settings/alertnudge` | Body `{"off": true}` — hide the dashboard's "Alerts are off" banner; `false` brings it back |
 | POST | `/api/backup/restore` | The body is a backup file. Checked, then swapped in for the database; the one it replaces is kept in `backups`. Answers `{"ok": true, "kept": "bamf-before-restore-….db"}`, or `400` with the reason it was turned down |
@@ -2964,9 +2966,13 @@ holding them.
 
 ### Restoring
 
-**Settings → System → Restore from a backup…** puts one back while BAMF keeps
-running, after checking it's a sound BAMF backup, and keeps the database it
-replaces. Or by hand: stop the service, copy a snapshot over `bamf.db`, start
+**Settings → System → Backups on this machine** lists the backups in
+`backups/`, newest first (the nightly ones, the updaters' from before each
+update, and the ones kept before a restore), each with a **Restore** button.
+**Restore from a backup…** beside it takes a file from your computer instead.
+Either puts one back while BAMF keeps running, after checking it's a sound BAMF
+backup, and keeps the database it replaces, so a restore can be undone the same
+way. Or by hand: stop the service, copy a snapshot over `bamf.db`, start
 it again - see [Rolling back](#rolling-back).
 
 ## Feedback and bug reports

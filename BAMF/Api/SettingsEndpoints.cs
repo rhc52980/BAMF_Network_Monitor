@@ -94,6 +94,23 @@ internal static class SettingsEndpoints
             finally { try { File.Delete(tmp); } catch { } }
         });
 
+        // The backups kept on this machine, and putting one of them back.
+        app.MapGet("/api/backup/saved", (HostStore store) => Results.Json(store.SavedBackups()));
+        app.MapPost("/api/backup/saved/restore", (SavedRestoreRequest body, HostStore store) =>
+        {
+            if (store.SavedBackupPath(body.Name) is not { } path) return Results.NotFound(new { error = "There's no backup by that name here." });
+            try
+            {
+                var (kept, error) = store.RestoreFrom(path);
+                return error is null ? Results.Json(new { ok = true, kept }) : Results.BadRequest(new { error });
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+            {
+                app.Logger.LogWarning(ex, "Restoring a saved backup failed");
+                return Results.Json(new { error = $"Couldn't restore it: {ex.Message} The database is as it was." }, statusCode: 500);
+            }
+        });
+
         app.MapPost("/api/settings/traffic-monitor", (ActiveArpRequest body, HostStore store) =>
         {
             store.SetSetting("trafficMonitor", body.Enabled ? "true" : "false");

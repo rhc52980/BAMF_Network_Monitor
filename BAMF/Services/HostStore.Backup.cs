@@ -15,6 +15,38 @@ public partial class HostStore
     /// <summary>Where copies of the database are kept: beside it, as the updaters do.</summary>
     public string BackupsDir => Path.Combine(Path.GetDirectoryName(_dbPath) ?? ".", "backups");
 
+    public sealed record SavedBackup(string Name, string Kind, string At, long Size);
+
+    /// <summary>
+    /// The backups kept beside the database, newest first: nightly ones, the
+    /// updaters' from before each update, and the ones kept before a restore.
+    /// </summary>
+    public List<SavedBackup> SavedBackups()
+    {
+        if (!Directory.Exists(BackupsDir)) return [];
+        return new DirectoryInfo(BackupsDir).GetFiles("*.db")
+            .Where(f => !f.Name.StartsWith("bamf-backup-", StringComparison.OrdinalIgnoreCase))   // one being written
+            .OrderByDescending(f => f.LastWriteTimeUtc)
+            .Take(100)
+            .Select(f => new SavedBackup(f.Name,
+                f.Name.StartsWith("nightly-", StringComparison.OrdinalIgnoreCase) ? "nightly"
+                : f.Name.StartsWith("bamf-before-restore-", StringComparison.OrdinalIgnoreCase) ? "before a restore"
+                : "before an update",
+                f.LastWriteTimeUtc.ToString("o"), f.Length))
+            .ToList();
+    }
+
+    /// <summary>
+    /// The path of a backup kept beside the database, by its name alone, or
+    /// null: a name with anything that could point elsewhere isn't one.
+    /// </summary>
+    public string? SavedBackupPath(string? name)
+    {
+        if (name is null || !System.Text.RegularExpressions.Regex.IsMatch(name, @"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.db$") || name.Contains("..")) return null;
+        var path = Path.Combine(BackupsDir, name);
+        return Path.GetDirectoryName(Path.GetFullPath(path)) == Path.GetFullPath(BackupsDir) && File.Exists(path) ? path : null;
+    }
+
     /// <summary>Writes a snapshot into <paramref name="dir"/> and returns its path.</summary>
     public string SnapshotTo(string dir)
     {
