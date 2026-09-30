@@ -124,6 +124,77 @@ public class BackupAndCertTests
         Assert.False((await Backup(c)).GetProperty("enabled").GetBoolean());
     }
 
+    // ---------- restoring a backup kept on this machine ----------
+
+    [Fact]
+    public async Task A_backup_on_this_machine_can_be_put_back_by_name()
+    {
+        using var app = new BamfApp();
+        var c = app.Client();
+        await c.PostAsJsonAsync("/api/settings/newdays", new { days = 3 });
+        await c.PostAsync("/api/settings/backup/run", null);
+        await c.PostAsJsonAsync("/api/settings/newdays", new { days = 9 });
+        Assert.Equal(9, (await c.GetFromJsonAsync<JsonElement>("/api/hosts")).GetProperty("newDays").GetInt32());
+
+        var list = await c.GetFromJsonAsync<JsonElement>("/api/backup/saved");
+        var nightly = list.EnumerateArray().Single(b => b.GetProperty("kind").GetString() == "nightly");
+        var r = await c.PostAsJsonAsync("/api/backup/saved/restore", new { name = nightly.GetProperty("name").GetString() });
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+
+        // Back as it was then, and what it replaced is in the list to undo it.
+        Assert.Equal(3, (await c.GetFromJsonAsync<JsonElement>("/api/hosts")).GetProperty("newDays").GetInt32());
+        var after = await c.GetFromJsonAsync<JsonElement>("/api/backup/saved");
+        Assert.Contains(after.EnumerateArray(), b => b.GetProperty("kind").GetString() == "before a restore");
+    }
+
+    [Fact]
+    public async Task The_list_says_what_each_backup_is()
+    {
+        using var app = new BamfApp();
+        var dir = Path.Combine(app.Dir, "backups");
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "bamf-20260930-1705.db"), "");
+        File.WriteAllText(Path.Combine(dir, "bamf-backup-0123abcd.db"), "");   // one being written: not listed
+        await app.Client().PostAsync("/api/settings/backup/run", null);
+        var kinds = (await app.Client().GetFromJsonAsync<JsonElement>("/api/backup/saved")).EnumerateArray()
+            .Select(b => (b.GetProperty("name").GetString(), b.GetProperty("kind").GetString())).ToList();
+        Assert.Contains(($"nightly-{DateTime.Now:yyyyMMdd}.db", "nightly"), kinds);
+        Assert.Contains(("bamf-20260930-1705.db", "before an update"), kinds);
+        Assert.DoesNotContain(kinds, k => k.Item1!.StartsWith("bamf-backup-"));
+    }
+
+    [Theory]
+    [InlineData("../bamf.db")]
+    [InlineData(@"..\bamf.db")]
+    [InlineData("sub/nightly-20260101.db")]
+    [InlineData(@"C:\Windows\win.db")]
+    [InlineData("nightly-19990101.db")]   // well-formed, but not there
+    [InlineData("bamf.db.txt")]
+    public async Task Only_a_backup_in_the_backups_folder_can_be_restored(string name)
+    {
+        using var app = new BamfApp();
+        var r = await app.Client().PostAsJsonAsync("/api/backup/saved/restore", new { name });
+        Assert.Equal(HttpStatusCode.NotFound, r.StatusCode);
+    }
+
+    [Fact]
+    public async Task The_view_only_password_can_neither_list_nor_restore()
+    {
+        using var app = new BamfApp();
+        var c = app.Client();
+        await c.PostAsJsonAsync("/api/settings/password", new { role = "admin", password = "main-test-pass-1" });
+        var viewer = new HttpRequestMessage(HttpMethod.Post, "/api/settings/password") { Content = JsonContent.Create(new { role = "viewer", current = "main-test-pass-1", password = "viewer-test-pass-1" }) };
+        viewer.Headers.Authorization = BamfApp.Basic("main-test-pass-1");
+        await c.SendAsync(viewer);
+        var v = app.Client();
+        var list = new HttpRequestMessage(HttpMethod.Get, "/api/backup/saved");
+        list.Headers.Authorization = BamfApp.Basic("viewer-test-pass-1");
+        Assert.Equal(HttpStatusCode.Forbidden, (await v.SendAsync(list)).StatusCode);
+        var put = new HttpRequestMessage(HttpMethod.Post, "/api/backup/saved/restore") { Content = JsonContent.Create(new { name = "nightly-20260101.db" }) };
+        put.Headers.Authorization = BamfApp.Basic("viewer-test-pass-1");
+        Assert.Equal(HttpStatusCode.Forbidden, (await v.SendAsync(put)).StatusCode);
+    }
+
     // ---------- BAMF's own certificate ----------
 
     [Fact]

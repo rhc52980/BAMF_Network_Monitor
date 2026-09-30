@@ -53,6 +53,7 @@ public static class SettingsLog
         var p = path.TrimEnd('/');
         if (p.Equals("/api/setup", StringComparison.OrdinalIgnoreCase)) return "First-run setup";
         if (p.Equals("/api/backup/restore", StringComparison.OrdinalIgnoreCase)) return "Restored from a backup";
+        if (p.Equals("/api/backup/saved/restore", StringComparison.OrdinalIgnoreCase)) return "Restored from a backup on this machine";
         if (p.Equals("/api/themes/upload", StringComparison.OrdinalIgnoreCase)) return "A theme added from a file";
         var theme = System.Text.RegularExpressions.Regex.Match(p, "^/api/themes/([a-z0-9-]{1,40})/(install|remove)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         if (theme.Success) return (theme.Groups[2].Value.Equals("install", StringComparison.OrdinalIgnoreCase) ? "Theme added: " : "Theme removed: ") + theme.Groups[1].Value;

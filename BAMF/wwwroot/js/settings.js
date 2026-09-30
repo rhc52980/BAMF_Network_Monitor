@@ -733,6 +733,44 @@ $("backupNightly").onclick = () => {
 };
 $("backupHour").onchange = () => saveBackup({ hour: Number($("backupHour").value) }, "Saved.");
 $("backupSave").onclick = () => saveBackup({ keep: Number($("backupKeep").value) }, "Saved.");
+// The backups kept on the server, each with a Restore button.
+async function loadSavedBackups() {
+  const box = $("backupSaved");
+  try {
+    const r = await fetch("/api/backup/saved");
+    if (!r.ok) { box.textContent = "Couldn't read the list."; return; }
+    const list = await r.json();
+    box.innerHTML = "";
+    if (!list.length) { box.innerHTML = `<div class="watch-note">None yet.</div>`; return; }
+    for (const b of list) {
+      const row = document.createElement("div");
+      row.className = "bk-row";
+      const when = new Date(b.at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+      row.innerHTML = `<span class="bk-what"><span class="bk-when">${esc(when)}</span><span class="bk-kind">${esc(b.kind)} · ${fmtBytes(b.size)}</span></span>`;
+      const go = document.createElement("button");
+      go.type = "button";
+      go.className = "toggle";
+      go.textContent = "Restore";
+      go.title = b.name;
+      go.onclick = () => restoreSaved(b, when);
+      row.appendChild(go);
+      box.appendChild(row);
+    }
+  } catch { box.textContent = "Couldn't reach BAMF."; }
+}
+async function restoreSaved(b, when) {
+  if (!confirm(`Put back the backup from ${when} (${b.name})?\n\nEvery device and its history, the names, notes and tags, the Map, the floor plans, alert rules and the settings saved here become what they were then. The database it replaces is kept first, in this same list, so this can be undone.`)) return;
+  const out = $("backupResult");
+  out.textContent = "Restoring\u2026";
+  try {
+    const r = await fetch("/api/backup/saved/restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: b.name }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { out.textContent = d.error || `Couldn't restore it (HTTP ${r.status}).`; return; }
+    out.textContent = `Restored. The database it replaced is kept as ${d.kept}. Reloading\u2026`;
+    setTimeout(() => location.reload(), 1500);
+  } catch { out.textContent = "Couldn't reach BAMF."; }
+}
+$("backupSavedBox").ontoggle = () => { if ($("backupSavedBox").open) loadSavedBackups(); };
 $("backupNow").onclick = async () => {
   const b = $("backupNow"), out = $("backupNowResult");
   b.disabled = true; out.textContent = "Backing up…"; out.className = "set-result";
@@ -741,6 +779,7 @@ $("backupNow").onclick = async () => {
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || "HTTP " + r.status);
     renderBackup(d);
+    if ($("backupSavedBox").open) loadSavedBackups();
     out.textContent = "Done."; out.className = "set-result ok";
   } catch (err) { out.textContent = err.message; out.className = "set-result err"; }
   finally { b.disabled = false; }

@@ -934,6 +934,11 @@
           <button type="button" class="toggle" id="backupNow">Back up now</button>
           <span class="set-result" id="backupNowResult"></span>
         </div>
+        <details class="bk-saved" id="backupSavedBox">
+          <summary>Backups on this machine</summary>
+          <p class="modal-help">The nightly ones, the updaters' from before each update, and the ones kept before a restore. <b>Restore</b> puts one back, the same as restoring from a file, and keeps what it replaces.</p>
+          <div id="backupSaved"></div>
+        </details>
         <div class="modal-note">
           Restoring replaces everything here with what's in the file. BAMF checks it's a sound BAMF
           backup first, and keeps the database it replaces in <span class="mono">backups</span> beside
