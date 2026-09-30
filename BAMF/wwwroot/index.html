@@ -990,6 +990,13 @@
   .set-table tr.set-net-paused .set-eff { color: var(--text-dim); }
   .set-table tr.set-net-paused .set-net-input { opacity: .45; }
   .set-table .set-eff { color: var(--text-dim); font-size: 12px; }
+  /* Settings → Security → HTTPS: what the certificate covers. */
+  .https-cert { margin: 4px 0 10px; font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+  #httpsStatus.bad { color: var(--danger); }
+  #httpsStatus a { color: var(--focus); text-decoration: none; }
+  #httpsDownload { text-decoration: none; }
+  .https-late { color: var(--led-warn); font-weight: 600; }
+  .https-cert .mono { font-family: "IBM Plex Mono", monospace; overflow-wrap: anywhere; }
   /* Same min-width override as above; left inherited, the 220px box shoves the
      whole table past the card's right edge. */
   .set-table .set-net-input { width: 110px; min-width: 0; }
@@ -2162,6 +2169,18 @@
         <div class="set-actions">
           <button type="button" class="toggle" id="authSignOut" hidden>Sign out</button>
           <span class="set-result" id="authResult"></span>
+        </div>
+      </div>
+      <div class="set-card" id="httpsCard">
+        <div class="set-card-title">HTTPS</div>
+        <p class="modal-help">Encrypts the connection to the dashboard, so the password and everything on the page can't be read by anyone watching the network. BAMF makes a certificate of its own for this machine. Nothing vouches for it, so each browser warns once, the first time, until you tell it to go on (usually <b>Advanced → Continue</b>), unless the certificate is installed as trusted on that device. Plain HTTP stays on beside it for scripts, Home Assistant and other BAMF servers.</p>
+        <p class="modal-help" id="httpsStatus"></p>
+        <div class="https-cert" id="httpsCert" hidden></div>
+        <div class="set-actions">
+          <button type="button" class="export-btn" id="httpsCreate">Make a certificate and turn HTTPS on</button>
+          <a class="toggle" id="httpsDownload" href="/api/settings/https/certificate" download="bamf.crt" hidden>Download certificate</a>
+          <button type="button" class="toggle" id="httpsRemove" hidden>Turn off</button>
+          <span class="set-result" id="httpsResult"></span>
         </div>
       </div>
       <div class="set-card">
@@ -11462,6 +11481,7 @@ async function loadSettings() {
     return;
   }
   const e = settingsData.editable, ro = settingsData.readOnly;
+  renderHttps(e.https);
   $("setInterval").value = e.scanIntervalSeconds;
   $("setInterval").min = settingsData.minIntervalSeconds;
   $("setConcurrency").value = e.pingConcurrency;
@@ -11830,6 +11850,64 @@ async function addNetwork() {
   const list = (settingsData?.editable?.networks?.list) || [];
   if (await saveNetworks([...list, v], `Added ${v}.`)) box.value = "";
 }
+// ---- Settings → Security → HTTPS ----
+// A certificate BAMF makes itself; HTTPS starts with it at the next restart.
+function renderHttps(h) {
+  if (!h) return;
+  const st = $("httpsStatus"), c = h.certificate;
+  const addr = `https://${location.hostname}:${h.port}/`;
+  const restart = ` ${esc(h.restart)}`;
+  st.classList.toggle("bad", h.state === "problem");
+  st.innerHTML =
+    h.state === "file" ? "<b>On</b>, set in <span class=\"mono\">appsettings.json</span> with its own certificate."
+    : h.state === "on" ? `<b>On</b> at <a href="${esc(addr)}">${esc(addr)}</a>, beside plain HTTP.` + (location.protocol === "https:" ? "" : " You're on HTTP now; that link is the encrypted way in.")
+    : h.state === "problem" ? `<b>Not on:</b> ${esc(h.problem || "")}`
+    : h.state === "restart" && c ? `<b>Ready.</b> HTTPS starts on port ${h.port} the next time BAMF starts.` + restart + " If the machine has a firewall, let that port through too."
+    : h.state === "restart" ? `<b>Turned off.</b> HTTPS stops the next time BAMF starts.` + restart
+    : "<b>Off.</b> The dashboard is served over plain HTTP.";
+  const info = $("httpsCert");
+  info.hidden = !c || h.state === "file";
+  if (c) {
+    const fp = c.fingerprint.match(/.{2}/g).join(":");
+    info.innerHTML = `For <span class="mono">${c.names.map(esc).join(", ")}</span><br>`
+      + `Good until ${esc(new Date(c.expires).toLocaleDateString())}${httpsExpiry(c.expires)}<br>`
+      + `SHA-256 fingerprint, to check against the browser's warning: <span class="mono">${esc(fp)}</span>`;
+  }
+  $("httpsCreate").hidden = h.state === "file";
+  $("httpsCreate").textContent = c ? "New certificate" : "Make a certificate and turn HTTPS on";
+  $("httpsDownload").hidden = !c || h.state === "file";
+  $("httpsRemove").hidden = !c || h.state === "file";
+}
+// Within a month of the end, or past it: time for a new one.
+function httpsExpiry(iso) {
+  const days = Math.ceil((new Date(iso) - Date.now()) / 86400000);
+  return days <= 0 ? `<b class="https-late">, and it has passed. Make a new certificate.</b>`
+    : days <= 30 ? `<b class="https-late">, ${days} day${days === 1 ? "" : "s"} from now. Make a new certificate soon.</b>` : "";
+}
+async function httpsAction(action, done) {
+  intMsgHttps("Working…");
+  try {
+    const r = await fetch("/api/settings/https", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || "HTTP " + r.status);
+    renderHttps(d);
+    intMsgHttps(done, "ok");
+  } catch (err) { intMsgHttps(err.message, "err"); }
+}
+function intMsgHttps(text, kind) {
+  const el = $("httpsResult");
+  el.textContent = text;
+  el.className = "set-result" + (kind ? " " + kind : "");
+}
+$("httpsCreate").onclick = () => {
+  const had = settingsData?.editable?.https?.certificate;
+  if (had && !confirm("Make a new certificate? It replaces this one at the next restart, and a device that trusted the old one will warn again.")) return;
+  httpsAction("create", "Made.");
+};
+$("httpsRemove").onclick = () => {
+  if (!confirm("Turn HTTPS off? It stops when BAMF restarts, and the https:// address stops working then.")) return;
+  httpsAction("remove", "Removed.");
+};
 $("setNetAdd").onclick = addNetwork;
 $("setNetNew").onkeydown = e => { if (e.key === "Enter") addNetwork(); };
 

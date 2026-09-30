@@ -80,6 +80,34 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<RuleService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MqttPublisher>());
 builder.Services.AddHttpClient();
 
+// One-click HTTPS (Settings → Security): while its certificate is beside the
+// database, BAMF also listens for HTTPS on Bamf:HttpsPort, alongside HTTP.
+// Anything that would keep it from starting (an unreadable certificate, the
+// port already taken) is skipped instead, and Settings says why, so BAMF
+// always comes up on its HTTP address at least.
+var httpsPort = builder.Configuration.GetValue("Bamf:HttpsPort", HttpsCert.DefaultPort);
+{
+    var urls = builder.Configuration["Urls"] ?? "";
+    HttpsCert.FileHttps = urls.Contains("https://", StringComparison.OrdinalIgnoreCase);
+    var certPath = HttpsCert.PathFor(builder.Configuration);
+    if (File.Exists(certPath) && !HttpsCert.FileHttps)
+    {
+        using var cert = HttpsCert.Load(certPath);
+        if (cert is null) HttpsCert.StartProblem = "The certificate couldn't be read. Make a new one.";
+        else if (string.IsNullOrWhiteSpace(urls)) HttpsCert.StartProblem = "Urls isn't set in appsettings.json, so there's no address to add HTTPS beside.";
+        else if (!HttpsCert.PortFree(httpsPort)) HttpsCert.StartProblem = $"Port {httpsPort} is in use by something else. Set Bamf:HttpsPort to another.";
+        else
+        {
+            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Urls"] = urls.TrimEnd(';') + $";https://0.0.0.0:{httpsPort}",
+                ["Kestrel:Certificates:Default:Path"] = certPath,
+            });
+            HttpsCert.RunningThumbprint = cert.Thumbprint;
+        }
+    }
+}
+
 var app = builder.Build();
 // Devices a switch or the router counts keep their history from there, not the capture.
 app.Services.GetRequiredService<TrafficMonitor>().CountedElsewhere = app.Services.GetRequiredService<MeasuredTraffic>().Covers;
@@ -145,6 +173,10 @@ string? HookToken() =>
 if (!string.IsNullOrEmpty(app.Configuration["Bamf:ViewerPassword"]) && auth.Source("admin") is null)
     app.Logger.LogWarning("Bamf:ViewerPassword is set without a main password, so it does nothing: " +
         "with no main password the dashboard is open to everyone. Set Bamf:Password too, or set both in Settings, under Security.");
+if (HttpsCert.StartProblem is { } httpsProblem)
+    app.Logger.LogWarning("HTTPS isn't on: {Problem}", httpsProblem);
+else if (HttpsCert.RunningThumbprint is not null)
+    app.Logger.LogInformation("HTTPS on port {Port}, with the certificate made in Settings", httpsPort);
 if (auth.Required && !(app.Configuration["Urls"] ?? "").Contains("https://", StringComparison.OrdinalIgnoreCase))
     app.Logger.LogInformation(
         "A password is set and the dashboard is served over http://, so the password crosses the network " +
@@ -300,6 +332,63 @@ app.MapGet("/api/auth", (HttpContext ctx) => Results.Json(new
     viewer = auth.Source("viewer"),
     minLength = AuthService.MinLength,
 }));
+// ---------- one-click HTTPS, in Settings → Security ----------
+object HttpsJson()
+{
+    var path = HttpsCert.PathFor(app.Configuration);
+    using var cert = HttpsCert.Load(path);
+    var running = HttpsCert.RunningThumbprint;
+    // "file": appsettings.json serves HTTPS itself. "on": this certificate is
+    // being served. "restart": made or removed since BAMF started. "problem":
+    // there, but not served. "off": none.
+    var unreadable = cert is null && File.Exists(path);
+    var state = HttpsCert.FileHttps ? "file"
+        : unreadable ? "problem"
+        : cert is not null && running == cert.Thumbprint ? "on"
+        : cert is not null && running is null && HttpsCert.StartProblem is not null ? "problem"
+        : cert is null && running is null ? "off"
+        : "restart";
+    return new
+    {
+        state,
+        port = httpsPort,
+        problem = state != "problem" ? null : unreadable ? "The certificate couldn't be read. Make a new one." : HttpsCert.StartProblem,
+        certificate = cert is null ? null : new
+        {
+            names = HttpsCert.NamesIn(cert),
+            expires = cert.NotAfter.ToUniversalTime().ToString("o"),
+            fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(cert.RawData)),
+        },
+        restart = HttpsCert.RestartHint(File.Exists(HomeAssistantAddon.OptionsPath), httpsPort),
+    };
+}
+app.MapPost("/api/settings/https", (HttpsRequest body) =>
+{
+    var path = HttpsCert.PathFor(app.Configuration);
+    switch (body.Action)
+    {
+        case "create":
+            if (HttpsCert.FileHttps) return Results.BadRequest(new { error = "appsettings.json already serves HTTPS, with its own certificate." });
+            var (names, addresses) = HttpsCert.LocalNames();
+            using (var cert = HttpsCert.Create(names, addresses, DateTimeOffset.UtcNow)) HttpsCert.Save(cert, path);
+            app.Logger.LogInformation("Made an HTTPS certificate for {Names}", string.Join(", ", names.Concat(addresses.Select(a => a.ToString()))));
+            return Results.Json(HttpsJson());
+        case "remove":
+            if (File.Exists(path)) File.Delete(path);
+            app.Logger.LogInformation("Removed the HTTPS certificate");
+            return Results.Json(HttpsJson());
+        default:
+            return Results.BadRequest(new { error = "Create or remove." });
+    }
+});
+// The certificate alone, without its key, to install as trusted on a device
+// so its browser stops warning.
+app.MapGet("/api/settings/https/certificate", () =>
+{
+    using var cert = HttpsCert.Load(HttpsCert.PathFor(app.Configuration));
+    return cert is null ? Results.NotFound() : Results.File(cert.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Cert), "application/x-x509-ca-cert", "bamf.crt");
+});
+
 app.MapPost("/api/settings/password", (PasswordRequest body, HttpContext ctx) =>
 {
     var role = body.Role == "viewer" ? "viewer" : "admin";
@@ -1540,6 +1629,7 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
     {
         editable = new
         {
+            https = HttpsJson(),
             scanIntervalSeconds = scanner.ConfiguredDefaultInterval,
             subnetIntervalSeconds = scanner.SubnetIntervals,
             subnetIntervalOverrides = overrides,
@@ -2398,6 +2488,7 @@ record RemotesRequest(RemoteEntry[]? Remotes);
 record HookTokenRequest(string? Action);
 record SetupRequest(string[]? Networks, string? Password, bool? Open, bool? Skip);
 record PasswordRequest(string? Role, string? Current, string? Password);
+record HttpsRequest(string? Action);
 record ForgetRequest(bool Forgotten);
 record ActiveArpRequest(bool Enabled);
 record RouterNamesApply(bool Overwrite);
