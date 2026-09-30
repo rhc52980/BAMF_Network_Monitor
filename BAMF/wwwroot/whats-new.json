@@ -2,6 +2,16 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "1.58.0",
+      "date": "2026-09-30",
+      "items": [
+        "Home Assistant gets more over MQTT: devices online, unknown devices (with their names), and whether the internet is up, ready for automations like a phone alert when an unknown device joins.",
+        "A log of settings changes on the Activity tab: what changed, when, with which password and from where. Only each setting's name is kept, never its value.",
+        "An alert 14 and 3 days before BAMF's own HTTPS certificate runs out, from the morning certificate watch.",
+        "Number boxes in Settings now fit five digits, like 3600 seconds for the internet check."
+      ]
+    },
+    {
       "version": "1.57.0",
       "date": "2026-09-29",
       "items": [
