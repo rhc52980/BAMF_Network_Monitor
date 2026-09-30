@@ -2,6 +2,16 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "1.59.0",
+      "date": "2026-09-30",
+      "items": [
+        "BAMF now backs itself up every night, at 3 am unless you pick another hour in Settings, under System. It keeps the newest 7, with appsettings.json alongside, and a night the machine was off it catches up.",
+        "Backups on this machine, in the same card, lists every backup on the server, each with a Restore button. What a restore replaces is kept, so it can be undone.",
+        "Set Bamf:Backup:CopyTo in appsettings.json to copy each night's backup to a second folder, a NAS share say.",
+        "On Linux, the installer switches off the old backup timer, since BAMF now does it itself."
+      ]
+    },
+    {
       "version": "1.58.0",
       "date": "2026-09-30",
       "items": [
