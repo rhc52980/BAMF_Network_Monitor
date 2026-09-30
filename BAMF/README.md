@@ -346,8 +346,8 @@ Home Assistant and other BAMF servers carry on unchanged.
   BAMF starts on plain HTTP anyway, and the card says why.
 - **New certificate** replaces it at the next start. A device that trusted
   the old one will warn again. The certificate lasts 825 days, the longest
-  Apple's devices accept, and the certificate watch doesn't cover BAMF's own
-  port, so make a new one when the card says it's close.
+  Apple's devices accept. The [certificate watch](#certificate-watch) sends an
+  alert 14 days and 3 days before it runs out, and the card says so too.
 - **Turn off** removes it, and HTTPS stops at the next start.
 - It's a file, `bamf-https.pfx`, beside the database, not in it. An update
   leaves it alone. A backup doesn't carry it, so after restoring onto a new
@@ -2880,6 +2880,11 @@ trusts whatever it's shown, because it's reading the certificate rather than
 relying on it: a self-signed certificate on a NAS is normal. Only ports that a
 scan has already found open are touched: 443, 8443, 5001, 9443, 10443 and
 4443.
+
+BAMF's own certificate, if you made one under **Settings → Security →
+HTTPS**, is read from its file on the same run and warned about the same way,
+with what to do: make a new one and restart BAMF. A new certificate starts
+the warnings over.
 
 With **Watch ports daily** on, the morning run also sends the UPnP search.
 Both are active checks, and the port watch is already the one you switched on

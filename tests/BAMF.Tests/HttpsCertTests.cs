@@ -79,6 +79,20 @@ public class HttpsCertTests : IDisposable
         Assert.Equal(expected, HttpsCert.PathFor(config));
     }
 
+    [Theory]
+    [InlineData(60, "")]
+    [InlineData(14.5, "")]
+    [InlineData(14, "14")]
+    [InlineData(4, "14")]
+    [InlineData(3, "3")]
+    [InlineData(0.5, "3")]
+    [InlineData(-1, "expired")]
+    public void A_certificate_is_warned_about_14_and_3_days_out_and_once_expired(double daysLeft, string stage)
+    {
+        var now = Now.UtcDateTime;
+        Assert.Equal(stage, SecurityCheck.ExpiryStage(now.AddDays(daysLeft), now));
+    }
+
     [Fact]
     public void A_port_in_use_is_seen_before_BAMF_tries_to_listen_on_it()
     {
