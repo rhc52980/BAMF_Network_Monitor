@@ -194,6 +194,19 @@ async function loadTraffic() {
 }
 // The Activity tab's two cards: who's moving the most bytes, and the DHCP
 // and DNS servers in use with any alerts about them.
+// The Activity tab's log of settings changes.
+async function loadSettingsLog() {
+  try {
+    const r = await fetch("/api/settings/log");
+    if (r.ok) renderSettingsLog(await r.json());
+  } catch { /* the next refresh tries again */ }
+}
+function renderSettingsLog(list) {
+  $("setLogBody").innerHTML = list.length ? list.slice(0, 15).map(c =>
+    `<div class="alert-item k-settings"><div><b>${esc(c.what)}</b><span class="when">${esc(fmtAgo(c.at))}</span></div>`
+    + `<div class="det">With ${esc(c.who)}${c.address ? ", from " + esc(c.address) : ""}</div></div>`).join("")
+    : `<div class="watch-note">Nothing changed yet. Each change made in Settings is listed here.</div>`;
+}
 function renderAlertsCard() {
   const body = $("alertsBody");
   const list = alertsCache || [];
