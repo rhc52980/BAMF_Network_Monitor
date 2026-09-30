@@ -102,9 +102,12 @@ the bodies they take in `Requests.cs`. The work itself is in `Services/`.
 
 ### Tests
 
-From the repo root, the C# tests (theme sync and zip import, and when
-scheduled reports fall due) and the dashboard's (which devices count as
-intruders):
+From the repo root, the C# tests and the dashboard's (which devices count as
+intruders). The C# ones test BAMF's parts (themes, reports, passwords, the
+network rules, certificates) and, in `EndpointTests`, BAMF itself: each starts
+it in memory on a database of its own, with nothing scanned or sent, and
+calls its API as a browser, a script or another BAMF would, from signing in
+and the view-only password to the saved-password rules:
 
 ```bash
 dotnet test tests/BAMF.Tests
