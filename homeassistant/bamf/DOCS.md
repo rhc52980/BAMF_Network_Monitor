@@ -55,7 +55,9 @@ changed, in BAMF's **Settings → System**.
   the traffic monitor. Without them, BAMF still works on ping sweeps.
 
 Its database lives in the add-on's own storage, so it survives updates and is
-included in Home Assistant backups.
+included in Home Assistant backups. BAMF's own nightly backups are off in the
+add-on for that reason; switch them on under **Settings → System** if you want
+both.
 
 ## More
 
