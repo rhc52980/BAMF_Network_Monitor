@@ -193,6 +193,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:Subnets` | List of CIDRs to scan, e.g. `["192.168.1.0/24", "192.168.2.0/24"]`. Empty list = auto-detect every active IPv4 interface. (`Bamf:Subnet` as a single string still works for back-compat.) A list saved in **Settings → Scanning → Networks** replaces this one; see [Networks](#networks). |
 | `Bamf:DeviceLinkTemplate` | Where a device's IP link points when it has no link of its own. `{ip}` is the device address. Default `http://{ip}`. |
 | `Bamf:HistoryRetentionDays` | Days of online/offline history to keep (default 90, pruned daily). |
+| `Bamf:Backup:CopyTo` | A folder each nightly backup is copied to as well, a NAS share say (default none). See [Backups](#backups). |
 | `Bamf:ThemesPath` | The themes folder, relative to the exe (default `themes`; `/data/themes` in Docker and the add-on). See [Adding and removing themes](#adding-and-removing-themes). |
 | `Bamf:AutoDownloadOui` | Download the IEEE vendor registry on first run (default true). |
 | `Bamf:UpdateCheck` | Check GitHub daily for a newer release and show a badge (default **false**). Read-only — never downloads or installs. Header toggle overrides this. |
@@ -1289,7 +1290,7 @@ buttons across the top on a phone):
 | **Alerts** | Where alerts go: the main webhook with **Sends** and **Test**, more destinations and the scheduled report; then alert rules and quiet hours |
 | **Your network** | Switches and routers, map icons and names from your router |
 | **Appearance** | The theme, Holiday Spirit, Night mode, compact rows, the screen saver, the keyboard shortcuts, and which themes are installed |
-| **System** | History retention, with its own **Save**, the update check, Home Assistant (MQTT), other BAMF servers, the inbound webhooks' token, backups, and what's set in `appsettings.json` |
+| **System** | History retention, with its own **Save**, the update check, Home Assistant (MQTT), other BAMF servers, the inbound webhooks' token, backups (nightly, and by hand), and what's set in `appsettings.json` |
 
 ### First-run setup
 
@@ -1801,6 +1802,8 @@ scan, or delete a thing.
 | POST | `/api/ports/watch` | Run that scan now; returns how many newly open ports it found |
 | GET | `/api/hosts/{id}/ports` | Every port found open on a device, open now or once: `{"port", "service", "firstSeen", "lastSeen", "open"}`. A port scan (`/api/hosts/{id}/portscan`, which now returns `{"ports", "newlyOpen"}`) records here |
 | GET | `/api/hosts/{id}/traffic` | Bytes per hour for a device over the last 7 days (`?days=` for more): `[{"hour", "rx", "tx"}]` |
+| POST | `/api/settings/backup` | Body `{"enabled": true, "hour": 3, "keep": 7}`, any of them: the nightly backups. `GET /api/settings` returns them as `editable.backup`, with the last one's result and how many are kept |
+| POST | `/api/settings/backup/run` | Take tonight's backup now |
 | GET | `/api/backup` | The whole database as one SQLite file, named `bamf-YYYYMMDD-HHMM.db`, taken while BAMF runs. Refused with the view-only password, since it carries the saved webhook URL and the MQTT and other servers' passwords |
 | POST | `/api/settings/alertnudge` | Body `{"off": true}` — hide the dashboard's "Alerts are off" banner; `false` brings it back |
 | POST | `/api/backup/restore` | The body is a backup file. Checked, then swapped in for the database; the one it replaces is kept in `backups`. Answers `{"ok": true, "kept": "bamf-before-restore-….db"}`, or `400` with the reason it was turned down |
@@ -2903,53 +2906,56 @@ for that.
 
 ## Backups
 
-Every update snapshots `bamf.db` into `backups/` before touching anything. That
-covers the risky moment, but it only fires when you update - go a month without
-updating and your newest snapshot is a month old.
+BAMF backs itself up **every night**, while it keeps running: at 3 am unless
+you pick another hour under **Settings → System → Back up the database**, a
+copy of the database goes into `backups/` beside it as
+`nightly-YYYYMMDD.db`, with `appsettings.json` beside it as
+`nightly-YYYYMMDD.appsettings.json`, so a restore gets the networks, the
+webhook and any password set there back too. It keeps the newest **7** (change
+it in the same card), and **Back up now** takes one straight away.
 
-For a scheduled snapshot:
+- **No scheduled task, and no stopping.** The copy is taken the way
+  **Download a backup** takes one: SQLite's `VACUUM INTO`, from one read
+  transaction, so it's whole even if a scan lands halfway through.
+- **A machine that was off at the hour** backs up once it's back.
+- **Updates don't touch them.** The updaters keep their own snapshot from
+  before each update (`bamf-YYYYMMDD-HHMM.db`, the newest 30); the nightly
+  ones have their own name and their own count.
+- **A second folder**, so a failing disk doesn't take the backups with it:
+  set `Bamf:Backup:CopyTo` in `appsettings.json` to a folder, a NAS share say,
+  and each night's copy goes there too, pruned to the same count. It's set in
+  the file rather than the dashboard, since it's somewhere BAMF writes files.
+- **A night that fails** is an alert, through wherever status alerts go, and
+  the card says why. The last good backup is still there.
+- On by default, except in the **Home Assistant add-on**, whose data is
+  already in Home Assistant's own backups; switch it on there if you want both.
 
-**Windows** - run once, elevated, from the `windows` folder:
+### By hand, from the command line
+
+The scripts that scheduled backups before BAMF did it itself still take one
+now, stopping the service for the moment it takes to copy:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File Backup-BAMF.ps1 -Install
+powershell -ExecutionPolicy Bypass -File C:\BAMF\Backup-BAMF.ps1
 ```
-
-That registers a **BAMF Backup** scheduled task running nightly at 03:00 as
-SYSTEM. Run it by hand any time with `Backup-BAMF.ps1`, or
-`Start-ScheduledTask -TaskName "BAMF Backup"`.
-
-**Linux** - `install.sh` sets this up for you: `bamf-backup.timer` runs nightly
-at 03:00 (with `Persistent=true`, so a machine that was off catches up).
 
 ```bash
-systemctl list-timers bamf-backup      # when it next runs
-systemctl start bamf-backup.service    # run one now
-systemctl disable --now bamf-backup.timer   # stop scheduled backups
+sudo bash /opt/bamf/bamf-backup.sh
 ```
 
-Both keep the newest **30** snapshots and copy `appsettings.json` alongside
-them, so a restore gets your subnets, webhook and password back too. At one a
-night that's roughly a month of history; the database is small, so 30 costs
-very little disk. Change it with `-Keep 60` or `BAMF_BACKUP_KEEP=60`.
-
-The updaters prune to the same 30, because they write into the same folder — if
-they kept fewer, running an update would trim your scheduled snapshots back.
-
-### Why they stop the service
-
-BAMF writes to `bamf.db` continuously. A plain copy taken mid-write can be
-**torn** - SQLite may consider the result corrupt, and you would not find that
-out until the moment you needed to restore it. Both scripts stop the service,
-copy, and start it again, restarting even if the copy fails. BAMF misses at
-most one scan cycle.
+On Linux, `install.sh` no longer sets up `bamf-backup.timer`, and switches off
+one an earlier version set up, since BAMF's own backup replaces it. On
+Windows, if you registered the **BAMF Backup** task with `-Install`, it's no
+longer needed:
+`Unregister-ScheduledTask -TaskName 'BAMF Backup' -Confirm:$false`.
 
 ### Syncing backups to cloud storage
 
 Point your sync client at the **`backups`** folder, never at `bamf.db` itself.
-Snapshots are written once and never touched again, so they are safe to sync. A
-live database is not: sync clients can capture a half-written file, and some
-lock or replace files underneath the process holding them.
+Snapshots, nightly ones included, are written once and never touched again, so
+they are safe to sync. A live database is not: sync clients can capture a
+half-written file, and some lock or replace files underneath the process
+holding them.
 
 | | Windows | Linux |
 |---|---|---|
@@ -2958,8 +2964,10 @@ lock or replace files underneath the process holding them.
 
 ### Restoring
 
-Stop the service, copy a snapshot over `bamf.db`, start it again - see
-[Rolling back](#rolling-back).
+**Settings → System → Restore from a backup…** puts one back while BAMF keeps
+running, after checking it's a sound BAMF backup, and keeps the database it
+replaces. Or by hand: stop the service, copy a snapshot over `bamf.db`, start
+it again - see [Rolling back](#rolling-back).
 
 ## Feedback and bug reports
 

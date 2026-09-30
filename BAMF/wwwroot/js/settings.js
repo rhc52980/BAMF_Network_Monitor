@@ -702,6 +702,49 @@ $("backupDownload").onclick = async () => {
 };
 
 $("backupRestore").onclick = () => $("backupFile").click();
+
+// ---- Settings → System: nightly backups ----
+function renderBackup(b) {
+  if (!b) return;
+  setToggleState($("backupNightly"), b.enabled);
+  $("backupHour").value = String(b.hour);
+  if (document.activeElement !== $("backupKeep")) $("backupKeep").value = b.keep;
+  const st = $("backupStatus"), last = b.last;
+  const kept = b.count ? ` ${b.count} kept, ${fmtBytes(b.totalBytes)} in all.` : "";
+  const copy = b.copyTo ? ` Also copied to <span class="mono">${esc(b.copyTo)}</span>.` : "";
+  st.classList.toggle("bad", !!(last && last.error));
+  st.innerHTML = last && last.error ? `<b>The last backup failed</b> (${esc(fmtAgo(last.at))}): ${esc(last.error)}`
+    : last && last.file ? `Last: <span class="mono">${esc(last.file)}</span>, ${fmtBytes(last.size)}, ${esc(fmtAgo(last.at))}.${kept}${copy}`
+    : (b.enabled ? "None yet. The first is taken tonight." : "Off.") + kept + copy;
+}
+async function saveBackup(body, done) {
+  const out = $("backupNowResult");
+  try {
+    const r = await fetch("/api/settings/backup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || "HTTP " + r.status);
+    renderBackup(d);
+    out.textContent = done; out.className = "set-result ok";
+  } catch (err) { out.textContent = err.message; out.className = "set-result err"; }
+}
+$("backupNightly").onclick = () => {
+  const on = !$("backupNightly").classList.contains("on");
+  saveBackup({ enabled: on }, on ? "Nightly backups on." : "Nightly backups off.");
+};
+$("backupHour").onchange = () => saveBackup({ hour: Number($("backupHour").value) }, "Saved.");
+$("backupSave").onclick = () => saveBackup({ keep: Number($("backupKeep").value) }, "Saved.");
+$("backupNow").onclick = async () => {
+  const b = $("backupNow"), out = $("backupNowResult");
+  b.disabled = true; out.textContent = "Backing up…"; out.className = "set-result";
+  try {
+    const r = await fetch("/api/settings/backup/run", { method: "POST" });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || "HTTP " + r.status);
+    renderBackup(d);
+    out.textContent = "Done."; out.className = "set-result ok";
+  } catch (err) { out.textContent = err.message; out.className = "set-result err"; }
+  finally { b.disabled = false; }
+};
 $("backupFile").onchange = async () => {
   const f = $("backupFile").files[0];
   $("backupFile").value = "";
@@ -1256,6 +1299,7 @@ async function loadSettings() {
 
   renderNetworkSource(e.networks);
   renderIntegrations(e, ro);
+  renderBackup(e.backup);
 
   const roEl = $("setReadOnly");
   roEl.innerHTML = "";

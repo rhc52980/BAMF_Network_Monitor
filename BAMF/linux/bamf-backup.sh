@@ -1,5 +1,6 @@
 #!/bin/bash
-# BAMF scheduled backup. Installed to /opt/bamf and run by bamf-backup.timer.
+# A BAMF backup by hand. Installed to /opt/bamf. BAMF also backs itself up
+# every night (Settings -> System), so this is for a copy right now.
 #
 #   bash bamf-backup.sh [app-dir]        default: /opt/bamf
 #   BAMF_BACKUP_KEEP=20 bash bamf-backup.sh

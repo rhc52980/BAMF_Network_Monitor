@@ -43,6 +43,7 @@ public static class SettingsLog
         ["mqtt"] = "Home Assistant (MQTT)",
         ["remotes"] = "Other BAMF servers",
         ["hooktoken"] = "Inbound webhooks' token",
+        ["backup"] = "Nightly backups",
     };
 
     /// <summary>What a request changes, or null when it isn't a settings change.</summary>
