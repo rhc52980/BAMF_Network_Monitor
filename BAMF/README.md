@@ -92,6 +92,14 @@ dotnet publish -c Release -r linux-x64 -p:PublishSingleFile=true --self-containe
 > aside first and put it back after, or use the updaters below, which handle
 > this for you.
 
+### The server's files
+
+`Program.cs` starts BAMF: the settings it reads, the services it runs, HTTPS,
+signing in, then the endpoints. Those are in `Api/`, one file for each part of
+the dashboard (`DeviceEndpoints.cs`, `SettingsEndpoints.cs`,
+`AlertEndpoints.cs` and so on), with what they share in `ApiHelpers.cs` and
+the bodies they take in `Requests.cs`. The work itself is in `Services/`.
+
 ### Tests
 
 From the repo root, the C# tests (theme sync and zip import, and when
