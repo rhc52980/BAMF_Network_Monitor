@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BAMF — Basic ARP Monitoring Framework</title>
 <link rel="icon" type="image/svg+xml" href="/bamf-icon.svg">
+<!-- On a phone's home screen or as an installed app: its own icon and window. -->
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#10141a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BAMF">
 <!-- Apply the saved theme before anything paints. The full restore at the end
      of the main script validates against the theme list; this only has to be
      early, so it sets the attribute from storage and lets that later pass
@@ -9054,6 +9061,10 @@ function themeSheets(theme) {
   const t = THEMES.find(x => x.id === theme);
   const mine = new Set([theme, t?.folder].filter(Boolean));
   document.querySelectorAll("link[data-theme-css]").forEach(l => { l.disabled = !mine.has(l.dataset.themeCss); });
+  // The phone's status bar, or an installed app's title bar, in the theme's colour.
+  const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta && bg) meta.content = bg;
 }
 // What a theme's build(ctx) gets to work with.
 function themeContext(root, switched) {

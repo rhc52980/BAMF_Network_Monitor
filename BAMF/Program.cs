@@ -164,7 +164,9 @@ static bool HookTokenOk(HttpContext ctx, string? token) =>
 // What the sign-in page needs, open to anyone.
 static bool OpenPath(PathString p) =>
     p == "/signin" || p == "/api/signin" || p == "/api/signout" || p == "/fonts.css" || p == "/bamf-logo.svg" || p == "/bamf-icon.svg"
-    || p.StartsWithSegments("/fonts");
+    || p.StartsWithSegments("/fonts")
+    // The home-screen icon and its manifest, which a phone fetches without the sign-in cookie.
+    || p == "/manifest.webmanifest" || p == "/apple-touch-icon.png" || p == "/icon-192.png" || p == "/icon-512.png" || p == "/icon-maskable-512.png";
 app.Use(async (ctx, next) =>
 {
     if (!auth.Required) { await next(); return; }
