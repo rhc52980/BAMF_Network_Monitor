@@ -346,10 +346,12 @@ try {
     if (Test-Path $srcWeb) {
         Step "Installing the dashboard"
         Copy-Item (Join-Path $srcWeb "*") $appWeb -Recurse -Force
-        $srcPage = Join-Path $srcWeb "index.html"
-        $newPage = Join-Path $appWeb "index.html"
-        if ((Get-Item $srcPage).Length -ne (Get-Item $newPage).Length) {
-            throw "The dashboard in $appWeb does not match this package - the update would look like it worked while serving the old dashboard."
+        # The page and every script and stylesheet it loads.
+        Get-ChildItem $srcWeb -Recurse -File -Include *.html, *.js, *.css | ForEach-Object {
+            $newFile = Join-Path $appWeb $_.FullName.Substring($srcWeb.Length).TrimStart('\')
+            if (-not (Test-Path $newFile) -or (Get-Item $newFile).Length -ne $_.Length) {
+                throw "The dashboard in $appWeb does not match this package ($($_.Name)) - the update would look like it worked while serving the old dashboard."
+            }
         }
     }
 

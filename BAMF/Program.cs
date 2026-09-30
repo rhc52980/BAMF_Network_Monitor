@@ -297,7 +297,18 @@ object HttpsJson()
 }
 
 app.UseDefaultFiles();
-app.UseStaticFiles();
+// The dashboard is a page and the scripts and stylesheet it loads. A browser
+// checks each with the server before using its copy (a quick 304 when it
+// hasn't changed), so after an update it can't run an old script in the new
+// page, or the other way round.
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        if (Path.GetExtension(ctx.File.Name) is ".html" or ".js" or ".css" or ".json" or ".webmanifest")
+            ctx.Context.Response.Headers.CacheControl = "no-cache";
+    },
+});
 
 // ---------- themes ----------
 // Each folder in <install>/themes with a theme.json is a theme; see DropInThemes.

@@ -113,6 +113,30 @@ node --test tests/web/*.test.mjs
 
 Every pull request runs both, along with a build and a check of the themes.
 
+### The dashboard's files
+
+The dashboard is plain HTML, CSS and JavaScript in `wwwroot`, with no build
+step:
+
+| File | What's in it |
+|---|---|
+| `index.html` | The page: every view, card and dialog |
+| `css/dashboard.css` | Its look, and the Dark, Light and High Contrast themes |
+| `js/core.js` | The page's state, the feed and the Who's home board |
+| `js/floorplan.js` | Floor plans, and drawing one in BAMF |
+| `js/devices.js` | Loading devices, their history, the filters and network tabs |
+| `js/map.js` | The network map, printing it, and drawing the device list |
+| `js/dialogs.js` | The device dialogs, the scan panel, Find port and switch counters |
+| `js/themes.js` | Themes, Holiday Spirit, Night mode and the intruders |
+| `js/screensaver.js` | The screen saver and the watchtower |
+| `js/internet.js` | The internet watch, the speed test and the Scan menu |
+| `js/settings.js` | What's new, where alerts go, and Settings |
+
+The scripts load in that order and share one scope, as if they were one
+file, with one difference: code that runs as a file loads can only use what
+the files before it define. `node .github/scripts/check-web.mjs` checks each
+file and all of them together.
+
 ## Run it manually first
 
 ```powershell
