@@ -936,6 +936,19 @@
   .setup-open { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-size: 12px; color: var(--text-dim); cursor: pointer; }
   .setup-modal .modal-actions { align-items: center; margin-top: 12px; }
   .setup-modal .modal-actions .set-result { margin-right: auto; }
+  /* Settings → System: MQTT, other BAMF servers and the webhooks' token. */
+  .int-fields { width: 260px; flex-wrap: wrap; }
+  .int-fields .modal-input { width: 100%; }
+  .int-status { font-size: 12px; color: var(--text-dim); margin: 0 0 8px; }
+  .int-status b { color: var(--text); font-weight: 600; }
+  .int-status.bad b { color: var(--danger); }
+  .int-token { display: block; margin-top: 8px; padding: 8px 10px; border: 1px dashed var(--focus); border-radius: var(--radius);
+    font: 13px "IBM Plex Mono", monospace; word-break: break-all; user-select: all; }
+  .rm-table td { vertical-align: middle; }
+  .rm-table .rm-url { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim); }
+  .rm-table .rm-none { color: var(--text-dim); font-size: 12px; text-align: left; padding: 6px 0; }
+  .rm-add { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 10px; }
+  .rm-add .modal-input { flex: 1 1 140px; min-width: 0; margin-left: 0; }
   /* Settings → Security → Sign-in: a password box and its buttons in each row. */
   .auth-fields { width: 220px; flex-wrap: wrap; }
   .auth-fields .modal-input { width: 100%; }
@@ -1589,6 +1602,11 @@
     .tools-menu { right: auto; left: 0; }
     /* home board: 2 per row on phones */
     .home-grid { grid-template-columns: 1fr 1fr; }
+    /* other BAMF servers: one block each, the × at its top right */
+    .rm-table tr { position: relative; padding-right: 32px; border-top: 1px solid var(--line); }
+    .rm-table td { border-top: 0; padding: 4px 0; }
+    .rm-table td:first-child { padding-top: 8px; }
+    .rm-table td.set-net-rm-cell { position: absolute; top: 6px; right: 0; padding: 0; }
 
     /* The row's ⋯ menu (and the +N address list) becomes a bottom sheet. A
        menu hung under the button ran off the bottom of a phone screen, and
@@ -2449,13 +2467,90 @@
           <span class="set-field"><button type="button" class="arp-toggle" id="setUpd" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
       </div>
+      <div class="set-card" id="mqttCard">
+        <div class="set-card-title">Home Assistant (MQTT)</div>
+        <p class="modal-help">Publishes every device as present or away, and the latest speed test, to an MQTT broker. With discovery on, Home Assistant makes each device a presence sensor by itself.</p>
+        <p class="int-status" id="mqttStatus"></p>
+        <label class="set-row">
+          <span class="set-label">Broker
+            <span class="set-hint">Its name or address, like 192.168.1.20. Blank turns MQTT off.</span>
+          </span>
+          <span class="set-field int-fields"><input id="mqttServer" class="modal-input" autocomplete="off" spellcheck="false" placeholder="Off"></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Port</span>
+          <span class="set-field int-fields"><input id="mqttPort" class="modal-input" type="number" min="1" max="65535" placeholder="1883"></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Username</span>
+          <span class="set-field int-fields"><input id="mqttUser" class="modal-input" autocomplete="off" spellcheck="false"></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Password
+            <span class="set-hint">Never shown again once saved. Leave it blank to keep the saved one; pointing BAMF at another broker needs it typed again.</span>
+          </span>
+          <span class="set-field int-fields"><input id="mqttPass" class="modal-input" type="password" autocomplete="new-password"></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">TLS
+            <span class="set-hint">For a broker that takes encrypted connections, usually on port 8883.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="mqttTls" aria-label="TLS" aria-pressed="false"><span class="pill"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Home Assistant discovery
+            <span class="set-hint">Home Assistant finds each device by itself, with no YAML.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="mqttDiscovery" aria-label="Home Assistant discovery" aria-pressed="false"><span class="pill"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Topic prefix
+            <span class="set-hint">Each device is published under it, like bamf/aabbccddeeff/state.</span>
+          </span>
+          <span class="set-field int-fields"><input id="mqttPrefix" class="modal-input" autocomplete="off" spellcheck="false" placeholder="bamf"></span>
+        </label>
+        <div class="set-actions">
+          <button type="button" class="export-btn" id="mqttSave">Save</button>
+          <button type="button" class="toggle" id="mqttReset" hidden>Use appsettings.json's instead</button>
+          <span class="set-result" id="mqttResult"></span>
+        </div>
+      </div>
+      <div class="set-card" id="remotesCard">
+        <div class="set-card-title">Other BAMF servers</div>
+        <p class="modal-help">Another BAMF, at the cabin or the office, read once a minute. Its devices show here under networks named after it; nothing here is ever changed there. Its view-only password is all it needs.</p>
+        <table class="set-table rm-table" id="remotesTable"></table>
+        <div class="rm-add">
+          <input id="remoteName" class="modal-input" placeholder="Name, like Cabin" autocomplete="off" aria-label="The server's name">
+          <input id="remoteUrl" class="modal-input" placeholder="http://10.0.0.5:8840" autocomplete="off" spellcheck="false" aria-label="Where that BAMF opens">
+          <input id="remotePass" class="modal-input" type="password" placeholder="Its password, if any" autocomplete="new-password" aria-label="That BAMF's password">
+          <button type="button" class="export-btn" id="remoteAdd">Add</button>
+        </div>
+        <div class="set-actions">
+          <button type="button" class="toggle" id="remotesReset" hidden>Use appsettings.json's instead</button>
+          <span class="set-result" id="remotesResult"></span>
+        </div>
+      </div>
+      <div class="set-card" id="hookCard">
+        <div class="set-card-title">Inbound webhooks</div>
+        <p class="modal-help">A script, Home Assistant or a phone shortcut can start a scan with <span class="mono">POST /api/hooks/scan</span>, or wake a device with <span class="mono">POST /api/hooks/wake/{mac}</span>. With a token, they need it (as <span class="mono">X-BAMF-Token</span> or <span class="mono">?token=</span>) instead of the password.</p>
+        <p class="int-status" id="hookStatus"></p>
+        <div class="set-actions">
+          <button type="button" class="export-btn" id="hookNew">Make a new token</button>
+          <button type="button" class="toggle" id="hookReset" hidden>Use appsettings.json's instead</button>
+          <span class="set-result" id="hookResult"></span>
+        </div>
+        <div id="hookShow" hidden>
+          <p class="modal-help" style="margin:10px 0 0">The new token, shown this once. Copy it now; anything using the old one needs this instead.</p>
+          <code class="int-token" id="hookToken"></code>
+        </div>
+      </div>
       <div class="set-card" id="backupCard">
         <div class="set-card-title">Back up the database</div>
         <p class="modal-help">
           Everything BAMF knows, as one file: every device and its history, the names, notes and tags,
           the Map, the floor plans, alert rules, and the settings saved on this page. It's taken while
           BAMF keeps running, so there's no need to stop anything first. The file includes your saved
-          webhook URL, so keep it somewhere private.
+          webhook URL and the passwords BAMF uses for MQTT and other BAMF servers, so keep it somewhere private.
         </p>
         <div class="modal-actions" style="justify-content:flex-start">
           <button class="export-btn" id="backupDownload">Download a backup</button>
@@ -11494,6 +11589,7 @@ async function loadSettings() {
   }
 
   renderNetworkSource(e.networks);
+  renderIntegrations(e, ro);
 
   const roEl = $("setReadOnly");
   roEl.innerHTML = "";
@@ -11503,12 +11599,6 @@ async function loadSettings() {
     ["Database", ro.databasePath || "—"],
     ["OUI auto-download", ro.autoDownloadOui ? "on" : "off"],
     ["Update repo", ro.updateRepo || "—"],
-    ["Inbound webhooks", `POST /api/hooks/scan and /api/hooks/wake/{mac}` + (ro.hookToken ? " · token set (X-BAMF-Token)" : " · no token: as open as the dashboard")],
-    ["Remote servers", !(ro.remotes || []).length ? "none (Bamf:Remotes)" : ro.remotes.map(r => `${r.name}: ${r.ok ? `${r.hosts} devices, ${r.version || "?"}, fetched ${fmtAgo(r.fetchedUtc)}` : "unreachable" + (r.error ? " (" + r.error + ")" : "")}`).join(" · ")],
-    ["MQTT", !ro.mqtt || !ro.mqtt.configured ? "off (set Bamf:Mqtt:Server to publish presence for Home Assistant)"
-      : `${ro.mqtt.server} · ${ro.mqtt.connected ? "connected" : "not connected" + (ro.mqtt.error ? ": " + ro.mqtt.error : "")}` +
-        ` · ${Number(ro.mqtt.published || 0).toLocaleString()} published` + (ro.mqtt.lastPublish ? `, last ${fmtAgo(ro.mqtt.lastPublish)}` : "") +
-        ` · topics ${ro.mqtt.topicPrefix}/… · discovery ${ro.mqtt.discovery ? "on" : "off"}`],
   ].forEach(([k, v]) => {
     const dk = document.createElement("div");
     dk.className = "set-ro-k";
@@ -11731,6 +11821,147 @@ async function addNetwork() {
 }
 $("setNetAdd").onclick = addNetwork;
 $("setNetNew").onkeydown = e => { if (e.key === "Enter") addNetwork(); };
+
+// ---- Settings → System: MQTT, other BAMF servers, the webhooks' token ----
+// Each saved here replaces appsettings.json's. Passwords and the token are
+// write-only: the page is only ever told whether one is saved.
+let remotesList = [];
+function intMsg(id, text, kind) {
+  const el = $(id);
+  el.textContent = text;
+  el.className = "set-result" + (kind ? " " + kind : "");
+}
+const pill = (id, on) => { const b = $(id); b.classList.toggle("on", !!on); b.setAttribute("aria-pressed", on ? "true" : "false"); };
+["mqttTls", "mqttDiscovery"].forEach(id => { $(id).onclick = () => pill(id, !$(id).classList.contains("on")); });
+function renderIntegrations(e, ro, statusOnly) {
+  const m = e.mqtt;
+  if (m && !statusOnly) {
+    $("mqttServer").value = m.server || "";
+    $("mqttPort").value = m.server ? m.port : "";
+    $("mqttUser").value = m.username || "";
+    $("mqttPass").value = "";
+    $("mqttPass").placeholder = m.password ? "Saved; type to change" : "None";
+    pill("mqttTls", m.tls);
+    pill("mqttDiscovery", m.discovery);
+    $("mqttPrefix").value = m.topicPrefix || "bamf";
+    $("mqttReset").hidden = m.source !== "settings";
+  }
+  if (m) {
+    const st = $("mqttStatus");
+    const from = m.source === "file" ? " Set in <span class=\"mono\">appsettings.json</span>; saving here replaces it." : "";
+    st.classList.toggle("bad", !!(m.server && !m.connected && m.error));
+    st.innerHTML = !m.server ? "Off." + from
+      : m.connected ? `<b>Connected</b> to ${esc(m.server)}:${m.port} · ${Number(m.published || 0).toLocaleString()} published` + (m.lastPublish ? `, last ${fmtAgo(m.lastPublish)}` : "") + "." + from
+      : `<b>Not connected</b> to ${esc(m.server)}:${m.port}` + (m.error ? ": " + esc(m.error) : ", trying") + "." + from;
+  }
+  const r = e.remotes;
+  if (r) {
+    remotesList = r.list.map(x => ({ name: x.name, url: x.url, password: x.password }));
+    const status = new Map((ro.remotes || []).map(s => [s.name, s]));
+    const tbl = $("remotesTable");
+    tbl.innerHTML = "";
+    if (!remotesList.length) {
+      tbl.innerHTML = `<tr><td class="rm-none">None yet.</td></tr>`;
+    }
+    for (const x of remotesList) {
+      const s = status.get(x.name);
+      const tr = document.createElement("tr");
+      const state = !s || s.error === "not fetched yet" ? "not read yet" : s.ok ? `${s.hosts} devices, ${s.version || "?"}, fetched ${fmtAgo(s.fetchedUtc)}` : "unreachable" + (s.error ? ": " + s.error : "");
+      tr.innerHTML = `<td><b>${esc(x.name)}</b><div class="rm-url">${esc(x.url)}</div></td>
+        <td class="set-eff">${esc(state)}${x.password ? " · password saved" : ""}</td><td class="set-net-rm-cell"></td>`;
+      const rm = document.createElement("button");
+      rm.type = "button";
+      rm.className = "set-net-rm";
+      rm.textContent = "\u00d7";
+      rm.title = `Stop reading ${x.name}; its devices go from this dashboard.`;
+      rm.setAttribute("aria-label", `Remove ${x.name}`);
+      rm.onclick = () => saveRemotes(remotesList.filter(y => y !== x), `Removed ${x.name}.`);
+      tr.lastElementChild.appendChild(rm);
+      tbl.appendChild(tr);
+    }
+    $("remotesReset").hidden = r.source !== "settings";
+  }
+  const h = e.hookToken;
+  if (h) {
+    $("hookStatus").innerHTML = h.source === "settings" ? "<b>A token is set</b>, here."
+      : h.source === "file" ? "<b>A token is set</b>, in <span class=\"mono\">appsettings.json</span>. Making a new one here replaces it."
+      : "<b>No token.</b> The webhooks are as open as the dashboard: with a password, they need it; without one, anyone can call them.";
+    $("hookReset").hidden = h.source !== "settings";
+  }
+}
+// A few seconds after a save, once BAMF has tried the broker or the servers.
+function refreshIntegrationsSoon() {
+  setTimeout(async () => {
+    if (view !== "settings") return;
+    try {
+      const r = await fetch("/api/settings");
+      if (r.ok) { const s = await r.json(); renderIntegrations(s.editable, s.readOnly, true); }
+    } catch { /* the next visit shows it */ }
+  }, 4000);
+}
+async function postSetting(url, body) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "HTTP " + r.status);
+  return d;
+}
+$("mqttSave").onclick = async () => {
+  intMsg("mqttResult", "Saving…");
+  try {
+    await postSetting("/api/settings/mqtt", {
+      server: $("mqttServer").value.trim(),
+      port: $("mqttPort").value ? Number($("mqttPort").value) : 1883,
+      username: $("mqttUser").value.trim(),
+      password: $("mqttPass").value === "" ? null : $("mqttPass").value,
+      tls: $("mqttTls").classList.contains("on"),
+      discovery: $("mqttDiscovery").classList.contains("on"),
+      topicPrefix: $("mqttPrefix").value.trim() || "bamf",
+    });
+    await loadSettings();
+    intMsg("mqttResult", "Saved.", "ok");
+    refreshIntegrationsSoon();
+  } catch (err) { intMsg("mqttResult", err.message, "err"); }
+};
+$("mqttReset").onclick = async () => {
+  try { await postSetting("/api/settings/mqtt/reset"); await loadSettings(); intMsg("mqttResult", "Back to appsettings.json's.", "ok"); }
+  catch (err) { intMsg("mqttResult", err.message, "err"); }
+};
+async function saveRemotes(list, done) {
+  intMsg("remotesResult", "Saving…");
+  try {
+    await postSetting("/api/settings/remotes", { remotes: list.map(x => ({ name: x.name, url: x.url, password: x.newPassword ?? null })) });
+    await loadSettings();
+    intMsg("remotesResult", done, "ok");
+    refreshIntegrationsSoon();
+    return true;
+  } catch (err) { intMsg("remotesResult", err.message, "err"); return false; }
+}
+$("remoteAdd").onclick = async () => {
+  const name = $("remoteName").value.trim(), url = $("remoteUrl").value.trim(), pass = $("remotePass").value;
+  if (!name || !url) { intMsg("remotesResult", "Give it a name and the address it opens at.", "err"); return; }
+  // Adding one with a name already there replaces it, password and all.
+  const list = remotesList.filter(x => x.name.toLowerCase() !== name.toLowerCase());
+  list.push({ name, url, newPassword: pass });
+  if (await saveRemotes(list, `Saved ${name}. Reading it now.`)) { $("remoteName").value = $("remoteUrl").value = $("remotePass").value = ""; }
+};
+$("remotesReset").onclick = async () => {
+  try { await postSetting("/api/settings/remotes/reset"); await loadSettings(); intMsg("remotesResult", "Back to appsettings.json's.", "ok"); }
+  catch (err) { intMsg("remotesResult", err.message, "err"); }
+};
+$("hookNew").onclick = async () => {
+  if (settingsData?.editable?.hookToken?.source && !confirm("Make a new token? Anything using the current one stops working until it's given the new one.")) return;
+  try {
+    const d = await postSetting("/api/settings/hooktoken", { action: "generate" });
+    $("hookToken").textContent = d.token;
+    $("hookShow").hidden = false;
+    await loadSettings();
+    intMsg("hookResult", "Saved.", "ok");
+  } catch (err) { intMsg("hookResult", err.message, "err"); }
+};
+$("hookReset").onclick = async () => {
+  try { await postSetting("/api/settings/hooktoken", { action: "reset" }); $("hookShow").hidden = true; await loadSettings(); intMsg("hookResult", "Back to appsettings.json's.", "ok"); }
+  catch (err) { intMsg("hookResult", err.message, "err"); }
+};
 
 // ---- Settings → Security → Sign-in ----
 let authInfo = null;
