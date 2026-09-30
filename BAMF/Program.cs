@@ -139,7 +139,9 @@ if (!string.IsNullOrWhiteSpace(webhook) &&
 // send packets, and the database backup, which carries the saved webhook URL a
 // viewer only ever sees masked.
 var auth = app.Services.GetRequiredService<AuthService>();
-var hookToken = app.Configuration["Bamf:HookToken"];
+// The inbound webhooks' token: set in Settings → System, or Bamf:HookToken.
+string? HookToken() =>
+    app.Services.GetRequiredService<HostStore>().GetSetting("hookToken") is { Length: > 0 } t ? t : app.Configuration["Bamf:HookToken"] is { Length: > 0 } f ? f : null;
 // A forgotten password is reset from the machine BAMF runs on, which already
 // has the say over appsettings.json: a file named reset-password beside the
 // database clears the passwords set in Settings at the next start, and is
@@ -194,12 +196,14 @@ static bool HookTokenOk(HttpContext ctx, string? token) =>
 // What the sign-in page needs, open to anyone.
 static bool OpenPath(PathString p) =>
     p == "/signin" || p == "/api/signin" || p == "/api/signout" || p == "/fonts.css" || p == "/bamf-logo.svg" || p == "/bamf-icon.svg"
-    || p.StartsWithSegments("/fonts");
+    || p.StartsWithSegments("/fonts")
+    // The home-screen icon and its manifest, which a phone fetches without the sign-in cookie.
+    || p == "/manifest.webmanifest" || p == "/apple-touch-icon.png" || p == "/icon-192.png" || p == "/icon-512.png" || p == "/icon-maskable-512.png";
 app.Use(async (ctx, next) =>
 {
     if (!auth.Required) { await next(); return; }
     var address = ctx.Connection.RemoteIpAddress?.ToString() ?? "";
-    string? role = HookTokenOk(ctx, hookToken) ? "admin" : null;
+    string? role = ctx.Request.Path.StartsWithSegments("/api/hooks") && HookTokenOk(ctx, HookToken()) ? "admin" : null;
 
     // A browser that has signed in. A session over half gone is renewed, so
     // a dashboard that's in use stays signed in.
@@ -1673,6 +1677,16 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             webhookKinds = scanner.MainKinds,
             destinations = DestinationsJson(scanner),
             networks = NetworksJson(scanner),
+            mqtt = MqttJson(mqtt),
+            remotes = new
+            {
+                source = remotesSvc2.Source,
+                list = remotesSvc2.Remotes.Select(r => new { name = r.Name, url = r.Url, password = !string.IsNullOrEmpty(r.Password) }),
+            },
+            hookToken = new
+            {
+                source = store.GetSetting("hookToken") is { Length: > 0 } ? "settings" : cfg["Bamf:HookToken"] is { Length: > 0 } ? "file" : null,
+            },
         },
         readOnly = new
         {
@@ -1681,14 +1695,14 @@ app.MapGet("/api/settings", (HostStore store, ScannerService scanner, UpdateChec
             databasePath = cfg["Bamf:DatabasePath"] ?? "bamf.db",
             autoDownloadOui = cfg.GetValue("Bamf:AutoDownloadOui", true),
             updateRepo = cfg["Bamf:UpdateRepo"] ?? "",
-            hookToken = !string.IsNullOrEmpty(cfg["Bamf:HookToken"]),
+            hookToken = HookToken() is not null,
             viewerPassword = app.Services.GetRequiredService<AuthService>().Source("viewer") is not null,
             remotes = remotesSvc2.Statuses,
             mqtt = new
             {
                 configured = mqtt.Configured, server = mqtt.Configured ? mqtt.Server : null, connected = mqtt.Connected,
                 error = mqtt.LastError, published = mqtt.Published, lastPublish = mqtt.LastPublishUtc?.ToString("o"),
-                discovery = cfg.GetValue("Bamf:Mqtt:Discovery", true), topicPrefix = cfg["Bamf:Mqtt:TopicPrefix"] ?? "bamf",
+                discovery = mqtt.Current()?.Discovery ?? true, topicPrefix = mqtt.Current()?.TopicPrefix ?? "bamf",
             },
         },
         minIntervalSeconds = ScannerService.MinIntervalSeconds,
@@ -1757,6 +1771,92 @@ static object NetworksJson(ScannerService scanner) => new
     }),
     widest = ScannerService.WidestPrefix,
 };
+
+// ---------- integrations in Settings → System ----------
+// MQTT, other BAMF servers and the inbound webhooks' token, each replacing
+// appsettings.json's once saved. Their passwords are write-only: never sent
+// back, kept when a save leaves them out, and dropped when the address they
+// go to changes, so the dashboard can't be used to send a saved password to a
+// server of someone else's choosing.
+static object MqttJson(MqttPublisher mqtt)
+{
+    var c = mqtt.Current();
+    return new
+    {
+        source = mqtt.Source,
+        server = c?.Server ?? "", port = c?.Port ?? 1883, username = c?.Username ?? "", password = !string.IsNullOrEmpty(c?.Password),
+        tls = c?.Tls ?? false, discovery = c?.Discovery ?? true, topicPrefix = c?.TopicPrefix ?? "bamf",
+        connected = mqtt.Connected, error = mqtt.LastError, published = mqtt.Published, lastPublish = mqtt.LastPublishUtc?.ToString("o"),
+    };
+}
+app.MapPost("/api/settings/mqtt", (MqttRequest body, HostStore store, MqttPublisher mqtt) =>
+{
+    var server = (body.Server ?? "").Trim();
+    var port = body.Port ?? 1883;
+    if (server.Length > 0 && (server.Contains('/') || server.Contains(' ') || Uri.CheckHostName(server) == UriHostNameType.Unknown))
+        return Results.BadRequest(new { error = $"\"{server}\" isn't a server's name or address. Just the name or address, like 192.168.1.20." });
+    if (port is < 1 or > 65535) return Results.BadRequest(new { error = "The port is a number from 1 to 65535; 1883 is usual, 8883 with TLS." });
+    var prefix = (body.TopicPrefix ?? "bamf").Trim().Trim('/');
+    if (!Regex.IsMatch(prefix, "^[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*$"))
+        return Results.BadRequest(new { error = "The topic prefix is letters, digits, - and _, with / between levels, like bamf." });
+    var password = MqttPublisher.KeptPassword(mqtt.Current(), server, port, body.Password);
+    store.SetSetting("mqtt", JsonSerializer.Serialize(new MqttPublisher.Saved(server, port, (body.Username ?? "").Trim(), password,
+        body.Tls ?? false, body.Discovery ?? true, prefix)));
+    mqtt.Reconfigure();
+    app.Logger.LogInformation("MQTT set in Settings: {Server}", server.Length > 0 ? $"{server}:{port}" : "off");
+    return Results.Json(MqttJson(mqtt));
+});
+app.MapPost("/api/settings/mqtt/reset", (HostStore store, MqttPublisher mqtt) =>
+{
+    store.DeleteSetting("mqtt");
+    mqtt.Reconfigure();
+    return Results.Json(MqttJson(mqtt));
+});
+
+app.MapPost("/api/settings/remotes", (RemotesRequest body, HostStore store, RemoteService remotes) =>
+{
+    var now = remotes.Remotes;
+    var list = new List<RemoteService.Remote>();
+    foreach (var r in body.Remotes ?? [])
+    {
+        var name = (r.Name ?? "").Trim();
+        var url = (r.Url ?? "").Trim().TrimEnd('/');
+        if (name.Length is 0 or > 40) return Results.BadRequest(new { error = "Give each server a name, up to 40 characters." });
+        if (list.Any(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase))) return Results.BadRequest(new { error = $"Two servers are called {name}." });
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var u) || u.Scheme is not ("http" or "https"))
+            return Results.BadRequest(new { error = $"{name}: the address is where that BAMF opens, like http://10.0.0.5:8840." });
+        var password = RemoteService.KeptPassword(now, name, url, r.Password);
+        list.Add(new RemoteService.Remote(name, url, string.IsNullOrEmpty(password) ? null : password));
+    }
+    if (list.Count > 8) return Results.BadRequest(new { error = "Eight servers at most." });
+    store.SetSetting("remotes", JsonSerializer.Serialize(list));
+    remotes.Reconfigure();
+    return Results.Ok();
+});
+app.MapPost("/api/settings/remotes/reset", (HostStore store, RemoteService remotes) =>
+{
+    store.DeleteSetting("remotes");
+    remotes.Reconfigure();
+    return Results.Ok();
+});
+
+// A new token is shown once, in this answer; after that the dashboard only
+// knows that there is one.
+app.MapPost("/api/settings/hooktoken", (HookTokenRequest body, HostStore store) =>
+{
+    switch (body.Action)
+    {
+        case "generate":
+            var token = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(24)).Replace('+', '-').Replace('/', '_');
+            store.SetSetting("hookToken", token);
+            return Results.Json(new { token });
+        case "reset":
+            store.DeleteSetting("hookToken");
+            return Results.Ok();
+        default:
+            return Results.BadRequest(new { error = "Generate or reset." });
+    }
+});
 
 // Saves the networks to scan, replacing appsettings.json's list, and scans
 // them now. Each must pass CheckNetwork; see /api/settings.
@@ -2072,7 +2172,7 @@ app.MapPost("/api/hosts/{id:long}/combine", (long id, CombineRequest body, HostS
 // The way in, for Home Assistant and scripts: ask for a scan, or wake a
 // machine by MAC. With Bamf:HookToken set, the token (X-BAMF-Token header or
 // ?token=) is required here and also stands in for the password.
-bool HookAllowed(HttpContext ctx) => string.IsNullOrEmpty(hookToken) || HookTokenOk(ctx, hookToken);
+bool HookAllowed(HttpContext ctx) => HookToken() is not { } token || HookTokenOk(ctx, token);
 app.MapPost("/api/hooks/scan", (HttpContext ctx, string? subnet, ScannerService scanner) =>
 {
     if (!HookAllowed(ctx)) return Results.Unauthorized();
@@ -2382,6 +2482,10 @@ record SnoozeRequest(int Minutes);
 record WatchRequest(bool Watched);
 record SignInRequest(string? Password);
 record NetworksRequest(string[]? Networks);
+record MqttRequest(string? Server, int? Port, string? Username, string? Password, bool? Tls, bool? Discovery, string? TopicPrefix);
+record RemoteEntry(string? Name, string? Url, string? Password);
+record RemotesRequest(RemoteEntry[]? Remotes);
+record HookTokenRequest(string? Action);
 record SetupRequest(string[]? Networks, string? Password, bool? Open, bool? Skip);
 record PasswordRequest(string? Role, string? Current, string? Password);
 record HttpsRequest(string? Action);
