@@ -125,15 +125,17 @@ step:
 |---|---|
 | `index.html` | The page: every view, card and dialog |
 | `css/dashboard.css` | Its look, and the Dark, Light and High Contrast themes |
-| `js/core.js` | The page's state, the feed and the Who's home board |
+| `js/core.js` | The page's state, and what every part uses: fetching the devices, the refresh loop, formatting, toasts |
 | `js/floorplan.js` | Floor plans, and drawing one in BAMF |
-| `js/devices.js` | Loading devices, their history, the filters and network tabs |
-| `js/map.js` | The network map, printing it, and drawing the device list |
+| `js/devices.js` | The device list: drawing it, filters, sorting, network tabs, each device's history, and Who's home |
+| `js/activity.js` | The Activity tab: the feed, alerts, settings changes, top talkers, network hygiene, what changed |
+| `js/map.js` | The network map, and printing it |
 | `js/dialogs.js` | The device dialogs, the scan panel, Find port and switch counters |
-| `js/themes.js` | Themes, Holiday Spirit, Night mode and the intruders |
+| `js/themes.js` | Themes, Holiday Spirit, Night mode, compact rows and the intruders |
 | `js/screensaver.js` | The screen saver and the watchtower |
-| `js/internet.js` | The internet watch, the speed test and the Scan menu |
+| `js/internet.js` | The internet watch, the speed test, the Scan menu and free addresses |
 | `js/settings.js` | What's new, where alerts go, and Settings |
+| `js/main.js` | Switching views, and starting the page |
 
 The scripts load in that order and share one scope, as if they were one
 file, with one difference: code that runs as a file loads can only use what

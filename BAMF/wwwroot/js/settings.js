@@ -1,3 +1,265 @@
+function renderArpToggle() {
+  const t = $("setArp");
+  setToggleState(t, activeArp.enabled);
+  t.classList.toggle("nodriver", activeArp.enabled && !activeArp.npcapAvailable);
+  const lbl = $("arpToggleLbl");
+  if (lbl) lbl.textContent = activeArp.npcapAvailable
+    ? (activeArp.enabled ? "Driver found — sending raw ARP." : "Driver found.")
+    : (activeArp.enabled ? "Driver not installed — running the ping sweep instead." : "");
+  t.title = !activeArp.npcapAvailable
+    ? (activeArp.enabled
+        ? "Active ARP is on, but the Npcap driver isn't installed - running ping sweep. Install it from npcap.com."
+        : "Turn on active ARP scanning (needs the Npcap driver from npcap.com)")
+    : (activeArp.enabled
+        ? "Active ARP scanning is on - click to switch to ping sweep"
+        : "Click to turn on active ARP scanning");
+}
+
+// ---- The New tab's length ----
+$("setNewDaysSave").onclick = async () => {
+  const days = Math.round(Number($("setNewDays").value));
+  try {
+    const r = await fetch("/api/settings/newdays", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ days }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't save that"); return; }
+    newDays = d.days;
+    render();
+    toast(`A device counts as new for ${d.days} day${d.days === 1 ? "" : "s"}, or until it's marked known`);
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
+};
+
+function renderUpdateToggle() {
+  const t = $("setUpd");
+  const on = !!(updateInfo && updateInfo.enabled);
+  setToggleState(t, on);
+  t.title = on
+    ? "Checking GitHub once a day for a newer release - click to stop"
+    : "Off. Click to check GitHub once a day for a newer release (read-only; nothing is downloaded)";
+
+  // Hide the badge when checking is off, even if a previous check found one —
+  // otherwise turning the feature off leaves its result on screen.
+  const badge = $("updateBadge");
+  if (on && updateInfo && updateInfo.available && updateInfo.latest) {
+    badge.hidden = false;
+    badge.textContent = "update " + updateInfo.latest;
+    badge.href = updateInfo.url || "#";
+    badge.title = `BAMF ${updateInfo.latest} is available (you're on ${appVersion || "?"}) - opens the release page`;
+  } else {
+    badge.hidden = true;
+  }
+
+  // The Settings row gets the words; the header badge stays for the one case
+  // worth interrupting for, a release that is actually newer.
+  const status = $("setUpdStatus");
+  if (status) {
+    if (!on) status.textContent = "Off.";
+    else if (updateInfo && updateInfo.available && updateInfo.latest)
+      status.textContent = `${updateInfo.latest} is available — you're on ${appVersion || "?"}.`;
+    else if (updateInfo && updateInfo.checkedUtc)
+      status.textContent = `You're on the latest release (checked ${fmtAgo(updateInfo.checkedUtc)}).`;
+    else status.textContent = "On — the first check runs shortly.";
+  }
+}
+
+$("setUpd").onclick = async () => {
+  const next = !(updateInfo && updateInfo.enabled);
+  try {
+    const r = await fetch("/api/settings/update-check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: next }),
+    });
+    const d = await r.json();
+    updateInfo = { ...(updateInfo || {}), enabled: next, available: d.available, latest: d.latest, url: d.url };
+    renderUpdateToggle();
+    toast(!next
+      ? "Update checks off"
+      : d.available
+        ? `Update available: <span class="mono">${esc(d.latest)}</span>`
+        : "Update checks on — you're on the latest release");
+  } catch (e) { console.error(e); }
+};
+
+function renderTrafficToggle() {
+  const t = $("setTraffic");
+  if (!t) return;
+  const st = trafficStatus || {};
+  setToggleState(t, !!st.enabled);
+  $("setTrafficStatus").textContent = !st.available ? "The Npcap driver isn't installed, so this does nothing."
+    : !st.enabled ? "Off."
+    : st.running ? `Watching ${(st.interfaces || []).join(", ")} since ${fmtAgo(st.since).replace(" ago", "")} ago.`
+    : st.error ? "Not running: " + st.error : "Starting with the next scan.";
+  t.title = st.enabled ? "The traffic monitor is on - click to turn it off" : "Click to watch bytes per device and DHCP/DNS servers";
+}
+$("setTraffic").onclick = async () => {
+  const next = !(trafficStatus && trafficStatus.enabled);
+  try {
+    const r = await fetch("/api/settings/traffic-monitor", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }),
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    trafficStatus = { ...trafficStatus, enabled: next };
+    renderTrafficToggle();
+    toast(next ? "Traffic monitor on: it starts with the next scan" : "Traffic monitor off: it stops with the next scan");
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
+};
+
+// Names from the router: its status, Import now, and copying the names over.
+async function loadRouterImport() {
+  try { renderRouterImport(await (await fetch("/api/router-import")).json()); } catch { }
+}
+function renderRouterImport(st) {
+  const named = hosts.filter(h => h.routerName).length;
+  $("routerStatus").textContent = !st.enabled
+    ? "Not set up. Add Bamf:RouterImport to appsettings.json; the README has an example for each router."
+    : `${st.kind} at ${st.host}` + (st.lastRun ? ` · last read ${fmtAgo(st.lastRun)}` : " · not read yet")
+      + (st.error ? ` · failed: ${st.error}` : st.lastRun ? ` · ${st.count} named device${st.count === 1 ? "" : "s"}, ${named} of them seen by BAMF` : "");
+  $("routerRun").disabled = !st.enabled;
+  $("routerApply").disabled = !named;
+}
+$("routerRun").onclick = async () => {
+  const b = $("routerRun"); b.disabled = true; b.textContent = "Reading…";
+  try {
+    const r = await fetch("/api/router-import/run", { method: "POST" });
+    const st = await r.json();
+    await refresh();
+    renderRouterImport(st);
+    toast(r.ok ? `Read ${st.count} name${st.count === 1 ? "" : "s"} from the router` : "The router didn't answer: " + (st.error || r.status));
+  } catch (e) { toast("Couldn't reach BAMF"); }
+  finally { b.textContent = "Import now"; }
+};
+$("routerApply").onclick = async () => {
+  try {
+    const r = await fetch("/api/router-import/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ overwrite: false }) });
+    const d = await r.json();
+    await refresh();
+    toast(d.named ? `Named ${d.named} device${d.named === 1 ? "" : "s"} from the router` : "Every device the router names already has a name");
+  } catch { toast("Couldn't save the names"); }
+};
+
+function renderGreyNoiseToggle() {
+  const t = $("setGreyNoise");
+  if (!t) return;
+  const on = !!(greynoiseCache && greynoiseCache.enabled);
+  setToggleState(t, on);
+  t.title = on ? "BAMF checks your public address with GreyNoise daily - click to stop" : "Click to have BAMF check your public address with GreyNoise daily";
+  $("setGreyNoiseStatus").textContent = on ? greyNoiseLine().text : "";
+}
+$("setGreyNoise").onclick = async () => {
+  const next = !(greynoiseCache && greynoiseCache.enabled);
+  const t = $("setGreyNoise");
+  if (next) $("setGreyNoiseStatus").textContent = "Checking…";
+  try {
+    const r = await fetch("/api/settings/greynoise", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    greynoiseCache = await r.json();
+    renderGreyNoiseToggle();
+    renderHygiene();
+    toast(!next ? "The GreyNoise check is off: BAMF won't contact GreyNoise or ipify"
+      : greynoiseCache.result && greynoiseCache.result.noise ? "GreyNoise has seen your address scanning the internet: see the hygiene card"
+      : greynoiseCache.result && greynoiseCache.result.error ? "GreyNoise check on, but this one failed: " + greynoiseCache.result.error
+      : "GreyNoise check on: your address hasn't been seen scanning");
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); renderGreyNoiseToggle(); }
+};
+function renderArpWatchToggle() {
+  const t = $("setArpWatch");
+  if (!t) return;
+  setToggleState(t, arpWatch);
+  t.title = arpWatch ? "The ARP watch is on - click to stop it" : "Click to watch for IP conflicts and a changed gateway";
+}
+function renderIpv6WatchToggle() {
+  const t = $("setIpv6Watch");
+  if (!t) return;
+  setToggleState(t, ipv6Watch);
+  t.title = ipv6Watch ? "IPv6 addresses are watched - click to stop" : "Click to watch devices' IPv6 addresses";
+}
+function renderCertWatchToggle() {
+  const t = $("setCertWatch");
+  if (!t) return;
+  setToggleState(t, certWatch);
+  t.title = certWatch ? "Certificates are checked every morning - click to stop" : "Click to check HTTPS certificates every morning";
+}
+for (const [id, url, get, set, on, off] of [
+  ["setArpWatch", "/api/settings/arp-watch", () => arpWatch, v => { arpWatch = v; renderArpWatchToggle(); },
+    "The ARP watch is on", "The ARP watch is off"],
+  ["setCertWatch", "/api/settings/cert-watch", () => certWatch, v => { certWatch = v; renderCertWatchToggle(); },
+    "Certificates will be checked every morning at 4:30", "The certificate watch is off"],
+  ["setIpv6Watch", "/api/settings/ipv6-watch", () => ipv6Watch, v => { ipv6Watch = v; renderIpv6WatchToggle(); },
+    "IPv6 addresses will be watched", "The IPv6 watch is off"],
+]) {
+  $(id).onclick = async () => {
+    const next = !get();
+    try {
+      const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }) });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      set(next);
+      toast(next ? on : off);
+    } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
+  };
+}
+function renderLatencyToggle() {
+  const t = $("setLatency");
+  if (!t) return;
+  setToggleState(t, latencyProbe);
+  t.title = latencyProbe ? "Latency is measured after each scan - click to stop" : "Click to measure latency after each scan";
+}
+$("setLatency").onclick = async () => {
+  const next = !latencyProbe;
+  try {
+    const r = await fetch("/api/settings/latency-probe", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }),
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    latencyProbe = next;
+    renderLatencyToggle();
+    toast(next ? "Latency will be measured after each scan" : "Latency measuring is off; the column keeps its last readings");
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
+};
+
+function renderRandToggle() {
+  const t = $("setRand");
+  setToggleState(t, autoIgnoreRandom);
+  t.title = autoIgnoreRandom
+    ? "New devices with randomized MACs are auto-filed under Ignored - click to disable"
+    : "Click to auto-ignore new devices with randomized MACs (phone privacy addresses)";
+}
+
+$("wallOpen").onclick = () => {
+  window.open("/wall" + (network !== "all" ? "?net=" + encodeURIComponent(network) : ""), "_blank", "noopener");
+};
+
+$("setRand").onclick = async () => {
+  const next = !autoIgnoreRandom;
+  try {
+    await fetch("/api/settings/auto-ignore-random", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: next }),
+    });
+    autoIgnoreRandom = next;
+    renderRandToggle();
+    toast(next
+      ? "Auto-ignoring randomized MACs - applies to new devices from next scan"
+      : "Randomized MACs will alert like any other new device");
+  } catch (e) { console.error(e); }
+};
+
+$("setArp").onclick = async () => {
+  const next = !activeArp.enabled;
+  try {
+    await fetch("/api/settings/active-arp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: next }),
+    });
+    activeArp.enabled = next;
+    renderArpToggle();
+    toast(next
+      ? "Active ARP scanning on - takes effect next scan"
+      : "Switched to ping sweep - takes effect next scan");
+  } catch (e) { console.error(e); }
+};
+
 // ---- What's new ----
 // The notes ship with BAMF, in whats-new.json, so they're there on a network
 // that never reaches the internet. Each browser remembers the last version it
@@ -1562,40 +1824,3 @@ document.querySelectorAll("#setNav [data-sec]").forEach(b => b.onclick = () => s
 $("setFind").oninput = e => findSetting(e.target.value);
 $("setFind").onkeydown = e => { if (e.key === "Escape" && e.target.value) { e.stopPropagation(); e.target.value = ""; findSetting(""); } };
 showSetSec(setSec);
-
-// Views are addressable: /#settings opens the Settings tab, /#activity the
-// feed, and so on, so a tab can be bookmarked or pinned and Back/Forward
-// walk between them. The Devices view is the bare URL, no hash.
-const VIEWS = ["devices", "map", "floor", "home", "activity", "forgotten", "settings"];
-function showView(name, { fromHash = false } = {}) {
-  // Settings takes a section after a slash: settings/internet.
-  let sub = null;
-  if (name && name.includes("/")) [name, sub] = name.split("/", 2);
-  if (!VIEWS.includes(name)) name = "devices";
-  if (name === "settings") showSetSec(sub || setSec);
-  document.querySelectorAll("[data-view]").forEach(x => x.classList.toggle("active", x.dataset.view === name));
-  view = name;
-  if (!fromHash) {
-    const want = name === "devices" ? "" : "#" + name + (name === "settings" ? "/" + setSec : "");
-    if ((location.hash || "") !== want)
-      history.pushState(null, "", want || location.pathname + location.search);
-  }
-  if (view === "settings") loadSettings();
-  render();
-}
-document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => showView(b.dataset.view));
-window.addEventListener("hashchange", () => showView(location.hash.slice(1) || "devices", { fromHash: true }));
-document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
-  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
-  t.classList.add("active");
-  filter = t.dataset.filter;
-  render();
-});
-$("search").oninput = e => { query = e.target.value; render(); };
-
-// Honour a view in the URL before the first paint. showView calls render(),
-// which is harmless with no data yet; refresh() re-renders when data lands.
-if (location.hash.length > 1) showView(location.hash.slice(1), { fromHash: true });
-refresh();
-checkSetup();
-setInterval(refresh, POLL_MS);
