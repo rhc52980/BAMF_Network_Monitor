@@ -2,6 +2,16 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.0.0",
+      "date": "2026-09-30",
+      "items": [
+        "BAMF 2.0 learns what's normal for each device and says when something isn't: a device that's almost always on, off far longer than it ever is; a device on at an hour it never is; or one answering much slower than usual.",
+        "What it notices is on the Activity tab's new Unusual card, and is an alert of a new kind, Unusual activity: tick it under Sends to have these sent to you. That's normal beside one stops it being flagged for that again for 30 days.",
+        "Each device needs two weeks of history first, so for a newly added one it's quiet to begin with. Settings, under Alerts, switches it off.",
+        "The nightly backups' second folder, a NAS share say, can now be set in Settings, under System. BAMF checks it can write there when you save."
+      ]
+    },
+    {
       "version": "1.59.0",
       "date": "2026-09-30",
       "items": [
