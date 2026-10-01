@@ -7,10 +7,11 @@ namespace LanWatch.Services;
 /// Settings → System (3 am unless changed), a snapshot of the database goes into
 /// the backups folder beside it as nightly-YYYYMMDD.db, and the oldest are
 /// deleted past the number to keep. The updaters prune bamf-*.db, so they never
-/// touch these. With Bamf:Backup:CopyTo set in appsettings.json, each one is
-/// copied there too, a NAS share say, so a disk failure doesn't take the
-/// backups with it; where BAMF writes files is the file's to say, not the
-/// dashboard's. A backup that fails is an alert.
+/// touch these. With a second folder set, in Settings or as
+/// Bamf:Backup:CopyTo in appsettings.json, each one is copied there too, a NAS
+/// share say, so a disk failure doesn't take the backups with it. Only BAMF's
+/// own nightly-* files are ever written or deleted there. A backup that fails
+/// is an alert.
 ///
 /// On by default, but off in the Home Assistant add-on, whose data is already
 /// in Home Assistant's own backups.
@@ -36,7 +37,37 @@ public sealed class NightlyBackup : BackgroundService
     public bool Enabled => _store.GetSetting("backupNightly") is { } s ? s == "true" : !InAddon;
     public int Hour => int.TryParse(_store.GetSetting("backupHour"), out var h) && h is >= 0 and <= 23 ? h : 3;
     public int Keep => int.TryParse(_store.GetSetting("backupKeep"), out var k) && k is >= 1 and <= 60 ? k : 7;
-    public string? CopyTo => _config["Bamf:Backup:CopyTo"] is { Length: > 0 } c ? c : null;
+    /// <summary>The second folder: Settings' if one was saved there (empty meaning none), else the file's.</summary>
+    public string? CopyTo => _store.GetSetting("backupCopyTo") is { } s ? (s.Length > 0 ? s : null)
+        : _config["Bamf:Backup:CopyTo"] is { Length: > 0 } c ? c : null;
+
+    /// <summary>Where the second folder comes from: "settings", "file", or null for none set anywhere.</summary>
+    public string? CopyToSource => _store.GetSetting("backupCopyTo") is not null ? "settings"
+        : _config["Bamf:Backup:CopyTo"] is { Length: > 0 } ? "file" : null;
+
+    /// <summary>
+    /// Why a folder can't be the second copy's, or null if it can: a full
+    /// path (a drive, a share or a root), and somewhere BAMF can actually
+    /// write, which is tried with a small file that's deleted again.
+    /// </summary>
+    public static string? CheckCopyTo(string path)
+    {
+        if (path.Length > 240) return "That path is too long.";
+        if (!Path.IsPathFullyQualified(path) || path.IndexOfAny(['*', '?', '"', '<', '>', '|']) >= 0)
+            return "Give the full path of a folder, like D:\\Backups, \\\\nas\\bamf or /mnt/nas/bamf.";
+        try
+        {
+            Directory.CreateDirectory(path);
+            var probe = Path.Combine(path, ".bamf-write-test");
+            File.WriteAllText(probe, "BAMF checks it can write here; this is deleted straight away.");
+            File.Delete(probe);
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
+        {
+            return $"BAMF can't write there: {ex.Message}";
+        }
+    }
 
     public Result? Last
     {

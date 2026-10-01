@@ -13,7 +13,7 @@ internal static class ApiHelpers
         var list = n.Backups();
         return new
         {
-            enabled = n.Enabled, hour = n.Hour, keep = n.Keep, copyTo = n.CopyTo, last = n.Last,
+            enabled = n.Enabled, hour = n.Hour, keep = n.Keep, copyTo = n.CopyTo, copyToSource = n.CopyToSource, last = n.Last,
             count = list.Count, newest = list.FirstOrDefault()?.Name, totalBytes = list.Sum(f => f.Length),
         };
     }

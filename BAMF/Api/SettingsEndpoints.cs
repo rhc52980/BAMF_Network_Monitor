@@ -15,6 +15,10 @@ internal static class SettingsEndpoints
         {
             if (body.Hour is < 0 or > 23) return Results.BadRequest(new { error = "The hour is 0 to 23." });
             if (body.Keep is < 1 or > 60) return Results.BadRequest(new { error = "Keep 1 to 60 backups." });
+            // The second folder: blank for none; otherwise checked, by writing there, before it's saved.
+            var copyTo = body.CopyTo?.Trim();
+            if (copyTo is { Length: > 0 } && NightlyBackup.CheckCopyTo(copyTo) is { } bad) return Results.BadRequest(new { error = bad });
+            if (copyTo is not null) store.SetSetting("backupCopyTo", copyTo);
             if (body.Enabled is { } on) store.SetSetting("backupNightly", on ? "true" : "false");
             if (body.Hour is { } h) store.SetSetting("backupHour", h.ToString());
             if (body.Keep is { } k)
@@ -22,6 +26,11 @@ internal static class SettingsEndpoints
                 store.SetSetting("backupKeep", k.ToString());
                 if (Directory.Exists(store.BackupsDir)) NightlyBackup.Prune(store.BackupsDir, k);
             }
+            return Results.Json(BackupJson(nightly));
+        });
+        app.MapPost("/api/settings/backup/copyto/reset", (HostStore store, NightlyBackup nightly) =>
+        {
+            store.DeleteSetting("backupCopyTo");
             return Results.Json(BackupJson(nightly));
         });
         app.MapPost("/api/settings/backup/run", async (NightlyBackup nightly, CancellationToken ct) =>
