@@ -24,7 +24,7 @@ public partial class ScannerService
     public sealed record Destination(string Id, string Name, string Url, string Format, IReadOnlyList<string> Kinds);
 
     /// <summary>The kinds of alert, in the order the dashboard lists them.</summary>
-    public static readonly string[] AlertKinds = { "devices", "status", "security", "internet", "reports" };
+    public static readonly string[] AlertKinds = { "devices", "status", "unusual", "security", "internet", "reports" };
 
     /// <summary>How many destinations besides the main one.</summary>
     public const int MaxExtraDestinations = 8;

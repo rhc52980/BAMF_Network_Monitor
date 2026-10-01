@@ -417,6 +417,7 @@ function fillNotify() {
 const ALERT_KINDS = [
   ["devices", "New devices", "A device BAMF hasn't seen before"],
   ["status", "Offline and back", "Watched devices going offline and coming back, alert rules, and a snooze ending"],
+  ["unusual", "Unusual activity", "A device off far longer than usual, on at an hour it never is, or much slower than usual"],
   ["security", "Security", "ARP spoofing and IP conflicts, new DHCP or DNS servers, newly open ports, certificates, GreyNoise"],
   ["internet", "Internet", "The internet watch: down, back, slow and back to normal"],
   ["reports", "Reports", "The scheduled report"],
@@ -702,6 +703,27 @@ $("backupDownload").onclick = async () => {
 };
 
 $("backupRestore").onclick = () => $("backupFile").click();
+
+// ---- Settings → Alerts: unusual activity ----
+async function loadUnusualSetting() {
+  try {
+    const r = await fetch("/api/unusual");
+    if (!r.ok) return;
+    const d = await r.json();
+    setToggleState($("setUnusual"), d.enabled);
+    $("unusualStatus").textContent = !d.enabled ? "Off."
+      : `On, watching ${d.watching} device${d.watching === 1 ? "" : "s"}` + (d.learning ? `; ${d.learning} still learning.` : ".");
+  } catch { /* the next look shows it */ }
+}
+$("setUnusual").onclick = async () => {
+  const on = !$("setUnusual").classList.contains("on");
+  try {
+    const r = await fetch("/api/settings/unusual", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: on }) });
+    if (!r.ok) throw new Error();
+    toast(on ? "BAMF will say when something isn't normal" : "Unusual activity off");
+    loadUnusualSetting();
+  } catch { toast("Couldn't save that"); }
+};
 
 // ---- Settings → System: nightly backups ----
 function renderBackup(b) {
@@ -1356,6 +1378,7 @@ async function loadSettings() {
   renderNetworkSource(e.networks);
   renderIntegrations(e, ro);
   renderBackup(e.backup);
+  loadUnusualSetting();
 
   const roEl = $("setReadOnly");
   roEl.innerHTML = "";

@@ -18,6 +18,7 @@ record NudgeRequest(bool Off);
 record NewDaysRequest(int Days);
 record BackupRequest(bool? Enabled, int? Hour, int? Keep, string? CopyTo);
 record SavedRestoreRequest(string? Name);
+record UnusualSettingRequest(bool Enabled);
 record QuietRequest(string? From, string? To, bool Digest);
 record PortEntry(long HostId, int Port);
 record BlinkRequest(int? Seconds);

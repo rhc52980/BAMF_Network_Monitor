@@ -1287,7 +1287,7 @@ buttons across the top on a phone):
 | **Scanning** | The default interval, offline after missed scans, probe concurrency and mDNS, each network's own interval and on/off, with **Save** and **Reset to file defaults**; adding and removing networks, which applies at once; then how BAMF looks, which applies at once: active ARP, randomised MACs, latency, IPv6 neighbours, the traffic monitor and the daily port watch |
 | **Internet** | The internet watch: on or off, how often, the address it pings and what counts as slow; and the speed test's schedule |
 | **Security** | Sign-in: the main and view-only passwords, and signing out; HTTPS; then the ARP watch, the certificate watch and the GreyNoise check |
-| **Alerts** | Where alerts go: the main webhook with **Sends** and **Test**, more destinations and the scheduled report; then alert rules and quiet hours |
+| **Alerts** | Where alerts go: the main webhook with **Sends** and **Test**, more destinations and the scheduled report; unusual activity; then alert rules and quiet hours |
 | **Your network** | Switches and routers, map icons and names from your router |
 | **Appearance** | The theme, Holiday Spirit, Night mode, compact rows, the screen saver, the keyboard shortcuts, and which themes are installed |
 | **System** | History retention, with its own **Save**, the update check, Home Assistant (MQTT), other BAMF servers, the inbound webhooks' token, backups (nightly, and by hand), and what's set in `appsettings.json` |
@@ -1734,7 +1734,7 @@ scan, or delete a thing.
 | POST | `/api/hosts/{id}/known` | Body `{"known": true}` — approve/unapprove a host |
 | POST | `/api/webhook/test` | Send a test notification to `Bamf:WebhookUrl` (**Test** under Settings → Alerts). Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/destinations/{id}/test` | Send a test to one destination: `main` for the main webhook, or another's `id`. Returns `{ok:true}` or `{ok:false,error:"…"}` |
-| POST | `/api/settings/webhookkinds` | Body `{"kinds": ["devices", "status"]}` — which kinds of alert the main webhook gets: `devices`, `status`, `security`, `internet`, `reports`. `GET /api/settings` returns it as `webhookKinds` |
+| POST | `/api/settings/webhookkinds` | Body `{"kinds": ["devices", "status"]}` — which kinds of alert the main webhook gets: `devices`, `status`, `unusual`, `security`, `internet`, `reports`. `GET /api/settings` returns it as `webhookKinds` |
 | POST | `/api/settings/destinations` | Body `{"destinations": [{"id": "…", "name": "Phone", "url": "https://…", "format": "ntfy", "kinds": ["security", "internet"]}]}` — replace the destinations besides the main webhook, up to 8. `id` blank adds one; a saved one sent with `url` empty keeps its URL. `GET /api/settings` returns them as `destinations`, URLs masked |
 | POST | `/api/settings/networks` | Body `{"networks": ["192.168.1.0/24"]}` — the networks to scan, replacing `Bamf:Subnets`, and scan them now. Private networks from /22 to /30 only; see [Networks](#networks). `GET /api/settings` returns them as `editable.networks`, with where they come from and the ones this machine is on |
 | POST | `/api/settings/networks/reset` | Hand the networks back to `appsettings.json` |
@@ -1779,6 +1779,9 @@ scan, or delete a thing.
 | POST | `/api/hooks/wake/{mac}` | Send a Wake-on-LAN packet to a MAC (`AA:BB:…`, `AA-BB-…` or `AABB…`), known to BAMF or not |
 | GET | `/api/remotes` | The other BAMF servers being watched, their status, and their devices |
 | GET | `/api/settings/log` | The last 50 changes made in Settings, newest first, each `{"at", "what", "who", "address"}` |
+| GET | `/api/unusual` | What unusual activity has been noticed: open now, and anything from the last day, each `{"id", "hostId", "kind", "at", "title", "detail", "resolvedAt", "open", "normal"}`; `kind` is `offline`, `hour` or `slow`. With `enabled`, and how many devices are `watching` and `learning` |
+| POST | `/api/unusual/{id}/normal` | "That's normal": that kind of finding isn't raised for that device for 30 days, and this one is closed |
+| POST | `/api/settings/unusual` | Body `{"enabled": false}` — switch unusual activity off, or back on |
 | GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
 | GET | `/api/settings/rules` | The alert rules, quiet hours and port watch: `{"rules": [...], "quiet": {"from", "to", "digest", "now", "held"}, "portWatch"}` |
 | POST | `/api/settings/rules` | Body: the whole rule list, each `{"id", "name", "kind": "offline"\|"online"\|"hours", "target": "any"\|"watched"\|"tag:kids"\|"host:12", "minutes", "from", "to", "enabled"}`. `id` empty for a new rule |
@@ -2473,14 +2476,17 @@ others alongside it, up to eight: your phone and Discord both, or security
 alerts to one place and comings and goings to another. Each has a name, its own
 URL and format, and its own choice of what it gets. So does the main webhook,
 with the **Sends** tickboxes under it; it gets everything until you untick
-something.
+something. (A kind added in a newer BAMF, like **Unusual activity** in 2.0,
+isn't ticked on a main webhook whose tickboxes you'd already changed: tick it
+to have it.)
 
-Every alert is one of five kinds:
+Every alert is one of six kinds:
 
 | Kind | What it covers |
 |---|---|
 | **New devices** | A device BAMF hasn't seen before |
 | **Offline and back** | Watched devices going offline and coming back, alert rules, and a snooze ending with the device the other way round |
+| **Unusual activity** | A device off far longer than it ever is, on at an hour it never is, or answering much slower than usual. See [Unusual activity](#unusual-activity) |
 | **Security** | ARP spoofing and IP conflicts, the gateway's MAC changing, new DHCP or DNS servers, newly open ports, certificates, GreyNoise |
 | **Internet** | The internet watch: down, back, slow and back to normal. A scheduled speed test well under the usual |
 | **Reports** | The scheduled report |
@@ -2906,6 +2912,37 @@ the warnings over.
 With **Watch ports daily** on, the morning run also sends the UPnP search.
 Both are active checks, and the port watch is already the one you switched on
 for that.
+
+### Unusual activity
+
+BAMF learns what's normal for each device from the history it already keeps,
+and says when something isn't. It looks every five minutes for three things:
+
+- **Off far longer than usual.** A device that's almost always on (95% of the
+  time, over at least two weeks) has been off at least three times longer than
+  it ever was in the last four weeks, and at least half an hour: "garage-cam
+  has been off for 47 minutes. It's almost always on: in the last 28 days it
+  was never off for more than 5 minutes." It's open until the device is back.
+  Watched devices are left out; they already alert the moment they drop.
+- **On at an unusual hour.** A device that comes and goes came online at an
+  hour it hasn't been on, or within an hour either side of it, on any day in
+  the last four weeks: "living-room-tv came online at 3:12 am. In the last 27
+  days it was never on between 2 am and 5 am." Once a day at most for each
+  device.
+- **Much slower than usual.** A device's last five pings took four times its
+  usual time over the last week, and at least 50 ms more. It's open until it's
+  back under twice its usual.
+
+A device needs **two weeks of history** before anything is said about it. Each
+thing noticed is on the Activity tab's **Unusual** card, and is an alert of the
+**Unusual activity** kind, held by quiet hours like any other. **That's
+normal** beside one stops that device being flagged for the same thing for 30
+days.
+
+Before it shipped, it was replayed over two weeks of a real home network's
+history, 40-odd devices: it would have spoken up three times, each a device on
+at an hour it never is. It's on by default; **Settings → Alerts → Unusual
+activity** switches it off.
 
 ## Backups
 

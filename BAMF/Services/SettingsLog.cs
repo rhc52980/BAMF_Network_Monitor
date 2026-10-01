@@ -44,6 +44,7 @@ public static class SettingsLog
         ["remotes"] = "Other BAMF servers",
         ["hooktoken"] = "Inbound webhooks' token",
         ["backup"] = "Nightly backups",
+        ["unusual"] = "Notice unusual activity",
         ["backup/copyto"] = "Nightly backups' second copy",
     };
 

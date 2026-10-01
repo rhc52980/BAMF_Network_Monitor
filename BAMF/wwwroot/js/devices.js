@@ -605,6 +605,7 @@ function render() {
     loadTraffic().then(t => { trafficCache = t; renderTrafficCards(); }).catch(() => {});
     fetch("/api/alerts").then(r => r.json()).then(a => { alertsCache = a; renderAlertsCard(); renderHygiene(); }).catch(() => {});
     loadSettingsLog();
+    loadUnusual();
     loadSecurity().then(renderHygiene);
     loadGreyNoise().then(renderHygiene);
     loadWan(true).then(renderWanCard);

@@ -643,6 +643,24 @@
         </div>
         <div class="modal-result" id="reportResult"></div>
       </div>
+      <div class="set-card" id="unusualSetCard">
+        <div class="set-card-title">Unusual activity</div>
+        <p class="modal-help">
+          BAMF learns what's normal for each device from its own history, and says when something isn't:
+          a device that's almost always on has been off far longer than it ever is; a device came on at
+          an hour it's never on; or a device is answering several times slower than it usually does.
+          Each device needs two weeks of history first. Alerts go to the destinations with
+          <strong>Unusual activity</strong> ticked under <strong>Sends</strong>, and quiet hours hold them
+          like any other. What it's noticed is on the Activity tab, where <strong>That's normal</strong>
+          stops a device being flagged for the same thing for 30 days.
+        </p>
+        <label class="set-row">
+          <span class="set-label">Notice unusual activity
+            <span class="set-hint" id="unusualStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setUnusual" aria-label="Notice unusual activity" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+      </div>
       <div class="set-card" id="rulesCard">
         <div class="set-card-title">Alert rules and quiet hours</div>
         <p class="modal-help">
@@ -968,6 +986,11 @@
 
 <div class="feed-wrap" id="feedWrap" hidden>
   <div class="act-cards" id="actCards" hidden>
+    <div class="act-card" id="unusualActCard">
+      <h3>Unusual</h3>
+      <div class="sub" id="unusualSub"></div>
+      <div id="unusualBody"></div>
+    </div>
     <div class="act-card" id="changesCard">
       <h3>What changed <select id="chgDays" class="free-days" aria-label="Period"><option value="1">in 24 hours</option><option value="7" selected>this week</option><option value="30">in 30 days</option></select></h3>
       <div class="sub" id="chgSub"></div>
