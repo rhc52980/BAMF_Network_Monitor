@@ -168,6 +168,7 @@ public partial class HostStore
         InitTags(conn);
         InitAlerts(conn);
         InitSettingsLog(conn);
+        InitUnusual(conn);
         InitMapPositions(conn);
         InitDeviceTypes(conn);
         InitAddresses(conn);
@@ -316,6 +317,7 @@ public partial class HostStore
         PruneLatency(conn, cutoff);
         PruneAlertsAndTraffic(conn, cutoff);
         PruneSettingsLog(conn, cutoff);
+        PruneUnusual(conn, cutoff);
     }
 
     /// <summary>Recent events across all hosts (excluding ignored ones), newest first.</summary>

@@ -44,6 +44,7 @@ public static class SettingsLog
         ["remotes"] = "Other BAMF servers",
         ["hooktoken"] = "Inbound webhooks' token",
         ["backup"] = "Nightly backups",
+        ["unusual"] = "Notice unusual activity",
     };
 
     /// <summary>What a request changes, or null when it isn't a settings change.</summary>

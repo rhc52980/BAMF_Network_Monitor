@@ -84,6 +84,7 @@ public partial class ScannerService
         "security" => ("\U0001F6E1 ", 0xE8483B, "BAMF security watch", "shield", 5),
         "internet" => ("\U0001F310 ", 0x4FB3D9, "BAMF internet watch", "globe_with_meridians", 4),
         "cert" => ("\U0001F510 ", 0xE0A040, "BAMF certificate watch", "lock", 4),
+        "unusual" => ("\U0001F50E ", 0x9A7CE8, "BAMF unusual activity", "mag", 3),
         _ => ("⏰ ", 0xB58AF0, "BAMF alert rule", "alarm_clock", 4),
     };
 
@@ -92,6 +93,7 @@ public partial class ScannerService
     {
         "rule" => "status",
         "internet" => "internet",
+        "unusual" => "unusual",
         _ => "security",   // security, port, cert
     };
 

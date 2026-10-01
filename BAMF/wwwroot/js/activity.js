@@ -28,6 +28,53 @@ async function loadSettingsLog() {
     if (r.ok) renderSettingsLog(await r.json());
   } catch { /* the next refresh tries again */ }
 }
+// What isn't normal for a device, learned from its history; each with
+// "That's normal", which stops that being flagged for it for 30 days.
+async function loadUnusual() {
+  try {
+    const r = await fetch("/api/unusual");
+    if (r.ok) renderUnusual(await r.json());
+  } catch { /* the next refresh tries again */ }
+}
+function renderUnusual(d) {
+  $("unusualSub").textContent = !d.enabled ? "Off. Settings \u2192 Alerts switches it on."
+    : `Watching ${d.watching} device${d.watching === 1 ? "" : "s"} for what isn't normal for them` +
+      (d.learning ? `; ${d.learning} still learning (each needs ${d.learnDays} days of history).` : ".");
+  const body = $("unusualBody");
+  body.innerHTML = "";
+  if (!d.items.length) {
+    body.innerHTML = `<div class="watch-note">${d.enabled ? "Nothing unusual in the last day." : ""}</div>`;
+    return;
+  }
+  for (const u of d.items) {
+    const row = document.createElement("div");
+    row.className = "alert-item k-unusual" + (u.open ? " open" : "");
+    row.innerHTML = `<div><b>${esc(u.title)}</b><span class="when">${u.open ? "now" : esc(fmtAgo(u.at))}</span></div><div class="det">${esc(u.detail)}</div>`;
+    if (u.normal) {
+      const note = document.createElement("span");
+      note.className = "unusual-ok marked";
+      note.textContent = "Marked normal";
+      row.appendChild(note);
+      body.appendChild(row);
+      continue;
+    }
+    const ok = document.createElement("button");
+    ok.type = "button";
+    ok.className = "toggle unusual-ok";
+    ok.textContent = "That's normal";
+    ok.title = "Don't flag this device for this again for 30 days";
+    ok.onclick = async () => {
+      ok.disabled = true;
+      try {
+        const res = await fetch(`/api/unusual/${u.id}/normal`, { method: "POST" });
+        if (res.ok) { toast("Noted: not flagged for that again for 30 days"); loadUnusual(); }
+        else { ok.disabled = false; toast("Couldn't save that"); }
+      } catch { ok.disabled = false; toast("Couldn't reach BAMF"); }
+    };
+    row.appendChild(ok);
+    body.appendChild(row);
+  }
+}
 function renderSettingsLog(list) {
   $("setLogBody").innerHTML = list.length ? list.slice(0, 15).map(c =>
     `<div class="alert-item k-settings"><div><b>${esc(c.what)}</b><span class="when">${esc(fmtAgo(c.at))}</span></div>`
