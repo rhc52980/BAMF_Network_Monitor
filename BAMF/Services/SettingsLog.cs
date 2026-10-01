@@ -45,6 +45,7 @@ public static class SettingsLog
         ["hooktoken"] = "Inbound webhooks' token",
         ["backup"] = "Nightly backups",
         ["unusual"] = "Notice unusual activity",
+        ["backup/copyto"] = "Nightly backups' second copy",
     };
 
     /// <summary>What a request changes, or null when it isn't a settings change.</summary>

@@ -933,7 +933,7 @@
         <div class="modal-note" id="backupResult"></div>
         <label class="set-row">
           <span class="set-label">Back up every night
-            <span class="set-hint">A copy into <span class="mono">backups</span> beside the database each night, without a scheduled task. Updates don't touch these. With <span class="mono">Bamf:Backup:CopyTo</span> set in <span class="mono">appsettings.json</span>, each is copied there too, a NAS share say, so a failing disk doesn't take the backups with it.</span>
+            <span class="set-hint">A copy into <span class="mono">backups</span> beside the database each night, without a scheduled task. Updates don't touch these.</span>
             <span class="set-hint" id="backupStatus"></span>
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="backupNightly" aria-label="Back up every night" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
@@ -947,6 +947,13 @@
             <span class="set-hint">The oldest go once there are more than this.</span>
           </span>
           <span class="set-field"><input class="modal-input" id="backupKeep" type="number" min="1" max="60" step="1" value="7"><span class="set-unit">backups</span><button type="button" class="export-btn" id="backupSave">Save</button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">A second copy in
+            <span class="set-hint">Another folder each night's backup is copied to, a NAS share say, so a failing disk doesn't take the backups with it: <span class="mono">\\nas\bamf</span>, <span class="mono">D:\Backups</span> or <span class="mono">/mnt/nas/bamf</span>. Blank for none. BAMF checks it can write there when you save, and only ever writes and deletes its own <span class="mono">nightly-</span> files in it. As a Windows service, BAMF reaches a share as this computer, so the share has to let it in.</span>
+            <span class="set-hint" id="backupCopySource"></span>
+          </span>
+          <span class="set-field bk-copy"><input class="modal-input" id="backupCopyTo" autocomplete="off" spellcheck="false" placeholder="None" aria-label="A second copy in"><button type="button" class="export-btn" id="backupCopySave">Save</button></span>
         </label>
         <div class="set-actions">
           <button type="button" class="toggle" id="backupNow">Back up now</button>

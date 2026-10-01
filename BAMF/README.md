@@ -193,7 +193,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:Subnets` | List of CIDRs to scan, e.g. `["192.168.1.0/24", "192.168.2.0/24"]`. Empty list = auto-detect every active IPv4 interface. (`Bamf:Subnet` as a single string still works for back-compat.) A list saved in **Settings → Scanning → Networks** replaces this one; see [Networks](#networks). |
 | `Bamf:DeviceLinkTemplate` | Where a device's IP link points when it has no link of its own. `{ip}` is the device address. Default `http://{ip}`. |
 | `Bamf:HistoryRetentionDays` | Days of online/offline history to keep (default 90, pruned daily). |
-| `Bamf:Backup:CopyTo` | A folder each nightly backup is copied to as well, a NAS share say (default none). See [Backups](#backups). |
+| `Bamf:Backup:CopyTo` | A folder each nightly backup is copied to as well, a NAS share say (default none). One saved in **Settings → System** replaces it. See [Backups](#backups). |
 | `Bamf:ThemesPath` | The themes folder, relative to the exe (default `themes`; `/data/themes` in Docker and the add-on). See [Adding and removing themes](#adding-and-removing-themes). |
 | `Bamf:AutoDownloadOui` | Download the IEEE vendor registry on first run (default true). |
 | `Bamf:UpdateCheck` | Check GitHub daily for a newer release and show a badge (default **false**). Read-only — never downloads or installs. Header toggle overrides this. |
@@ -1805,7 +1805,8 @@ scan, or delete a thing.
 | POST | `/api/ports/watch` | Run that scan now; returns how many newly open ports it found |
 | GET | `/api/hosts/{id}/ports` | Every port found open on a device, open now or once: `{"port", "service", "firstSeen", "lastSeen", "open"}`. A port scan (`/api/hosts/{id}/portscan`, which now returns `{"ports", "newlyOpen"}`) records here |
 | GET | `/api/hosts/{id}/traffic` | Bytes per hour for a device over the last 7 days (`?days=` for more): `[{"hour", "rx", "tx"}]` |
-| POST | `/api/settings/backup` | Body `{"enabled": true, "hour": 3, "keep": 7}`, any of them: the nightly backups. `GET /api/settings` returns them as `editable.backup`, with the last one's result and how many are kept |
+| POST | `/api/settings/backup` | Body `{"enabled": true, "hour": 3, "keep": 7, "copyTo": "\\\\nas\\bamf"}`, any of them: the nightly backups. `copyTo` empty means no second copy; a folder is checked by writing there before it's saved. `GET /api/settings` returns them as `editable.backup`, with the last one's result and how many are kept |
+| POST | `/api/settings/backup/copyto/reset` | Hand the second folder back to `Bamf:Backup:CopyTo` in `appsettings.json` |
 | POST | `/api/settings/backup/run` | Take tonight's backup now |
 | GET | `/api/backup/saved` | The backups in `backups/` beside the database, newest first, each `{"name", "kind", "at", "size"}`; `kind` is `nightly`, `before an update` or `before a restore`. Refused with the view-only password |
 | POST | `/api/backup/saved/restore` | Body `{"name": "nightly-20260930.db"}` — put one of those back, keeping the database it replaces. Only a file name in that folder is accepted |
@@ -2960,10 +2961,14 @@ it in the same card), and **Back up now** takes one straight away.
 - **Updates don't touch them.** The updaters keep their own snapshot from
   before each update (`bamf-YYYYMMDD-HHMM.db`, the newest 30); the nightly
   ones have their own name and their own count.
-- **A second folder**, so a failing disk doesn't take the backups with it:
-  set `Bamf:Backup:CopyTo` in `appsettings.json` to a folder, a NAS share say,
-  and each night's copy goes there too, pruned to the same count. It's set in
-  the file rather than the dashboard, since it's somewhere BAMF writes files.
+- **A second folder**, so a failing disk doesn't take the backups with it: put
+  one in **A second copy in**, a NAS share say (`\\nas\bamf`, `D:\Backups`
+  or `/mnt/nas/bamf`), and each night's copy goes there too, pruned to the same
+  count. BAMF checks it can write there when you save, and only ever writes and
+  deletes its own `nightly-` files in it. As a Windows service, BAMF reaches a
+  share as the computer itself, so the share has to let that computer in.
+  `Bamf:Backup:CopyTo` in `appsettings.json` works too; one saved in Settings
+  replaces it.
 - **A night that fails** is an alert, through wherever status alerts go, and
   the card says why. The last good backup is still there.
 - On by default, except in the **Home Assistant add-on**, whose data is
