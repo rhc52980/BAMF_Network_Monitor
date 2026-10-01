@@ -170,20 +170,18 @@ rather than your Wi-Fi. Press **Run now**, or have it test every morning or
 every six hours and chart the last month; a test well under your usual is an
 alert. Each test is capped at about 125 MB, and it's off until you ask for it.
 
-<img src="docs/activity.png" width="442" align="right" alt="Two cards from the Activity tab. What changed, for this week: one device arrived, sonos-kitchen, two days ago, and three left, an unnamed device, garage-cam and workshop-pi, last seen nine hours ago. Under it, Settings changes: Test the internet speed, Watch the internet connection, How long a device is new, Quiet hours and The alerts-off banner, each changed two minutes ago, with no password set, from 127.0.0.1">
+![Two cards from the Activity tab. Unusual: watching 18 devices for what isn't normal for them, one still learning, and workshop-pi has been off for 9 hours 19 minutes; it's almost always on, and in the last 28 days it was never off for more than 4 minutes, with a That's normal button beside it. Beside it, What changed, for this week: one device arrived, sonos-kitchen, two days ago, and three left nine hours ago, an unnamed device, garage-cam and workshop-pi](docs/activity.png)
 
 The rest of **Activity** keeps count. **Unusual** says when a device does
-something that isn't normal for it, learned from its own history: off far longer
-than it ever is, on at an hour it never is, or much slower than usual.
-**What changed** lists the devices that
-arrived and the ones that left, today, this week or this month. **Settings
-changes** lists every change made in Settings, with which password and from
-where; only the name of each setting is kept, never what it was set to. Beside
-them are the alerts BAMF raised, the busiest devices (with the traffic monitor
-on), network hygiene (open ports, UPnP, certificates about to run out) and the
-DHCP and DNS servers in use.
+something that isn't normal for it, learned from its own history: off far
+longer than it ever is, on at an hour it never is, or much slower than usual.
+**What changed** lists the devices that arrived and the ones that left, today,
+this week or this month. **Settings changes** lists every change made in
+Settings, with which password and from where; only the name of each setting is
+kept, never what it was set to. Beside them are the alerts BAMF raised, the
+busiest devices (with the traffic monitor on), network hygiene (open ports,
+UPnP, certificates about to run out) and the DHCP and DNS servers in use.
 
-<br clear="right">
 
 ### Tune it without touching the server
 
