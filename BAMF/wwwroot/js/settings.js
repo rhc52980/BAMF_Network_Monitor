@@ -709,6 +709,12 @@ function renderBackup(b) {
   setToggleState($("backupNightly"), b.enabled);
   $("backupHour").value = String(b.hour);
   if (document.activeElement !== $("backupKeep")) $("backupKeep").value = b.keep;
+  if (document.activeElement !== $("backupCopyTo")) $("backupCopyTo").value = b.copyTo || "";
+  $("backupCopySource").innerHTML = b.copyToSource === "file"
+    ? `Set in <span class="mono">appsettings.json</span>; saving here replaces it.`
+    : b.copyToSource === "settings" ? `<a href="#" id="backupCopyReset">Use appsettings.json's instead</a>` : "";
+  const reset = $("backupCopyReset");
+  if (reset) reset.onclick = e => { e.preventDefault(); resetCopyTo(); };
   const st = $("backupStatus"), last = b.last;
   const kept = b.count ? ` ${b.count} kept, ${fmtBytes(b.totalBytes)} in all.` : "";
   const copy = b.copyTo ? ` Also copied to <span class="mono">${esc(b.copyTo)}</span>.` : "";
@@ -733,6 +739,17 @@ $("backupNightly").onclick = () => {
 };
 $("backupHour").onchange = () => saveBackup({ hour: Number($("backupHour").value) }, "Saved.");
 $("backupSave").onclick = () => saveBackup({ keep: Number($("backupKeep").value) }, "Saved.");
+$("backupCopySave").onclick = () => {
+  const v = $("backupCopyTo").value.trim();
+  $("backupNowResult").textContent = v ? "Checking BAMF can write there\u2026" : "";
+  saveBackup({ copyTo: v }, v ? "Saved. Each night's backup is copied there too." : "No second copy.");
+};
+async function resetCopyTo() {
+  try {
+    const r = await fetch("/api/settings/backup/copyto/reset", { method: "POST" });
+    if (r.ok) { renderBackup(await r.json()); $("backupNowResult").textContent = "Back to appsettings.json's."; $("backupNowResult").className = "set-result ok"; }
+  } catch { /* the next look shows it */ }
+}
 // The backups kept on the server, each with a Restore button.
 async function loadSavedBackups() {
   const box = $("backupSaved");

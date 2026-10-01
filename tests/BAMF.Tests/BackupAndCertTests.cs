@@ -102,6 +102,57 @@ public class BackupAndCertTests
             Directory.GetFiles(dir).Select(f => Path.GetFileName(f)).Order().ToArray());
     }
 
+    [Fact]
+    public async Task A_second_folder_set_in_Settings_gets_a_copy()
+    {
+        var other = Path.Combine(Path.GetTempPath(), "bamf-copyto-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            using var app = new BamfApp();
+            var c = app.Client();
+            var r = await c.PostAsJsonAsync("/api/settings/backup", new { copyTo = other });
+            Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+            Assert.False(File.Exists(Path.Combine(other, ".bamf-write-test")));   // the check cleans up after itself
+            await c.PostAsync("/api/settings/backup/run", null);
+            Assert.True(File.Exists(Path.Combine(other, $"nightly-{DateTime.Now:yyyyMMdd}.db")));
+            var b = await Backup(c);
+            Assert.Equal((other, "settings"), (b.GetProperty("copyTo").GetString(), b.GetProperty("copyToSource").GetString()));
+        }
+        finally { try { Directory.Delete(other, true); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public async Task A_second_folder_must_be_a_full_path_BAMF_can_write_to()
+    {
+        using var app = new BamfApp();
+        var c = app.Client();
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.PostAsJsonAsync("/api/settings/backup", new { copyTo = "backups/copy" })).StatusCode);
+        // A folder under a file can never be made.
+        var file = Path.Combine(app.Dir, "a-file");
+        File.WriteAllText(file, "");
+        var r = await c.PostAsJsonAsync("/api/settings/backup", new { copyTo = Path.Combine(file, "sub") });
+        Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
+        Assert.Contains("can't write there", (await r.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error").GetString());
+        Assert.Equal(JsonValueKind.Null, (await Backup(c)).GetProperty("copyTo").ValueKind);
+    }
+
+    [Fact]
+    public async Task Blank_in_Settings_means_no_copy_even_with_one_in_the_file_and_reset_hands_it_back()
+    {
+        var other = Path.Combine(Path.GetTempPath(), "bamf-copyto-" + Guid.NewGuid().ToString("N"));
+        using var app = new BamfApp(settings: new() { ["Bamf:Backup:CopyTo"] = other });
+        var c = app.Client();
+        Assert.Equal("file", (await Backup(c)).GetProperty("copyToSource").GetString());
+        await c.PostAsJsonAsync("/api/settings/backup", new { copyTo = "" });
+        var off = await Backup(c);
+        Assert.Equal((JsonValueKind.Null, "settings"), (off.GetProperty("copyTo").ValueKind, off.GetProperty("copyToSource").GetString()));
+        await c.PostAsync("/api/settings/backup/copyto/reset", null);
+        var back = await Backup(c);
+        Assert.Equal((other, "file"), (back.GetProperty("copyTo").GetString(), back.GetProperty("copyToSource").GetString()));
+        var log = await c.GetFromJsonAsync<JsonElement>("/api/settings/log");
+        Assert.Equal("Nightly backups' second copy: back to appsettings.json", log[0].GetProperty("what").GetString());
+    }
+
     [Theory]
     [InlineData(24, 7)]
     [InlineData(3, 0)]

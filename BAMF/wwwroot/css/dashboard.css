@@ -967,6 +967,9 @@
   .https-cert { margin: 4px 0 10px; font-size: 12px; color: var(--text-dim); line-height: 1.6; }
   #httpsStatus.bad, #backupStatus.bad { color: var(--danger); }
   #backupStatus { overflow-wrap: anywhere; }
+  .set-field.bk-copy { width: auto; flex-wrap: wrap; }
+  #backupCopySource a { color: var(--focus); text-decoration: none; }
+  .set-field.bk-copy .modal-input { width: 220px; min-width: 0; flex: 1 1 160px; }
   .bk-saved { margin: 10px 0 4px; }
   .bk-saved summary { cursor: pointer; font-size: 13px; color: var(--text); }
   .bk-row { display: flex; align-items: center; gap: 12px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 12.5px; }
