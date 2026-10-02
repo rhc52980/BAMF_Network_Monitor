@@ -94,7 +94,7 @@ export function edgeMaterial(color) {
         float s = fract(time * 0.26 + phase) * 3.6 - 1.6;
         float band = exp(-pow((vy - s) * 2.6, 2.0));
         float drop = step(0.975, fract(sin(floor(time * 9.0) * 12.9898 + phase) * 43758.5453));
-        gl_FragColor = vec4(col * (0.72 + 1.2 * band) * gain * (1.0 - 0.5 * drop), 1.0);
+        gl_FragColor = vec4(col * (0.95 + 1.25 * band) * gain * (1.0 - 0.5 * drop), 1.0);
       }`,
   });
 }
@@ -111,7 +111,7 @@ export function bodyMaterial(color) {
         vec3 n = normalize(cross(dFdx(vw), dFdy(vw))), v = normalize(cameraPosition - vw);
         float f = pow(1.0 - abs(dot(n, v)), 2.0);
         float sc = 0.5 + 0.5 * sin(vw.y * 52.0 - time * 2.6);
-        gl_FragColor = vec4(col * (0.025 + f * 0.30 + sc * 0.03), op);
+        gl_FragColor = vec4(col * (0.04 + f * 0.42 + sc * 0.04), op);
       }`,
   });
 }
@@ -130,7 +130,7 @@ export function padMaterial(color) {
         float ring = band(r, 0.9, 0.05) * mix(1.0, step(0.45, fract((a / tau + spin) * 14.0)), 0.9);
         float inner = band(r, 0.6, 0.02) * 0.5;
         float fill = pow(max(0.0, 1.0 - r), 2.0) * 0.22;
-        float k = (ring + inner + fill) * (0.8 + hot * 1.1) * (1.0 - off * 0.7) * step(r, 1.0);
+        float k = (ring + inner + fill) * (0.8 + hot * 0.55) * (1.0 - off * 0.7) * step(r, 1.0);
         gl_FragColor = vec4(col * k, 1.0);
       }`,
   });

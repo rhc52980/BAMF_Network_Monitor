@@ -99,7 +99,7 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
   controls.listenToKeyEvents(stage);   // the arrow keys move the view, for anyone not using a pointer
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.5, 0.3);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.7, 0.55, 0.26);
   const screenPass = makeScreenPass();
   composer.addPass(bloom); composer.addPass(screenPass); composer.addPass(new OutputPass());
 
@@ -415,10 +415,10 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
       const off = e.d.state === "off", still = reduced;
       e.group.position.set(e.pos.x, e.pos.y + (off || still ? 0 : Math.sin(time * 1.3 + e.phase) * 0.07) + (off ? -0.28 : 0), e.pos.z);
       if (!off && !still) e.group.rotation.y += dt * 0.15;
-      tc.set(COLORS[e.d.state]).multiplyScalar(off ? 0.9 : 1.6);
+      tc.set(COLORS[e.d.state]).multiplyScalar(off ? 1.1 : 1.9);
       e.col.lerp(tc, 1 - Math.exp(-5 * dt));
       const hot = e === hovered || e === selected;
-      e.edges.material.uniforms.col.value.copy(e.col); e.edges.material.uniforms.gain.value = off ? 0.8 : hot ? 1.5 : 1;
+      e.edges.material.uniforms.col.value.copy(e.col); e.edges.material.uniforms.gain.value = off ? 0.9 : hot ? 1.05 : 1;
       e.body.material.uniforms.col.value.copy(e.col); e.body.material.uniforms.op.value = off ? 0.22 : 0.42;
       e.pad.material.uniforms.col.value.copy(e.col); e.pad.material.uniforms.off.value = off ? 1 : 0;
       e.pad.material.uniforms.hot.value += ((hot ? 1 : 0) - e.pad.material.uniforms.hot.value) * (1 - Math.exp(-8 * dt));
