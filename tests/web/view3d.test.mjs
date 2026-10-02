@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { MODELS, modelFor, stateOf, buildScene, ringsFor, slotsFor, placeNetworks, describeScene } from "../../BAMF/wwwroot/view3d/data.mjs";
+import { MODELS, REFINE, modelFor, textOf, stateOf, buildScene, ringsFor, slotsFor, placeNetworks, describeScene } from "../../BAMF/wwwroot/view3d/data.mjs";
 
 // Every kind the Map can give a device (deviceKind in js/map.js).
 const MAP_KINDS = ["router", "vpn", "switch", "ap", "camera", "printer", "tv", "speaker", "phone", "tablet", "laptop", "desktop",
@@ -23,6 +23,45 @@ test("a Raspberry Pi is told apart from other servers; unknown kinds fall back t
   assert.equal(modelFor("net"), "router");
   assert.equal(modelFor("toaster"), "device");
   assert.equal(modelFor("constructor"), "device");
+});
+
+test("every model a rule can pick exists, and the files are all in the list", () => {
+  for (const [model, re, kinds] of REFINE) {
+    assert.ok(Object.hasOwn(MODELS, model), `${model} has no entry in MODELS`);
+    assert.ok(re instanceof RegExp);
+    for (const k of kinds || []) assert.ok(Object.hasOwn(MODELS, k) || ["net", "vswitch"].includes(k), `${model} names an unknown kind ${k}`);
+  }
+});
+
+test("a device's words pick a more specific model than the Map's kind", () => {
+  const cases = [
+    ["tv", "Roku", "roku ultra", "streamer"], ["tv", "Google", "chromecast", "streamer"], ["tv", "Samsung", "samsung smart tv", "tv"],
+    ["speaker", "Sonos", "sonos beam", "soundbar"], ["speaker", "Amazon", "echo dot", "speaker"], ["speaker", "Google", "nest hub", "display"],
+    ["speaker", "Google", "google nest mini", "speaker"], ["iot", "Google", "nest learning thermostat", "thermostat"], ["iot", "", "nest wifi point", "mesh"],
+    ["ap", "Netgear", "orbi rbr50", "mesh"], ["ap", "Ubiquiti", "u6-pro", "ap"], ["camera", "Ring", "ring doorbell pro", "doorbell"],
+    ["camera", "", "garage-cam", "garage"], ["camera", "Hikvision", "ptz dome", "dome"], ["iot", "iRobot", "roomba j7", "vacuum"],
+    ["iot", "", "front door lock", "lock"], ["iot", "", "rachio sprinkler", "sprinkler"], ["iot", "", "kitchen fridge", "fridge"],
+    ["iot", "", "laundry washer", "washer"], ["device", "Tesla", "tesla model 3", "car"], ["game", "Meta", "quest 3", "vr"],
+    ["game", "Nintendo", "nintendo switch", "handheld"], ["game", "Sony", "playstation 5", "game"], ["tablet", "Amazon", "kindle", "ereader"],
+    ["phone", "Apple", "apple watch", "watch"], ["phone", "Apple", "iphone-13", "phone"], ["server", "", "home assistant", "minipc"],
+    ["server", "Raspberry Pi Trading Ltd", "pihole", "pi"], ["server", "Dell", "proxmox", "server"], ["printer", "Prusa", "prusa mk4", "printer3d"],
+    ["printer", "Brother", "brother-mfc", "printer"], ["router", "Arris", "surfboard sb8200", "modem"], ["router", "", "gateway", "router"],
+    ["laptop", "Apple", "macbook-air", "laptop"], ["switch", "Netgear", "switch-poe-8", "switch"],
+  ];
+  for (const [kind, vendor, text, want] of cases) assert.equal(modelFor(kind, vendor, text), want, `${text} (${kind}) should be ${want}`);
+});
+
+test("a rule only replaces the kinds it names, and matches whole words", () => {
+  assert.equal(modelFor("router", "", "ring-gateway"), "router");        // "ring" alone isn't a doorbell
+  assert.equal(modelFor("nas", "", "roku backups"), "nas");              // a NAS stays a NAS whatever it's called
+  assert.equal(modelFor("device", "", "blockchain-node"), "device");     // "lock" inside a word isn't a lock
+  assert.equal(modelFor("device", "", "pigeon-fan-club"), "purifier");   // a whole word is
+  assert.equal(modelFor("laptop", "", "dell-laptop-3d printer-farm"), "laptop");
+});
+
+test("textOf gathers what a device says about itself", () => {
+  const t = textOf({ osGuess: "Linux", customName: "Den", hostname: "—", mdnsName: "Den.local", vendor: "Roku, Inc", typeName: "TV / media" });
+  assert.equal(t, "linux den den.local roku, inc tv / media");
 });
 
 test("a device's state: unusual wins, then offline, then not yet approved", () => {

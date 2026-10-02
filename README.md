@@ -187,8 +187,12 @@ UPnP, certificates about to run out) and the DHCP and DNS servers in use.
 
 The **3D** tab draws the same network as a place you can look around: one
 glowing platform per network, your gateway at the middle of each, and every
-device standing on it as a model of what it is (a router, a switch, a NAS, a
-Raspberry Pi, a camera, a phone, a game console and so on, 21 in all). Green
+device standing on it as a model of what it is: 46 in all, from routers,
+switches, NASes and Raspberry Pis to streaming boxes, soundbars, doorbells,
+thermostats, robot vacuums, fridges, game consoles, VR headsets and cars. BAMF
+picks one from what the device says about itself (its name, vendor and type),
+not just its icon on the Map, so a Roku is a streamer and a Nest Hub is a
+display. Green
 ones are online, amber haven't been approved yet, grey are off, and a device
 doing something unusual gets a purple beacon you can see from across the room.
 Lines carry little pulses of traffic, busier for the devices using the most.

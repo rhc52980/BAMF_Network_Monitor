@@ -136,7 +136,7 @@ step:
 | `js/internet.js` | The internet watch, the speed test, the Scan menu and free addresses |
 | `js/settings.js` | What's new, where alerts go, and Settings |
 | `js/view3d.js` | The 3D tab: loads its library on first use and feeds it the dashboard's own devices |
-| `view3d/` | The 3D drawing (`scene.mjs`), its shaders (`fx.mjs`), what goes where (`data.mjs`), the vendored three.js (MIT) and 21 device models |
+| `view3d/` | The 3D drawing (`scene.mjs`), its shaders (`fx.mjs`), what goes where (`data.mjs`), the vendored three.js (MIT) and 46 device models |
 | `js/main.js` | Switching views, and starting the page |
 
 The scripts load in that order and share one scope, as if they were one
@@ -2039,8 +2039,9 @@ ranking and the Unusual findings), so it needs nothing new on the server.
   *Slow turn*, *Names* and *Traffic* can be switched off; they're remembered in
   your browser, as is the layout.
 - **Offline, and only when used:** the library (`wwwroot/view3d/three`, three.js
-  r170, MIT) and the models (`wwwroot/view3d/models/*.glb`, about 1.1 MB for all 21)
-  are fetched the first time the tab opens, from BAMF, never a CDN. BAMF serves
+  r170, MIT) and the models (`wwwroot/view3d/models/*.glb`, about 2.1 MB for all 46)
+  are fetched from BAMF, never a CDN, and only as needed: the library the first
+  time the tab opens, and each model when a device that needs it is drawn. BAMF serves
   `.mjs` and `.glb` with the types a browser needs, and an update replaces them
   like the rest of `wwwroot`.
 - **Gentle:** the drawing stops when the tab or the page isn't showing, the
@@ -2050,6 +2051,13 @@ ranking and the Unusual findings), so it needs nothing new on the server.
 - **Keyboard and screen readers:** the arrow keys move the view (the canvas takes focus with Tab), and the
   canvas has a text alternative (how many devices, on how many networks, how
   many unusual).
+- **Which model:** a device's Map kind picks a base model, and a table of rules
+  in `view3d/data.mjs` (`REFINE`) makes it more specific from the device's name,
+  vendor and type, for the kinds each rule may replace: Roku, Chromecast and
+  Apple TV become a streamer, Sonos Beam a soundbar, Nest Hub a display, Ring
+  Doorbell a doorbell, Orbi and Eero mesh nodes, Roomba a vacuum, a hostname
+  with "fridge" a fridge, and so on. Whole words only, and a NAS stays a NAS
+  whatever it's called. Add a rule and a model to cover another device.
 - **Models:** the glowing edges only use each model's shape, so a new kind is a
   `.glb` normalised to one unit (origin at the floor, y up, no materials) named
   in `MODELS` in `view3d/data.mjs`; `check-web` fails if a listed model is

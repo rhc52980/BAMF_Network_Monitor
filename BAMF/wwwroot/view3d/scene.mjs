@@ -22,29 +22,23 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": 
 const fract = x => x - Math.floor(x);
 const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-/** Loads the models: one merged, centred geometry for each kind, sized for the platform. */
-async function loadModels(base) {
-  const loader = new GLTFLoader(), geos = {};
-  await Promise.all(Object.keys(MODELS).map(async kind => {
-    try {
-      const gltf = await loader.loadAsync(`${base}/models/${kind}.glb`);
-      gltf.scene.updateMatrixWorld(true);
-      const parts = [];
-      gltf.scene.traverse(o => {
-        if (!o.isMesh) return;
-        let g = o.geometry.clone().applyMatrix4(o.matrixWorld);
-        if (g.index) g = g.toNonIndexed();
-        const p = new THREE.BufferGeometry(); p.setAttribute("position", g.attributes.position); parts.push(p);
-      });
-      const g = BufferGeometryUtils.mergeGeometries(parts, false);
-      g.computeBoundingBox();
-      const size = g.boundingBox.getSize(new THREE.Vector3()), c = g.boundingBox.getCenter(new THREE.Vector3());
-      g.translate(-c.x, -c.y, -c.z);
-      const k = MODELS[kind] / Math.max(size.x, size.y, size.z); g.scale(k, k, k);
-      geos[kind] = g;
-    } catch { /* a missing model falls back to a plain block */ }
-  }));
-  return geos;
+/** Loads one model: a single merged, centred geometry, sized for the platform. */
+async function loadModel(loader, base, kind) {
+  const gltf = await loader.loadAsync(`${base}/models/${kind}.glb`);
+  gltf.scene.updateMatrixWorld(true);
+  const parts = [];
+  gltf.scene.traverse(o => {
+    if (!o.isMesh) return;
+    let g = o.geometry.clone().applyMatrix4(o.matrixWorld);
+    if (g.index) g = g.toNonIndexed();
+    const p = new THREE.BufferGeometry(); p.setAttribute("position", g.attributes.position); parts.push(p);
+  });
+  const g = BufferGeometryUtils.mergeGeometries(parts, false);
+  g.computeBoundingBox();
+  const size = g.boundingBox.getSize(new THREE.Vector3()), c = g.boundingBox.getCenter(new THREE.Vector3());
+  g.translate(-c.x, -c.y, -c.z);
+  const k = MODELS[kind] / Math.max(size.x, size.y, size.z); g.scale(k, k, k);
+  return g;
 }
 
 export async function createView(container, { base = "/view3d", onOpenDevice = () => {}, credits = "" } = {}) {
@@ -107,9 +101,16 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
   scene.add(makeFloor(-1.6));
   const dust = makeDust(260, glow); scene.add(dust);
 
-  const geos = await loadModels(base);
+  // Models come as they're needed: a network with twenty devices fetches a handful of the files, not all of them.
+  const loader = new GLTFLoader(), geos = {}, fetching = new Set();
+  const blocks = {};
+  const geoFor = kind => geos[kind] || (blocks[kind] ||= new THREE.BoxGeometry(MODELS[kind] || 1, 0.6, MODELS[kind] || 1));   // a plain block until it arrives (or if it can't)
+  function want(kind) {
+    if (geos[kind] || fetching.has(kind)) return;
+    fetching.add(kind);
+    loadModel(loader, base, kind).then(g => { geos[kind] = g; ents.forEach(e => { if (e.model === kind) applyModel(e); }); }).catch(() => { /* stays a block */ });
+  }
   loadingEl.remove();
-  const geoFor = kind => geos[kind] || new THREE.BoxGeometry(MODELS[kind] || 1, 0.6, MODELS[kind] || 1);
 
   // ---------- the internet, up top ----------
   const internet = new THREE.Group();
@@ -159,7 +160,7 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
     const e = { d, key: d.key, pos: new THREE.Vector3(), target: new THREE.Vector3(), phase: Math.random() * 6.28, col: new THREE.Color(COLORS[d.state]),
                 scale: 1, birth: dropIn ? performance.now() : 0, leaving: 0 };
     const g = new THREE.Group(), geo = geoFor(d.model);
-    e.model = d.model;
+    e.model = d.model; want(d.model);
     e.body = new THREE.Mesh(geo, bodyMaterial(e.col.clone()));
     e.edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 28), edgeMaterial(e.col.clone()));
     // a pad under it, and (for anything unusual) two ghost copies of its outline that jump now and then
@@ -171,6 +172,15 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
     e.el = document.createElement("div"); e.label = new CSS2DObject(e.el); g.add(e.label);
     e.group = g; scene.add(g); ents.set(d.key, e);
     return e;
+  }
+  // Puts a device's model on it (again, when it changes or its file has just arrived).
+  function applyModel(e) {
+    want(e.model);
+    e.edges.geometry.dispose();
+    e.body.geometry = geoFor(e.model); e.edges.geometry = new THREE.EdgesGeometry(e.body.geometry, 28);
+    if (e.ghosts) e.ghosts.forEach(m => { m.geometry = e.edges.geometry; });
+    const size = MODELS[e.model] || 1;
+    e.pad.position.y = -size / 2 - 0.02; e.pad.scale.setScalar(Math.max(0.8, size * 0.62) * (e.d.gw ? 1.35 : 1));
   }
   function dropEnt(e) {
     scene.remove(e.group); e.edges.geometry.dispose(); e.body.material.dispose(); e.edges.material.dispose(); e.pad.geometry.dispose(); e.pad.material.dispose();
@@ -245,12 +255,7 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
       let e = ents.get(d.key);
       if (e && e.leaving) { e.leaving = 0; }
       if (!e) e = makeEnt(d, !firstUpdate && !reduced);
-      if (e.model !== d.model) {
-        e.model = d.model; e.edges.geometry.dispose();
-        e.body.geometry = geoFor(d.model); e.edges.geometry = new THREE.EdgesGeometry(e.body.geometry, 28);
-        if (e.ghosts) e.ghosts.forEach(m => { m.geometry = e.edges.geometry; });
-        e.pad.position.y = -(MODELS[d.model] || 1) / 2 - 0.02; e.pad.scale.setScalar(Math.max(0.8, (MODELS[d.model] || 1) * 0.62) * (d.gw ? 1.35 : 1));
-      }
+      if (e.model !== d.model) { e.model = d.model; applyModel(e); }
       e.d = d; styleLabel(e); setBeacon(e, !!d.odd);
       if (selected === e) showCard(e);
     }
@@ -284,7 +289,8 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
   function homeCamera() {
     // far enough back that the whole width fits, whatever shape the window is
     const fitW = (reach + 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * Math.max(camera.aspect, 0.4)) * 1.0;
-    const d = Math.max(reach * 0.92 + 5, fitW), stacked = prefs.mode === "stack";
+    const rmax = current ? Math.max(0, ...current.nets.map(n => slotsFor(n.devices).radius)) : 0;   // a big platform needs standing back from
+    const d = Math.max(reach * 0.92 + 5, fitW, rmax * 1.6 + 6), stacked = prefs.mode === "stack";
     const h = current && stacked ? (placeNetworks(current.nets.map(n => slotsFor(n.devices).radius), "stack").height || 0) : 0;
     return { target: new THREE.Vector3(0, stacked ? h / 2 + 2.2 : 4.4, 0), pos: new THREE.Vector3(0, d * 0.5 + (stacked ? h * 0.9 : 0), d * 0.85 + (stacked ? h * 1.3 : 0)) };
   }
