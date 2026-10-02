@@ -347,7 +347,7 @@ try {
         Step "Installing the dashboard"
         Copy-Item (Join-Path $srcWeb "*") $appWeb -Recurse -Force
         # The page and every script and stylesheet it loads.
-        Get-ChildItem $srcWeb -Recurse -File -Include *.html, *.js, *.css | ForEach-Object {
+        Get-ChildItem $srcWeb -Recurse -File -Include *.html, *.js, *.mjs, *.css, *.glb | ForEach-Object {
             $newFile = Join-Path $appWeb $_.FullName.Substring($srcWeb.Length).TrimStart('\')
             if (-not (Test-Path $newFile) -or (Get-Item $newFile).Length -ne $_.Length) {
                 throw "The dashboard in $appWeb does not match this package ($($_.Name)) - the update would look like it worked while serving the old dashboard."

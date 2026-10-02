@@ -593,6 +593,7 @@ function render() {
   $("floorWrap").hidden = view !== "floor";
   $("settingsWrap").hidden = view !== "settings";
   $("mapWrap").hidden = view !== "map";
+  $("view3dWrap").hidden = view !== "3d";
   $("statusFilters").style.display = view === "devices" ? "" : "none";
   $("tableWrap").classList.toggle("bare", view === "forgotten");
   renderGuessChips();
@@ -617,6 +618,7 @@ function render() {
   if (view === "home") renderHome();
   if (view === "floor") renderFloor();
   if (view === "map") renderMap();
+  refresh3d();   // draws the 3D tab, or stops it drawing once it's left
   document.querySelectorAll("thead th[data-sort]").forEach(th => {
     th.classList.toggle("sorted", th.dataset.sort === sortKey);
     th.classList.toggle("desc", th.dataset.sort === sortKey && sortDir === -1);

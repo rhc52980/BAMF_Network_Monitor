@@ -103,7 +103,7 @@ the bodies they take in `Requests.cs`. The work itself is in `Services/`.
 ### Tests
 
 From the repo root, the C# tests and the dashboard's (which devices count as
-intruders). The C# ones test BAMF's parts (themes, reports, passwords, the
+intruders, and where the 3D view puts things). The C# ones test BAMF's parts (themes, reports, passwords, the
 network rules, certificates) and, in `EndpointTests`, BAMF itself: each starts
 it in memory on a database of its own, with nothing scanned or sent, and
 calls its API as a browser, a script or another BAMF would, from signing in
@@ -135,6 +135,8 @@ step:
 | `js/screensaver.js` | The screen saver and the watchtower |
 | `js/internet.js` | The internet watch, the speed test, the Scan menu and free addresses |
 | `js/settings.js` | What's new, where alerts go, and Settings |
+| `js/view3d.js` | The 3D tab: loads its library on first use and feeds it the dashboard's own devices |
+| `view3d/` | The 3D drawing (`scene.mjs`), what goes where (`data.mjs`), the vendored three.js (MIT) and 21 device models |
 | `js/main.js` | Switching views, and starting the page |
 
 The scripts load in that order and share one scope, as if they were one
@@ -1272,7 +1274,7 @@ see the [Wall display](#wall-display).
 ## Linking to a tab
 
 Each dashboard tab has its own address: `/#settings`, `/#activity`,
-`/#home`, `/#forgotten`, `/#floor`. The Devices view is the bare URL. Bookmark or pin
+`/#home`, `/#forgotten`, `/#floor`, `/#map`, `/#3d`. The Devices view is the bare URL. Bookmark or pin
 one and it opens straight to that tab; Back and Forward move between tabs
 you've visited. Handy for a phone home-screen shortcut that goes straight to
 **Who's home**, or a pinned Settings page.
@@ -2020,6 +2022,39 @@ list — see [Device links and port check](#device-links-and-port-check).
 Press `/` anywhere on the page to jump to the search box. `Esc` in the box
 clears the filter; elsewhere it closes whatever is open — a dialog, a row
 menu, the Tools menu, an expanded row.
+
+## 3D view
+
+The **3D** tab (`/#3d`) draws the same devices as the Map as a scene you can fly
+around: a platform for each network, the gateway at its centre, and every
+device as a model of its kind. It uses the dashboard's own data (the kinds the
+Map assigns, the names you've given, the gateway BAMF knows, the traffic
+ranking and the Unusual findings), so it needs nothing new on the server.
+
+- **Colours:** green online, amber not yet approved, grey offline, purple for a
+  device with an open unusual finding (it also gets a beacon and its words on
+  the card). The card's **History** goes to the device's row on the Devices tab.
+- **Layouts:** *Side by side* (the default) or *Stacked*, networks as floors.
+  *Slow turn*, *Names* and *Traffic* can be switched off; they're remembered in
+  your browser, as is the layout.
+- **Offline, and only when used:** the library (`wwwroot/view3d/three`, three.js
+  r170, MIT) and the models (`wwwroot/view3d/models/*.glb`, 665 KB for all 21)
+  are fetched the first time the tab opens, from BAMF, never a CDN. BAMF serves
+  `.mjs` and `.glb` with the types a browser needs, and an update replaces them
+  like the rest of `wwwroot`.
+- **Gentle:** the drawing stops when the tab or the page isn't showing, the
+  slow turn, bobbing and pulses are off under `prefers-reduced-motion`, above
+  150 devices it shows names only for the gateway, anything unusual and what
+  you point at, and with no WebGL it says so and points to the Map.
+- **Keyboard and screen readers:** the arrow keys move the view (the canvas takes focus with Tab), and the
+  canvas has a text alternative (how many devices, on how many networks, how
+  many unusual).
+- **Models:** the glowing edges only use each model's shape, so a new kind is a
+  `.glb` normalised to one unit (origin at the floor, y up, no materials) named
+  in `MODELS` in `view3d/data.mjs`; `check-web` fails if a listed model is
+  missing. Four are adapted from Creative Commons Attribution Sketchfab models
+  (credited under *Model credits* and in the root README); only CC BY or CC0
+  models belong here.
 
 ## Network map
 

@@ -30,6 +30,8 @@
 <!-- Fonts are served from this machine, not a CDN: the dashboard often runs on
      networks with no internet, and it shouldn't report visitors to a third party. -->
 <link href="fonts.css" rel="stylesheet">
+<!-- The 3D tab's library and models are saved here, not fetched from the internet, and only loaded once the tab is opened. -->
+<script type="importmap">{"imports":{"three":"/view3d/three/three.module.min.js","three/addons/":"/view3d/three/addons/"}}</script>
 <link href="css/dashboard.css" rel="stylesheet">
 <!-- Every theme but Dark, Light and High Contrast is a folder on the server.
      Its stylesheet is written in here, so it's loaded before the page first
@@ -162,6 +164,7 @@
   <div class="views" role="tablist">
     <button class="view-btn active" data-view="devices">Devices</button>
     <button class="view-btn" data-view="map">Map</button>
+    <button class="view-btn" data-view="3d" title="The network in 3D">3D</button>
     <button class="view-btn" data-view="floor">Floor plan</button>
     <button class="view-btn" data-view="home">Who's home</button>
     <button class="view-btn" data-view="activity">Activity</button>
@@ -197,6 +200,8 @@
 
 <div class="chipbar" id="guessChips" hidden></div>
 <div class="chipbar" id="tagChips" hidden></div>
+
+<div class="v3d-wrap" id="view3dWrap" hidden></div>
 
 <div class="map-wrap" id="mapWrap" hidden>
   <p class="map-note">
@@ -1516,6 +1521,7 @@
 <script src="js/screensaver.js"></script>
 <script src="js/internet.js"></script>
 <script src="js/settings.js"></script>
+<script src="js/view3d.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

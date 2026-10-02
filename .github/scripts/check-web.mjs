@@ -6,6 +6,7 @@
 // Exits non-zero, listing every problem, if anything is wrong.
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 import vm from "node:vm";
 
 const problems = [];
@@ -26,6 +27,16 @@ const web = "BAMF/wwwroot";
 for (const page of readdirSync(web).filter(f => f.endsWith(".html"))) {
   const html = readFileSync(join(web, page), "utf8");
   for (const m of html.matchAll(/<script(\s[^>]*)?>([\s\S]*?)<\/script>/g)) {
+    if (/type=["']?importmap/.test(m[1] || "")) {
+      // The 3D tab's map of where its library is: valid JSON, pointing at files that are there.
+      try {
+        for (const target of Object.values(JSON.parse(m[2]).imports)) {
+          const rel = target.replace(/^\//, "");
+          if (!existsSync(join(web, rel))) fail(page, `the import map points at ${target}, which isn't there`);
+        }
+      } catch (e) { fail(page, "the import map isn't valid JSON: " + e.message); }
+      continue;
+    }
     if (/\bsrc=/.test(m[1] || "") || /type=["']?(application\/json|module)/.test(m[1] || "")) continue;
     const start = html.slice(0, m.index + m[0].indexOf(">") + 1).split("\n").length - 1;
     syntax(page, m[2], start);
@@ -45,6 +56,20 @@ for (const page of readdirSync(web).filter(f => f.endsWith(".html"))) {
   if (all.length > 1) syntax(`${page}'s scripts together`, all.join("\n;\n"));
   for (const m of html.matchAll(/<link\s+href="([^"]+)"\s+rel="stylesheet">/g))
     if (!m[1].startsWith("/") && !existsSync(join(web, m[1]))) fail(page, `links ${m[1]}, which isn't there`);
+}
+
+// The 3D tab's own modules, each parsed as a module without being run.
+const view3d = join(web, "view3d");
+if (existsSync(view3d)) {
+  for (const f of readdirSync(view3d).filter(f => f.endsWith(".mjs"))) {
+    try { execFileSync(process.execPath, ["--check", join(view3d, f)], { stdio: "pipe" }); }
+    catch (e) { fail(join(view3d, f), String(e.stderr || e.message).split("\n").slice(0, 4).join(" ")); }
+  }
+  // Every model its data module names is there.
+  const names = [...readFileSync(join(view3d, "data.mjs"), "utf8").matchAll(/^export const MODELS = \{([\s\S]*?)\};/gm)]
+    .flatMap(m => [...m[1].matchAll(/(\w+):\s*[\d.]+/g)].map(x => x[1]));
+  if (names.length < 10) fail("view3d/data.mjs", "couldn't read the model list");
+  for (const k of names) if (!existsSync(join(view3d, "models", k + ".glb"))) fail("view3d/models", `${k}.glb is missing`);
 }
 
 const json = (where) => {

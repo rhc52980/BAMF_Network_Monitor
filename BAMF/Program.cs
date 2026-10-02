@@ -320,11 +320,17 @@ app.UseDefaultFiles();
 // checks each with the server before using its copy (a quick 304 when it
 // hasn't changed), so after an update it can't run an old script in the new
 // page, or the other way round.
+// The 3D tab's models are .glb files, which ASP.NET doesn't know a type for and so would refuse to serve,
+// and its modules are .mjs, which a browser only runs as JavaScript.
+var contentTypes = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+contentTypes.Mappings[".glb"] = "model/gltf-binary";
+contentTypes.Mappings[".mjs"] = "text/javascript";
 app.UseStaticFiles(new StaticFileOptions
 {
+    ContentTypeProvider = contentTypes,
     OnPrepareResponse = ctx =>
     {
-        if (Path.GetExtension(ctx.File.Name) is ".html" or ".js" or ".css" or ".json" or ".webmanifest")
+        if (Path.GetExtension(ctx.File.Name) is ".html" or ".js" or ".mjs" or ".css" or ".json" or ".webmanifest" or ".glb")
             ctx.Context.Response.Headers.CacheControl = "no-cache";
     },
 });

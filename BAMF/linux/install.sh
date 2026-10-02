@@ -145,7 +145,7 @@ if [ -d "$SRC_DIR/wwwroot" ]; then
             echo "The dashboard in $APP_DIR/wwwroot does not match this package ($rel) - the update would look like it worked while serving the old dashboard."
             exit 1
         fi
-    done < <(find "$SRC_DIR/wwwroot" -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' \))
+    done < <(find "$SRC_DIR/wwwroot" -type f \( -name '*.html' -o -name '*.js' -o -name '*.mjs' -o -name '*.css' -o -name '*.glb' \))
 fi
 
 # --- service ---

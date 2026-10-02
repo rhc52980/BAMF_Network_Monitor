@@ -1692,3 +1692,45 @@
     .scanline .lbl-next { display: none; }
     .nettab .due { display: none; }
   }
+
+  /* ---- the 3D tab: always a dark scene, so its overlays are dark whatever the theme ---- */
+  .v3d-wrap { position: relative; height: calc(100vh - 360px); min-height: 480px; margin: 0 24px 24px; border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden; background: #0b0f15; color: #d5dde8; }
+  .v3d-stage { position: absolute; inset: 0; outline: none; }
+  .v3d-stage canvas { display: block; }
+  .v3d-panel { position: absolute; background: rgba(16, 22, 31, .84); border: 1px solid #263040; border-radius: 12px; backdrop-filter: blur(8px); font-size: 13px; }
+  .v3d-controls { right: 14px; top: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-width: 190px; }
+  .v3d-row { display: flex; gap: 6px; }
+  .v3d-btn { flex: 1; font: inherit; color: #d5dde8; background: #161e29; border: 1px solid #263040; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  .v3d-btn:hover, .v3d-btn:focus-visible { border-color: #6db7d8; outline: none; }
+  .v3d-btn.on { border-color: #6db7d8; background: #1a2a38; }
+  .v3d-chk { display: flex; align-items: center; gap: 8px; color: #8d9aad; cursor: pointer; }
+  .v3d-chk input { accent-color: #6db7d8; }
+  .v3d-legend { left: 14px; bottom: 14px; padding: 9px 12px; display: flex; flex-direction: column; gap: 3px; color: #8d9aad; font-size: 12px; }
+  .v3d-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; vertical-align: -1px; }
+  .v3d-link { align-self: flex-start; margin-top: 4px; padding: 0; border: 0; background: none; color: #6db7d8; font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; }
+  .v3d-note { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); padding: 5px 12px; color: #8d9aad; font-size: 12px; white-space: nowrap; pointer-events: none; }
+  .v3d-card, .v3d-credits { right: 14px; bottom: 14px; width: 290px; padding: 14px; }
+  .v3d-card[hidden], .v3d-credits[hidden] { display: none; }
+  .v3d-credits { width: 330px; font-size: 12.5px; line-height: 1.5; color: #b9c4d3; }
+  .v3d-credits h3 { margin: 0 0 6px; font-size: 14px; color: #e4ecf6; } .v3d-credits p { margin: 6px 0; } .v3d-credits ul { margin: 4px 0; padding-left: 18px; }
+  .v3d-credits a { color: #6db7d8; }
+  .v3d-card h2 { margin: 0 0 2px; font-size: 15px; color: #e4ecf6; }
+  .v3d-sub { color: #8d9aad; font-size: 12px; margin-bottom: 8px; font-family: ui-monospace, Consolas, monospace; }
+  .v3d-card dl { margin: 0 0 10px; display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 12px; }
+  .v3d-card dt { color: #8d9aad; } .v3d-card dd { margin: 0; }
+  .v3d-odd { margin: 0 0 10px; padding: 8px 10px; border-left: 3px solid #9a7ce8; background: rgba(154, 124, 232, .13); border-radius: 0 8px 8px 0; font-size: 12px; }
+  .v3d-x { position: absolute; right: 8px; top: 6px; width: auto; flex: none; padding: 0 8px; font-size: 18px; line-height: 22px; background: none; border: 0; color: #8d9aad; cursor: pointer; }
+  .v3d-loading, .v3d-fail { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; color: #8d9aad; line-height: 1.6; }
+  .v3d-fail a { color: #6db7d8; }
+  .v3d-lbl { color: #c5d0de; font-size: 11px; text-shadow: 0 0 6px #000, 0 0 2px #000; white-space: nowrap; pointer-events: none; transform: translateY(-4px); }
+  .v3d-lbl.gw { font-weight: 600; font-size: 12px; color: #e4ecf6; }
+  .v3d-lbl.net { color: #7fb3d6; font-family: ui-monospace, Consolas, monospace; letter-spacing: .04em; }
+  .v3d-lbl.odd { color: #c7b5ff; font-weight: 600; } .v3d-lbl.off { color: #7e8b9d; }
+  .v3d-nolabels .v3d-lbl:not(.net):not(.gw):not(.odd) { display: none; }
+  @media (max-width: 700px) {
+    .v3d-wrap { margin: 0 0 16px; border-radius: 0; border-left: 0; border-right: 0; height: 72vh; min-height: 420px; }
+    .v3d-controls { top: auto; bottom: 10px; left: 10px; right: 10px; flex-direction: row; flex-wrap: wrap; }
+    .v3d-legend, .v3d-note { display: none; }
+    .v3d-card, .v3d-credits { left: 10px; right: 10px; bottom: 120px; width: auto; }
+  }

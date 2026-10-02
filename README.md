@@ -183,6 +183,26 @@ busiest devices (with the traffic monitor on), network hygiene (open ports,
 UPnP, certificates about to run out) and the DHCP and DNS servers in use.
 
 
+### See it in 3D
+
+The **3D** tab draws the same network as a place you can look around: one
+glowing platform per network, your gateway at the middle of each, and every
+device standing on it as a model of what it is (a router, a switch, a NAS, a
+Raspberry Pi, a camera, a phone, a game console and so on, 21 in all). Green
+ones are online, amber haven't been approved yet, grey are off, and a device
+doing something unusual gets a purple beacon you can see from across the room.
+Lines carry little pulses of traffic, busier for the devices using the most.
+Drag to turn it, scroll to zoom, arrow keys to move, and click a device for its
+details, with a **History** button that takes you to its row on the Devices tab.
+**Stacked** puts the networks on top of each other as floors.
+
+It doesn't cost anything until you use it: the 3D library and models are only
+fetched the first time you open the tab, and they come from BAMF itself, so it
+works offline. It stops drawing when you leave the tab, turns off the slow spin
+and the pulses if your system asks for reduced motion, drops to a lighter look
+above 150 devices, and says so in plain words if your browser has no WebGL (the
+Map and Devices tabs show the same network without it).
+
 ### Tune it without touching the server
 
 ![The Settings tab: a Find a setting box and a list of sections down the side (Scanning, Internet, Security, Alerts, Your network, Appearance and System) with Scanning open: the default scan interval, probe concurrency, offline after missed scans and mDNS listening, each network with an on/off switch and its own interval, Reset to file defaults and Save, then the switches that apply at once: active ARP, randomised MACs, latency, IPv6 neighbours, the traffic monitor and the daily port watch](docs/settings.png)
@@ -279,6 +299,15 @@ what the evidence suggests and names the evidence, so you can judge it.
 - Optional, for raw ARP scanning: [Npcap](https://npcap.com) on Windows,
   `libpcap` on Linux — without it BAMF falls back to a sweep
 - A network interface on each subnet you want to watch
+
+## Credits
+
+The 3D tab is drawn with [three.js](https://threejs.org) (MIT). Most of its
+models were made for BAMF; four are adapted from Sketchfab models under the
+[Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/)
+licence, simplified and stripped of their textures: **Router 2.0** by
+ingamestudio, **Security camera** by danzl0, **Printer** by igor-tkachenko and
+**Flat Screen TV** by comphonia. The tab's *Model credits* link says the same.
 
 ## Licence
 

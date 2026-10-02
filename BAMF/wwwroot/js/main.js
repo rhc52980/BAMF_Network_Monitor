@@ -5,7 +5,7 @@
 // Views are addressable: /#settings opens the Settings tab, /#activity the
 // feed, and so on, so a tab can be bookmarked or pinned and Back/Forward
 // walk between them. The Devices view is the bare URL, no hash.
-const VIEWS = ["devices", "map", "floor", "home", "activity", "forgotten", "settings"];
+const VIEWS = ["devices", "map", "3d", "floor", "home", "activity", "forgotten", "settings"];
 function showView(name, { fromHash = false } = {}) {
   // Settings takes a section after a slash: settings/internet.
   let sub = null;
