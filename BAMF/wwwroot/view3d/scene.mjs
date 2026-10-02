@@ -11,12 +11,15 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as BufferGeometryUtils from "three/addons/utils/BufferGeometryUtils.js";
 import { MODELS, slotsFor, placeNetworks, describeScene } from "./data.mjs";
+import { T, glowTexture, makeSky, makeFloor, makePlatformFx, edgeMaterial, bodyMaterial, padMaterial, makeDust, makeScreenPass } from "./fx.mjs";
 
-const COLORS = { on: 0x3fdb7f, unk: 0xffb454, off: 0x5d6f86, odd: 0x9a7ce8 };
+const COLORS = { on: 0x3fdb7f, unk: 0xffb454, off: 0x5d6f86, odd: 0xb36cff };
+const CYAN = 0x26d9ff, MAGENTA = 0xff2fd0;
 const STATE_WORDS = { on: "Online", unk: "Online, not yet approved", off: "Offline", odd: "Unusual" };
 const LITE_AT = 150;           // above this many devices: names only where it matters, and no glow
 const MAX_PARTICLES = 700;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fract = x => x - Math.floor(x);
 const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 /** Loads the models: one merged, centred geometry for each kind, sized for the platform. */
@@ -61,8 +64,8 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
       <button type="button" data-v3d="reset" class="v3d-btn">Reset view</button>
     </div>
     <div class="v3d-panel v3d-legend">
-      <span><i style="background:#3fdb7f"></i>Online</span><span><i style="background:#ffb454"></i>Not yet approved</span>
-      <span><i style="background:#5d6f86"></i>Offline</span><span><i style="background:#9a7ce8"></i>Unusual for this device</span>
+      <span><i style="background:#3fdb7f;color:#3fdb7f"></i>Online</span><span><i style="background:#ffb454;color:#ffb454"></i>Not yet approved</span>
+      <span><i style="background:#5d6f86;color:#5d6f86"></i>Offline</span><span><i style="background:#9a7ce8;color:#b36cff"></i>Unusual for this device</span>
       <button type="button" data-v3d="credits" class="v3d-link">Model credits</button>
     </div>
     <div class="v3d-panel v3d-card" hidden></div>
@@ -85,8 +88,9 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
   stage.appendChild(labelRenderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0b0f15);
-  scene.fog = new THREE.FogExp2(0x0b0f15, 0.017);
+  scene.background = new THREE.Color(0x03050c);
+  scene.fog = new THREE.FogExp2(0x070a1c, 0.011);
+  scene.add(makeSky());
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 400);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 4; controls.maxDistance = 120;
@@ -94,11 +98,13 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
   controls.listenToKeyEvents(stage);   // the arrow keys move the view, for anyone not using a pointer
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.7, 0.5, 0.2);
-  composer.addPass(bloom); composer.addPass(new OutputPass());
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.55, 0.5, 0.3);
+  const screenPass = makeScreenPass();
+  composer.addPass(bloom); composer.addPass(screenPass); composer.addPass(new OutputPass());
 
-  const grid = new THREE.GridHelper(200, 200, 0x1a2a3b, 0x111b27);
-  grid.position.y = -1.6; grid.material.transparent = true; grid.material.opacity = 0.7; scene.add(grid);
+  const glow = glowTexture();
+  scene.add(makeFloor(-1.6));
+  const dust = makeDust(260, glow); scene.add(dust);
 
   const geos = await loadModels(base);
   loadingEl.remove();
@@ -106,11 +112,15 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
 
   // ---------- the internet, up top ----------
   const internet = new THREE.Group();
-  const iGeo = new THREE.IcosahedronGeometry(0.7, 1);
-  const iCore = new THREE.Mesh(iGeo, new THREE.MeshBasicMaterial({ color: 0x0d1822, transparent: true, opacity: 0.8 }));
-  const iEdges = new THREE.LineSegments(new THREE.EdgesGeometry(iGeo), new THREE.LineBasicMaterial({ color: new THREE.Color(0x6db7d8).multiplyScalar(1.7) }));
-  const iHalo = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.015, 8, 80), new THREE.MeshBasicMaterial({ color: new THREE.Color(0x6db7d8).multiplyScalar(1.3) }));
-  iHalo.rotation.x = Math.PI / 2.4; internet.add(iCore, iEdges, iHalo);
+  const iGeo = new THREE.IcosahedronGeometry(0.75, 2);
+  const iCore = new THREE.Mesh(iGeo, new THREE.MeshBasicMaterial({ color: 0x020812, transparent: true, opacity: 0.9 }));
+  const iEdges = new THREE.LineSegments(new THREE.EdgesGeometry(iGeo, 1), new THREE.LineBasicMaterial({ color: new THREE.Color(CYAN).multiplyScalar(1.5), transparent: true, opacity: 0.9 }));
+  const iAura = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: new THREE.Color(CYAN).multiplyScalar(0.9), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+  iAura.scale.setScalar(5.5);
+  const iHalo = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.012, 6, 96), new THREE.MeshBasicMaterial({ color: new THREE.Color(CYAN).multiplyScalar(1.5) }));
+  const iHalo2 = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.01, 6, 96), new THREE.MeshBasicMaterial({ color: new THREE.Color(MAGENTA).multiplyScalar(1.3) }));
+  iHalo.rotation.x = Math.PI / 2.4; iHalo2.rotation.x = Math.PI / 1.8; iHalo2.rotation.y = 0.6;
+  internet.add(iCore, iEdges, iAura, iHalo, iHalo2);
   { const el = document.createElement("div"); el.className = "v3d-lbl gw"; el.textContent = "Internet"; const o = new CSS2DObject(el); o.position.set(0, 1.5, 0); internet.add(o); }
   scene.add(internet);
   const internetTarget = new THREE.Vector3(0, 10, -1);
@@ -124,41 +134,46 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
   const particlePos = new Float32Array(MAX_PARTICLES * 3), particleCol = new Float32Array(MAX_PARTICLES * 3);
   const pGeo = new THREE.BufferGeometry();
   pGeo.setAttribute("position", new THREE.BufferAttribute(particlePos, 3)); pGeo.setAttribute("color", new THREE.BufferAttribute(particleCol, 3));
-  const points = new THREE.Points(pGeo, new THREE.PointsMaterial({ size: 0.16, vertexColors: true, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true }));
+  const points = new THREE.Points(pGeo, new THREE.PointsMaterial({ size: 0.42, map: glow, vertexColors: true, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true }));
   points.frustumCulled = false; scene.add(points);
 
   function makeNet(cidr) {
     const g = new THREE.Group();
-    const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 72), new THREE.MeshBasicMaterial({ color: 0x10202d, transparent: true, opacity: 0.55, depthWrite: false }));
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 72), new THREE.MeshBasicMaterial({ color: 0x040a18, transparent: true, opacity: 0.88, depthWrite: false }));
     disc.rotation.x = -Math.PI / 2;
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.985, 1, 96), new THREE.MeshBasicMaterial({ color: new THREE.Color(0x4f8fbf).multiplyScalar(0.9), transparent: true, opacity: 0.85 }));
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.985, 1, 96), new THREE.MeshBasicMaterial({ color: new THREE.Color(CYAN).multiplyScalar(1.1), transparent: true, opacity: 0.9 }));
     ring.rotation.x = -Math.PI / 2;
-    const guide = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.506, 72), new THREE.MeshBasicMaterial({ color: 0x1d3347, transparent: true, opacity: 0.7 }));
+    const guide = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.506, 72), new THREE.MeshBasicMaterial({ color: 0x14506b, transparent: true, opacity: 0.8 }));
     guide.rotation.x = -Math.PI / 2;
-    g.add(disc, ring, guide);
+    const fx = makePlatformFx(CYAN);
+    g.add(disc, ring, guide, fx);
     const el = document.createElement("div"); el.className = "v3d-lbl net"; const lbl = new CSS2DObject(el); g.add(lbl);
     scene.add(g);
-    const n = { cidr, group: g, disc, ring, guide, lbl, el, center: new THREE.Vector3(), target: new THREE.Vector3(), R: 6, Rt: 6 };
+    const n = { cidr, group: g, disc, ring, guide, fx, lbl, el, center: new THREE.Vector3(), target: new THREE.Vector3(), R: 6, Rt: 6 };
     nets.set(cidr, n); return n;
   }
-  function disposeNet(n) { scene.remove(n.group); [n.disc, n.ring, n.guide].forEach(m => { m.geometry.dispose(); m.material.dispose(); }); }
+  function disposeNet(n) { scene.remove(n.group); [n.disc, n.ring, n.guide, n.fx].forEach(m => { m.geometry.dispose(); m.material.dispose(); }); }
 
   function makeEnt(d, dropIn) {
     const e = { d, key: d.key, pos: new THREE.Vector3(), target: new THREE.Vector3(), phase: Math.random() * 6.28, col: new THREE.Color(COLORS[d.state]),
                 scale: 1, birth: dropIn ? performance.now() : 0, leaving: 0 };
     const g = new THREE.Group(), geo = geoFor(d.model);
     e.model = d.model;
-    e.body = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }));
-    e.edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 28), new THREE.LineBasicMaterial({ color: 0xffffff }));
+    e.body = new THREE.Mesh(geo, bodyMaterial(e.col.clone()));
+    e.edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 28), edgeMaterial(e.col.clone()));
+    // a pad under it, and (for anything unusual) two ghost copies of its outline that jump now and then
+    e.pad = new THREE.Mesh(new THREE.CircleGeometry(1, 48), padMaterial(e.col.clone()));
+    e.pad.rotation.x = -Math.PI / 2; e.pad.position.y = -(MODELS[d.model] || 1) / 2 - 0.02; e.pad.scale.setScalar(Math.max(0.8, (MODELS[d.model] || 1) * 0.62) * (d.gw ? 1.35 : 1));
     const pick = new THREE.Mesh(new THREE.SphereGeometry(d.gw ? 1.1 : 0.8, 10, 8), new THREE.MeshBasicMaterial({ visible: false }));
     pick.userData.ent = e; pickables.push(pick); e.pick = pick;
-    g.add(e.body, e.edges, pick);
+    g.add(e.body, e.edges, e.pad, pick);
     e.el = document.createElement("div"); e.label = new CSS2DObject(e.el); g.add(e.label);
     e.group = g; scene.add(g); ents.set(d.key, e);
     return e;
   }
   function dropEnt(e) {
-    scene.remove(e.group); e.edges.geometry.dispose(); e.body.material.dispose(); e.edges.material.dispose();
+    scene.remove(e.group); e.edges.geometry.dispose(); e.body.material.dispose(); e.edges.material.dispose(); e.pad.geometry.dispose(); e.pad.material.dispose();
+    if (e.ghosts) e.ghosts.forEach(m => m.material.dispose());
     const i = pickables.indexOf(e.pick); if (i >= 0) pickables.splice(i, 1);
     if (e.beacon) { e.beacon.ripple.geometry.dispose(); e.beacon.beam.geometry.dispose(); }
     ents.delete(e.key); if (selected === e) select(null);
@@ -169,8 +184,11 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
       ripple.rotation.x = -Math.PI / 2; ripple.position.y = -0.55;
       const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 6, 6, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(COLORS.odd).multiplyScalar(1.6), transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
       beam.position.y = 3; e.group.add(ripple, beam); e.beacon = { ripple, beam };
+      // two ghosts of its outline, cyan and magenta, that jump apart for an instant now and then
+      e.ghosts = [CYAN, MAGENTA].map(c => { const m = new THREE.LineSegments(e.edges.geometry, new THREE.LineBasicMaterial({ color: new THREE.Color(c).multiplyScalar(1.4), transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false })); m.visible = false; e.group.add(m); return m; });
     } else if (!on && e.beacon) {
       e.group.remove(e.beacon.ripple, e.beacon.beam); e.beacon.ripple.geometry.dispose(); e.beacon.beam.geometry.dispose(); e.beacon = null;
+      if (e.ghosts) { e.ghosts.forEach(m => { e.group.remove(m); m.material.dispose(); }); e.ghosts = null; }
     }
   }
   function labelText(e) { return (e.d.name || e.d.ip) + (e.d.odd ? "  ⚠ unusual" : ""); }
@@ -186,7 +204,7 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
     const add = (aPos, e, curved) => {
       const N = curved ? 28 : 2, geo = new THREE.BufferGeometry();
       geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(N * 3), 3));
-      const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x2a4b66, transparent: true, opacity: curved ? 0.9 : 0.6 }));
+      const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x2a4b66, transparent: true, opacity: curved ? 0.9 : 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
       scene.add(line);
       const L = { aPos, e, curved, N, geo, line, mid: new THREE.Vector3() }; links.push(L);
       const n = curved ? 5 : Math.max(1, Math.round((e.d.rate || 1) / 3));
@@ -229,6 +247,8 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
       if (e.model !== d.model) {
         e.model = d.model; e.edges.geometry.dispose();
         e.body.geometry = geoFor(d.model); e.edges.geometry = new THREE.EdgesGeometry(e.body.geometry, 28);
+        if (e.ghosts) e.ghosts.forEach(m => { m.geometry = e.edges.geometry; });
+        e.pad.position.y = -(MODELS[d.model] || 1) / 2 - 0.02; e.pad.scale.setScalar(Math.max(0.8, (MODELS[d.model] || 1) * 0.62) * (d.gw ? 1.35 : 1));
       }
       e.d = d; styleLabel(e); setBeacon(e, !!d.odd);
       if (selected === e) showCard(e);
@@ -261,9 +281,9 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
 
   // ---------- the camera ----------
   function homeCamera() {
-    const d = reach * 1.05 + 6, stacked = prefs.mode === "stack";
+    const d = reach * 0.92 + 5, stacked = prefs.mode === "stack";
     const h = current && stacked ? (placeNetworks(current.nets.map(n => slotsFor(n.devices).radius), "stack").height || 0) : 0;
-    return { target: new THREE.Vector3(0, stacked ? h / 2 + 1 : 3, 0), pos: new THREE.Vector3(0, d * 0.5 + (stacked ? h * 0.9 : 0), d * 0.85 + (stacked ? h * 1.3 : 0)) };
+    return { target: new THREE.Vector3(0, stacked ? h / 2 + 2.2 : 4.4, 0), pos: new THREE.Vector3(0, d * 0.5 + (stacked ? h * 0.9 : 0), d * 0.85 + (stacked ? h * 1.3 : 0)) };
   }
   function goHome(instant) {
     const h = homeCamera();
@@ -336,7 +356,7 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
   // ---------- sizing, and drawing only while it can be seen ----------
   function resize() {
     const w = Math.max(1, stage.clientWidth), h = Math.max(1, stage.clientHeight);
-    renderer.setSize(w, h); composer.setSize(w, h); labelRenderer.setSize(w, h); bloom.resolution.set(w, h);
+    renderer.setSize(w, h); composer.setSize(w, h); labelRenderer.setSize(w, h); bloom.resolution.set(w, h); screenPass.uniforms.height.value = h;
     camera.aspect = w / h; camera.updateProjectionMatrix();
   }
   const ro = new ResizeObserver(resize); ro.observe(stage); resize();
@@ -346,15 +366,17 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
   function frame() {
     raf = requestAnimationFrame(frame);
     const dt = Math.min(clock.getDelta(), 0.05), time = clock.elapsedTime, now = performance.now();
+    T.value = time * (reduced ? 0.25 : 1);
     const k = 1 - Math.exp(-3.2 * dt);
     nets.forEach(n => {
       n.center.lerp(n.target, k); n.R += (n.Rt - n.R) * k;
       n.group.position.set(n.center.x, n.center.y - 0.62, n.center.z);
-      n.disc.scale.set(n.R, n.R, 1); n.ring.scale.set(n.R, n.R, 1); n.guide.scale.set(n.R * 0.52, n.R * 0.52, 1);
+      n.disc.scale.set(n.R, n.R, 1); n.ring.scale.set(n.R, n.R, 1); n.guide.scale.set(n.R * 0.52, n.R * 0.52, 1); n.fx.scale.set(n.R, n.R, 1);
       n.lbl.position.set(0, 0.4, n.R + 0.9);
     });
     internet.position.lerp(internetTarget, k);
-    iHalo.rotation.z = time * 0.5; iEdges.rotation.y = time * 0.3; iCore.rotation.y = time * 0.3;
+    iHalo.rotation.z = time * 0.5; iHalo2.rotation.z = -time * 0.35; iEdges.rotation.y = time * 0.3; iCore.rotation.y = time * 0.3;
+    iAura.material.opacity = 0.45 + Math.sin(time * 1.6) * 0.1;
 
     const odd = new Set();
     for (const e of [...ents.values()]) {
@@ -368,8 +390,15 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
       if (!off && !still) e.group.rotation.y += dt * 0.15;
       tc.set(COLORS[e.d.state]).multiplyScalar(off ? 0.9 : 1.6);
       e.col.lerp(tc, 1 - Math.exp(-5 * dt));
-      e.edges.material.color.copy(e.col); e.body.material.color.copy(e.col).multiplyScalar(0.12); e.body.material.opacity = off ? 0.2 : 0.38;
       const hot = e === hovered || e === selected;
+      e.edges.material.uniforms.col.value.copy(e.col); e.edges.material.uniforms.gain.value = off ? 0.8 : hot ? 1.5 : 1;
+      e.body.material.uniforms.col.value.copy(e.col); e.body.material.uniforms.op.value = off ? 0.22 : 0.42;
+      e.pad.material.uniforms.col.value.copy(e.col); e.pad.material.uniforms.off.value = off ? 1 : 0;
+      e.pad.material.uniforms.hot.value += ((hot ? 1 : 0) - e.pad.material.uniforms.hot.value) * (1 - Math.exp(-8 * dt));
+      if (e.ghosts) {
+        const burst = !reduced && fract(Math.sin(Math.floor(time * 6 + e.phase * 3) * 91.7) * 4375.5) > 0.9;
+        e.ghosts.forEach((m, i) => { m.visible = burst; if (burst) m.position.set((i ? 1 : -1) * 0.05 * (0.5 + Math.random()), (Math.random() - 0.5) * 0.04, (Math.random() - 0.5) * 0.04); });
+      }
       if (!e.leaving) { e.scale += ((hot ? 1.25 : 1) - e.scale) * (1 - Math.exp(-10 * dt)); e.group.scale.setScalar(e.scale); }
       // Names only where they can be read: the nearer ones, always the gateways and anything unusual or picked.
       const near = camera.position.distanceTo(e.group.position) < (lite ? 14 : 26);
@@ -392,8 +421,8 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
       L.geo.attributes.position.needsUpdate = true;
       L.line.visible = ents.get(L.e.key) === L.e && !L.e.leaving;   // a device that's gone takes its line with it
       const off = L.e.d.state === "off";
-      L.line.material.opacity = L.curved ? 0.9 : off ? 0.18 : 0.6;
-      L.line.material.color.set(L.e.d.state === "odd" ? 0x5a4a8a : off ? 0x233040 : 0x2a4b66);
+      L.line.material.opacity = L.curved ? 1 : off ? 0.16 : 0.75;
+      L.line.material.color.set(L.curved ? 0x1a8fb8 : L.e.d.state === "odd" ? 0x7a3fc0 : off ? 0x1c2a3a : 0x147a9a);
     });
     // traffic
     let n = 0;
@@ -404,7 +433,7 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
       p.t += dt * speed * p.dir; if (p.t > 1) p.t -= 1; if (p.t < 0) p.t += 1;
       pointOn(L, p.t, tmp);
       particlePos[n * 3] = tmp.x; particlePos[n * 3 + 1] = tmp.y; particlePos[n * 3 + 2] = tmp.z;
-      tc.set(d.state === "unk" ? COLORS.unk : 0x6fe8a6).multiplyScalar(1.4);
+      tc.set(d.state === "unk" ? COLORS.unk : d.state === "odd" ? MAGENTA : L.curved ? CYAN : 0x6fffd0).multiplyScalar(1.6);
       particleCol[n * 3] = tc.r; particleCol[n * 3 + 1] = tc.g; particleCol[n * 3 + 2] = tc.b;
       if (++n >= MAX_PARTICLES) break;
     }
@@ -416,7 +445,7 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
       if (fly.t >= 1) fly = null;
     }
     controls.update();
-    if (bloom.enabled) composer.render(); else renderer.render(scene, camera);
+    composer.render();   // the bloom pass sits out above the lite limit; the colour handling still needs the rest
     labelRenderer.render(scene, camera);
   }
   function ripple(e) {

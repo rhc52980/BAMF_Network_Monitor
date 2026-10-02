@@ -136,7 +136,7 @@ step:
 | `js/internet.js` | The internet watch, the speed test, the Scan menu and free addresses |
 | `js/settings.js` | What's new, where alerts go, and Settings |
 | `js/view3d.js` | The 3D tab: loads its library on first use and feeds it the dashboard's own devices |
-| `view3d/` | The 3D drawing (`scene.mjs`), what goes where (`data.mjs`), the vendored three.js (MIT) and 21 device models |
+| `view3d/` | The 3D drawing (`scene.mjs`), its shaders (`fx.mjs`), what goes where (`data.mjs`), the vendored three.js (MIT) and 21 device models |
 | `js/main.js` | Switching views, and starting the page |
 
 The scripts load in that order and share one scope, as if they were one
@@ -2038,7 +2038,7 @@ ranking and the Unusual findings), so it needs nothing new on the server.
   *Slow turn*, *Names* and *Traffic* can be switched off; they're remembered in
   your browser, as is the layout.
 - **Offline, and only when used:** the library (`wwwroot/view3d/three`, three.js
-  r170, MIT) and the models (`wwwroot/view3d/models/*.glb`, 665 KB for all 21)
+  r170, MIT) and the models (`wwwroot/view3d/models/*.glb`, about 1.1 MB for all 21)
   are fetched the first time the tab opens, from BAMF, never a CDN. BAMF serves
   `.mjs` and `.glb` with the types a browser needs, and an update replaces them
   like the rest of `wwwroot`.
@@ -2052,7 +2052,7 @@ ranking and the Unusual findings), so it needs nothing new on the server.
 - **Models:** the glowing edges only use each model's shape, so a new kind is a
   `.glb` normalised to one unit (origin at the floor, y up, no materials) named
   in `MODELS` in `view3d/data.mjs`; `check-web` fails if a listed model is
-  missing. Four are adapted from Creative Commons Attribution Sketchfab models
+  missing. Two are adapted from Creative Commons Attribution Poly Pizza models
   (credited under *Model credits* and in the root README); only CC BY or CC0
   models belong here.
 

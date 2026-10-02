@@ -303,11 +303,12 @@ what the evidence suggests and names the evidence, so you can judge it.
 ## Credits
 
 The 3D tab is drawn with [three.js](https://threejs.org) (MIT). Most of its
-models were made for BAMF; four are adapted from Sketchfab models under the
-[Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/)
-licence, simplified and stripped of their textures: **Router 2.0** by
-ingamestudio, **Security camera** by danzl0, **Printer** by igor-tkachenko and
-**Flat Screen TV** by comphonia. The tab's *Model credits* link says the same.
+models were made for BAMF; two are adapted from [Poly Pizza](https://poly.pizza)
+models under the
+[Creative Commons Attribution 3.0](https://creativecommons.org/licenses/by/3.0/)
+licence, simplified and stripped of their colours: **Security Camera** by
+J-Toastie and **Laptop** by Poly by Google. The tab's *Model credits* link says
+the same.
 
 ## Licence
 
