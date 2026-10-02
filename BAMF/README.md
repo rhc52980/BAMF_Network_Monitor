@@ -1763,7 +1763,7 @@ scan, or delete a thing.
 | POST | `/api/hosts/{id}/link` | Body `{"link": "8006"}` — per-host link override: bare port, `:port/path`, or a full URL with an optional `{ip}`. Empty clears it. Returns the resolved `linkUrl` |
 | POST | `/api/hosts/{id}/name` | Body `{"name": "Kevin's PC"}` — set a friendly name (empty string clears it). In the UI, click a host's name to edit it. |
 | POST | `/api/hosts/{id}/wake` | Send a Wake-on-LAN magic packet to the host (button appears on offline hosts) |
-| GET | `/api/hosts/{id}/portscan` | On-demand port check for one host. Optional `?ports=22,80,8000-8100` for a custom set (default: ~18 common ports) |
+| GET | `/api/hosts/{id}/portscan` | On-demand port check for one host. Optional `?ports=22,80,8000-8100` for a custom set (default: 34 common ports) |
 | GET | `/api/portscan` | On-demand port scan across online hosts. Optional `?ports=...` and `?subnet=...` |
 | GET | `/api/portscan/ip` | On-demand port check for any IP: `?ip=192.168.1.50`, optional `?ports=...`. The address need not be a known host; private ranges only (400 otherwise) |
 | GET | `/api/portscan/pattern` | Wildcard scan: `?ip=*.245`, optional `?ports=...`. Expands only across configured subnets, capped at 256 addresses |
@@ -1833,6 +1833,7 @@ scan, or delete a thing.
 | POST | `/api/hosts/{id}/blink` | Body `{"seconds": 30}` (optional, 5–60) — "Find port": send the device bursts of UDP traffic, one second on and one second off, so its switch-port light pulses. Private addresses only; replaces any blink already running. Returns `until` |
 | POST | `/api/map/positions` | Body `{"subnet": "192.168.1.0/24", "positions": {"s:1": [120, 140], "h:7": null}}` — save where nodes sit on the topology Map for one network. Keys are `h:<host id>`, `s:<switch id>`, `gw`, `self`, `net` and `box`. A null position forgets that node, so it goes back to the automatic layout. `GET /api/hosts` returns them all as `mapPositions` |
 | DELETE | `/api/map/positions?subnet=…` | "Auto-arrange": forget every saved position on one network |
+| GET | `/api/connections` | BAMF's own connections: `{"items": [{id, group, name, state, detail, at, section}]}`, where `state` is `ok`, `warn`, `error`, `waiting` or `off`. Status only; no addresses or keys |
 | GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow", "externalIp"}` — `externalIp` is the home's public address, `{ip, source, at, since, previous, changedAt}`, or null until the speed test or the GreyNoise check has learned it; the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
 | POST | `/api/settings/wanwatch` | Body `{"enabled": true}` — switch the internet watch on or off |
 | POST | `/api/settings/wantarget` | Body `{"target": "8.8.8.8"}` — which address it pings |
@@ -1878,8 +1879,9 @@ everything on port 80:
 
 Only `http` and `https` links are accepted; anything else falls back to
 `http://<ip>` rather than becoming a clickable link. The **Ports** button
-runs an on-demand check of ~18 common service ports (HTTP, HTTPS, SSH, SMB,
-RDP, print, Plex, etc.) for that one host and shows what's open; web ports
+runs an on-demand check of 34 common service ports (HTTP, HTTPS, SSH, SMB,
+RDP, print, Plex, camera streams, AirPlay, Home Assistant, databases and so on)
+for that one host and shows what's open; web ports
 become clickable links with the right scheme.
 
 Four ways to scan:
@@ -2924,6 +2926,24 @@ the network: it draws together what BAMF already knows.
   MQTT, Plex and the other common ones) and what devices announce over mDNS
   (AirPlay, Google Cast, HomeKit, Matter, Sonos and more). Click a device to jump
   to it. The Network tabs above it narrow the card to one network.
+- **BAMF's own connections**, under a line of its own: what BAMF reads from
+  (a router import, SNMP switches, other BAMF servers, the traffic monitor, mDNS,
+  the IPv6 watch), sends to (alert webhooks, MQTT, the scheduled report, the
+  nightly backup) and calls out to (the internet watch, the speed test, the
+  GreyNoise check, the update check). Each is working (green), not working (red),
+  needs a look (amber), on with nothing back yet (grey) or off. A row says what it
+  last did and how long ago, and the name links to the Settings section that holds
+  it. What isn't set up is one quiet line with links, rather than a row each. For a
+  webhook BAMF doesn't keep whether the last alert arrived, so it says to use Test in
+  Settings. The list is `GET /api/connections`; it holds status only: no address, key,
+  password or webhook, so it's safe for the view-only password.
+
+The default port scan grew from 18 to 34 ports: camera streams (RTSP), AirPlay,
+Google Cast, Sonos, Home Assistant, Node-RED, Jellyfin, DLNA, NFS, MySQL,
+PostgreSQL, Redis, MongoDB, MQTT over TLS, OpenVPN and Winbox. BAMF alerts when a
+port newly opens, so a device that already had one of the added ports open would
+have looked like news the first time it was scanned for it. It's recorded
+quietly that once, per device, and alerts as normal after.
 
 ### Certificate watch
 

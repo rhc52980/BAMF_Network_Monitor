@@ -609,6 +609,7 @@ function render() {
     loadSecurity().then(() => { renderHygiene(); renderServices(); });
     loadGreyNoise().then(() => { renderHygiene(); renderServices(); });
     loadWan(true).then(() => { renderWanCard(); renderServices(); });
+    loadConnections().then(renderServices);
     loadSpeed().then(renderSpeed);
     loadChanges();
     loadIpv6();

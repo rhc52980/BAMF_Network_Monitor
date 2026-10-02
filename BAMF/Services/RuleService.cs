@@ -281,7 +281,14 @@ public sealed class RuleService : BackgroundService
     /// <summary>Records a scan's result and alerts on ports that opened since the last one. Returns how many.</summary>
     public async Task<int> RecordScan(HostRecord h, IEnumerable<int> scanned, IEnumerable<PortChecker.PortInfo> open, CancellationToken ct)
     {
-        var (newly, closed, first) = _store.RecordPortScan(h.Id, scanned, open.Select(o => (o.Port, o.Service)));
+        var scannedList = scanned.ToList();
+        var (newly, closed, first) = _store.RecordPortScan(h.Id, scannedList, open.Select(o => (o.Port, o.Service)));
+        // The default scan has grown; the first time a device is scanned for the added ports, what's open on them isn't news.
+        var baseKey = "portBase:" + h.Id;
+        if (scannedList.Any(PortChecker.AddedPorts.Contains))
+        {
+            if (_store.GetSetting(baseKey) != "1") { newly = BaselineAdded(newly); _store.SetSetting(baseKey, "1"); }
+        }
         if (first || newly.Count == 0) return 0;
         var name = NameOf(h);
         var list = string.Join(", ", newly.Select(p => p.Service != "" ? $"{p.Port} ({p.Service})" : p.Port.ToString()));
@@ -293,6 +300,10 @@ public sealed class RuleService : BackgroundService
         await _scanner.SendGenericAlert(title, detail, "port", ct);
         return newly.Count;
     }
+
+    /// <summary>A scan's newly open ports without the ones in the part of the default set added later, for a device not yet scanned for them.</summary>
+    internal static List<HostStore.PortRow> BaselineAdded(IEnumerable<HostStore.PortRow> newly) =>
+        newly.Where(p => !PortChecker.AddedPorts.Contains(p.Port)).ToList();
 
     private static string Ago(TimeSpan s)
     {

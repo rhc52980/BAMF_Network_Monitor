@@ -7,6 +7,9 @@ const PORT_SERVICES = {
   80: "Web page (HTTP)", 8080: "Web page (HTTP)", 443: "Web page (HTTPS)", 8443: "Web page (HTTPS)", 5000: "Web page (HTTP)",
   22: "SSH", 21: "FTP", 23: "Telnet", 445: "File sharing (SMB)", 139: "File sharing (SMB)", 548: "File sharing (AFP)",
   3389: "Remote Desktop", 5900: "VNC", 53: "DNS", 631: "Printing (IPP)", 9100: "Printing (raw)", 32400: "Plex", 1883: "MQTT",
+  554: "Camera stream (RTSP)", 7000: "AirPlay", 8009: "Google Cast", 1400: "Sonos", 8123: "Home Assistant", 1880: "Node-RED",
+  8096: "Jellyfin", 8200: "Media server (DLNA)", 2049: "File sharing (NFS)", 3306: "MySQL", 5432: "PostgreSQL", 6379: "Redis",
+  27017: "MongoDB", 8883: "MQTT (TLS)", 1194: "OpenVPN", 8291: "Winbox (MikroTik)",
 };
 const MDNS_SERVICES = {
   "_airplay._tcp": "AirPlay", "_raop._tcp": "AirPlay audio", "_googlecast._tcp": "Google Cast", "_spotify-connect._tcp": "Spotify Connect",
@@ -16,10 +19,42 @@ const MDNS_SERVICES = {
   "_printer._tcp": "Printing (LPD)", "_pdl-datastream._tcp": "Printing (raw)", "_scanner._tcp": "Scanning", "_uscan._tcp": "Scanning",
   "_smb._tcp": "File sharing (SMB)", "_afpovertcp._tcp": "File sharing (AFP)", "_nfs._tcp": "File sharing (NFS)", "_adisk._tcp": "Time Machine",
   "_ssh._tcp": "SSH", "_sftp-ssh._tcp": "SSH", "_http._tcp": "Web page (HTTP)", "_https._tcp": "Web page (HTTPS)", "_mqtt._tcp": "MQTT",
-  "_daap._tcp": "iTunes sharing", "_plexmediasvr._tcp": "Plex",
+  "_daap._tcp": "iTunes sharing", "_plexmediasvr._tcp": "Plex", "_home-assistant._tcp": "Home Assistant", "_homekit._tcp": "HomeKit",
+  "_hap._udp": "HomeKit", "_airport._tcp": "AirPort", "_mediaremotetv._tcp": "Apple TV remote", "_appletv-v2._tcp": "Apple TV remote",
+  "_dacp._tcp": "iTunes remote", "_rfb._tcp": "Screen sharing (VNC)", "_telnet._tcp": "Telnet", "_ftp._tcp": "FTP", "_webdav._tcp": "WebDAV",
+  "_roku-rcp._tcp": "Roku", "_wled._tcp": "WLED", "_arduino._tcp": "Arduino updates", "_prometheus-http._tcp": "Prometheus",
+  "_ipp-tls._tcp": "Printing (IPP)", "_nvstream_dbd._tcp": "Game streaming", "_steam-streaming._tcp": "Game streaming",
+  "_ewelink._tcp": "eWeLink", "_shelly._tcp": "Shelly", "_lutron._tcp": "Lutron", "_apple-mobdev2._tcp": "Apple sync",
+  "_sleep-proxy._udp": "Sleep proxy", "_psia._tcp": "Camera (PSIA)", "_axis-video._tcp": "Camera (Axis)", "_rtsp._tcp": "Camera stream (RTSP)",
 };
 const SERVICES_SHOWN = 12;
 let servicesAll = false;
+
+// BAMF's own connections: what it reads from, sends to and calls out to, and whether each is working.
+let connectionsCache = null;
+function loadConnections() {
+  return fetch("/api/connections").then(r => r.ok ? r.json() : null).then(c => { if (c) connectionsCache = c; return c; }).catch(() => null);
+}
+const svcBlock = (title, inner) => `<div class="svc-block"><div class="svc-h">${esc(title)}</div>${inner}</div>`;
+const CONN_GROUPS = ["Reads from", "Sends to", "Calls out to the internet"];
+const CONN_STATE_WORDS = { ok: "Working", warn: "Needs a look", error: "Not working", waiting: "On, nothing yet", off: "Off" };
+function connectionsHtml() {
+  const items = (connectionsCache && connectionsCache.items) || [];
+  if (!items.length) return "";
+  const link = (it, text) => `<a href="#settings/${esc(it.section)}" class="svc-link">${esc(text)}</a>`;
+  const out = [`<div class="svc-part"><h4>BAMF's own connections</h4><div class="sub">What BAMF reads from, sends to and calls out to, and whether each is working.</div>`];
+  for (const g of CONN_GROUPS) {
+    const mine = items.filter(i => i.group === g), on = mine.filter(i => i.state !== "off"), off = mine.filter(i => i.state === "off");
+    if (!mine.length) continue;
+    const rows = on.map(i => `<div class="svc-conn"><span class="wan-dot ${i.state === "ok" ? "up" : i.state === "error" ? "down" : i.state === "warn" ? "slow" : ""}" title="${esc(CONN_STATE_WORDS[i.state] || i.state)}"></span>` +
+      `<span class="svc-cn"><b>${link(i, i.name)}</b><span class="svc-cd">${esc(i.detail)}</span></span>` +
+      `<span class="svc-ca">${i.at ? esc(fmtAgo(i.at)) : ""}</span></div>`).join("");
+    const notSet = off.length ? `<div class="watch-note" style="margin-top:4px">Not set up: ${off.map(i => `<a href="#settings/${esc(i.section)}" class="svc-link" title="${esc(i.detail)}">${esc(i.name.replace(/ \(.*$/, ""))}</a>`).join(" · ")}</div>` : "";
+    out.push(svcBlock(g, rows + notSet));
+  }
+  out.push("</div>");
+  return out.join("");
+}
 
 // Who offers each service: label -> { how: Set of "open port"/"mDNS", hosts: Map(id -> host) }.
 function servicesOnDevices() {
@@ -40,7 +75,7 @@ function renderServices() {
   const body = $("servicesBody");
   if (!body) return;
   const t = trafficCache || {}, st = t.status || {}, sec = securityCache || {}, wan = wanCache || {};
-  const block = (title, inner) => `<div class="svc-block"><div class="svc-h">${esc(title)}</div>${inner}</div>`;
+  const block = svcBlock;
   const note = text => `<div class="watch-note" style="margin-top:0">${text}</div>`;
   const trust = (kind, ip, trusted) => `<button type="button" class="toggle" data-kind="${kind}" data-ip="${esc(ip)}" data-trusted="${trusted ? 0 : 1}" title="${trusted ? "Forget this server, so it alerts if seen again" : "Trust this server, so it never alerts"}">${trusted ? "Forget" : "Trust"}</button>`;
   const html = [];
@@ -98,6 +133,7 @@ function renderServices() {
       }).join("") + (svc.length > SERVICES_SHOWN ? `<button type="button" class="toggle" id="svcMore" style="margin-top:6px">${servicesAll ? "Show fewer" : `Show all ${svc.length}`}</button>` : "")
     : note("None seen. Ports found open by a scan, and services devices announce over mDNS, are listed here. Scan → Health check scans the common ports of every device that's online.")));
 
+  html.push(connectionsHtml());
   $("servicesSub").textContent = network === "all" ? "What BAMF has seen providing a service on your networks." : `What BAMF has seen providing a service on ${network}.`;
   body.innerHTML = html.join("");
 
