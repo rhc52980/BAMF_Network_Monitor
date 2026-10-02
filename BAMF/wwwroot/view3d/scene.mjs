@@ -62,6 +62,7 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
       <label class="v3d-chk"><input type="checkbox" data-v3d="labels"> Names</label>
       <label class="v3d-chk"><input type="checkbox" data-v3d="flow"> Traffic</label>
       <button type="button" data-v3d="reset" class="v3d-btn">Reset view</button>
+      <button type="button" data-v3d="full" class="v3d-btn" aria-pressed="false">Full screen</button>
     </div>
     <div class="v3d-panel v3d-legend">
       <span><i style="background:#3fdb7f;color:#3fdb7f"></i>Online</span><span><i style="background:#ffb454;color:#ffb454"></i>Not yet approved</span>
@@ -70,7 +71,7 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
     </div>
     <div class="v3d-panel v3d-card" hidden></div>
     <div class="v3d-panel v3d-credits" hidden></div>
-    <div class="v3d-note">drag to orbit · scroll to zoom · click a device</div>
+    <div class="v3d-note">drag to orbit · scroll to zoom · click a device · F for full screen</div>
     <div class="v3d-loading">Loading the 3D view…</div>`;
   const q = s => container.querySelector(s);
   const stage = q(".v3d-stage"), card = q(".v3d-card"), loadingEl = q(".v3d-loading");
@@ -281,7 +282,9 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
 
   // ---------- the camera ----------
   function homeCamera() {
-    const d = reach * 0.92 + 5, stacked = prefs.mode === "stack";
+    // far enough back that the whole width fits, whatever shape the window is
+    const fitW = (reach + 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * Math.max(camera.aspect, 0.4)) * 1.0;
+    const d = Math.max(reach * 0.92 + 5, fitW), stacked = prefs.mode === "stack";
     const h = current && stacked ? (placeNetworks(current.nets.map(n => slotsFor(n.devices).radius), "stack").height || 0) : 0;
     return { target: new THREE.Vector3(0, stacked ? h / 2 + 2.2 : 4.4, 0), pos: new THREE.Vector3(0, d * 0.5 + (stacked ? h * 0.9 : 0), d * 0.85 + (stacked ? h * 1.3 : 0)) };
   }
@@ -340,6 +343,7 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
     const a = t.dataset.v3d;
     if (a === "side" || a === "stack") { prefs.mode = a; savePrefs(); syncUi(); if (current) { update(current); goHome(false); } }
     else if (a === "reset") { select(null); goHome(false); }
+    else if (a === "full") toggleFull();
     else if (a === "cardX") select(null);
     else if (a === "history" && selected) onOpenDevice(selected.d);
     else if (a === "credits") q(".v3d-credits").hidden = false;
@@ -352,6 +356,29 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
     syncUi();
   });
   syncUi();
+
+  // ---------- full screen ----------
+  // The browser's own full screen where there is one (not on an iPhone), else the view fills the window.
+  const isFull = () => document.fullscreenElement === container || container.classList.contains("v3d-full");
+  function syncFull() {
+    const on = isFull(), b = q("[data-v3d=full]");
+    b.textContent = on ? "Exit full screen" : "Full screen"; b.setAttribute("aria-pressed", String(on));
+    document.documentElement.classList.toggle("v3d-lock", container.classList.contains("v3d-full"));
+  }
+  function toggleFull() {
+    if (isFull()) {
+      container.classList.remove("v3d-full"); setTimeout(() => { resize(); if (!selected) goHome(true); }, 50);
+      if (document.fullscreenElement === container) document.exitFullscreen().catch(() => {});
+    } else if (container.requestFullscreen) container.requestFullscreen().catch(() => { container.classList.add("v3d-full"); syncFull(); });
+    else { container.classList.add("v3d-full"); setTimeout(() => { resize(); if (!selected) goHome(true); }, 50); }
+    syncFull();
+  }
+  const onFullChange = () => { syncFull(); resize(); if (!selected) goHome(true); };
+  const onKey = ev => {
+    if (ev.key === "Escape" && container.classList.contains("v3d-full")) toggleFull();
+    else if ((ev.key === "f" || ev.key === "F") && !ev.ctrlKey && !ev.metaKey && !ev.altKey && container.contains(document.activeElement) && document.activeElement.tagName !== "INPUT") toggleFull();
+  };
+  document.addEventListener("fullscreenchange", onFullChange); document.addEventListener("keydown", onKey);
 
   // ---------- sizing, and drawing only while it can be seen ----------
   function resize() {
@@ -469,6 +496,8 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
 
   function destroy() {
     setActive(false); ro.disconnect(); document.removeEventListener("visibilitychange", onVisible);
+    document.removeEventListener("fullscreenchange", onFullChange); document.removeEventListener("keydown", onKey);
+    container.classList.remove("v3d-full"); document.documentElement.classList.remove("v3d-lock");
     renderer.dispose(); controls.dispose(); container.innerHTML = "";
   }
   const api = { update, setActive, select: key => select(ents.get(String(key)) || null), destroy, get count() { return ents.size; }, _ents: ents, _prefs: prefs };

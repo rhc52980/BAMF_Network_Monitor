@@ -40,6 +40,7 @@ async function unusual3d() {
 function size3d() {
   const wrap = $("view3dWrap");
   if (wrap.hidden) return;
+  if (wrap.classList.contains("v3d-full") || document.fullscreenElement === wrap) return;   // full screen sizes itself
   wrap.style.height = innerWidth <= 700 ? "" : Math.max(480, innerHeight - wrap.getBoundingClientRect().top - 16) + "px";
 }
 addEventListener("resize", size3d);

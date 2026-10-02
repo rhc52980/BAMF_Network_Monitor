@@ -2034,6 +2034,7 @@ ranking and the Unusual findings), so it needs nothing new on the server.
 - **Colours:** green online, amber not yet approved, grey offline, purple for a
   device with an open unusual finding (it also gets a beacon and its words on
   the card). The card's **History** goes to the device's row on the Devices tab.
+- **Full screen:** the **Full screen** button (or `F` with the view focused) fills the screen, with Esc to leave. Where a browser has no full screen for a page (an iPhone), the view fills the window instead.
 - **Layouts:** *Side by side* (the default) or *Stacked*, networks as floors.
   *Slow turn*, *Names* and *Traffic* can be switched off; they're remembered in
   your browser, as is the layout.

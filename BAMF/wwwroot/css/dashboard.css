@@ -1696,6 +1696,9 @@
   /* ---- the 3D tab: always a dark scene, so its overlays are dark whatever the theme ---- */
   .v3d-wrap { position: relative; height: calc(100vh - 360px); min-height: 480px; margin: 0 24px 24px; border: 1px solid #12506a;
     border-radius: 4px; overflow: hidden; background: #03050c; color: #bfe9f7; box-shadow: 0 0 0 1px #02060e, 0 0 28px rgba(38, 217, 255, .12), inset 0 0 60px rgba(38, 217, 255, .05); }
+  .v3d-wrap:fullscreen, .v3d-wrap.v3d-full { height: 100% !important; min-height: 0; margin: 0; border: 0; border-radius: 0; }
+  .v3d-wrap.v3d-full { position: fixed; inset: 0; z-index: 1000; width: 100%; }
+  html.v3d-lock { overflow: hidden; }
   .v3d-stage { position: absolute; inset: 0; outline: none; }
   .v3d-stage canvas { display: block; }
   .v3d-panel { position: absolute; background: rgba(4, 12, 24, .78); border: 1px solid #14506b; backdrop-filter: blur(10px); font-size: 12px;
