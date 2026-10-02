@@ -147,7 +147,9 @@ public sealed class SpeedTest : BackgroundService
             }) { Timeout = Timeout.InfiniteTimeSpan };
             http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("BAMF", _version));
 
-            var (ping, jitter, where) = await Latency(http, ct);
+            var (ping, jitter, where, publicIp) = await Latency(http, ct);
+            // Cloudflare says which address the test came from: this home's public one.
+            _store.RecordExternalIp(publicIp, "speedtest");
             Now = new Progress("download", null);
             var (down, gotDown) = await Download(http, ct);
             used += gotDown;
@@ -186,14 +188,16 @@ public sealed class SpeedTest : BackgroundService
     /// nothing else, and that's used when it's there. Otherwise it's the time
     /// to the answer less the time Cloudflare says it spent making it. The
     /// first request is dropped, since it carries the handshake. Of the rest
-    /// of what comes back, only which Cloudflare site answered is kept.
+    /// of what comes back, only which Cloudflare site answered, and the public
+    /// address it says the request came from, are kept.
     /// </summary>
-    private async Task<(int Ping, int Jitter, string Where)> Latency(HttpClient http, CancellationToken ct)
+    private async Task<(int Ping, int Jitter, string Where, string Ip)> Latency(HttpClient http, CancellationToken ct)
     {
         var rtts = new List<double>();
         var vars = new List<double>();
         var timed = new List<double>();
         var where = "";
+        var ip = "";
         for (var i = 0; i < 10; i++)
         {
             var sw = Stopwatch.StartNew();
@@ -201,6 +205,7 @@ public sealed class SpeedTest : BackgroundService
             var ms = sw.Elapsed.TotalMilliseconds;
             resp.EnsureSuccessStatusCode();
             if (where == "" && resp.Headers.TryGetValues("colo", out var colo)) where = colo.FirstOrDefault()?.Trim() ?? "";
+            if (ip == "" && resp.Headers.TryGetValues("cf-meta-ip", out var seen)) ip = seen.FirstOrDefault()?.Trim() ?? "";
             if (i == 0) continue;
             var timing = resp.Headers.TryGetValues("server-timing", out var t) ? string.Join(",", t) : "";
             var rtt = Regex.Match(timing, @"[?&]rtt=(\d+)");
@@ -216,9 +221,9 @@ public sealed class SpeedTest : BackgroundService
         }
         static double Median(List<double> xs) { var o = xs.OrderBy(x => x).ToList(); return o[o.Count / 2]; }
         if (rtts.Count >= 5)
-            return ((int)Math.Round(Median(rtts)), vars.Count > 0 ? (int)Math.Round(Median(vars)) : 0, where);
+            return ((int)Math.Round(Median(rtts)), vars.Count > 0 ? (int)Math.Round(Median(vars)) : 0, where, ip);
         var jitter = timed.Zip(timed.Skip(1), (a, b) => Math.Abs(a - b)).DefaultIfEmpty(0).Average();
-        return ((int)Math.Round(Median(timed)), (int)Math.Round(jitter), where);
+        return ((int)Math.Round(Median(timed)), (int)Math.Round(jitter), where, ip);
     }
 
     private Task<(double Mbps, long Bytes)> Download(HttpClient http, CancellationToken ct) =>

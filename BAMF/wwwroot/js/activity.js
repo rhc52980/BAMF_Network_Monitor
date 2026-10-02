@@ -321,23 +321,7 @@ function renderTrafficCards() {
     : st.running
     ? "What this machine can see. On a switched network: its own traffic, plus broadcast and multicast, so the DHCP and DNS watch covers this machine and broadcast offers. On a mirrored (SPAN) switch port: everything, every device included. A managed switch's Counters (Settings → Your network) count every device without one."
     : "";
-  const body = $("watchBody");
-  const trust = (kind, ip, trusted) => `<button type="button" class="toggle" data-kind="${kind}" data-ip="${esc(ip)}" data-trusted="${trusted ? 0 : 1}" title="${trusted ? "Forget this server, so it alerts if seen again" : "Trust this server, so it never alerts"}">${trusted ? "Forget" : "Trust"}</button>`;
-  let html = "";
-  html += `<div class="sub" style="margin-top:8px">DHCP servers</div><div class="watch-list">` +
-    ((t.dhcp || []).map(d => `<div class="watch-row"><span class="mono">${esc(d.ip)}</span><span class="meta">${esc(d.name && d.name !== d.mac ? d.name + " · " : "")}${esc(d.mac)} · ${d.offers} offer${d.offers === 1 ? "" : "s"} · last ${esc(fmtAgo(d.lastSeen))}</span>${trust("dhcp", d.ip, d.trusted)}</div>`).join("")
-      || `<div class="watch-note">${st.running ? "No DHCP offer seen yet. One shows up the next time a device asks for an address." : "Not watching."}</div>`) + `</div>`;
-  html += `<div class="sub" style="margin-top:10px">DNS servers</div><div class="watch-list">` +
-    ((t.dns || []).map(d => `<div class="watch-row"><span class="mono">${esc(d.ip)}</span><span class="meta">${esc(d.name ? d.name + " · " : "")}${d.clients} device${d.clients === 1 ? "" : "s"} · ${Number(d.queries).toLocaleString()} queries · last ${esc(fmtAgo(d.lastSeen))}</span>${trust("dns", d.ip, d.trusted)}</div>`).join("")
-      || `<div class="watch-note">${st.running ? "No DNS query seen yet." : "Not watching."}</div>`) + `</div>`;
-  body.innerHTML = html;
-  body.querySelectorAll("button[data-kind]").forEach(b => b.onclick = async () => {
-    await fetch("/api/traffic/trust", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: b.dataset.kind, ip: b.dataset.ip, trusted: b.dataset.trusted === "1" }) });
-    toast(b.dataset.trusted === "1" ? `${esc(b.dataset.ip)} is trusted: it won't alert` : `${esc(b.dataset.ip)} forgotten: it alerts if seen again`);
-    try { trafficCache = await loadTraffic(); } catch { }
-    renderTrafficCards();
-  });
+  renderServices();
 }
 
 function renderFeed() {
