@@ -16,10 +16,24 @@ import { T, glowTexture, makeSky, makeFloor, makePlatformFx, edgeMaterial, bodyM
 const COLORS = { on: 0x3fdb7f, unk: 0xffb454, off: 0x5d6f86, odd: 0xb36cff };
 const CYAN = 0x26d9ff, MAGENTA = 0xff2fd0;
 const STATE_WORDS = { on: "Online", unk: "Online, not yet approved", off: "Offline", odd: "Unusual" };
+// Amber and purple read hotter than green at the same strength, so each state's outline is set to look as bright as the others.
+const STATE_GLOW = { on: 1.9, unk: 1.35, off: 1.45, odd: 1.6 };
+const DENSITY_REF = 34;        // outline length per unit of size squared that gets full brightness
 const LITE_AT = 150;           // above this many devices: names only where it matters, and no glow
 const MAX_PARTICLES = 700;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fract = x => x - Math.floor(x);
+/**
+ * How bright a model's outline should be. Where a lot of line is packed into a small model, the glow of
+ * every line adds up and it blazes; a sparse one needs no help. So brightness is eased down as the length of
+ * outline per square unit of the model's size goes up.
+ */
+function densityGain(edgeGeo, size) {
+  const p = edgeGeo.attributes.position; let len = 0;
+  for (let i = 0; i + 1 < p.count; i += 2) len += Math.hypot(p.getX(i) - p.getX(i + 1), p.getY(i) - p.getY(i + 1), p.getZ(i) - p.getZ(i + 1));
+  const d = len / (size * size) || 1;
+  return Math.min(1.15, Math.max(0.28, Math.pow(DENSITY_REF / d, 0.7)));
+}
 const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 /** Loads one model: a single merged, centred geometry, sized for the platform. */
@@ -163,6 +177,7 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
     e.model = d.model; want(d.model);
     e.body = new THREE.Mesh(geo, bodyMaterial(e.col.clone()));
     e.edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 28), edgeMaterial(e.col.clone()));
+    e.dens = densityGain(e.edges.geometry, MODELS[d.model] || 1);
     // a pad under it, and (for anything unusual) two ghost copies of its outline that jump now and then
     e.pad = new THREE.Mesh(new THREE.CircleGeometry(1, 48), padMaterial(e.col.clone()));
     e.pad.rotation.x = -Math.PI / 2; e.pad.position.y = -(MODELS[d.model] || 1) / 2 - 0.02; e.pad.scale.setScalar(Math.max(0.8, (MODELS[d.model] || 1) * 0.62) * (d.gw ? 1.35 : 1));
@@ -178,6 +193,7 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
     want(e.model);
     e.edges.geometry.dispose();
     e.body.geometry = geoFor(e.model); e.edges.geometry = new THREE.EdgesGeometry(e.body.geometry, 28);
+    e.dens = densityGain(e.edges.geometry, MODELS[e.model] || 1);
     if (e.ghosts) e.ghosts.forEach(m => { m.geometry = e.edges.geometry; });
     const size = MODELS[e.model] || 1;
     e.pad.position.y = -size / 2 - 0.02; e.pad.scale.setScalar(Math.max(0.8, size * 0.62) * (e.d.gw ? 1.35 : 1));
@@ -421,11 +437,11 @@ export async function createView(container, { base = "/view3d", onOpenDevice = (
       const off = e.d.state === "off", still = reduced;
       e.group.position.set(e.pos.x, e.pos.y + (off || still ? 0 : Math.sin(time * 1.3 + e.phase) * 0.07) + (off ? -0.28 : 0), e.pos.z);
       if (!off && !still) e.group.rotation.y += dt * 0.15;
-      tc.set(COLORS[e.d.state]).multiplyScalar(off ? 1.1 : 1.9);
+      tc.set(COLORS[e.d.state]).multiplyScalar(STATE_GLOW[e.d.state]);
       e.col.lerp(tc, 1 - Math.exp(-5 * dt));
       const hot = e === hovered || e === selected;
-      e.edges.material.uniforms.col.value.copy(e.col); e.edges.material.uniforms.gain.value = off ? 0.9 : hot ? 1.05 : 1;
-      e.body.material.uniforms.col.value.copy(e.col); e.body.material.uniforms.op.value = off ? 0.22 : 0.42;
+      e.edges.material.uniforms.col.value.copy(e.col); e.edges.material.uniforms.gain.value = (e.dens || 1) * (off ? 0.9 : hot ? 1.05 : 1);
+      e.body.material.uniforms.col.value.copy(e.col); e.body.material.uniforms.op.value = off ? 0.22 : 0.42; e.body.material.uniforms.gainRim.value = Math.min(1, (e.dens || 1) * 1.2);
       e.pad.material.uniforms.col.value.copy(e.col); e.pad.material.uniforms.off.value = off ? 1 : 0;
       e.pad.material.uniforms.hot.value += ((hot ? 1 : 0) - e.pad.material.uniforms.hot.value) * (1 - Math.exp(-8 * dt));
       if (e.ghosts) {

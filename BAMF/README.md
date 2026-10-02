@@ -2039,7 +2039,7 @@ ranking and the Unusual findings), so it needs nothing new on the server.
   *Slow turn*, *Names* and *Traffic* can be switched off; they're remembered in
   your browser, as is the layout.
 - **Offline, and only when used:** the library (`wwwroot/view3d/three`, three.js
-  r170, MIT) and the models (`wwwroot/view3d/models/*.glb`, about 2.1 MB for all 46)
+  r170, MIT) and the models (`wwwroot/view3d/models/*.glb`, about 1.5 MB for all 46)
   are fetched from BAMF, never a CDN, and only as needed: the library the first
   time the tab opens, and each model when a device that needs it is drawn. BAMF serves
   `.mjs` and `.glb` with the types a browser needs, and an update replaces them
@@ -2058,12 +2058,13 @@ ranking and the Unusual findings), so it needs nothing new on the server.
   Doorbell a doorbell, Orbi and Eero mesh nodes, Roomba a vacuum, a hostname
   with "fridge" a fridge, and so on. Whole words only, and a NAS stays a NAS
   whatever it's called. Add a rule and a model to cover another device.
+- **Brightness:** a model packed with fine detail would blaze, so each outline's brightness is eased down by how much line it has for its size, and the amber and purple states are set to match the green.
 - **Models:** the glowing edges only use each model's shape, so a new kind is a
   `.glb` normalised to one unit (origin at the floor, y up, no materials) named
   in `MODELS` in `view3d/data.mjs`; `check-web` fails if a listed model is
-  missing. Two are adapted from Creative Commons Attribution Poly Pizza models
-  (credited under *Model credits* and in the root README); only CC BY or CC0
-  models belong here.
+  missing. They were all made for BAMF, so nothing needs crediting; a model from
+  elsewhere has to be CC BY or CC0 and be credited under *Model credits* and in
+  the root README.
 
 ## Network map
 

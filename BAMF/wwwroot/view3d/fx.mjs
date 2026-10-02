@@ -104,14 +104,14 @@ export function bodyMaterial(color) {
   return new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, fog: false,
     blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
-    uniforms: { col: { value: color }, time: T, op: { value: 0.4 } },
+    uniforms: { col: { value: color }, time: T, op: { value: 0.4 }, gainRim: { value: 1 } },
     vertexShader: `varying vec3 vw; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vw = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: `uniform vec3 col; uniform float time, op; varying vec3 vw;
+    fragmentShader: `uniform vec3 col; uniform float time, op, gainRim; varying vec3 vw;
       void main(){
         vec3 n = normalize(cross(dFdx(vw), dFdy(vw))), v = normalize(cameraPosition - vw);
         float f = pow(1.0 - abs(dot(n, v)), 2.0);
         float sc = 0.5 + 0.5 * sin(vw.y * 52.0 - time * 2.6);
-        gl_FragColor = vec4(col * (0.04 + f * 0.42 + sc * 0.04), op);
+        gl_FragColor = vec4(col * (0.04 + f * 0.42 + sc * 0.04) * gainRim, op);
       }`,
   });
 }

@@ -306,13 +306,8 @@ what the evidence suggests and names the evidence, so you can judge it.
 
 ## Credits
 
-The 3D tab is drawn with [three.js](https://threejs.org) (MIT). Most of its
-models were made for BAMF; two are adapted from [Poly Pizza](https://poly.pizza)
-models under the
-[Creative Commons Attribution 3.0](https://creativecommons.org/licenses/by/3.0/)
-licence, simplified and stripped of their colours: **Security Camera** by
-J-Toastie and **Laptop** by Poly by Google. The tab's *Model credits* link says
-the same.
+The 3D tab is drawn with [three.js](https://threejs.org) (MIT). Its 46 device models
+were all made for BAMF.
 
 ## Licence
 

@@ -4,12 +4,7 @@
 let view3d = null, view3dStarting = null, view3dFailed = null, view3dData = null;
 
 const VIEW3D_CREDITS = `<h3>Model credits</h3>
-  <p>Two of the device models are adapted from Poly Pizza models under the Creative Commons Attribution 3.0 licence, simplified and stripped of their colours:</p>
-  <ul>
-    <li><b>Security Camera</b> by J-Toastie</li>
-    <li><b>Laptop</b> by Poly by Google</li>
-  </ul>
-  <p>The other forty-four were made for BAMF. The 3D drawing is <a href="https://threejs.org" target="_blank" rel="noopener noreferrer">three.js</a> (MIT licence).</p>`;
+  <p>All forty-six device models were made for BAMF. The 3D drawing is <a href="https://threejs.org" target="_blank" rel="noopener noreferrer">three.js</a> (MIT licence).</p>`;
 
 async function start3d() {
   const wrap = $("view3dWrap");
