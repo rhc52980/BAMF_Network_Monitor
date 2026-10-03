@@ -132,7 +132,7 @@ Seasonal. Holiday Spirit puts these on by date.
 
 <table>
 <tr>
-<td width="50%" valign="top"><img src="christmas/preview.webp" alt="The Christmas theme"><br><b>Christmas</b> <sub><code>christmas</code></sub><br>Twinkling lights, swinging ornaments, a little snow, and Santa hats on the Map. An unknown new device is a burglar on the naughty list. Hidden in the menu until it's unlocked.</td>
+<td width="50%" valign="top"><img src="christmas/preview.webp" alt="The Christmas theme"><br><b>Christmas</b> <sub><code>christmas</code></sub><br>A winter night: stars, a moon, northern lights, mountains and pines, snow falling in three depths, and a house strung with lights with smoke from its chimney and now and then Santa looking out of it. Candy-cane stripes, icicles and snow on the page; presents, a snowman, a gingerbread man, Santa's sleigh and shooting stars. A finished scan blazes every bulb. An unknown new device is a burglar on the naughty list, and the night turns red. Hidden in the menu until it's unlocked.</td>
 <td width="50%" valign="top"><img src="halloween/preview.webp" alt="The Halloween theme"><br><b>Halloween</b> <sub><code>halloween</code></sub><br>A haunted night: a big moon with clouds crossing it, a haunted house on a hill with flickering windows, a graveyard and dead trees, will-o'-the-wisps, lightning now and then, bats, crows, a witch, ghosts and a skeleton hand. Lantern patches light the page and the headings drip in Creepster. An unknown new device is a werewolf under a blood moon, held at the graveyard gate. Hidden in the menu until it's unlocked.</td>
 </tr>
 <tr>
