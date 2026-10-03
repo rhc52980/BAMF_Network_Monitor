@@ -1054,7 +1054,7 @@ name, address and maker, until you mark it known:
 | Hotdog Stand | a seagull | it swoops on the cart and takes a hot dog, the bells ring, and a Windows 3.1 box says so | perched on the cart's umbrella, the hot dog in its beak |
 | Halloween | a werewolf | the moon turns blood red, it howls, bats burst across the sky, the lanterns flare red | crouched by the graveyard gate, eyes burning |
 | Thanksgiving | a raccoon | the page's edges glow red, the leaves whip up, and it's GOBBLE GOBBLE GOBBLE | sitting by the pie, a slice in its paws |
-| Christmas | a burglar with a sack | every bulb turns red and flashes, and the naughty list unrolls | standing in the snow, swag over its shoulder |
+| Christmas | a burglar with a sack | every bulb turns red and flashes, the whole night glows red, and the naughty list unrolls | standing in the snow, swag over its shoulder |
 | New Year | a gatecrasher | the fireworks stop, the sky bursts red, NOT ON THE LIST | behind the velvet rope |
 
 Mark the device known, anywhere, and the scene stands down: the tag turns
@@ -1088,12 +1088,18 @@ Pick another theme from the menu during a season and that browser keeps it
 until the next season. Switching Holiday Spirit off puts every dashboard back
 on its own theme. A season whose theme isn't installed is skipped.
 
-The **Christmas** theme puts a house behind the dashboard, done up by someone
-who doesn't know when to stop: lights along every eave, gable, window and
-garage door, icicles hanging off the guttering, a wreath on the door, lit
-windows and a couple of trees in the snow. The bulbs twinkle on their own
-clocks, and the whole place blazes for a second when a scan finishes. With
-reduced motion it all holds still, lit.
+The **Christmas** theme sets a winter night behind the dashboard: stars, a
+moon with clouds crossing it, northern lights, mountains and pines, and snow
+falling in three depths on a wind that comes and goes. In front of it stands a
+house done up by someone who doesn't know when to stop: lights along every
+eave, gable, window and garage door, icicles on the guttering, a wreath on the
+door, lit windows, smoke from the chimney and a couple of trees in the snow.
+Now and then Santa looks out of the chimney and waves. The bulbs twinkle on
+their own clocks, and the whole place blazes for a second when a scan finishes.
+The page wears it too: a candy-cane stripe and icicles on the header, snow along
+the cards with holly in their corners, a candy-cane scrollbar, and a title that
+shifts between the colours of the lights. Santa's sleigh, a gingerbread man and
+shooting stars cross now and then. With reduced motion it all holds still, lit.
 
 The **Halloween** theme sets a haunted night behind the page: a big moon with
 clouds crossing it, a haunted house on a hill with flickering windows, a
