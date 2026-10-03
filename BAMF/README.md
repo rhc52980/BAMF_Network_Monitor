@@ -103,7 +103,7 @@ the bodies they take in `Requests.cs`. The work itself is in `Services/`.
 ### Tests
 
 From the repo root, the C# tests and the dashboard's (which devices count as
-intruders). The C# ones test BAMF's parts (themes, reports, passwords, the
+intruders, and which offer which service). The C# ones test BAMF's parts (themes, reports, passwords, the
 network rules, certificates) and, in `EndpointTests`, BAMF itself: each starts
 it in memory on a database of its own, with nothing scanned or sent, and
 calls its API as a browser, a script or another BAMF would, from signing in
@@ -134,6 +134,7 @@ step:
 | `js/themes.js` | Themes, Holiday Spirit, Night mode, compact rows and the intruders |
 | `js/screensaver.js` | The screen saver and the watchtower |
 | `js/internet.js` | The internet watch, the speed test, the Scan menu and free addresses |
+| `js/services.js` | The Network services card: the public address, gateways, DHCP, DNS, UPnP, mDNS and what devices offer |
 | `js/settings.js` | What's new, where alerts go, and Settings |
 | `js/main.js` | Switching views, and starting the page |
 
@@ -291,7 +292,7 @@ Everything BAMF initiates on its own, and how it's protected:
 | GitHub update check (`api.github.com`) | **HTTPS** | Daily, only if you enable the update check |
 | Your public address (`api.ipify.org`, or `checkip.amazonaws.com`) and GreyNoise (`api.greynoise.io`) | **HTTPS** | Daily, only if you switch on the GreyNoise check. What they learn is your public address |
 | One address on the internet (`8.8.8.8` by default) | **an echo request, nothing else** | A ping a minute, only if you switch on the internet watch. Nothing about your network goes with it |
-| Cloudflare's speed test (`speed.cloudflare.com`) | **HTTPS** | Only when you press Run now, or on the schedule you choose: daily or every six hours. About 125 MB of test data each time. Cloudflare sees your public address, as any website does |
+| Cloudflare's speed test (`speed.cloudflare.com`) | **HTTPS** | Only when you press Run now, or on the schedule you choose: daily or every six hours. About 125 MB of test data each time. Cloudflare sees your public address, as any website does, and says it back in its answer, which BAMF shows as your public address |
 | Your webhook | **whatever scheme your URL uses** | When a new host appears, a watched host changes state, or an alert fires |
 
 **On your own network:**
@@ -1762,7 +1763,7 @@ scan, or delete a thing.
 | POST | `/api/hosts/{id}/link` | Body `{"link": "8006"}` — per-host link override: bare port, `:port/path`, or a full URL with an optional `{ip}`. Empty clears it. Returns the resolved `linkUrl` |
 | POST | `/api/hosts/{id}/name` | Body `{"name": "Kevin's PC"}` — set a friendly name (empty string clears it). In the UI, click a host's name to edit it. |
 | POST | `/api/hosts/{id}/wake` | Send a Wake-on-LAN magic packet to the host (button appears on offline hosts) |
-| GET | `/api/hosts/{id}/portscan` | On-demand port check for one host. Optional `?ports=22,80,8000-8100` for a custom set (default: ~18 common ports) |
+| GET | `/api/hosts/{id}/portscan` | On-demand port check for one host. Optional `?ports=22,80,8000-8100` for a custom set (default: 34 common ports) |
 | GET | `/api/portscan` | On-demand port scan across online hosts. Optional `?ports=...` and `?subnet=...` |
 | GET | `/api/portscan/ip` | On-demand port check for any IP: `?ip=192.168.1.50`, optional `?ports=...`. The address need not be a known host; private ranges only (400 otherwise) |
 | GET | `/api/portscan/pattern` | Wildcard scan: `?ip=*.245`, optional `?ports=...`. Expands only across configured subnets, capped at 256 addresses |
@@ -1832,7 +1833,8 @@ scan, or delete a thing.
 | POST | `/api/hosts/{id}/blink` | Body `{"seconds": 30}` (optional, 5–60) — "Find port": send the device bursts of UDP traffic, one second on and one second off, so its switch-port light pulses. Private addresses only; replaces any blink already running. Returns `until` |
 | POST | `/api/map/positions` | Body `{"subnet": "192.168.1.0/24", "positions": {"s:1": [120, 140], "h:7": null}}` — save where nodes sit on the topology Map for one network. Keys are `h:<host id>`, `s:<switch id>`, `gw`, `self`, `net` and `box`. A null position forgets that node, so it goes back to the automatic layout. `GET /api/hosts` returns them all as `mapPositions` |
 | DELETE | `/api/map/positions?subnet=…` | "Auto-arrange": forget every saved position on one network |
-| GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow"}` — the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
+| GET | `/api/connections` | BAMF's own connections: `{"items": [{id, group, name, state, detail, at, section}]}`, where `state` is `ok`, `warn`, `error`, `waiting` or `off`. Status only; no addresses or keys |
+| GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow", "externalIp"}` — `externalIp` is the home's public address, `{ip, source, at, since, previous, changedAt}`, or null until the speed test or the GreyNoise check has learned it; the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
 | POST | `/api/settings/wanwatch` | Body `{"enabled": true}` — switch the internet watch on or off |
 | POST | `/api/settings/wantarget` | Body `{"target": "8.8.8.8"}` — which address it pings |
 | POST | `/api/settings/waninterval` | Body `{"seconds": 60}` — how often it pings, 20 to 3600 |
@@ -1877,8 +1879,9 @@ everything on port 80:
 
 Only `http` and `https` links are accepted; anything else falls back to
 `http://<ip>` rather than becoming a clickable link. The **Ports** button
-runs an on-demand check of ~18 common service ports (HTTP, HTTPS, SSH, SMB,
-RDP, print, Plex, etc.) for that one host and shows what's open; web ports
+runs an on-demand check of 34 common service ports (HTTP, HTTPS, SSH, SMB,
+RDP, print, Plex, camera streams, AirPlay, Home Assistant, databases and so on)
+for that one host and shows what's open; web ports
 become clickable links with the right scheme.
 
 Four ways to scan:
@@ -2893,6 +2896,55 @@ While a test runs the line is full on purpose, so the [internet
 watch](#internet-watch) sits that minute out rather than calling the line slow.
 Results are kept for a year.
 
+Cloudflare says in each answer which address the request came from, which is
+this home's public address. BAMF keeps it (see [Network
+services](#network-services)); nothing extra is sent to learn it.
+
+### Network services
+
+The **Network services** card on the Activity tab is the one place that lists
+what BAMF has seen providing a service on your network. It asks nothing new of
+the network: it draws together what BAMF already knows.
+
+- **Internet address**: your public address, with where it was learned (the
+  speed test, or the daily GreyNoise check, whichever is newer), when it was
+  last confirmed, how long it has been this address and, if it changed, what it
+  was. It stays empty until one of those has run. A Copy button puts it on the
+  clipboard. If this machine reaches the internet over a VPN, it's the VPN's
+  address that's shown.
+- **Gateway**: each network's gateway, with the device's name and how fast it
+  answers.
+- **DHCP** and **DNS**: the servers the traffic monitor has heard, with how many
+  offers or queries, and the **Trust** and **Forget** buttons that decide whether
+  a new one alerts. This is what the **Network watch** card used to show. Without
+  the traffic monitor on (it needs Npcap) the card says so.
+- **UPnP**: a router that answered the last health check's UPnP search, which
+  means any device can ask it to open ports to the internet.
+- **mDNS (Bonjour)**: how many devices announce a name or services this way.
+- **On your devices**: each service found, with the devices that offer it, from
+  the ports a scan found open (web, SSH, file sharing, printing, remote desktop,
+  MQTT, Plex and the other common ones) and what devices announce over mDNS
+  (AirPlay, Google Cast, HomeKit, Matter, Sonos and more). Click a device to jump
+  to it. The Network tabs above it narrow the card to one network.
+- **BAMF's own connections**, under a line of its own: what BAMF reads from
+  (a router import, SNMP switches, other BAMF servers, the traffic monitor, mDNS,
+  the IPv6 watch), sends to (alert webhooks, MQTT, the scheduled report, the
+  nightly backup) and calls out to (the internet watch, the speed test, the
+  GreyNoise check, the update check). Each is working (green), not working (red),
+  needs a look (amber), on with nothing back yet (grey) or off. A row says what it
+  last did and how long ago, and the name links to the Settings section that holds
+  it. What isn't set up is one quiet line with links, rather than a row each. For a
+  webhook BAMF doesn't keep whether the last alert arrived, so it says to use Test in
+  Settings. The list is `GET /api/connections`; it holds status only: no address, key,
+  password or webhook, so it's safe for the view-only password.
+
+The default port scan grew from 18 to 34 ports: camera streams (RTSP), AirPlay,
+Google Cast, Sonos, Home Assistant, Node-RED, Jellyfin, DLNA, NFS, MySQL,
+PostgreSQL, Redis, MongoDB, MQTT over TLS, OpenVPN and Winbox. BAMF alerts when a
+port newly opens, so a device that already had one of the added ports open would
+have looked like news the first time it was scanned for it. It's recorded
+quietly that once, per device, and alerts as normal after.
+
 ### Certificate watch
 
 On by default, under **Settings → Security**. Every morning at 4:30 BAMF
@@ -3274,7 +3326,7 @@ and nothing else, once a minute per switch you switch on. The community is kept
 in the database and never shown again, not even to the dashboard.
 
 **DHCP servers.** Every DHCP offer or acknowledgement names the server that
-sent it. The **Network watch** card on the Activity tab lists every DHCP
+sent it. The **Network services** card on the Activity tab lists every DHCP
 server seen, with its MAC, how many offers, and when. A second DHCP server
 appearing is the classic sign of a rogue router or a misconfigured box, so a
 server not seen before is an **alert**: in the card, in the log, and to your

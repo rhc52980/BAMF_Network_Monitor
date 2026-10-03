@@ -55,6 +55,7 @@ public sealed class GreyNoiseCheck
             var previous = Last;
             var result = await Lookup(ct);
             _store.SetSetting("greynoiseResult", JsonSerializer.Serialize(result));
+            _store.RecordExternalIp(result.Ip, "greynoise");
             _log.LogInformation("GreyNoise: {Ip} {Outcome}", result.Ip ?? "?", result.Error ?? (result.Noise == true ? "seen scanning" : "not seen scanning"));
             // One alert per sighting: a new address, or a newer last-seen date.
             if (result.Noise == true && !(previous?.Noise == true && previous.Ip == result.Ip && previous.LastSeen == result.LastSeen))

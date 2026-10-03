@@ -23,6 +23,8 @@ internal static class InternetEndpoints
                 samples = store.GetWanSamples(24).Select(s => new { at = s.At, gateway = s.Gateway, internet = s.Internet }),
                 outages = logged,
                 slow = SlowSpells(),
+                // The home's public address, learned from the speed test or the GreyNoise check; null until one has run.
+                externalIp = store.GetExternalIp(),
             });
 
             // Slow spells the same way: the kept ones, and one still running on top.

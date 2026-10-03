@@ -606,9 +606,10 @@ function render() {
     fetch("/api/alerts").then(r => r.json()).then(a => { alertsCache = a; renderAlertsCard(); renderHygiene(); }).catch(() => {});
     loadSettingsLog();
     loadUnusual();
-    loadSecurity().then(renderHygiene);
-    loadGreyNoise().then(renderHygiene);
-    loadWan(true).then(renderWanCard);
+    loadSecurity().then(() => { renderHygiene(); renderServices(); });
+    loadGreyNoise().then(() => { renderHygiene(); renderServices(); });
+    loadWan(true).then(() => { renderWanCard(); renderServices(); });
+    loadConnections().then(renderServices);
     loadSpeed().then(renderSpeed);
     loadChanges();
     loadIpv6();
