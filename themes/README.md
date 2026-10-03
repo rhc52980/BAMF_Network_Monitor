@@ -133,7 +133,7 @@ Seasonal. Holiday Spirit puts these on by date.
 <table>
 <tr>
 <td width="50%" valign="top"><img src="christmas/preview.webp" alt="The Christmas theme"><br><b>Christmas</b> <sub><code>christmas</code></sub><br>Twinkling lights, swinging ornaments, a little snow, and Santa hats on the Map. An unknown new device is a burglar on the naughty list. Hidden in the menu until it's unlocked.</td>
-<td width="50%" valign="top"><img src="halloween/preview.webp" alt="The Halloween theme"><br><b>Halloween</b> <sub><code>halloween</code></sub><br>Cobwebs, a spider, jack-o'-lanterns, and now and then a bat or a ghost. An unknown new device is a werewolf under a blood moon, held at the graveyard gate. Hidden in the menu until it's unlocked.</td>
+<td width="50%" valign="top"><img src="halloween/preview.webp" alt="The Halloween theme"><br><b>Halloween</b> <sub><code>halloween</code></sub><br>A haunted night: a big moon with clouds crossing it, a haunted house on a hill with flickering windows, a graveyard and dead trees, will-o'-the-wisps, lightning now and then, bats, crows, a witch, ghosts and a skeleton hand. Lantern patches light the page and the headings drip in Creepster. An unknown new device is a werewolf under a blood moon, held at the graveyard gate. Hidden in the menu until it's unlocked.</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="newyear/preview.webp" alt="The New Year theme"><br><b>New Year</b> <sub><code>newyear</code></sub><br>Fireworks over a midnight skyline. An unknown new device is a gatecrasher, held at the velvet rope.</td>

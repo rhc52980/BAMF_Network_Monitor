@@ -1094,6 +1094,14 @@ windows and a couple of trees in the snow. The bulbs twinkle on their own
 clocks, and the whole place blazes for a second when a scan finishes. With
 reduced motion it all holds still, lit.
 
+The **Halloween** theme sets a haunted night behind the page: a big moon with
+clouds crossing it, a haunted house on a hill with flickering windows, a
+graveyard and dead trees. Lanterns light the corners and throw embers, slime
+drips from the header and the headings are set in Creepster. Now and then a
+bolt of lightning lights up the whole scene, a witch crosses the moon, a flock
+of crows goes over, a ghost drifts up and a skeleton hand comes out of the
+ground and waves. With reduced motion it all holds still, lit.
+
 Each holiday theme has its own intruder (see [Intruders](#intruders)): a
 werewolf at the graveyard gate for Halloween, a raccoon at the pie for
 Thanksgiving, a burglar on the naughty list for Christmas, and a gatecrasher at
