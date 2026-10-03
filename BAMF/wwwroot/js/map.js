@@ -565,6 +565,32 @@ const TOPO_ICONS = {
   game: "M6 9h12a4 4 0 0 1 4 4v1a3 3 0 0 1-5.5 1.7L15 14H9l-1.5 1.7A3 3 0 0 1 2 14v-1a4 4 0 0 1 4-4z M7 11.5v2 M6 12.5h2 M16 12h.01 M18 13.5h.01",
   light: "M9 18h6 M10 21h4 M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3z",
   plug: "M8 3v5 M16 3v5 M6 8h12v4a6 6 0 0 1-12 0z M12 18v3",
+  streamer: "M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16z M10 9l5 3-5 3z",
+  soundbar: "M2 9h20v6H2z M4 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0 M17 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0 M10 12h4",
+  display: "M4 3h16v11H4z M5 14h14v6H5z M10 17h4",
+  doorbell: "M8 2h8v20H8z M10.5 8a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0 M10.5 17a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0",
+  dome: "M3 5h18 M5 5v3a7 7 0 0 0 14 0V5 M12 12h.01",
+  thermostat: "M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0 M12 7v6 M10.5 15.5a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0",
+  lock: "M6 11h12v9H6z M8.5 11V8a3.5 3.5 0 0 1 7 0v3 M12 15v2",
+  vacuum: "M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0 M5.5 8a8 8 0 0 1 13 0 M10.5 14.5a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0",
+  sprinkler: "M12 20v-6 M9 14h6 M12 10V4 M7 8L5 5 M17 8l2-3 M4 11h.01 M20 11h.01",
+  garage: "M3 21V9l9-6 9 6v12 M7 21v-8h10v8 M7 15.5h10 M7 18h10",
+  fridge: "M6 2h12v20H6z M6 9h12 M9 5v1.5 M9 12v3",
+  washer: "M5 2h14v20H5z M5 7h14 M8 4.5h.01 M11 4.5h.01 M8 14a4 4 0 1 0 8 0a4 4 0 1 0 -8 0",
+  purifier: "M4 12a8 8 0 1 0 16 0a8 8 0 1 0 -16 0 M12 12V4.5 M12 12l6.5 3.75 M12 12l-6.5 3.75",
+  ac: "M3 4h18v8H3z M3 9h18 M7 16c0 2 1 2 1 4 M12 16v4 M17 16c0 2-1 2-1 4",
+  charger: "M7 3h10v18H7z M13 7l-3 5h4l-3 5",
+  car: "M3 13l2-6h14l2 6 M2 13h20v5H2z M6 18v2 M18 18v2 M6 15.5h.01 M18 15.5h.01",
+  vr: "M2 8h20v9h-6l-2-3h-4l-2 3H2z",
+  watch: "M8 7h8v10H8z M9 7l1-4h4l1 4 M9 17l1 4h4l1-4 M12 12h.01",
+  handheld: "M2 7h20v10H2z M7 9.5h10v5H7z M4.5 12h.01 M19.5 12h.01",
+  projector: "M3 9h18v8H3z M14 13a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0 M6 17v2 M18 17v2 M6 13h4",
+  printer3d: "M4 3h16v18H4z M7 7h10 M12 7v4 M10 11h4 M6 17h12",
+  ereader: "M5 2h14v20H5z M8 5h8v11H8z M11 19h2",
+  modem: "M3 9h18v10H3z M7 14h.01 M10 14h.01 M13 14h.01 M16 14h2 M12 9V5 M10 5h4",
+  mesh: "M4 17a8 3.5 0 1 0 16 0a8 3.5 0 1 0 -16 0 M4 17v-3 M20 17v-3 M9 10.5a4.5 4.5 0 0 1 6 0 M12 7.5h.01 M6.5 7.5a8 8 0 0 1 11 0",
+  minipc: "M4 9h16v9H4z M7 13.5h5 M17 13.5h.01",
+  pi: "M3 6h18v12H3z M6 9h4v3H6z M13 9h5 M13 12h5 M6 15h.01 M9 15h.01 M12 15h.01 M15 15h.01 M18 15h.01",
   vswitch: "M2 9h20v7H2z M5 12.5h1.5 M8.5 12.5h1.5 M12 12.5h1.5 M15.5 12.5h1.5 M5 5.5h14",
 };
 // Which drawing, from the device guess, then its names and vendor. First match wins.
@@ -586,6 +612,42 @@ const TOPO_KINDS = [
   ["server", /server|proxmox|raspberry|linux|ssh host|home assistant|pihole/],
   ["iot", /esp32|esp8266|esphome|\biot\b|hue|homekit|matter|nest|thermostat|plug|bulb|amazon device/],
 ];
+// What a device's own words can say beyond that: a Roku is a streamer, not just a TV. [kind, what its text says,
+// the kinds it may replace], first match wins. A name only ever makes a plain kind more specific; it never
+// turns a router into a thermostat.
+const SMALL_KINDS = ["iot", "device"];
+const TOPO_REFINE = [
+  ["doorbell", /doorbell|nest hello|video ?bell|\bring ?(pro|video|doorbell|chime)/, ["camera", ...SMALL_KINDS]],
+  ["dome", /\bdome\b|\bptz\b|turret/, ["camera", ...SMALL_KINDS]],
+  ["display", /nest hub|echo show|echo spot|smart display|google home hub|\bportal\b|smart clock/, ["speaker", "tv", "tablet", "phone", ...SMALL_KINDS]],
+  ["mesh", /\beero\b|\borbi\b|\bdeco\b|nest ?wi-?fi|google ?wi-?fi|\bvelop\b|amplifi|\bmesh\b|extender|repeater|\bplume\b|wi-?fi ?point/, ["ap", "router", "net", "switch", ...SMALL_KINDS]],
+  ["soundbar", /sound ?bar|sonos (beam|arc|ray|playbar|playbase)|\bhw-[a-z0-9]+|\byas-\d+/, ["speaker", "tv", ...SMALL_KINDS]],
+  ["streamer", /\broku\b|chromecast|apple ?tv|fire ?(tv|stick|cube)|firestick|\bshield\b|google tv|streaming|tivo|\bmi box\b|media ?player/, ["tv", "speaker", "game", ...SMALL_KINDS]],
+  ["projector", /projector|optoma|\bepson eb|benq (ht|w\d)/, ["tv", ...SMALL_KINDS]],
+  ["printer3d", /3d ?printer|prusa|creality|\bender-?\d|bambu|octoprint|octopi|klipper|anycubic|elegoo|voron|mainsail|fluidd/, ["printer", "server", "desktop", ...SMALL_KINDS]],
+  ["vacuum", /vacuum|roomba|irobot|roborock|ecovacs|\bneato\b|dreame|robovac|deebot|narwal|robot ?clean/, SMALL_KINDS],
+  ["lock", /smart ?lock|deadbolt|\bnuki\b|schlage|kwikset|\byale\b|august (home|lock)|\block\b/, SMALL_KINDS],
+  ["thermostat", /thermostat|ecobee|honeywell home|\btado\b|\bnest\b(?!.*\b(hub|mini|audio|wi-?fi|point|cam|protect|doorbell|hello)\b)/, SMALL_KINDS],
+  ["sprinkler", /sprinkler|rachio|rain ?bird|irrigat|b-?hyve|hydrawise|\blawn\b|\bturf\b|\bzone controller/, SMALL_KINDS],
+  ["garage", /garage|\bmyq\b|chamberlain|liftmaster|\bopener\b/, ["camera", ...SMALL_KINDS]],
+  ["fridge", /fridge|refrigerator|freezer|family hub|sub-?zero/, ["tv", ...SMALL_KINDS]],
+  ["washer", /washer|dryer|dishwasher|laundry|\boven\b|microwave|\brange\b|cooktop|appliance|whirlpool|maytag|electrolux|\bmiele\b|thinq/, SMALL_KINDS],
+  ["purifier", /purifier|humidifier|dehumidifier|blueair|levoit|\bcoway\b|\bhepa\b|\bfan\b|air ?quality|\bdyson\b/, ["plug", ...SMALL_KINDS]],
+  ["ac", /air ?condition|mini-?split|\bhvac\b|\bdaikin\b|mitsubishi (electric|comfort)|heat ?pump|\bcielo\b|\bsensibo\b|\bac unit\b/, SMALL_KINDS],
+  ["charger", /charger|wallbox|chargepoint|\bevse\b|juicebox|wall connector|\bemporia\b/, ["plug", ...SMALL_KINDS]],
+  ["car", /tesla|rivian|polestar|vehicle|\bmodel ?[3sxy]\b|\bford\b|chevrolet|\bbmw\b|\bvolvo\b|hyundai|\bkia\b|nissan|\bhonda\b|toyota|\blucid\b|volkswagen|subaru|mercedes/, ["tv", "speaker", "phone", "tablet", "game", ...SMALL_KINDS]],
+  ["vr", /\bquest\b|oculus|\bvr\b|\bvive\b|psvr|\bpico ?4\b|headset|valve index/, ["game", "phone", "tv", ...SMALL_KINDS]],
+  ["watch", /apple ?watch|\bwatch\b|fitbit|garmin|whoop|\boura\b|wearable/, ["phone", "tablet", ...SMALL_KINDS]],
+  ["handheld", /steam ?deck|switch lite|rog ally|ayaneo|handheld/, ["game", "tablet", ...SMALL_KINDS]],
+  ["ereader", /kindle|\bkobo\b|e-?reader|remarkable|boox/, ["tablet", ...SMALL_KINDS]],
+  ["modem", /\bmodem\b|\bont\b|surfboard|\barris\b|\bcm\d{3,4}\b|\bmb\d{4}\b|docsis/, ["router", "net", "switch", ...SMALL_KINDS]],
+  ["minipc", /\bnuc\b|mini ?pc|beelink|minisforum|odroid|zima(board|cube)?|rock ?pi|orange ?pi|banana ?pi|mac ?mini|elitedesk|prodesk|thinkcentre tiny/, ["server", "desktop", ...SMALL_KINDS]],
+  ["pi", /raspberry|pi-?hole|pihole|\brpi\b|raspbian/, ["server", "desktop", ...SMALL_KINDS]],
+];
+function refineKind(kind, text) {
+  for (const [refined, re, kinds] of TOPO_REFINE) if (kinds.includes(kind) && re.test(text)) return refined;
+  return kind;
+}
 function deviceKind(h) {
   if (!h || h.synthetic) return "device";
   if (h.deviceType && TOPO_ICONS[h.deviceType]) return h.deviceType;
@@ -607,8 +669,8 @@ function topoKind(h) {
   if (!h || h.synthetic) return "device";
   const text = [h.osGuess, h.customName, h.hostname === "—" ? "" : h.hostname, h.mdnsName, h.vendor]
     .filter(Boolean).join(" ").toLowerCase();
-  for (const [kind, re] of TOPO_KINDS) if (re.test(text)) return kind;
-  return "device";
+  const base = TOPO_KINDS.find(([, re]) => re.test(text));
+  return refineKind(base ? base[0] : "device", [text, h.typeName].filter(Boolean).join(" ").toLowerCase());
 }
 function topoClip(text, n) { return text.length > n ? text.slice(0, n - 1) + "…" : text; }
 

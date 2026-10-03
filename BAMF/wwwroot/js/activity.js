@@ -161,7 +161,11 @@ function loadSecurity() {
 const HY_ORDER = { high: 0, medium: 1, low: 2 };
 let hygieneAll = false;
 const HY_NOUN = { router: "a router", switch: "a switch", ap: "an access point", camera: "a camera", printer: "a printer", tv: "a TV",
-  speaker: "a speaker", phone: "a phone", tablet: "a tablet", game: "a game console", iot: "a smart home device", light: "a light", plug: "a smart plug" };
+  speaker: "a speaker", phone: "a phone", tablet: "a tablet", game: "a game console", iot: "a smart home device", light: "a light", plug: "a smart plug",
+  streamer: "a streaming box", soundbar: "a soundbar", display: "a smart display", projector: "a projector", doorbell: "a doorbell", dome: "a camera",
+  thermostat: "a thermostat", lock: "a smart lock", garage: "a garage door opener", sprinkler: "a sprinkler controller", vacuum: "a robot vacuum",
+  fridge: "a fridge", washer: "an appliance", purifier: "an air purifier", ac: "an air conditioner", charger: "an EV charger", car: "a car",
+  vr: "a VR headset", watch: "a watch", handheld: "a handheld console", ereader: "an e-reader", printer3d: "a 3D printer", modem: "a modem", mesh: "a mesh node" };
 function hygieneFindings() {
   const out = [];
   const add = (sev, h, title, fix) => out.push({ sev, h, title, fix });
@@ -176,14 +180,14 @@ function hygieneFindings() {
       "FTP sends its password in plain text. Use SFTP or file sharing instead, or turn it off if nothing uses it.");
     if (p.has(5900)) add("medium", h, "VNC is open (port 5900)",
       "VNC is often unencrypted and weakly protected. Give it a strong password, or reach it over SSH or a VPN.");
-    if (p.has(3389)) add(["desktop", "laptop", "server", "vm"].includes(kind) ? "low" : "medium", h, "Remote Desktop is open (port 3389)",
+    if (p.has(3389)) add(["desktop", "laptop", "server", "vm", "minipc", "pi"].includes(kind) ? "low" : "medium", h, "Remote Desktop is open (port 3389)",
       "Fine if you use it. If not, turn it off; if you do, keep Network Level Authentication on.");
-    if ((p.has(445) || p.has(139)) && !["nas", "server", "desktop", "laptop", "vm"].includes(kind))
+    if ((p.has(445) || p.has(139)) && !["nas", "server", "desktop", "laptop", "vm", "minipc", "pi"].includes(kind))
       add("medium", h, `File sharing (SMB) is open on ${HY_NOUN[kind] || "a device that isn't a computer"}`,
         "Usually only computers and file servers share files. Check what this one shares, and turn it off if nothing needs it.");
     const web = p.has(80) || p.has(8080), tls = p.has(443) || p.has(8443) || p.has(5001);
     if (web && !tls) {
-      const admin = ["router", "switch", "ap", "camera", "printer", "nas"].includes(kind);
+      const admin = ["router", "switch", "ap", "camera", "printer", "nas", "modem", "mesh", "doorbell", "dome", "printer3d"].includes(kind);
       add(admin ? "medium" : "low", h, admin ? "Settings page over plain HTTP only" : "Web page over plain HTTP only",
         admin ? "Its settings page has no HTTPS, so the password you log in with crosses the network readable. Turn on HTTPS if it has it."
               : "Anything typed into it crosses the network readable. Fine for a status page; not for a login.");
