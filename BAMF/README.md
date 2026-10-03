@@ -292,7 +292,8 @@ Everything BAMF initiates on its own, and how it's protected:
 | GitHub update check (`api.github.com`) | **HTTPS** | Daily, only if you enable the update check |
 | Your public address (`api.ipify.org`, or `checkip.amazonaws.com`) and GreyNoise (`api.greynoise.io`) | **HTTPS** | Daily, only if you switch on the GreyNoise check. What they learn is your public address |
 | One address on the internet (`8.8.8.8` by default) | **an echo request, nothing else** | A ping a minute, only if you switch on the internet watch. Nothing about your network goes with it |
-| Cloudflare's speed test (`speed.cloudflare.com`) | **HTTPS** | Only when you press Run now, or on the schedule you choose: daily or every six hours. About 125 MB of test data each time. Cloudflare sees your public address, as any website does, and says it back in its answer, which BAMF shows as your public address |
+| Cloudflare's speed test (`speed.cloudflare.com`) | **HTTPS** | Only when you press Run now, or on the schedule you choose: daily or every six hours. About 125 MB of test data each time. Cloudflare sees your public address, as any website does, and says it back in its answer, which BAMF shows as your public address |
+| Cloudflare, for your public address (`speed.cloudflare.com`) | **HTTPS** | Only when you press **Look it up** (or **Check now**) on the Network services card. One request for a file of no bytes. Cloudflare sees your public address, as any website does, and says it back |
 | Your webhook | **whatever scheme your URL uses** | When a new host appears, a watched host changes state, or an alert fires |
 
 **On your own network:**
@@ -1842,7 +1843,8 @@ scan, or delete a thing.
 | POST | `/api/map/positions` | Body `{"subnet": "192.168.1.0/24", "positions": {"s:1": [120, 140], "h:7": null}}` — save where nodes sit on the topology Map for one network. Keys are `h:<host id>`, `s:<switch id>`, `gw`, `self`, `net` and `box`. A null position forgets that node, so it goes back to the automatic layout. `GET /api/hosts` returns them all as `mapPositions` |
 | DELETE | `/api/map/positions?subnet=…` | "Auto-arrange": forget every saved position on one network |
 | GET | `/api/connections` | BAMF's own connections: `{"items": [{id, group, name, state, detail, at, section}]}`, where `state` is `ok`, `warn`, `error`, `waiting` or `off`. Status only; no addresses or keys |
-| GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow", "externalIp"}` — `externalIp` is the home's public address, `{ip, source, at, since, previous, changedAt}`, or null until the speed test or the GreyNoise check has learned it; the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
+| POST | `/api/externalip/lookup` | Finds the public address now, with one request to Cloudflare for a file of no bytes. Answers `{externalIp, changed}`, or 502 with `{error}` if Cloudflare can't be reached or doesn't say. Two calls within five seconds share one answer |
+| GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow", "externalIp"}` — `externalIp` is the home's public address, `{ip, source, at, since, previous, changedAt}` (`source` is `speedtest`, `greynoise` or `lookup`), or null until one of them has learned it; the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
 | POST | `/api/settings/wanwatch` | Body `{"enabled": true}` — switch the internet watch on or off |
 | POST | `/api/settings/wantarget` | Body `{"target": "8.8.8.8"}` — which address it pings |
 | POST | `/api/settings/waninterval` | Body `{"seconds": 60}` — how often it pings, 20 to 3600 |
@@ -2915,11 +2917,13 @@ what BAMF has seen providing a service on your network. It asks nothing new of
 the network: it draws together what BAMF already knows.
 
 - **Internet address**: your public address, with where it was learned (the
-  speed test, or the daily GreyNoise check, whichever is newer), when it was
-  last confirmed, how long it has been this address and, if it changed, what it
-  was. It stays empty until one of those has run. A Copy button puts it on the
-  clipboard. If this machine reaches the internet over a VPN, it's the VPN's
-  address that's shown.
+  speed test, the daily GreyNoise check or the **Look it up** button, whichever
+  is newest), when it was last confirmed, how long it has been this address and,
+  if it changed, what it was. **Look it up** (**Check now** once there is an
+  address) asks Cloudflare once for a file of no bytes and reads which address
+  it came from, so it works without running a speed test. Nothing asks on a
+  timer. A Copy button puts the address on the clipboard. If this machine
+  reaches the internet over a VPN, it's the VPN's address that's shown.
 - **Gateway**: each network's gateway, with the device's name and how fast it
   answers.
 - **DHCP** and **DNS**: the servers the traffic monitor has heard, with how many

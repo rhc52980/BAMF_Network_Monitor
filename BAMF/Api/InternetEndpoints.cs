@@ -37,7 +37,30 @@ internal static class InternetEndpoints
             }
         });
 
-        app.MapPost("/api/settings/wanslow", (WanSlowRequest body, HostStore store, WanWatch wan) =>
+        // "Look it up" on the Network services card: this home's public address, found on demand with one
+        // request for a file of no bytes (see ExternalIpLookup). Two presses within a few seconds share an answer.
+        var lookupGate = new SemaphoreSlim(1, 1);
+        var lastLookup = DateTime.MinValue;
+        app.MapPost("/api/externalip/lookup", async (HostStore store, IHttpClientFactory http, CancellationToken ct) =>
+        {
+            await lookupGate.WaitAsync(ct);
+            try
+            {
+                var changed = false;
+                if (DateTime.UtcNow - lastLookup > TimeSpan.FromSeconds(5))
+                {
+                    var (ip, error) = await ExternalIpLookup.Find(http.CreateClient(), ct);
+                    if (error is not null) return Results.Json(new { error }, statusCode: 502);
+                    changed = store.RecordExternalIp(ip, "lookup");
+                    if (store.GetExternalIp()?.Ip != ip) return Results.Json(new { error = $"Cloudflare answered with {ip}, which isn't a public address." }, statusCode: 502);
+                    lastLookup = DateTime.UtcNow;
+                }
+                return Results.Json(new { externalIp = store.GetExternalIp(), changed });
+            }
+            finally { lookupGate.Release(); }
+        });
+
+        app.MapPost("/api/settings/wanslow",(WanSlowRequest body, HostStore store, WanWatch wan) =>
         {
             var mode = (body.Mode ?? "").Trim().ToLowerInvariant();
             if (mode == "fixed")

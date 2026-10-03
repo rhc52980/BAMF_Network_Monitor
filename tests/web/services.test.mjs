@@ -11,7 +11,7 @@ function card(hosts, inNetwork = () => true) {
   const esc = x => String(x ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const ctx = vm.createContext({ String, Map, Set, esc, fmtAgo: () => "3 min ago", fetch: async () => ({ ok: false }) });
   ctx.hosts = hosts; ctx.inNetwork = inNetwork;
-  vm.runInContext(readFileSync("BAMF/wwwroot/js/services.js", "utf8") + "\nglobalThis.page = { servicesOnDevices, PORT_SERVICES, MDNS_SERVICES, connectionsHtml, set conns(c) { connectionsCache = c; } };", ctx);
+  vm.runInContext(readFileSync("BAMF/wwwroot/js/services.js", "utf8") + "\nglobalThis.page = { servicesOnDevices, PORT_SERVICES, MDNS_SERVICES, connectionsHtml, externalIpHtml, set conns(c) { connectionsCache = c; } };", ctx);
   return ctx.page;
 }
 const host = (id, more = {}) => ({ id, ip: `10.0.0.${id}`, online: true, openPorts: [], mdnsServices: "", ...more });
@@ -103,4 +103,29 @@ test("a name or detail with markup in it can't inject any", () => {
   page.conns = { items: [conn("x", "Reads from", "<img src=x onerror=alert(1)>", "ok", "<script>no</script>")] };
   const html = page.connectionsHtml();
   assert.doesNotMatch(html, /<img|<script/);
+});
+
+test("with no address known, the card offers to look it up and says where else it's learned", () => {
+  const html = card([]).externalIpHtml(null);
+  assert.match(html, /id="svcLookup"[^>]*>Look it up</);
+  assert.match(html, /Not known yet/);
+  assert.doesNotMatch(html, /svcCopy/);
+});
+
+test("with one known, it shows the address, where it was learned and how long it has been that, with Copy and Check now", () => {
+  const html = card([]).externalIpHtml({ ip: "203.0.113.9", source: "speedtest", at: "x", since: "y", previous: null, changedAt: null });
+  assert.match(html, /203\.0\.113\.9/);
+  assert.match(html, /from the speed test, 3 min ago/);
+  assert.match(html, /The same address since 3 min ago/);
+  assert.match(html, /id="svcCopy"/);
+  assert.match(html, /id="svcLookup"[^>]*>Check now</);
+});
+
+test("each way of learning the address has its own words, and a change names the old one", () => {
+  const page = card([]);
+  const said = source => page.externalIpHtml({ ip: "198.51.100.2", source, at: "x", since: "y", previous: null, changedAt: null });
+  assert.match(said("greynoise"), /from the GreyNoise check/);
+  assert.match(said("lookup"), /from a lookup/);
+  const changed = page.externalIpHtml({ ip: "198.51.100.2", source: "lookup", at: "x", since: "y", previous: "203.0.113.9", changedAt: "z" });
+  assert.match(changed, /Changed 3 min ago; it was 203\.0\.113\.9/);
 });
