@@ -1864,7 +1864,7 @@ scan, or delete a thing.
 | DELETE | `/api/floors/places/{hostId}` | Takes a device off its floor |
 | DELETE | `/api/blink` | Stop a running Find port blink. While one runs, `GET /api/hosts` reports it as `blink` (`hostId`, `started`, `until`) with the server's `serverTime`; bursts are on for [2k, 2k+1) seconds after `started` |
 | POST | `/api/hosts/{id}/typename` | Body `{"type": "Kids' tablet"}` — set the device type in your own words, up to 40 characters; empty goes back to BAMF's guess. It's what the list shows and the type chips group by. `GET /api/hosts` returns it as `typeName` |
-| POST | `/api/hosts/{id}/type` | Body `{"type": "nas"}` — set a device's Map icon, overriding the automatic one. Types: `router`, `switch`, `ap`, `camera`, `printer`, `tv`, `speaker`, `phone`, `tablet`, `laptop`, `desktop`, `server`, `nas`, `vm`, `game`, `iot`, `light`, `plug`, `device`. Empty goes back to the automatic icon. `GET /api/hosts` returns it as `deviceType` |
+| POST | `/api/hosts/{id}/type` | Body `{"type": "nas"}` — set a device's Map icon, overriding the automatic one. Types: `router`, `switch`, `ap`, `camera`, `printer`, `tv`, `speaker`, `phone`, `tablet`, `laptop`, `desktop`, `server`, `nas`, `vm`, `game`, `iot`, `light`, `plug`, `streamer`, `soundbar`, `display`, `projector`, `doorbell`, `dome`, `thermostat`, `lock`, `garage`, `sprinkler`, `vacuum`, `fridge`, `washer`, `purifier`, `ac`, `charger`, `car`, `vr`, `watch`, `handheld`, `ereader`, `printer3d`, `modem`, `mesh`, `minipc`, `pi`, `device`. Empty goes back to the automatic icon. `GET /api/hosts` returns it as `deviceType` |
 | POST | `/api/settings/type-icons` | Body `{"icons": {"Linux": "server"}}` — the icon for every device of a guessed type; an empty icon clears it. Returned in `GET /api/hosts` as `typeIcons` |
 | POST | `/api/hosts/{id}/combine` | Body `{"parentId": 12}` — combine the device into another as one of its network cards; `parentId` 0 separates it again. `GET /api/hosts` gives each host's `interfaceOf` (0 for a device of its own). Returns 400 with `{"error": "…"}` for a device combined with itself, or one that's a switch's own device |
 | POST | `/api/hosts/{id}/gateway` | Body `{"ip": "192.168.1.1", "enabled": true}` — declare the device the gateway of the network that address is on (one of its own addresses), or stop declaring it. One gateway per network. `GET /api/hosts` lists them as `gateways`: `[{"subnet", "hostId", "ip"}]`. Returns 400 with `{"error": "…"}` for an address the device doesn't have, or a VPN's device |
@@ -2415,8 +2415,14 @@ nothing in the device list. Click the device's **icon** on the topology Map for
 the same picker (clicking its name still opens Plugged into; with the device
 focused, **T** does the same). Pick from Router, Switch, Access point, Camera,
 Printer, TV / media, Speaker, Phone, Tablet, Laptop, Desktop, Server, NAS,
-Virtual machine, Game console, Smart home, Light, Smart plug or Other.
+Virtual machine, Game console, Smart home, Light, Smart plug, Streamer, Soundbar, Smart display, Projector,
+Doorbell, Dome camera, Thermostat, Smart lock, Garage door, Sprinkler, Robot vacuum, Fridge, Washer / appliance,
+Air purifier, Air conditioner, EV charger, Car, VR headset, Watch, Handheld, E-reader, 3D printer, Modem, Mesh node,
+Mini PC, Raspberry Pi or Other.
 **Automatic** uses the icon your device type names, else BAMF's guess.
+BAMF's guess reads a device's name and vendor as well as its type: a Roku is drawn as a streamer, not a TV; an
+Ecobee as a thermostat, a Roborock as a robot vacuum. A name only sharpens a plain guess (a TV, a speaker, a smart
+home device); it never turns a router into a thermostat.
 
 Before these were two options, the icon was the device type as well. On the
 first start of the version that split them, every icon you'd picked also
