@@ -81,7 +81,7 @@ function externalIpHtml(x) {
     `<span class="meta">from ${esc(IP_SOURCES[x.source] || x.source)}, ${esc(fmtAgo(x.at))}</span></div>` +
     `<div class="watch-note" style="margin-top:2px">${x.previous
       ? `Changed ${esc(fmtAgo(x.changedAt))}; it was ${esc(x.previous)}.`
-      : `The same address since ${esc(fmtAgo(x.since).replace(" ago", ""))} ago, as far as BAMF has seen.`}</div>`;
+      : `The same address since ${esc(fmtAgo(x.since))}, as far as BAMF has seen.`}</div>`;
 }
 
 function renderServices() {
