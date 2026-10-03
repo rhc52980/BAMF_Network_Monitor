@@ -2,6 +2,16 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.2.0",
+      "date": "2026-10-02",
+      "items": [
+        "The Halloween theme is rebuilt as a haunted night: a big moon with clouds crossing it, a haunted house on a hill with flickering windows, a graveyard and dead trees, lanterns that light the corners, and lightning now and then.",
+        "Crows fly over, a witch crosses the moon, ghosts drift up and a skeleton hand rises from the ground. The headings drip in a spooky font, and slime drips from the header.",
+        "A new device you haven't marked known is still a werewolf at the graveyard gate, now under a blood moon that reddens the whole sky.",
+        "Holiday Spirit switches it on for October. With reduced motion the scene holds still."
+      ]
+    },
+    {
       "version": "2.1.0",
       "date": "2026-10-02",
       "items": [
