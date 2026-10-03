@@ -71,6 +71,19 @@ function servicesOnDevices() {
   return [...out.values()].sort((a, b) => b.hosts.size - a.hosts.size || a.label.localeCompare(b.label));
 }
 
+// The public address: what BAMF last learned, where from and how long it has been that, with a button to
+// ask again now. Learned from the speed test, the daily GreyNoise check, or this button.
+const IP_SOURCES = { speedtest: "the speed test", greynoise: "the GreyNoise check", lookup: "a lookup" };
+function externalIpHtml(x) {
+  const ask = label => `<button type="button" class="toggle" id="svcLookup" title="Asks Cloudflare which address this network appears from: one request for a file of no bytes">${label}</button>`;
+  if (!x) return `<div class="svc-row">${ask("Look it up")}</div><div class="watch-note" style="margin-top:4px">Not known yet. BAMF learns it from the speed test (Settings → Internet), the daily GreyNoise check (Settings → Security) or the button above, which asks Cloudflare once.</div>`;
+  return `<div class="svc-row"><span class="svc-ip mono" id="svcIp">${esc(x.ip)}</span><button type="button" class="toggle" id="svcCopy" title="Copy this address">Copy</button>${ask("Check now")}` +
+    `<span class="meta">from ${esc(IP_SOURCES[x.source] || x.source)}, ${esc(fmtAgo(x.at))}</span></div>` +
+    `<div class="watch-note" style="margin-top:2px">${x.previous
+      ? `Changed ${esc(fmtAgo(x.changedAt))}; it was ${esc(x.previous)}.`
+      : `The same address since ${esc(fmtAgo(x.since))}, as far as BAMF has seen.`}</div>`;
+}
+
 function renderServices() {
   const body = $("servicesBody");
   if (!body) return;
@@ -82,14 +95,7 @@ function renderServices() {
 
   // The public address.
   const x = wan.externalIp;
-  const from = { speedtest: "the speed test", greynoise: "the GreyNoise check" };
-  html.push(block("Internet address", x
-    ? `<div class="svc-row"><span class="svc-ip mono" id="svcIp">${esc(x.ip)}</span><button type="button" class="toggle" id="svcCopy" title="Copy this address">Copy</button>` +
-      `<span class="meta">from ${esc(from[x.source] || x.source)}, ${esc(fmtAgo(x.at))}</span></div>` +
-      `<div class="watch-note" style="margin-top:2px">${x.previous
-        ? `Changed ${esc(fmtAgo(x.changedAt))}; it was ${esc(x.previous)}.`
-        : `The same address since ${esc(fmtAgo(x.since).replace(" ago", ""))} ago, as far as BAMF has seen.`}</div>`
-    : note("Not known yet. BAMF learns it from the speed test (Settings → Internet) or the daily GreyNoise check (Settings → Security), and asks nobody else.")));
+  html.push(block("Internet address", externalIpHtml(x)));
 
   // Each network's gateway.
   const places = Object.entries(networkPlaces || {}).filter(([cidr]) => network === "all" || network === cidr).sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
@@ -146,6 +152,20 @@ function renderServices() {
   });
   body.querySelectorAll(".svc-chip").forEach(b => b.onclick = () => jumpToHost(Number(b.dataset.id)));
   const more = $("svcMore"); if (more) more.onclick = () => { servicesAll = !servicesAll; renderServices(); };
+  const look = $("svcLookup");
+  if (look) look.onclick = async () => {
+    look.disabled = true; look.textContent = "Looking…";
+    try {
+      const r = await fetch("/api/externalip/lookup", { method: "POST" });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) toast(esc(d.error || "Couldn't look it up."));
+      else {
+        if (wanCache) wanCache.externalIp = d.externalIp; else await loadWan(true);
+        toast(d.changed ? `Your address changed: it's now ${esc(d.externalIp.ip)}` : `Your address is ${esc(d.externalIp.ip)}`);
+      }
+    } catch { toast("Couldn't reach BAMF."); }
+    renderServices();
+  };
   const copy = $("svcCopy");
   if (copy) copy.onclick = async () => {
     try { await navigator.clipboard.writeText(x.ip); toast("Copied " + esc(x.ip)); } catch { toast("Couldn't copy: select the address and copy it"); }
