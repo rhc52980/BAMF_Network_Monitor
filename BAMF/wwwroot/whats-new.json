@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.3.0",
+      "date": "2026-10-03",
+      "items": [
+        "Devices have 26 more types, each with its own Map icon: streamer, soundbar, thermostat, doorbell, smart lock, robot vacuum, fridge, 3D printer, modem, mesh node, Raspberry Pi and more. BAMF now reads a device's name and vendor to pick them, so a Roku shows as a streamer rather than a TV.",
+        "The Network services card has a Look it up button: it asks Cloudflare which public address your home shows to the internet and records it, with no speed test needed.",
+        "The Christmas theme is rebuilt as a winter night: northern lights, a moon, mountains, pines, falling snow and a house whose chimney smokes and sometimes has Santa in it. The page gets a candy-cane header, icicles, snow on the cards and a candy-cane scrollbar."
+      ]
+    },
+    {
       "version": "2.2.0",
       "date": "2026-10-02",
       "items": [
