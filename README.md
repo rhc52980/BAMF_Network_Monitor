@@ -280,6 +280,12 @@ what the evidence suggests and names the evidence, so you can judge it.
   `libpcap` on Linux — without it BAMF falls back to a sweep
 - A network interface on each subnet you want to watch
 
+## Credits
+
+The Halloween theme's headings are set in [Creepster](https://fonts.google.com/specimen/Creepster)
+by Font Diner, used unmodified under the
+[SIL Open Font License 1.1](https://openfontlicense.org).
+
 ## Licence
 
 MIT — see [LICENSE](LICENSE).
