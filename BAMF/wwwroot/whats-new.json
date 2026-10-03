@@ -2,6 +2,16 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.1.0",
+      "date": "2026-10-02",
+      "items": [
+        "A new Network services card on the Activity tab lists what BAMF has seen providing a service on your network: your public address, each network's gateway, DHCP and DNS servers, UPnP and mDNS, and which devices offer what (web pages, SSH, file sharing, printing, AirPlay and more). It replaces Network watch, with the same Trust and Forget buttons.",
+        "Your public address is learned from the speed test and the daily GreyNoise check, with where it came from and what it was before it changed. Nothing new is sent to learn it.",
+        "Under it, BAMF's own connections: what it reads from, sends to and calls out to, and whether each is working, like a router import, MQTT, backups or the speed test. What isn't set up is a line of links to its Settings.",
+        "The default port scan grows from 18 to 34 ports, adding camera streams, AirPlay, Home Assistant, databases and more. A device already listening on one of them isn't alerted about it the first time it's scanned for it."
+      ]
+    },
+    {
       "version": "2.0.0",
       "date": "2026-09-30",
       "items": [
