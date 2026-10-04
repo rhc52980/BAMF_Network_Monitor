@@ -1851,6 +1851,7 @@ scan, or delete a thing.
 | GET | `/api/connections` | BAMF's own connections: `{"items": [{id, group, name, state, detail, at, section}]}`, where `state` is `ok`, `warn`, `error`, `waiting` or `off`. Status only; no addresses or keys |
 | POST | `/api/externalip/lookup` | Finds the public address now, with one request to Cloudflare for a file of no bytes. Answers `{externalIp, changed}`, or 502 with `{error}` if Cloudflare can't be reached or doesn't say. Two calls within five seconds share one answer |
 | GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow", "externalIp"}` — `externalIp` is the home's public address, `{ip, source, at, since, previous, changedAt}` (`source` is `speedtest`, `greynoise` or `lookup`), or null until one of them has learned it; the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
+| GET | `/report/internet` | The internet report as one printable HTML page for sending to the provider. `?days=` 1 to 365 (default 30). See [Report for your provider](#report-for-your-provider) |
 | POST | `/api/settings/wanwatch` | Body `{"enabled": true}` — switch the internet watch on or off |
 | POST | `/api/settings/wantarget` | Body `{"target": "8.8.8.8"}` — which address it pings |
 | POST | `/api/settings/waninterval` | Body `{"seconds": 60}` — how often it pings, 20 to 3600 |
@@ -2869,6 +2870,17 @@ what makes pages and calls lag.
 The minute-by-minute readings are pruned with your history retention, but
 **each outage and slow spell is written down when it ends and kept**, so the
 history of what your connection has done doesn't disappear with them.
+
+### Report for your provider
+
+When the line is the problem, the **Report for my provider** link at the bottom of the Internet card
+(Activity tab) opens one printable page of the last 30 days: how many outages there were on the line
+and how long they lasted, the slow spells, the median and the range of the speed tests, and how it was
+measured. Outages where your router kept answering are the line's; the ones where it went quiet too are
+listed apart and not counted against the provider, so the page doesn't blame them for your power or your
+router. **Print or save as PDF** at the top turns it into a file to attach to a complaint, and the links
+beside it show the last 7 or 90 days instead. It only shows what BAMF kept: the outage log and speed tests
+run from when you switched them on. Times show in your browser's time zone.
 
 ### Speed test
 
