@@ -149,7 +149,8 @@ public partial class ScannerService
                 var format = ResolveFormat(d.Url, d.Format);
                 using var req = build(d.Url, format);
                 using var resp = await client.SendAsync(req, ct);
-                _log.LogInformation("Alert ({Kind}) to {Name} via {Format}: {Status}", kind, d.Name, format, (int)resp.StatusCode);
+                if (resp.IsSuccessStatusCode) _log.LogInformation("Alert ({Kind}) to {Name} via {Format}: {Status}", kind, d.Name, format, (int)resp.StatusCode);
+                else _log.LogWarning("An alert ({Kind}) wasn't taken by {Name}: it answered HTTP {Status}", kind, d.Name, (int)resp.StatusCode);
                 any |= resp.IsSuccessStatusCode;
                 if (!resp.IsSuccessStatusCode) _lastDeliveryError = $"{d.Name} answered HTTP {(int)resp.StatusCode}.";
             }

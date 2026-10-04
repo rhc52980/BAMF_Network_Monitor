@@ -1699,6 +1699,14 @@ setting is kept, never what it was set to, so a password, a token or a
 webhook URL never ends up in it. It ages out with the rest of the history
 (`Bamf:HistoryRetentionDays`).
 
+**What went wrong inside BAMF.** The **Problems** card on the Activity tab lists BAMF's own warnings and errors since it
+started: an alert a webhook refused ("wasn't taken by Discord: it answered HTTP 403"), a router that wouldn't take its password,
+another BAMF that stopped answering, a scan that failed. Before, these went only to a log file on the server, so "did my alert
+actually go out?" meant logging in there. A problem that repeats is one row with a count and when it began, newest first, and
+**Clear** empties the list. It is kept in memory, so it starts empty after a restart, and only BAMF's own code is listed,
+not the web server's. Any web address in a message is cut back to where it goes (`https://discord.com/…`), so a
+webhook's secret path never appears on screen. `GET /api/problems` and `POST /api/problems/clear` do the same from a script.
+
 **Reading.** `GET /api/hosts` is the full JSON picture - devices plus scan
 metadata (`version`, `buildDate`, `subnets`, `lastScan`, per-network scan
 modes). Each device carries an `id`, which is what the per-host routes take:
@@ -1866,6 +1874,8 @@ scan, or delete a thing.
 | GET | `/api/settings/heartbeat` | The heartbeat: `{"enabled", "minutes", "configured", "masked", "last": {"at", "ok", "error"}}`. `masked` is where the address goes, never the address |
 | POST | `/api/settings/heartbeat` | Body `{"enabled": true, "url": "https://hc-ping.com/…", "minutes": 5}` — `url` left out keeps the saved address, `""` clears it; 1 to 1440 minutes; switching on needs an address |
 | POST | `/api/heartbeat/test` | Visit the saved address once now: `{"ok", "error", "at"}` |
+| GET | `/api/problems` | BAMF's own warnings and errors since it started: `{"since", "rows": [{"source", "level", "message", "count", "first", "last"}]}`, newest first. Web addresses in the messages are cut back to where they go |
+| POST | `/api/problems/clear` | Empty that list |
 | GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow", "externalIp"}` — `externalIp` is the home's public address, `{ip, source, at, since, previous, changedAt}` (`source` is `speedtest`, `greynoise` or `lookup`), or null until one of them has learned it; the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
 | GET | `/report/internet` | The internet report as one printable HTML page for sending to the provider. `?days=` 1 to 365 (default 30). See [Report for your provider](#report-for-your-provider) |
 | POST | `/api/settings/wanwatch` | Body `{"enabled": true}` — switch the internet watch on or off |

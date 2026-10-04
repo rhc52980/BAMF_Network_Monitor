@@ -611,6 +611,7 @@ function render() {
     loadTraffic().then(t => { trafficCache = t; renderTrafficCards(); }).catch(() => {});
     fetch("/api/alerts").then(r => r.json()).then(a => { alertsCache = a; renderAlertsCard(); renderHygiene(); }).catch(() => {});
     loadSettingsLog();
+    loadProblems();
     loadUnusual();
     loadSecurity().then(() => { renderHygiene(); renderServices(); });
     loadGreyNoise().then(() => { renderHygiene(); renderServices(); });

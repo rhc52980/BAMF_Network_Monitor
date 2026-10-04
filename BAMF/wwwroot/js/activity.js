@@ -22,6 +22,34 @@ async function loadTraffic() {
 // The Activity tab's two cards: who's moving the most bytes, and the DHCP
 // and DNS servers in use with any alerts about them.
 // The Activity tab's log of settings changes.
+// ---- Problems: BAMF's own warnings and errors since it started ----
+let problemsCache = null;
+async function loadProblems() {
+  try { const r = await fetch("/api/problems"); if (r.ok) { problemsCache = await r.json(); renderProblems(); } } catch { /* keep the last */ }
+}
+// "ScannerService" -> "Scanner", "RemoteService" -> "Remote", "WanWatch" -> "Wan watch"
+function problemSource(name) {
+  return String(name).replace(/Service$/, "").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, c => c.toUpperCase()).replace(/ ([A-Z])/g, (m, c) => " " + c.toLowerCase());
+}
+function renderProblems() {
+  const d = problemsCache;
+  if (!d || !$("problemsBody")) return;
+  const rows = d.rows || [];
+  $("problemsSub").textContent = rows.length
+    ? `What went wrong inside BAMF since it started ${fmtAgo(d.since)}, newest first. A problem that repeats is one row with a count.`
+    : `Nothing has gone wrong inside BAMF since it started ${fmtAgo(d.since)}. A webhook that won't take an alert, a router that refuses a password and a scan that fails would show here.`;
+  $("problemsClear").hidden = !rows.length || role === "viewer";
+  $("problemsBody").innerHTML = rows.slice(0, 25).map(r =>
+    `<div class="problem-row"><span class="wan-dot ${r.level === "error" ? "down" : "slow"}"></span><span class="problem-main">` +
+    `<span class="problem-msg">${esc(r.message)}</span>` +
+    `<span class="problem-sub">${esc(problemSource(r.source))} \u00b7 ${esc(fmtAgo(r.last))}${r.count > 1 ? ` \u00b7 ${r.count} times, since ${esc(fmtAgo(r.first))}` : ""}</span></span></div>`).join("") +
+    (rows.length > 25 ? `<div class="sub" style="margin-top:6px">And ${rows.length - 25} older.</div>` : "");
+}
+$("problemsClear").onclick = async () => {
+  try { await fetch("/api/problems/clear", { method: "POST" }); } catch { /* the next load says */ }
+  loadProblems();
+};
+
 async function loadSettingsLog() {
   try {
     const r = await fetch("/api/settings/log");
