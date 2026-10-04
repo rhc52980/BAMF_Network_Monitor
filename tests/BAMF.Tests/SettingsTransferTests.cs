@@ -24,10 +24,11 @@ public class SettingsTransferTests
         store.SetSetting("backupCopyTo", "D:\\secret");
         store.SetSetting("subnets", "192.168.2.0/24");
         store.SetSetting("gatewayMacs", "aa:bb");
+        store.SetSetting("subnetScanIntervalSeconds", "{\"192.168.77.0/24\": 600}");
         store.SetSetting("quietFrom", "23:00");
         store.SetSetting("remotes", JsonSerializer.Serialize(new List<RemoteService.Remote> { new("Cabin", "http://10.0.0.5:8840", "SECRETREMOTE") }));
         var text = store.ExportSettings("2.3.0").ToJsonString();
-        foreach (var secret in new[] { "SECRET", "192.168.2.0", "gatewayMacs", "D:" }) Assert.DoesNotContain(secret, text);
+        foreach (var secret in new[] { "SECRET", "192.168.2.0", "gatewayMacs", "D:", "192.168.77.0", "subnetScan" }) Assert.DoesNotContain(secret, text);
         var root = JsonNode.Parse(text)!;
         Assert.Equal("23:00", (string?)root["settings"]!["quietFrom"]);
         Assert.Equal("Cabin", (string?)root["remotes"]![0]!["name"]);
