@@ -16,10 +16,36 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // The upload key never goes in the repo. Put its details in keystore.properties
+    // beside this project's settings.gradle (it is git-ignored):
+    //   storeFile=/path/to/upload-keystore.jks
+    //   storePassword=...
+    //   keyAlias=...
+    //   keyPassword=...
+    // Without that file the release build is produced unsigned, which is how the
+    // CI-less builds here are checked; Play needs it signed.
+    def keystoreProps = new Properties()
+    def keystoreFile = rootProject.file('keystore.properties')
+    if (keystoreFile.exists()) keystoreFile.withInputStream { keystoreProps.load(it) }
+
+    signingConfigs {
+        release {
+            if (keystoreFile.exists()) {
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8: shrink, optimise and obfuscate the code, and drop unused resources.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (keystoreFile.exists()) signingConfig signingConfigs.release
         }
     }
 }

@@ -19,3 +19,9 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Readable crash reports: keep line numbers, hide the real file name. The
+# mapping.txt R8 writes (app/build/outputs/mapping/release) turns a trace back
+# into names; upload it to Play with each release.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile

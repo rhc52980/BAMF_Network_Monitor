@@ -73,4 +73,44 @@ name on that port and scan: it should report "No BAMF found".
 - **iPhone:** the first scan asks for Local Network permission; if that is refused,
   nothing is found and the address box is the way in. A `PrivacyInfo.xcprivacy` and
   store screenshots are still to do.
-- **Android release build:** R8 shrinking and a release signing key are still to do.
+- **Android release build:** R8 and resource shrinking are on (see below). The upload key is
+  not in the repo; see **Release build**.
+
+## Release build (Android)
+
+```sh
+cd mobile && npx cap sync android
+cd android && ./gradlew bundleRelease assembleRelease
+```
+
+| Output | Where |
+|---|---|
+| App bundle for Play | `app/build/outputs/bundle/release/app-release.aab` |
+| APK | `app/build/outputs/apk/release/app-release.apk` (`-unsigned` without a key) |
+| R8 mapping, to upload to Play with the bundle | `app/build/outputs/mapping/release/mapping.txt` |
+
+R8 shrinks and obfuscates the code and `shrinkResources` drops unused resources: the
+release APK is about 1 MB against 4 MB for debug. Capacitor's own keep rules cover its
+plugin lookup; `BamfDiscoveryPlugin` survives them (checked by running the minified build).
+Release builds keep line numbers, so a crash report can be decoded with `mapping.txt`.
+
+**Signing.** The upload key is never committed. Create `mobile/android/keystore.properties`
+(git-ignored, as are `*.jks` and `*.keystore`):
+
+```
+storeFile=/path/to/upload-keystore.jks
+storePassword=...
+keyAlias=...
+keyPassword=...
+```
+
+With it, `bundleRelease` and `assembleRelease` are signed; without it they are unsigned,
+which is what Play can't take and a phone won't install.
+
+**Checking a build without the real key:** align and sign a copy with the debug key
+(`zipalign -P 16 4`, then `apksigner sign --ks ~/.android/debug.keystore`), install it on an
+emulator, and run the flows above. Don't distribute that copy.
+
+**Checks done on the release build:** targets API 36, minSdk 24, not debuggable, no native
+libraries (so the 16 KB page-size rule has nothing to align) and `zipalign -c -P 16 4`
+passes. Cold start measured 0.2–0.3 s on a Pixel 8 emulator (`am start -W`).
