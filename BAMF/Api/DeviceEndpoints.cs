@@ -132,6 +132,8 @@ internal static class DeviceEndpoints
                 alertsConfigured = scanner.AnyDestination,
                 // Whether "Don't remind me" was pressed on the alerts-off banner.
                 alertsNudgeOff = store.GetSetting("alertsNudgeOff") == "true",
+                // Whether the list's Select mode (one change to several devices) is offered.
+                bulkEnabled = store.BulkEnabled,
                 newDays = NewDays(store),
                 // Masked, never the full URL: anyone who can load the dashboard could
                 // read it, and the token in a Discord webhook URL is the credential.
@@ -657,6 +659,21 @@ internal static class DeviceEndpoints
                 from = r.At,
                 to = i + 1 < rows.Count ? rows[i + 1].At : null,
             }));
+        });
+
+        // One change to several devices at once, from the list's Select mode.
+        app.MapPost("/api/hosts/bulk", (BulkRequest body, HostStore store) =>
+        {
+            if (!store.BulkEnabled) return Results.Conflict(new { error = "Selecting several devices is switched off in Settings." });
+            var (result, error) = store.Bulk(body.Ids, body.Action, body.Tag, body.Minutes);
+            return result is null ? Results.BadRequest(new { error }) : Results.Json(new { done = result.Done, missing = result.Missing, failed = result.Failed });
+        });
+
+        // Whether Select mode is offered at all.
+        app.MapPost("/api/settings/bulk", (ActiveArpRequest body, HostStore store) =>
+        {
+            store.SetSetting("bulkSelect", body.Enabled ? "true" : "false");
+            return Results.Json(new { enabled = store.BulkEnabled });
         });
 
         app.MapPost("/api/hosts/{id:long}/known", (long id, KnownRequest body, HostStore store) =>

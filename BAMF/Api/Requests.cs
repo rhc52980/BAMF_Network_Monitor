@@ -30,6 +30,7 @@ record SwitchPortsRequest(List<PortEntry>? Ports, List<PortLabel>? Labels);
 record WebhookRequest(string? Url, string? Format);
 record IgnoreRequest(bool Ignored);
 record SnoozeRequest(int Minutes);
+record BulkRequest(List<long>? Ids, string? Action, string? Tag, int? Minutes);
 record WatchRequest(bool Watched);
 record SignInRequest(string? Password);
 record NetworksRequest(string[]? Networks);

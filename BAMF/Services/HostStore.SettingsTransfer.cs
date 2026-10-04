@@ -16,7 +16,7 @@ public partial class HostStore
     /// <summary>The settings that are the same kind of thing at any site.</summary>
     public static readonly string[] TransferKeys =
     {
-        "activeArpScan", "arpWatch", "autoIgnoreRandomizedMacs", "backupHour", "backupKeep", "backupNightly", "certWatch", "greynoise",
+        "activeArpScan", "arpWatch", "autoIgnoreRandomizedMacs", "backupHour", "backupKeep", "backupNightly", "bulkSelect", "certWatch", "greynoise",
         "historyRetentionDays", "holidaySpirit", "ipv6Watch", "latencyProbe", "mdnsListen", "newDays", "nightFrom", "nightMode", "nightTheme",
         "nightTo", "offlineAfterMissedScans", "pingConcurrency", "portWatch", "quietDigest", "quietFrom", "quietTo", "reportDay", "reportHour",
         "reportSchedule", "scanIntervalSeconds", "speedTest", "trafficMonitor", "unusualWatch", "updateCheck",

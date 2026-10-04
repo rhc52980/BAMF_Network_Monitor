@@ -1016,6 +1016,7 @@ document.addEventListener("keydown", e => {
   if (!$("tagsModal").hidden) { closeTagsDialog(); return; }
   if (!$("cardsModal").hidden) { closeCardsDialog(); return; }
   if (!$("gwModal").hidden) { closeGatewayDialog(); return; }
+  if (!$("bulkModal").hidden) { closeBulkModal(); return; }
   if (!$("snoozeModal").hidden) { closeSnoozeDialog(); return; }
   if (!$("snmpModal").hidden) { closeSnmpDialog(); return; }
   if (!$("kindModal").hidden) { closeKindDialog(); return; }
