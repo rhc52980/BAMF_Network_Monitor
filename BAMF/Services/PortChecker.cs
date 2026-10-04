@@ -32,7 +32,31 @@ public static class PortChecker
         new(32400,"Plex"),
         new(1883, "MQTT"),
         new(5000, "UPnP/Web"),
+        // Added later, so a home's cameras, speakers, automation and databases show up too.
+        new(554,   "RTSP"),
+        new(7000,  "AirPlay"),
+        new(8009,  "Google Cast"),
+        new(1400,  "Sonos"),
+        new(8123,  "Home Assistant"),
+        new(1880,  "Node-RED"),
+        new(8096,  "Jellyfin"),
+        new(8200,  "DLNA"),
+        new(2049,  "NFS"),
+        new(3306,  "MySQL"),
+        new(5432,  "PostgreSQL"),
+        new(6379,  "Redis"),
+        new(27017, "MongoDB"),
+        new(8883,  "MQTT-TLS"),
+        new(1194,  "OpenVPN"),
+        new(8291,  "Winbox"),
     };
+
+    /// <summary>
+    /// The ports added to the default set after the first 18. A device scanned for them for the first time
+    /// finding some open isn't news, so RuleService records them without an alert (see BaselineAdded).
+    /// </summary>
+    public static readonly IReadOnlySet<int> AddedPorts = new HashSet<int>
+        { 554, 7000, 8009, 1400, 8123, 1880, 8096, 8200, 2049, 3306, 5432, 6379, 27017, 8883, 1194, 8291 };
 
     private static readonly Dictionary<int, string> ServiceNames =
         Common.ToDictionary(p => p.Port, p => p.Service);
@@ -48,7 +72,7 @@ public static class PortChecker
     /// interface is one small embedded CPU, not a server, and hitting it with a
     /// wide burst of half-open connections is a reliable way to knock consumer
     /// gateway hardware offline. Only gateways pay this: every other host keeps
-    /// the full budget. A default 18-port scan of a gateway takes three rounds
+    /// the full budget. A default scan of a gateway takes several rounds
     /// instead of one; a wide range is where it really slows down, which is
     /// exactly the case worth slowing down.
     /// </summary>

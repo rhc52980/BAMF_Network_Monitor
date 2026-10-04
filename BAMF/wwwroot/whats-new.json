@@ -2,6 +2,35 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.3.0",
+      "date": "2026-10-03",
+      "items": [
+        "Devices have 26 more types, each with its own Map icon: streamer, soundbar, thermostat, doorbell, smart lock, robot vacuum, fridge, 3D printer, modem, mesh node, Raspberry Pi and more. BAMF now reads a device's name and vendor to pick them, so a Roku shows as a streamer rather than a TV.",
+        "The Network services card has a Look it up button: it asks Cloudflare which public address your home shows to the internet and records it, with no speed test needed.",
+        "The Christmas theme is rebuilt as a winter night: northern lights, a moon, mountains, pines, falling snow and a house whose chimney smokes and sometimes has Santa in it. The page gets a candy-cane header, icicles, snow on the cards and a candy-cane scrollbar."
+      ]
+    },
+    {
+      "version": "2.2.0",
+      "date": "2026-10-02",
+      "items": [
+        "The Halloween theme is rebuilt as a haunted night: a big moon with clouds crossing it, a haunted house on a hill with flickering windows, a graveyard and dead trees, lanterns that light the corners, and lightning now and then.",
+        "Crows fly over, a witch crosses the moon, ghosts drift up and a skeleton hand rises from the ground. The headings drip in a spooky font, and slime drips from the header.",
+        "A new device you haven't marked known is still a werewolf at the graveyard gate, now under a blood moon that reddens the whole sky.",
+        "Holiday Spirit switches it on for October. With reduced motion the scene holds still."
+      ]
+    },
+    {
+      "version": "2.1.0",
+      "date": "2026-10-02",
+      "items": [
+        "A new Network services card on the Activity tab lists what BAMF has seen providing a service on your network: your public address, each network's gateway, DHCP and DNS servers, UPnP and mDNS, and which devices offer what (web pages, SSH, file sharing, printing, AirPlay and more). It replaces Network watch, with the same Trust and Forget buttons.",
+        "Your public address is learned from the speed test and the daily GreyNoise check, with where it came from and what it was before it changed. Nothing new is sent to learn it.",
+        "Under it, BAMF's own connections: what it reads from, sends to and calls out to, and whether each is working, like a router import, MQTT, backups or the speed test. What isn't set up is a line of links to its Settings.",
+        "The default port scan grows from 18 to 34 ports, adding camera streams, AirPlay, Home Assistant, databases and more. A device already listening on one of them isn't alerted about it the first time it's scanned for it."
+      ]
+    },
+    {
       "version": "2.0.0",
       "date": "2026-09-30",
       "items": [

@@ -161,7 +161,11 @@ function loadSecurity() {
 const HY_ORDER = { high: 0, medium: 1, low: 2 };
 let hygieneAll = false;
 const HY_NOUN = { router: "a router", switch: "a switch", ap: "an access point", camera: "a camera", printer: "a printer", tv: "a TV",
-  speaker: "a speaker", phone: "a phone", tablet: "a tablet", game: "a game console", iot: "a smart home device", light: "a light", plug: "a smart plug" };
+  speaker: "a speaker", phone: "a phone", tablet: "a tablet", game: "a game console", iot: "a smart home device", light: "a light", plug: "a smart plug",
+  streamer: "a streaming box", soundbar: "a soundbar", display: "a smart display", projector: "a projector", doorbell: "a doorbell", dome: "a camera",
+  thermostat: "a thermostat", lock: "a smart lock", garage: "a garage door opener", sprinkler: "a sprinkler controller", vacuum: "a robot vacuum",
+  fridge: "a fridge", washer: "an appliance", purifier: "an air purifier", ac: "an air conditioner", charger: "an EV charger", car: "a car",
+  vr: "a VR headset", watch: "a watch", handheld: "a handheld console", ereader: "an e-reader", printer3d: "a 3D printer", modem: "a modem", mesh: "a mesh node" };
 function hygieneFindings() {
   const out = [];
   const add = (sev, h, title, fix) => out.push({ sev, h, title, fix });
@@ -176,14 +180,14 @@ function hygieneFindings() {
       "FTP sends its password in plain text. Use SFTP or file sharing instead, or turn it off if nothing uses it.");
     if (p.has(5900)) add("medium", h, "VNC is open (port 5900)",
       "VNC is often unencrypted and weakly protected. Give it a strong password, or reach it over SSH or a VPN.");
-    if (p.has(3389)) add(["desktop", "laptop", "server", "vm"].includes(kind) ? "low" : "medium", h, "Remote Desktop is open (port 3389)",
+    if (p.has(3389)) add(["desktop", "laptop", "server", "vm", "minipc", "pi"].includes(kind) ? "low" : "medium", h, "Remote Desktop is open (port 3389)",
       "Fine if you use it. If not, turn it off; if you do, keep Network Level Authentication on.");
-    if ((p.has(445) || p.has(139)) && !["nas", "server", "desktop", "laptop", "vm"].includes(kind))
+    if ((p.has(445) || p.has(139)) && !["nas", "server", "desktop", "laptop", "vm", "minipc", "pi"].includes(kind))
       add("medium", h, `File sharing (SMB) is open on ${HY_NOUN[kind] || "a device that isn't a computer"}`,
         "Usually only computers and file servers share files. Check what this one shares, and turn it off if nothing needs it.");
     const web = p.has(80) || p.has(8080), tls = p.has(443) || p.has(8443) || p.has(5001);
     if (web && !tls) {
-      const admin = ["router", "switch", "ap", "camera", "printer", "nas"].includes(kind);
+      const admin = ["router", "switch", "ap", "camera", "printer", "nas", "modem", "mesh", "doorbell", "dome", "printer3d"].includes(kind);
       add(admin ? "medium" : "low", h, admin ? "Settings page over plain HTTP only" : "Web page over plain HTTP only",
         admin ? "Its settings page has no HTTPS, so the password you log in with crosses the network readable. Turn on HTTPS if it has it."
               : "Anything typed into it crosses the network readable. Fine for a status page; not for a login.");
@@ -321,23 +325,7 @@ function renderTrafficCards() {
     : st.running
     ? "What this machine can see. On a switched network: its own traffic, plus broadcast and multicast, so the DHCP and DNS watch covers this machine and broadcast offers. On a mirrored (SPAN) switch port: everything, every device included. A managed switch's Counters (Settings → Your network) count every device without one."
     : "";
-  const body = $("watchBody");
-  const trust = (kind, ip, trusted) => `<button type="button" class="toggle" data-kind="${kind}" data-ip="${esc(ip)}" data-trusted="${trusted ? 0 : 1}" title="${trusted ? "Forget this server, so it alerts if seen again" : "Trust this server, so it never alerts"}">${trusted ? "Forget" : "Trust"}</button>`;
-  let html = "";
-  html += `<div class="sub" style="margin-top:8px">DHCP servers</div><div class="watch-list">` +
-    ((t.dhcp || []).map(d => `<div class="watch-row"><span class="mono">${esc(d.ip)}</span><span class="meta">${esc(d.name && d.name !== d.mac ? d.name + " · " : "")}${esc(d.mac)} · ${d.offers} offer${d.offers === 1 ? "" : "s"} · last ${esc(fmtAgo(d.lastSeen))}</span>${trust("dhcp", d.ip, d.trusted)}</div>`).join("")
-      || `<div class="watch-note">${st.running ? "No DHCP offer seen yet. One shows up the next time a device asks for an address." : "Not watching."}</div>`) + `</div>`;
-  html += `<div class="sub" style="margin-top:10px">DNS servers</div><div class="watch-list">` +
-    ((t.dns || []).map(d => `<div class="watch-row"><span class="mono">${esc(d.ip)}</span><span class="meta">${esc(d.name ? d.name + " · " : "")}${d.clients} device${d.clients === 1 ? "" : "s"} · ${Number(d.queries).toLocaleString()} queries · last ${esc(fmtAgo(d.lastSeen))}</span>${trust("dns", d.ip, d.trusted)}</div>`).join("")
-      || `<div class="watch-note">${st.running ? "No DNS query seen yet." : "Not watching."}</div>`) + `</div>`;
-  body.innerHTML = html;
-  body.querySelectorAll("button[data-kind]").forEach(b => b.onclick = async () => {
-    await fetch("/api/traffic/trust", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: b.dataset.kind, ip: b.dataset.ip, trusted: b.dataset.trusted === "1" }) });
-    toast(b.dataset.trusted === "1" ? `${esc(b.dataset.ip)} is trusted: it won't alert` : `${esc(b.dataset.ip)} forgotten: it alerts if seen again`);
-    try { trafficCache = await loadTraffic(); } catch { }
-    renderTrafficCards();
-  });
+  renderServices();
 }
 
 function renderFeed() {

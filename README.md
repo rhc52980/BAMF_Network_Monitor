@@ -170,7 +170,7 @@ rather than your Wi-Fi. Press **Run now**, or have it test every morning or
 every six hours and chart the last month; a test well under your usual is an
 alert. Each test is capped at about 125 MB, and it's off until you ask for it.
 
-![Two cards from the Activity tab. Unusual: watching 18 devices for what isn't normal for them, one still learning, and workshop-pi has been off for 9 hours 19 minutes; it's almost always on, and in the last 28 days it was never off for more than 4 minutes, with a That's normal button beside it. Beside it, What changed, for this week: one device arrived, sonos-kitchen, two days ago, and three left nine hours ago, an unnamed device, garage-cam and workshop-pi](docs/activity.png)
+![Two cards from the Activity tab. Unusual: watching 18 devices for what isn't normal for them, one still learning, and workshop-pi has been off for 9 hours 14 minutes; it's almost always on, and in the last 28 days it was never off for more than 4 minutes, with a That's normal button beside it. Beside it, What changed, for this week: one device arrived, sonos-kitchen, two days ago, and three left nine hours ago, an unnamed device, garage-cam and workshop-pi](docs/activity.png)
 
 The rest of **Activity** keeps count. **Unusual** says when a device does
 something that isn't normal for it, learned from its own history: off far
@@ -179,8 +179,21 @@ longer than it ever is, on at an hour it never is, or much slower than usual.
 this week or this month. **Settings changes** lists every change made in
 Settings, with which password and from where; only the name of each setting is
 kept, never what it was set to. Beside them are the alerts BAMF raised, the
-busiest devices (with the traffic monitor on), network hygiene (open ports,
-UPnP, certificates about to run out) and the DHCP and DNS servers in use.
+busiest devices (with the traffic monitor on) and network hygiene (open ports,
+UPnP, certificates about to run out).
+
+![The Network services card from the Activity tab. Internet address: 203.0.113.42, learned from the speed test three hours ago, the same for 12 days, with a Copy button. Gateway: each network's gateway and how fast it answers. DHCP: the gateway, with 214 offers, and DNS: the Pi-hole with 14 devices and 48,213 queries and the gateway, each with a Forget button. UPnP: the gateway answers it. mDNS: seven devices announce themselves. On your devices: each service found and the devices that offer it, such as web pages, SSH, AirPlay, file sharing and HomeKit. Below, a line and BAMF's own connections in three groups, each with a green dot: the traffic monitor, mDNS listener and IPv6 watch it reads from; the scheduled report and nightly backup it sends; and the internet watch, speed test and GreyNoise check it calls out to. What isn't set up is a line of links under each group.](docs/services.png)
+
+**Network services** is where to look for what is providing a service on your
+network. It shows your public address (learned from the speed test or the daily
+GreyNoise check, with where it came from and when it last changed), each
+network's gateway, the DHCP and DNS servers the traffic monitor has heard, a
+router that answers UPnP, how many devices announce themselves over mDNS, and
+which devices offer which service, found from open ports and mDNS: web pages,
+SSH, file sharing, printing, AirPlay and more. Under that, **BAMF's own
+connections** says what BAMF reads from, sends to and calls out to, and whether
+each is working: a router import, MQTT, the nightly backup, the speed test and
+the rest. Anything not set up is a line of links to its Settings.
 
 
 ### Tune it without touching the server
@@ -282,6 +295,12 @@ what the evidence suggests and names the evidence, so you can judge it.
 - **Linux** also needs the ICU library (`libicuNN`); a minimal Debian or Ubuntu
   install may lack it, and the installer adds it
 - A network interface on each subnet you want to watch
+
+## Credits
+
+The Halloween theme's headings are set in [Creepster](https://fonts.google.com/specimen/Creepster)
+by Font Diner, used unmodified under the
+[SIL Open Font License 1.1](https://openfontlicense.org).
 
 ## Licence
 

@@ -529,7 +529,7 @@
         </label>
         <label class="set-row">
           <span class="set-label">Check your public address with GreyNoise
-            <span class="set-hint">Off by default. Once a day, BAMF asks api.ipify.org for this network's public address, then asks GreyNoise's free lookup (api.greynoise.io) whether that address has been seen scanning the internet. If it has, that's a security alert: something behind it may be infected. These are the only calls BAMF makes to the internet besides the optional update check, internet watch and speed test, and what they send is your public address. The link checks whatever network this browser is on, so it's only right from home, not from work or over a VPN. If your internet provider shares one address between many homes (carrier-grade NAT), a neighbour's device can flag you. And clean isn't proof: GreyNoise only knows about scanning, not a device quietly sending your data elsewhere.</span>
+            <span class="set-hint">Off by default. Once a day, BAMF asks api.ipify.org for this network's public address, then asks GreyNoise's free lookup (api.greynoise.io) whether that address has been seen scanning the internet. If it has, that's a security alert: something behind it may be infected. These are the only calls BAMF makes to the internet besides the optional update check, internet watch, speed test and the Look it up button on the Network services card, and what they send is your public address. The link checks whatever network this browser is on, so it's only right from home, not from work or over a VPN. If your internet provider shares one address between many homes (carrier-grade NAT), a neighbour's device can flag you. And clean isn't proof: GreyNoise only knows about scanning, not a device quietly sending your data elsewhere.</span>
             <span class="set-hint" id="setGreyNoiseStatus"></span>
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="setGreyNoise" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
@@ -1018,6 +1018,11 @@
       <div id="wanBody"></div>
       <div class="spd" id="spdBody"></div>
     </div>
+    <div class="act-card" id="servicesCard">
+      <h3>Network services</h3>
+      <div class="sub" id="servicesSub"></div>
+      <div id="servicesBody"></div>
+    </div>
     <div class="act-card">
       <h3>Network hygiene</h3>
       <div class="sub" id="hygieneSub"></div>
@@ -1036,11 +1041,6 @@
       <h3>Only on IPv6</h3>
       <div class="sub">Devices seen over IPv6 this week that never answered BAMF's IPv4 scan: often a sleeping speaker or a phone with a private address.</div>
       <div id="v6Body"></div>
-    </div>
-    <div class="act-card">
-      <h3>Network watch</h3>
-      <div class="sub">DHCP and DNS servers in use. A new one is an alert.</div>
-      <div id="watchBody"></div>
     </div>
   </div>
   <div class="feed" id="feed"></div>
@@ -1515,6 +1515,7 @@
 <script src="js/themes.js"></script>
 <script src="js/screensaver.js"></script>
 <script src="js/internet.js"></script>
+<script src="js/services.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/main.js"></script>
 <script>

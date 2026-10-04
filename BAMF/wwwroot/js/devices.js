@@ -286,7 +286,12 @@ const TYPE_DEFS = [
   ["router", "Router"], ["switch", "Switch"], ["ap", "Access point"], ["camera", "Camera"], ["printer", "Printer"],
   ["tv", "TV / media"], ["speaker", "Speaker"], ["phone", "Phone"], ["tablet", "Tablet"], ["laptop", "Laptop"],
   ["desktop", "Desktop"], ["server", "Server"], ["nas", "NAS"], ["vm", "Virtual machine"], ["game", "Game console"],
-  ["iot", "Smart home"], ["light", "Light"], ["plug", "Smart plug"], ["device", "Other"],
+  ["iot", "Smart home"], ["light", "Light"], ["plug", "Smart plug"],
+  ["streamer", "Streamer"], ["soundbar", "Soundbar"], ["display", "Smart display"], ["projector", "Projector"], ["doorbell", "Doorbell"],
+  ["dome", "Dome camera"], ["thermostat", "Thermostat"], ["lock", "Smart lock"], ["garage", "Garage door"], ["sprinkler", "Sprinkler"],
+  ["vacuum", "Robot vacuum"], ["fridge", "Fridge"], ["washer", "Washer / appliance"], ["purifier", "Air purifier"], ["ac", "Air conditioner"],
+  ["charger", "EV charger"], ["car", "Car"], ["vr", "VR headset"], ["watch", "Watch"], ["handheld", "Handheld"], ["ereader", "E-reader"],
+  ["printer3d", "3D printer"], ["modem", "Modem"], ["mesh", "Mesh node"], ["minipc", "Mini PC"], ["pi", "Raspberry Pi"], ["device", "Other"],
 ];
 function typeLabel(key) { const d = TYPE_DEFS.find(([k]) => k === key); return d ? d[1] : key; }
 // A device's type family for the type chips: the device type the user wrote, or the guess.
@@ -606,9 +611,10 @@ function render() {
     fetch("/api/alerts").then(r => r.json()).then(a => { alertsCache = a; renderAlertsCard(); renderHygiene(); }).catch(() => {});
     loadSettingsLog();
     loadUnusual();
-    loadSecurity().then(renderHygiene);
-    loadGreyNoise().then(renderHygiene);
-    loadWan(true).then(renderWanCard);
+    loadSecurity().then(() => { renderHygiene(); renderServices(); });
+    loadGreyNoise().then(() => { renderHygiene(); renderServices(); });
+    loadWan(true).then(() => { renderWanCard(); renderServices(); });
+    loadConnections().then(renderServices);
     loadSpeed().then(renderSpeed);
     loadChanges();
     loadIpv6();

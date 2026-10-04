@@ -106,7 +106,7 @@ the bodies they take in `Requests.cs`. The work itself is in `Services/`.
 ### Tests
 
 From the repo root, the C# tests and the dashboard's (which devices count as
-intruders). The C# ones test BAMF's parts (themes, reports, passwords, the
+intruders, and which offer which service). The C# ones test BAMF's parts (themes, reports, passwords, the
 network rules, certificates) and, in `EndpointTests`, BAMF itself: each starts
 it in memory on a database of its own, with nothing scanned or sent, and
 calls its API as a browser, a script or another BAMF would, from signing in
@@ -137,6 +137,7 @@ step:
 | `js/themes.js` | Themes, Holiday Spirit, Night mode, compact rows and the intruders |
 | `js/screensaver.js` | The screen saver and the watchtower |
 | `js/internet.js` | The internet watch, the speed test, the Scan menu and free addresses |
+| `js/services.js` | The Network services card: the public address, gateways, DHCP, DNS, UPnP, mDNS and what devices offer |
 | `js/settings.js` | What's new, where alerts go, and Settings |
 | `js/main.js` | Switching views, and starting the page |
 
@@ -294,7 +295,8 @@ Everything BAMF initiates on its own, and how it's protected:
 | GitHub update check (`api.github.com`) | **HTTPS** | Daily, only if you enable the update check |
 | Your public address (`api.ipify.org`, or `checkip.amazonaws.com`) and GreyNoise (`api.greynoise.io`) | **HTTPS** | Daily, only if you switch on the GreyNoise check. What they learn is your public address |
 | One address on the internet (`8.8.8.8` by default) | **an echo request, nothing else** | A ping a minute, only if you switch on the internet watch. Nothing about your network goes with it |
-| Cloudflare's speed test (`speed.cloudflare.com`) | **HTTPS** | Only when you press Run now, or on the schedule you choose: daily or every six hours. About 125 MB of test data each time. Cloudflare sees your public address, as any website does |
+| Cloudflare's speed test (`speed.cloudflare.com`) | **HTTPS** | Only when you press Run now, or on the schedule you choose: daily or every six hours. About 125 MB of test data each time. Cloudflare sees your public address, as any website does, and says it back in its answer, which BAMF shows as your public address |
+| Cloudflare, for your public address (`speed.cloudflare.com`) | **HTTPS** | Only when you press **Look it up** (or **Check now**) on the Network services card. One request for a file of no bytes. Cloudflare sees your public address, as any website does, and says it back |
 | Your webhook | **whatever scheme your URL uses** | When a new host appears, a watched host changes state, or an alert fires |
 
 **On your own network:**
@@ -1123,7 +1125,7 @@ name, address and maker, until you mark it known:
 | Hotdog Stand | a seagull | it swoops on the cart and takes a hot dog, the bells ring, and a Windows 3.1 box says so | perched on the cart's umbrella, the hot dog in its beak |
 | Halloween | a werewolf | the moon turns blood red, it howls, bats burst across the sky, the lanterns flare red | crouched by the graveyard gate, eyes burning |
 | Thanksgiving | a raccoon | the page's edges glow red, the leaves whip up, and it's GOBBLE GOBBLE GOBBLE | sitting by the pie, a slice in its paws |
-| Christmas | a burglar with a sack | every bulb turns red and flashes, and the naughty list unrolls | standing in the snow, swag over its shoulder |
+| Christmas | a burglar with a sack | every bulb turns red and flashes, the whole night glows red, and the naughty list unrolls | standing in the snow, swag over its shoulder |
 | New Year | a gatecrasher | the fireworks stop, the sky bursts red, NOT ON THE LIST | behind the velvet rope |
 
 Mark the device known, anywhere, and the scene stands down: the tag turns
@@ -1157,12 +1159,26 @@ Pick another theme from the menu during a season and that browser keeps it
 until the next season. Switching Holiday Spirit off puts every dashboard back
 on its own theme. A season whose theme isn't installed is skipped.
 
-The **Christmas** theme puts a house behind the dashboard, done up by someone
-who doesn't know when to stop: lights along every eave, gable, window and
-garage door, icicles hanging off the guttering, a wreath on the door, lit
-windows and a couple of trees in the snow. The bulbs twinkle on their own
-clocks, and the whole place blazes for a second when a scan finishes. With
-reduced motion it all holds still, lit.
+The **Christmas** theme sets a winter night behind the dashboard: stars, a
+moon with clouds crossing it, northern lights, mountains and pines, and snow
+falling in three depths on a wind that comes and goes. In front of it stands a
+house done up by someone who doesn't know when to stop: lights along every
+eave, gable, window and garage door, icicles on the guttering, a wreath on the
+door, lit windows, smoke from the chimney and a couple of trees in the snow.
+Now and then Santa looks out of the chimney and waves. The bulbs twinkle on
+their own clocks, and the whole place blazes for a second when a scan finishes.
+The page wears it too: a candy-cane stripe and icicles on the header, snow along
+the cards with holly in their corners, a candy-cane scrollbar, and a title that
+shifts between the colours of the lights. Santa's sleigh, a gingerbread man and
+shooting stars cross now and then. With reduced motion it all holds still, lit.
+
+The **Halloween** theme sets a haunted night behind the page: a big moon with
+clouds crossing it, a haunted house on a hill with flickering windows, a
+graveyard and dead trees. Lanterns light the corners and throw embers, slime
+drips from the header and the headings are set in Creepster. Now and then a
+bolt of lightning lights up the whole scene, a witch crosses the moon, a flock
+of crows goes over, a ghost drifts up and a skeleton hand comes out of the
+ground and waves. With reduced motion it all holds still, lit.
 
 Each holiday theme has its own intruder (see [Intruders](#intruders)): a
 werewolf at the graveyard gate for Halloween, a raccoon at the pie for
@@ -1834,7 +1850,7 @@ scan, or delete a thing.
 | POST | `/api/hosts/{id}/link` | Body `{"link": "8006"}` — per-host link override: bare port, `:port/path`, or a full URL with an optional `{ip}`. Empty clears it. Returns the resolved `linkUrl` |
 | POST | `/api/hosts/{id}/name` | Body `{"name": "Kevin's PC"}` — set a friendly name (empty string clears it). In the UI, click a host's name to edit it. |
 | POST | `/api/hosts/{id}/wake` | Send a Wake-on-LAN magic packet to the host (button appears on offline hosts) |
-| GET | `/api/hosts/{id}/portscan` | On-demand port check for one host. Optional `?ports=22,80,8000-8100` for a custom set (default: ~18 common ports) |
+| GET | `/api/hosts/{id}/portscan` | On-demand port check for one host. Optional `?ports=22,80,8000-8100` for a custom set (default: 34 common ports) |
 | GET | `/api/portscan` | On-demand port scan across online hosts. Optional `?ports=...` and `?subnet=...` |
 | GET | `/api/portscan/ip` | On-demand port check for any IP: `?ip=192.168.1.50`, optional `?ports=...`. The address need not be a known host; private ranges only (400 otherwise) |
 | GET | `/api/portscan/pattern` | Wildcard scan: `?ip=*.245`, optional `?ports=...`. Expands only across configured subnets, capped at 256 addresses |
@@ -1904,7 +1920,9 @@ scan, or delete a thing.
 | POST | `/api/hosts/{id}/blink` | Body `{"seconds": 30}` (optional, 5–60) — "Find port": send the device bursts of UDP traffic, one second on and one second off, so its switch-port light pulses. Private addresses only; replaces any blink already running. Returns `until` |
 | POST | `/api/map/positions` | Body `{"subnet": "192.168.1.0/24", "positions": {"s:1": [120, 140], "h:7": null}}` — save where nodes sit on the topology Map for one network. Keys are `h:<host id>`, `s:<switch id>`, `gw`, `self`, `net` and `box`. A null position forgets that node, so it goes back to the automatic layout. `GET /api/hosts` returns them all as `mapPositions` |
 | DELETE | `/api/map/positions?subnet=…` | "Auto-arrange": forget every saved position on one network |
-| GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow"}` — the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
+| GET | `/api/connections` | BAMF's own connections: `{"items": [{id, group, name, state, detail, at, section}]}`, where `state` is `ok`, `warn`, `error`, `waiting` or `off`. Status only; no addresses or keys |
+| POST | `/api/externalip/lookup` | Finds the public address now, with one request to Cloudflare for a file of no bytes. Answers `{externalIp, changed}`, or 502 with `{error}` if Cloudflare can't be reached or doesn't say. Two calls within five seconds share one answer |
+| GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow", "externalIp"}` — `externalIp` is the home's public address, `{ip, source, at, since, previous, changedAt}` (`source` is `speedtest`, `greynoise` or `lookup`), or null until one of them has learned it; the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
 | POST | `/api/settings/wanwatch` | Body `{"enabled": true}` — switch the internet watch on or off |
 | POST | `/api/settings/wantarget` | Body `{"target": "8.8.8.8"}` — which address it pings |
 | POST | `/api/settings/waninterval` | Body `{"seconds": 60}` — how often it pings, 20 to 3600 |
@@ -1924,7 +1942,7 @@ scan, or delete a thing.
 | DELETE | `/api/floors/places/{hostId}` | Takes a device off its floor |
 | DELETE | `/api/blink` | Stop a running Find port blink. While one runs, `GET /api/hosts` reports it as `blink` (`hostId`, `started`, `until`) with the server's `serverTime`; bursts are on for [2k, 2k+1) seconds after `started` |
 | POST | `/api/hosts/{id}/typename` | Body `{"type": "Kids' tablet"}` — set the device type in your own words, up to 40 characters; empty goes back to BAMF's guess. It's what the list shows and the type chips group by. `GET /api/hosts` returns it as `typeName` |
-| POST | `/api/hosts/{id}/type` | Body `{"type": "nas"}` — set a device's Map icon, overriding the automatic one. Types: `router`, `switch`, `ap`, `camera`, `printer`, `tv`, `speaker`, `phone`, `tablet`, `laptop`, `desktop`, `server`, `nas`, `vm`, `game`, `iot`, `light`, `plug`, `device`. Empty goes back to the automatic icon. `GET /api/hosts` returns it as `deviceType` |
+| POST | `/api/hosts/{id}/type` | Body `{"type": "nas"}` — set a device's Map icon, overriding the automatic one. Types: `router`, `switch`, `ap`, `camera`, `printer`, `tv`, `speaker`, `phone`, `tablet`, `laptop`, `desktop`, `server`, `nas`, `vm`, `game`, `iot`, `light`, `plug`, `streamer`, `soundbar`, `display`, `projector`, `doorbell`, `dome`, `thermostat`, `lock`, `garage`, `sprinkler`, `vacuum`, `fridge`, `washer`, `purifier`, `ac`, `charger`, `car`, `vr`, `watch`, `handheld`, `ereader`, `printer3d`, `modem`, `mesh`, `minipc`, `pi`, `device`. Empty goes back to the automatic icon. `GET /api/hosts` returns it as `deviceType` |
 | POST | `/api/settings/type-icons` | Body `{"icons": {"Linux": "server"}}` — the icon for every device of a guessed type; an empty icon clears it. Returned in `GET /api/hosts` as `typeIcons` |
 | POST | `/api/hosts/{id}/combine` | Body `{"parentId": 12}` — combine the device into another as one of its network cards; `parentId` 0 separates it again. `GET /api/hosts` gives each host's `interfaceOf` (0 for a device of its own). Returns 400 with `{"error": "…"}` for a device combined with itself, or one that's a switch's own device |
 | POST | `/api/hosts/{id}/gateway` | Body `{"ip": "192.168.1.1", "enabled": true}` — declare the device the gateway of the network that address is on (one of its own addresses), or stop declaring it. One gateway per network. `GET /api/hosts` lists them as `gateways`: `[{"subnet", "hostId", "ip"}]`. Returns 400 with `{"error": "…"}` for an address the device doesn't have, or a VPN's device |
@@ -1949,8 +1967,9 @@ everything on port 80:
 
 Only `http` and `https` links are accepted; anything else falls back to
 `http://<ip>` rather than becoming a clickable link. The **Ports** button
-runs an on-demand check of ~18 common service ports (HTTP, HTTPS, SSH, SMB,
-RDP, print, Plex, etc.) for that one host and shows what's open; web ports
+runs an on-demand check of 34 common service ports (HTTP, HTTPS, SSH, SMB,
+RDP, print, Plex, camera streams, AirPlay, Home Assistant, databases and so on)
+for that one host and shows what's open; web ports
 become clickable links with the right scheme.
 
 Four ways to scan:
@@ -2474,8 +2493,14 @@ nothing in the device list. Click the device's **icon** on the topology Map for
 the same picker (clicking its name still opens Plugged into; with the device
 focused, **T** does the same). Pick from Router, Switch, Access point, Camera,
 Printer, TV / media, Speaker, Phone, Tablet, Laptop, Desktop, Server, NAS,
-Virtual machine, Game console, Smart home, Light, Smart plug or Other.
+Virtual machine, Game console, Smart home, Light, Smart plug, Streamer, Soundbar, Smart display, Projector,
+Doorbell, Dome camera, Thermostat, Smart lock, Garage door, Sprinkler, Robot vacuum, Fridge, Washer / appliance,
+Air purifier, Air conditioner, EV charger, Car, VR headset, Watch, Handheld, E-reader, 3D printer, Modem, Mesh node,
+Mini PC, Raspberry Pi or Other.
 **Automatic** uses the icon your device type names, else BAMF's guess.
+BAMF's guess reads a device's name and vendor as well as its type: a Roku is drawn as a streamer, not a TV; an
+Ecobee as a thermostat, a Roborock as a robot vacuum. A name only sharpens a plain guess (a TV, a speaker, a smart
+home device); it never turns a router into a thermostat.
 
 Before these were two options, the icon was the device type as well. On the
 first start of the version that split them, every icon you'd picked also
@@ -2965,6 +2990,57 @@ While a test runs the line is full on purpose, so the [internet
 watch](#internet-watch) sits that minute out rather than calling the line slow.
 Results are kept for a year.
 
+Cloudflare says in each answer which address the request came from, which is
+this home's public address. BAMF keeps it (see [Network
+services](#network-services)); nothing extra is sent to learn it.
+
+### Network services
+
+The **Network services** card on the Activity tab is the one place that lists
+what BAMF has seen providing a service on your network. It asks nothing new of
+the network: it draws together what BAMF already knows.
+
+- **Internet address**: your public address, with where it was learned (the
+  speed test, the daily GreyNoise check or the **Look it up** button, whichever
+  is newest), when it was last confirmed, how long it has been this address and,
+  if it changed, what it was. **Look it up** (**Check now** once there is an
+  address) asks Cloudflare once for a file of no bytes and reads which address
+  it came from, so it works without running a speed test. Nothing asks on a
+  timer. A Copy button puts the address on the clipboard. If this machine
+  reaches the internet over a VPN, it's the VPN's address that's shown.
+- **Gateway**: each network's gateway, with the device's name and how fast it
+  answers.
+- **DHCP** and **DNS**: the servers the traffic monitor has heard, with how many
+  offers or queries, and the **Trust** and **Forget** buttons that decide whether
+  a new one alerts. This is what the **Network watch** card used to show. Without
+  the traffic monitor on (it needs Npcap) the card says so.
+- **UPnP**: a router that answered the last health check's UPnP search, which
+  means any device can ask it to open ports to the internet.
+- **mDNS (Bonjour)**: how many devices announce a name or services this way.
+- **On your devices**: each service found, with the devices that offer it, from
+  the ports a scan found open (web, SSH, file sharing, printing, remote desktop,
+  MQTT, Plex and the other common ones) and what devices announce over mDNS
+  (AirPlay, Google Cast, HomeKit, Matter, Sonos and more). Click a device to jump
+  to it. The Network tabs above it narrow the card to one network.
+- **BAMF's own connections**, under a line of its own: what BAMF reads from
+  (a router import, SNMP switches, other BAMF servers, the traffic monitor, mDNS,
+  the IPv6 watch), sends to (alert webhooks, MQTT, the scheduled report, the
+  nightly backup) and calls out to (the internet watch, the speed test, the
+  GreyNoise check, the update check). Each is working (green), not working (red),
+  needs a look (amber), on with nothing back yet (grey) or off. A row says what it
+  last did and how long ago, and the name links to the Settings section that holds
+  it. What isn't set up is one quiet line with links, rather than a row each. For a
+  webhook BAMF doesn't keep whether the last alert arrived, so it says to use Test in
+  Settings. The list is `GET /api/connections`; it holds status only: no address, key,
+  password or webhook, so it's safe for the view-only password.
+
+The default port scan grew from 18 to 34 ports: camera streams (RTSP), AirPlay,
+Google Cast, Sonos, Home Assistant, Node-RED, Jellyfin, DLNA, NFS, MySQL,
+PostgreSQL, Redis, MongoDB, MQTT over TLS, OpenVPN and Winbox. BAMF alerts when a
+port newly opens, so a device that already had one of the added ports open would
+have looked like news the first time it was scanned for it. It's recorded
+quietly that once, per device, and alerts as normal after.
+
 ### Certificate watch
 
 On by default, under **Settings → Security**. Every morning at 4:30 BAMF
@@ -3346,7 +3422,7 @@ and nothing else, once a minute per switch you switch on. The community is kept
 in the database and never shown again, not even to the dashboard.
 
 **DHCP servers.** Every DHCP offer or acknowledgement names the server that
-sent it. The **Network watch** card on the Activity tab lists every DHCP
+sent it. The **Network services** card on the Activity tab lists every DHCP
 server seen, with its MAC, how many offers, and when. A second DHCP server
 appearing is the classic sign of a rogue router or a misconfigured box, so a
 server not seen before is an **alert**: in the card, in the log, and to your

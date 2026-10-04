@@ -23,7 +23,10 @@ public partial class HostStore
     public static readonly string[] DeviceTypeKeys =
     {
         "router", "switch", "ap", "camera", "printer", "tv", "speaker", "phone", "tablet", "laptop",
-        "desktop", "server", "nas", "vm", "game", "iot", "light", "plug", "device",
+        "desktop", "server", "nas", "vm", "game", "iot", "light", "plug",
+        "streamer", "soundbar", "display", "projector", "doorbell", "dome", "thermostat", "lock", "garage", "sprinkler",
+        "vacuum", "fridge", "washer", "purifier", "ac", "charger", "car", "vr", "watch", "handheld", "ereader",
+        "printer3d", "modem", "mesh", "minipc", "pi", "device",
     };
 
     private const string TypeIconsSetting = "typeIcons";
