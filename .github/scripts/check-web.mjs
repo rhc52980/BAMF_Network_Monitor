@@ -43,6 +43,42 @@ for (const page of readdirSync(web).filter(f => f.endsWith(".html"))) {
     all.push(js);
   }
   if (all.length > 1) syntax(`${page}'s scripts together`, all.join("\n;\n"));
+  // Every <div> closed, and every dialog sitting at the same level. A merge once dropped the closing tags of one dialog, which
+  // put every dialog after it inside it, hidden, and nothing else noticed.
+  {
+    const bare = html.replace(/<!--[\s\S]*?-->/g, "").replace(/<(script|style)\b[\s\S]*?<\/\1>/g, "");
+    let depth = 0; const modalDepths = new Set(); let first = null;
+    for (const m of bare.matchAll(/<div\b([^>]*)>|<\/div>/g)) {
+      if (m[0] === "</div>") { depth--; if (depth < 0) { fail(page, "a </div> closes nothing"); break; } continue; }
+      if (/\bclass="[^"]*\bmodal-backdrop\b/.test(m[1])) { modalDepths.add(depth); first ??= (/\bid="([^"]+)"/.exec(m[1]) || [])[1]; }
+      depth++;
+    }
+    if (depth !== 0) fail(page, `${depth} <div> never closed`);
+    if (modalDepths.size > 1) fail(page, `the dialogs (modal-backdrop) aren't all at the same level: one is nested inside another (check the one after ${first})`);
+  }
+
+  // Every element a script looks up by id with $("…") is in the page, and no id is there twice. A missing one is an error the first
+  // time the script runs, which for a dialog or a settings card is when someone first clicks it.
+  {
+    const have = new Map();
+    for (const m of html.matchAll(/\bid="([^"]+)"/g)) have.set(m[1], (have.get(m[1]) || 0) + 1);
+    for (const [id, n] of have) if (n > 1) fail(page, `the id "${id}" is there ${n} times`);
+    if (page === "index.html") {
+      const scripts = srcs.filter(src => existsSync(join(web, src))).map(src => readFileSync(join(web, src), "utf8"));
+      for (const src of srcs) {
+        const path = join(web, src);
+        if (!existsSync(path)) continue;
+        const js = readFileSync(path, "utf8");
+        for (const m of js.matchAll(/\$\("([A-Za-z0-9_-]+)"\)/g)) {
+          const id = m[1];
+          if (have.has(id)) continue;
+          if (scripts.some(t => t.includes(`id="${id}"`) || t.includes(`id = "${id}"`) || t.includes(`id: "${id}"`))) continue;      // a script that makes the element itself
+          fail(src, `looks up "${id}" by id, and the page has no such element`);
+        }
+      }
+    }
+  }
+
   for (const m of html.matchAll(/<link\s+href="([^"]+)"\s+rel="stylesheet">/g))
     if (!m[1].startsWith("/") && !existsSync(join(web, m[1]))) fail(page, `links ${m[1]}, which isn't there`);
 }
