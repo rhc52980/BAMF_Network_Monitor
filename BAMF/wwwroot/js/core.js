@@ -184,6 +184,7 @@ async function refresh() {
     if (data.newDays) newDays = data.newDays;
     renderAlertsOff();
     renderPause();
+    loadUnseen();
     webhookMasked = data.webhookMasked || null;
     webhookFormat = data.webhookFormat || "auto";
     repoUrl = data.repoUrl || repoUrl;
