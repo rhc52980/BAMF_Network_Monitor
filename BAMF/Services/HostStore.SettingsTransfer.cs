@@ -16,12 +16,13 @@ public partial class HostStore
     /// <summary>The settings that are the same kind of thing at any site.</summary>
     public static readonly string[] TransferKeys =
     {
-        "activeArpScan", "arpWatch", "autoIgnoreRandomizedMacs", "backupHour", "backupKeep", "backupNightly", "certWatch",
-        "greynoise", "heartbeatEnabled", "heartbeatMinutes", "historyRetentionDays", "holidaySpirit", "ipv6Watch", "latencyProbe",
-        "mdnsListen", "newDays", "nightFrom", "nightMode", "nightTheme", "nightTo", "offlineAfterMissedScans", "pauseAlerts",
-        "pingConcurrency", "portWatch", "quietDigest", "quietFrom", "quietTo", "reportDay", "reportHour", "reportSchedule",
-        "scanIntervalSeconds", "speedTest", "tidyDays", "tidyEnabled", "trafficMonitor", "unusualWatch", "updateCheck", "upnpIgd",
-        "wanInterval", "wanSlow", "wanTarget", "wanWatch", "watchAlerts", "webhookFormat", "webhookKinds",
+        "activeArpScan", "arpWatch", "autoIgnoreRandomizedMacs", "backupHour", "backupKeep", "backupNightly", "bulkSelect",
+        "certWatch", "greynoise", "heartbeatEnabled", "heartbeatMinutes", "historyRetentionDays", "holidaySpirit", "ipv6Watch",
+        "latencyProbe", "mdnsListen", "newDays", "nightFrom", "nightMode", "nightTheme", "nightTo", "offlineAfterMissedScans",
+        "pauseAlerts", "pingConcurrency", "portWatch", "quietDigest", "quietFrom", "quietTo", "reportDay", "reportHour",
+        "reportSchedule", "scanIntervalSeconds", "speedTest", "tidyDays", "tidyEnabled", "trafficMonitor", "unusualWatch",
+        "updateCheck", "upnpIgd", "wanInterval", "wanSlow", "wanTarget", "wanWatch", "watchAlerts", "webhookFormat",
+        "webhookKinds",
     };
 
     private const int MaxTransferValue = 2000;

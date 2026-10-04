@@ -135,6 +135,7 @@ step:
 | `js/screensaver.js` | The screen saver and the watchtower |
 | `js/internet.js` | The internet watch, the speed test, the Scan menu and free addresses |
 | `js/services.js` | The Network services card: the public address, gateways, DHCP, DNS, UPnP, mDNS and what devices offer |
+| `js/bulk.js` | Select mode for the device list: tick several devices and do one thing to all of them |
 | `js/sites.js` | The Sites card: this site and every other BAMF server watched, with their devices counted |
 | `js/settings.js` | What's new, where alerts go, and Settings |
 | `js/main.js` | Switching views, and starting the page |
@@ -1843,6 +1844,8 @@ scan, or delete a thing.
 | GET | `/api/hosts/{id}/latency` | One host's latency samples over the last 24 hours (`?hours=` for more): `[{"at", "ms"}]`, `ms` null where the echo went unanswered. `GET /api/hosts` carries each host's latest as `latencyMs`, and its uptime over 7 and 30 days as `uptime7` and `uptime30` (percent) |
 | POST | `/api/hosts/{id}/tags` | Body `{"tags": ["kids", "IoT"]}` — replace a device's tags (up to 20, each up to 24 characters, no commas). `GET /api/hosts` lists each host's `tags` |
 | GET | `/api/hosts/{id}/ips` | One host's address history: each main address it has had, with when it began and ended |
+| POST | `/api/hosts/bulk` | Body `{"ids": [3, 7], "action": "known", "tag": "kids", "minutes": 60}` — one change to up to 500 devices. `action` is `known`, `unknown`, `watch`, `unwatch`, `ignore`, `unignore`, `forget`, `restore`, `snooze` (needs `minutes`, up to a week), `unsnooze`, `tag` or `untag` (need `tag`). Answers `{"done", "missing", "failed": [{"id", "error"}]}`; a device that can't take it doesn't stop the rest. `409` when Select mode is switched off. `GET /api/hosts` carries `bulkEnabled` |
+| POST | `/api/settings/bulk` | Body `{"enabled": false}` — switch Select mode off or on |
 | POST | `/api/hosts/{id}/forget` | Body `{"forgotten": true}` — soft-delete to the Forgotten tab (reversible) |
 | DELETE | `/api/hosts/{id}` | Permanently delete a host and its history (from the Forgotten tab) |
 | POST | `/api/switches` | Body `{"kind": "switch", "name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch, router or access point to the recorded layout. `kind` is `switch` (the default), `router`, `ap`, `virtual`, `ssid` or `vpn`; a virtual switch takes `runsOn` (the id of the machine it runs on) instead of a device, uplink or port count, and a wireless SSID takes `runsOn` as the id of its access point (a switch record of kind `ap`), with an optional `subnet` for its own network. Devices on a virtual switch, SSID or VPN are recorded with port 0. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
@@ -2030,6 +2033,25 @@ as Windows, which is a quick way to audit what's on the network.
 
 The bias throughout is to report "Unknown" rather than invent something
 confident and false.
+
+### Select several devices
+
+**Tools → Select devices** puts a tick box on every row and a bar along the top of the list. Tick the devices
+(shift-click ticks a run of them, and the bar's box ticks everything the list is showing), then pick one thing to do to all of them:
+
+- **Known** or **Unknown**, **Watch** or **Unwatch**, **Ignore** or **Unignore**;
+- **Tag…** or **Untag…**, which asks for the tag (or takes one already in use) and adds it to each device or removes it,
+  keeping their other tags;
+- **Snooze…** their alerts for 30 minutes up to a day, or until the morning;
+- **Forget**, which asks first. On the Forgotten tab the bar offers **Restore** instead.
+
+Each does exactly what the same choice in a device's own ⋯ menu does, one device at a time, so a device that has gone, or has
+all its tags already, is counted and reported while the rest are done. What is selected is what the list is showing: change the
+filter, the network or the search and the ticks that fall out of view are dropped, so nothing is changed out of sight.
+Another site's devices have no tick box, since they can't be changed from here, and a view-only password doesn't get Select mode.
+
+It is on by default. Untick **Select several devices** under **Settings → System** to take it out of the Tools menu for every dashboard.
+Up to 500 devices at a time.
 
 ## Search
 

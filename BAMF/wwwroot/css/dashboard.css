@@ -260,6 +260,7 @@
     background: rgba(12,7,9,.92); color: #fff1ee; border: 1px solid rgba(255,77,61,.8); }
   .sv-btn:hover { background: #ff4d3d; color: #140504; }
   body.viewer #svKnown { display: none; }
+  body.viewer .sel-box, body.viewer #bulkBar { display: none !important; }
 
   /* After an update: the same strip, in the accent colour rather than a warning. */
   .alerts-off.whats-new { border-left-color: var(--focus); }
@@ -1711,6 +1712,17 @@
     .stat .num { font-size: 20px; }
   }
 
+  .sel-box { display: none; margin: 0 6px 0 0; width: 16px; height: 16px; vertical-align: middle; cursor: pointer; accent-color: var(--focus); }
+  body.selecting .sel-box { display: inline-block; }
+  body.selecting td.led-cell { white-space: nowrap; }
+  tr.is-selected { background: color-mix(in srgb, var(--focus) 12%, transparent); }
+  .bulk-bar { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap;
+    margin: 8px 0; padding: 8px 12px; background: var(--panel-2); border: 1px solid var(--focus); border-radius: var(--radius); box-shadow: 0 4px 16px rgba(0,0,0,.35); }
+  .bulk-bar[hidden] { display: none; }
+  .bulk-all { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+  .bulk-acts { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 auto; }
+  .bulk-acts button[hidden] { display: none; }
+  .bulk-acts button:disabled { opacity: .45; cursor: default; }
   .toast {
     position: fixed; bottom: 20px; right: 20px;
     background: var(--panel-2); border: 1px solid var(--led-warn);

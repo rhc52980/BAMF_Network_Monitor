@@ -175,6 +175,7 @@ async function refresh() {
     webhookConfigured = !!data.webhookConfigured;
     alertsConfigured = data.alertsConfigured ?? webhookConfigured;
     alertsNudgeOff = !!data.alertsNudgeOff;
+    bulkEnabled = data.bulkEnabled !== false;
     pauseEnabled = data.pauseEnabled !== false;
     alertsPausedUntil = data.alertsPausedUntil || null;
     if (data.newDays) newDays = data.newDays;

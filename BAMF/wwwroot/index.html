@@ -183,6 +183,7 @@
       <button class="export-btn" id="toolsBtn" title="Tools">Tools ▾</button>
       <div class="tools-menu" id="toolsMenu">
         <button id="exportCsv">Export CSV</button>
+        <button id="bulkOpen" title="Tick several devices and do one thing to all of them" hidden>Select devices</button>
         <button id="pauseOpen" title="Hold every alert for a while, for when you're about to take something down" hidden>Pause alerts…</button>
         <button id="freeOpen" title="How full each network is, and addresses nothing has used lately">Find a free address…</button>
         <button id="wallOpen" title="A big, calm status board for a TV or a spare tablet: opens /wall in a new tab">Wall display</button>
@@ -204,6 +205,24 @@
     <button class="tab" data-filter="offline">Offline</button>
     <button class="tab" data-filter="ignored">Ignored</button>
   </div>
+</div>
+
+<div class="bulk-bar" id="bulkBar" role="toolbar" aria-label="Do something to the selected devices" hidden>
+  <label class="bulk-all"><input type="checkbox" id="bulkAll"> <span id="bulkCount">None selected</span></label>
+  <span class="bulk-acts" id="bulkActs">
+    <button type="button" class="toggle" data-bulk="known" title="Mark them known">Known</button>
+    <button type="button" class="toggle" data-bulk="unknown" title="Mark them unknown">Unknown</button>
+    <button type="button" class="toggle" data-bulk="watch" title="Watch them: an alert when one goes offline or comes back">Watch</button>
+    <button type="button" class="toggle" data-bulk="unwatch" title="Stop watching them">Unwatch</button>
+    <button type="button" class="toggle" data-bulk="ignore" title="Hide them from the list and the alerts">Ignore</button>
+    <button type="button" class="toggle" data-bulk="unignore" title="Stop ignoring them">Unignore</button>
+    <button type="button" class="toggle" data-bulk="tag" title="Add a tag to all of them">Tag…</button>
+    <button type="button" class="toggle" data-bulk="untag" title="Remove a tag from all of them">Untag…</button>
+    <button type="button" class="toggle" data-bulk="snooze" title="Hold back their alerts for a while">Snooze…</button>
+    <button type="button" class="toggle" data-bulk="forget" title="Send them to the Forgotten tab">Forget</button>
+    <button type="button" class="toggle" data-bulk="restore" title="Bring them back from Forgotten">Restore</button>
+  </span>
+  <button type="button" class="export-btn" id="bulkDone">Done</button>
 </div>
 
 <div class="chipbar" id="guessChips" hidden></div>
@@ -850,6 +869,12 @@
           <span class="set-result" id="setResultSys"></span>
         </div>
         <label class="set-row">
+          <span class="set-label">Select several devices
+            <span class="set-hint">Adds <strong>Select devices</strong> to Tools: tick devices in the list and mark them known, watch, ignore, tag, snooze or forget them all at once. For every dashboard, not just this browser. Switch it off and the menu entry goes.</span>
+          </span>
+          <input type="checkbox" id="bulkEnabled" checked>
+        </label>
+        <label class="set-row">
           <span class="set-label">Check GitHub daily for a newer release
             <span class="set-hint">Off by default. Read-only: it only reads the latest release tag and never downloads or installs anything. The only outbound call BAMF makes that you didn't ask for.</span>
             <span class="set-hint" id="setUpdStatus"></span>
@@ -1242,6 +1267,13 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="bulkModal" hidden>
+  <div class="modal">
+    <div class="modal-title" id="bulkModalTitle"></div>
+    <div class="modal-note" id="bulkModalSub"></div>
+    <div id="bulkModalBody"></div>
+    <div class="modal-actions">
+      <button class="toggle" id="bulkModalCancel">Cancel</button>
 <div class="modal-backdrop" id="pauseModal" hidden>
   <div class="modal">
     <div class="modal-title">Pause alerts</div>
@@ -1621,6 +1653,7 @@
 <script src="js/activity.js"></script>
 <script src="js/map.js"></script>
 <script src="js/dialogs.js"></script>
+<script src="js/bulk.js"></script>
 <script src="js/themes.js"></script>
 <script src="js/screensaver.js"></script>
 <script src="js/internet.js"></script>

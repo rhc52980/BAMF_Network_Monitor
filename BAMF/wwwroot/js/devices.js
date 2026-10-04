@@ -591,6 +591,7 @@ function render() {
   const openMenuRow = document.querySelector(".row-menu.show:not(.addr-menu)")?.closest("tr")?.dataset.id ?? null;
   const openAddrRow = document.querySelector(".addr-menu.show")?.closest("tr")?.dataset.id ?? null;
   renderNetTabs();
+  renderBulk();
   const showTable = view === "devices" || view === "forgotten";
   $("tableWrap").hidden = !showTable;
   $("feedWrap").hidden = view !== "activity";
@@ -684,7 +685,7 @@ function render() {
     const subName = (h.hostname && h.hostname !== "—") ? h.hostname : (h.mdnsName || "");
     const showDns = h.customName && subName && subName !== h.customName;
     tr.innerHTML = `
-      <td class="led-cell"><span class="led ${h.online ? "on" : ""}" title="${h.online ? "online" : "offline"}"></span></td>
+      <td class="led-cell">${h.remote ? "" : `<input type="checkbox" class="sel-box" aria-label="Select this device">`}<span class="led ${h.online ? "on" : ""}" title="${h.online ? "online" : "offline"}"></span></td>
       <td class="hostname" title="Click to rename">
         <span class="name-text">${esc(dispName(h))}</span>
         ${h.note ? `<span class="note-flag" title="${esc(h.note)}">\uD83D\uDCDD</span>` : ""}
@@ -910,6 +911,7 @@ function render() {
     // 24h sparkline built from the network-wide feed we already fetch
     const sparkCell = tr.querySelector(".spark-cell");
     if (sparkCell) sparkCell.appendChild(buildSpark(h));
+    bulkWireRow(tr, h);
 
     tb.appendChild(tr);
 

@@ -33,6 +33,7 @@ public static class SettingsLog
         ["destinations"] = "More places alerts go",
         ["report"] = "Scheduled report",
         ["rules"] = "Alert rules",
+        ["bulk"] = "Selecting several devices",
         ["tidy"] = "Tidy up old devices",
         ["heartbeat"] = "Heartbeat to a monitoring service",
         ["pause"] = "The Pause alerts control",
