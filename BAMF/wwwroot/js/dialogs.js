@@ -91,6 +91,45 @@ async function openHistory(host) {
 // guard to stop the ten-second poll discarding half-typed text; a dialog sits
 // outside the table and needs no such thing.
 let noteHost = null;
+// ---- pause all alerts ----
+// Hold every alert for a while, from the Tools menu.
+function openPauseDialog() {
+  $("pauseSub").textContent = alertsPausedUntil ? `Paused until ${snoozeClock(alertsPausedUntil)}. Pick a new time to change it.` : "Every alert, for everyone, until the time you pick.";
+  const morning = new Date(); if (morning.getHours() >= 8) morning.setDate(morning.getDate() + 1);
+  morning.setHours(8, 0, 0, 0);
+  const picks = [["30 minutes", 30], ["1 hour", 60], ["2 hours", 120], ["4 hours", 240], ["8 hours", 480], ["1 day", 1440], ["3 days", 4320],
+    ["Until " + snoozeClock(morning.toISOString()), Math.ceil((morning - Date.now()) / 60e3)]];
+  const box = $("pausePicks");
+  box.innerHTML = "";
+  for (const [label, minutes] of picks) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "toggle"; b.textContent = label;
+    b.onclick = () => savePause(minutes);
+    box.appendChild(b);
+  }
+  $("pauseEnd").hidden = !alertsPausedUntil;
+  $("pauseModal").hidden = false;
+  box.firstElementChild.focus();
+}
+function closePauseDialog() { $("pauseModal").hidden = true; }
+async function savePause(minutes) {
+  try {
+    const r = await fetch("/api/alerts/pause", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ minutes }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(esc(d.error || "Couldn't pause alerts")); return; }
+    alertsPausedUntil = d.pausedUntil || null;
+    renderPause();
+    toast(alertsPausedUntil ? `Alerts are paused until ${esc(snoozeClock(alertsPausedUntil))}` : "Alerts are back on");
+    closePauseDialog();
+    await refresh();
+  } catch (e) { console.error(e); toast("Couldn't pause alerts - see the server log"); }
+}
+$("pauseOpen").onclick = () => { toolsOpen = false; $("toolsMenu").classList.remove("show"); openPauseDialog(); };
+$("pauseEnd").onclick = () => savePause(0);
+$("pauseResume").onclick = () => savePause(0);
+$("pauseCancel").onclick = closePauseDialog;
+$("pauseModal").onclick = e => { if (e.target.id === "pauseModal") closePauseDialog(); };
+
 // ---- snooze ----
 // Hold back one device's alerts for a while, from its ⋯ menu.
 let snoozeHost = null;
