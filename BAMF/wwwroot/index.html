@@ -931,6 +931,15 @@
           <input type="file" id="backupFile" accept=".db,application/vnd.sqlite3,application/x-sqlite3" hidden>
         </div>
         <div class="modal-note" id="backupResult"></div>
+        <div class="modal-actions" style="justify-content:flex-start">
+          <button class="toggle" id="settingsExport" title="Download the settings that make BAMF behave the way you've set it, as one JSON file">Export settings</button>
+          <button class="toggle" id="settingsImport" title="Apply settings from a file made by Export settings, here or on another BAMF">Import settings…</button>
+          <input type="file" id="settingsFile" accept=".json,application/json" hidden>
+        </div>
+        <p class="modal-help" style="margin-top:4px">
+          Only the settings, for setting up another BAMF the same way: scan and watch switches, quiet hours, alert rules, reports, backups and
+          the other BAMF servers. Left out: webhook URLs and passwords (type them in again), this site's networks, and the devices.
+        </p>
         <label class="set-row">
           <span class="set-label">Back up every night
             <span class="set-hint">A copy into <span class="mono">backups</span> beside the database each night, without a scheduled task. Updates don't touch these.</span>

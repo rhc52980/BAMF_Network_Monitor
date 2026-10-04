@@ -56,6 +56,22 @@ internal static class SettingsEndpoints
             return Results.Text(json, "application/json", System.Text.Encoding.UTF8);
         });
 
+        // The settings that make BAMF behave the way you've set it, without anything secret and without what belongs
+        // to this site, for setting up another BAMF the same way.
+        app.MapGet("/api/settings/export", (HostStore store) =>
+        {
+            var json = store.ExportSettings(version).ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            return Results.Text(json, "application/json", System.Text.Encoding.UTF8);
+        });
+
+        app.MapPost("/api/settings/import", (System.Text.Json.JsonElement body, HostStore store, RemoteService remotes) =>
+        {
+            var (result, error) = store.ImportSettings(body);
+            if (result is null) return Results.BadRequest(new { error });
+            if (result.RemotesChanged) remotes.Reconfigure();
+            return Results.Json(new { applied = result.Applied, rules = result.RulesApplied, rulesSkipped = result.RulesSkipped, remotes = result.Remotes, ignored = result.Ignored });
+        });
+
         app.MapPost("/api/layout", (System.Text.Json.JsonElement body, HostStore store) =>
         {
             var r = store.ImportLayout(body);
