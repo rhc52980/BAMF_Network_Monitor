@@ -16,6 +16,20 @@ internal static class AlertEndpoints
             return Results.Json(mine.Concat(watch).OrderByDescending(a => a.at).Take(50));
         });
 
+        // How much is new on Activity since the dashboard last looked: alerts and problems after `since`. Without `since`
+        // it only says what time the server thinks it is, which is what the dashboard stores as "seen", so the two
+        // clocks never disagree about what is new.
+        app.MapGet("/api/activity/unseen", (string? since, HostStore store, ScannerService scanner, ProblemLog problems) =>
+        {
+            var now = DateTime.UtcNow.ToString("o");
+            if (!DateTime.TryParse(since, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var t))
+                return Results.Json(new { alerts = 0, problems = 0, now });
+            t = t.ToUniversalTime();
+            bool After(string at) => DateTime.TryParse(at, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var a) && a.ToUniversalTime() > t;
+            var alerts = store.GetAlerts(200, t).Count(a => a.Kind != "wake" && After(a.At)) + scanner.Traffic.Alerts().Count(a => After(a.At));
+            return Results.Json(new { alerts, problems = problems.Rows().Count(r => r.LastUtc > t), now });
+        });
+
         // BAMF's own warnings and errors since it started, for the Problems card.
         app.MapGet("/api/problems", (ProblemLog problems) => Results.Json(new
         {

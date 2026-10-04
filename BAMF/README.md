@@ -1700,6 +1700,12 @@ setting is kept, never what it was set to, so a password, a token or a
 webhook URL never ends up in it. It ages out with the rest of the history
 (`Bamf:HistoryRetentionDays`).
 
+**What is new since you last looked.** A small number on the **Activity** tab counts the alerts and problems that have appeared
+since this browser last opened Activity, so you can tell at a glance whether anything needs a look. Opening Activity clears it.
+Wake notes (a Wake-on-LAN BAMF sent on a rule) aren't counted. Where you last looked is kept in this browser, so each device counts for
+itself, and the very first visit counts nothing rather than everything. Switch the number off with **Count what is new on Activity**
+under **Settings → Appearance**, which is also a browser setting.
+
 **What went wrong inside BAMF.** The **Problems** card on the Activity tab lists BAMF's own warnings and errors since it
 started: an alert a webhook refused ("wasn't taken by Discord: it answered HTTP 403"), a router that wouldn't take its password,
 another BAMF that stopped answering, a scan that failed. Before, these went only to a log file on the server, so "did my alert
@@ -1875,6 +1881,7 @@ scan, or delete a thing.
 | GET | `/api/settings/heartbeat` | The heartbeat: `{"enabled", "minutes", "configured", "masked", "last": {"at", "ok", "error"}}`. `masked` is where the address goes, never the address |
 | POST | `/api/settings/heartbeat` | Body `{"enabled": true, "url": "https://hc-ping.com/…", "minutes": 5}` — `url` left out keeps the saved address, `""` clears it; 1 to 1440 minutes; switching on needs an address |
 | POST | `/api/heartbeat/test` | Visit the saved address once now: `{"ok", "error", "at"}` |
+| GET | `/api/activity/unseen` | What is new on Activity after `?since=<time>`: `{"alerts", "problems", "now"}`. Without `since` it counts nothing and just returns the server's `now`, which the dashboard keeps as "seen" |
 | GET | `/api/problems` | BAMF's own warnings and errors since it started: `{"since", "rows": [{"source", "level", "message", "count", "first", "last"}]}`, newest first. Web addresses in the messages are cut back to where they go |
 | POST | `/api/problems/clear` | Empty that list |
 | GET | `/api/views` | The saved views: `{"max", "views": [{"name", "tab", "network", "status", "guess", "tag", "query"}]}`. `tab` is `devices` or `forgotten`, `status` one of `all`, `online`, `offline`, `unknown`, `new`, `ignored`, `guess` empty for every type or `__none__` for devices with no guess |

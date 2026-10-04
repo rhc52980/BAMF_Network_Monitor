@@ -174,7 +174,7 @@
     <button class="view-btn" data-view="map">Map</button>
     <button class="view-btn" data-view="floor">Floor plan</button>
     <button class="view-btn" data-view="home">Who's home</button>
-    <button class="view-btn" data-view="activity">Activity</button>
+    <button class="view-btn" data-view="activity">Activity <span class="tab-cnt" id="activityCount" hidden></span></button>
     <button class="view-btn" data-view="forgotten">Forgotten</button>
   </div>
   <div class="tools">
@@ -805,6 +805,12 @@
           </span>
           <span class="set-field speed-fields"><button type="button" class="export-btn" id="setThemeOpen">Choose…</button><button type="button" class="export-btn" id="setIntruderTry" title="Plays the intruder scene on one of your devices">Show me an intruder</button></span>
         </div>
+        <label class="set-row">
+          <span class="set-label">Count what is new on Activity
+            <span class="set-hint">A small number on the Activity tab: the alerts and problems that have appeared since you last opened it. Kept in this browser, so each one counts for itself.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setActivityBadge" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
         <label class="set-row">
           <span class="set-label">Holiday Spirit
             <span class="set-hint">Every dashboard wears Halloween through October, Thanksgiving for the week of the holiday, Christmas from December 1st to 25th and New Year to January 2nd, then goes back to its own theme. Pick another theme during a season and that browser keeps it until the next one.</span>
