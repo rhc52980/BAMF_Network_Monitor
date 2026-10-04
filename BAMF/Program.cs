@@ -350,7 +350,7 @@ SetupEndpoints.Map(app, auth);
 HttpsEndpoints.Map(app, HttpsJson);
 ThemeEndpoints.Map(app, themesDir, themeLib);
 FloorEndpoints.Map(app);
-InternetEndpoints.Map(app);
+InternetEndpoints.Map(app, version);
 ConnectionsEndpoints.Map(app);
 SecurityEndpoints.Map(app);
 LayoutEndpoints.Map(app);

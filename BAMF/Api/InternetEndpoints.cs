@@ -6,7 +6,7 @@ namespace LanWatch.Api;
 /// <summary>The internet watch and the speed test.</summary>
 internal static class InternetEndpoints
 {
-    public static void Map(WebApplication app)
+    public static void Map(WebApplication app, string version)
     {
         // The internet watch: is the line out of the house up, and was it earlier?
         app.MapGet("/api/wan", (WanWatch wan, HostStore store) =>
@@ -93,6 +93,15 @@ internal static class InternetEndpoints
             if (!System.Net.IPAddress.TryParse(t, out var ip)) return Results.BadRequest(new { error = "That isn't an address BAMF can ping. Try 8.8.8.8, or your provider's DNS." });
             store.SetSetting("wanTarget", ip.ToString());
             return Results.Json(new { state = wan.Now() });
+        });
+
+        // A printable page of what the internet watch and the speed tests recorded, for sending to the provider.
+        app.MapGet("/report/internet", (HostStore store, WanWatch wan, int? days) =>
+        {
+            var d = Math.Clamp(days ?? 30, 1, 365);
+            var html = InternetReport.Build(new InternetReport.Input(DateTime.UtcNow, d, version, wan.Target, wan.IntervalSeconds,
+                store.GetExternalIp()?.Ip, store.GetWanOutageLog(500), store.GetWanSlowLog(500), store.GetSpeedResults(d)));
+            return Results.Content(html, "text/html; charset=utf-8");
         });
 
         // The speed test: the results, and the one running now if there is one.
