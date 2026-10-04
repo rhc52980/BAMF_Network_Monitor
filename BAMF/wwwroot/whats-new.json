@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.7.0",
+      "date": "2026-10-05",
+      "items": [
+        "A new Views menu saves the device list the way you have set it up, such as a network, a status, a device type, a tag and a search, under a name like Kids' devices offline. Pick one later and the list is set to match in one click.",
+        "A device's menu now has Ping, Trace route and DNS lookup under Look closer. They run from the machine BAMF is on and only ever at that device's own address. You can switch them off in Settings, under System.",
+        "The Activity tab shows a small number of what has appeared since you last looked there. It is a setting in this browser, under Appearance."
+      ]
+    },
+    {
       "version": "2.6.1",
       "date": "2026-10-05",
       "items": [
