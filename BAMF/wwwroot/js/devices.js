@@ -863,6 +863,11 @@ function render() {
         const spec = prompt("Ports to scan on " + dispName(h) + " (e.g. 22,80,443,8000-8100):", "");
         if (spec) scanPorts(h, more, spec);
       });
+      if (networkToolsEnabled && !h.remote && role !== "viewer") {
+        addItem("Ping…", () => openToolDialog(h, "ping"));
+        addItem("Trace route…", () => openToolDialog(h, "trace"));
+        addItem("DNS lookup…", () => openToolDialog(h, "dns"));
+      }
 
       addHead("Status");
       addItem(h.snoozedUntil ? `Snoozed until ${snoozeClock(h.snoozedUntil)}…` : "Snooze alerts…", () => openSnoozeDialog(h));
