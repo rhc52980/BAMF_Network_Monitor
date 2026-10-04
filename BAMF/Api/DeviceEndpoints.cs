@@ -132,6 +132,9 @@ internal static class DeviceEndpoints
                 alertsConfigured = scanner.AnyDestination,
                 // Whether "Don't remind me" was pressed on the alerts-off banner.
                 alertsNudgeOff = store.GetSetting("alertsNudgeOff") == "true",
+                // The Pause alerts control: whether it's offered, and until when alerts are paused (null when they aren't).
+                pauseEnabled = scanner.PauseEnabled,
+                alertsPausedUntil = scanner.PausedUntil?.ToString("o"),
                 newDays = NewDays(store),
                 // Masked, never the full URL: anyone who can load the dashboard could
                 // read it, and the token in a Discord webhook URL is the credential.

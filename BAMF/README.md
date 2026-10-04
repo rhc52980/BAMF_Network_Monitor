@@ -1804,6 +1804,8 @@ scan, or delete a thing.
 | GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
 | GET | `/api/settings/rules` | The alert rules, quiet hours and port watch: `{"rules": [...], "quiet": {"from", "to", "digest", "now", "held"}, "portWatch"}` |
 | POST | `/api/settings/rules` | Body: the whole rule list, each `{"id", "name", "kind": "offline"\|"online"\|"hours", "target": "any"\|"watched"\|"tag:kids"\|"host:12", "minutes", "from", "to", "enabled"}`. `id` empty for a new rule |
+| POST | `/api/alerts/pause` | Body `{"minutes": 60}` — hold every alert for that long (up to 4320, three days) and send what was held as one summary when it ends; `0` ends a pause now. `409` when Pause alerts is switched off. `GET /api/hosts` carries `pauseEnabled` and `alertsPausedUntil` |
+| POST | `/api/settings/pause` | Body `{"enabled": false}` — switch the Pause alerts control off or on; off also ends a running pause |
 | POST | `/api/settings/quiet` | Body `{"from": "23:00", "to": "07:00", "digest": true}` — quiet hours in the server's local time; empty times clear them |
 | POST | `/api/settings/port-watch` | Body `{"enabled": true}` — scan every online known device's common ports daily at 4 am |
 | POST | `/api/settings/night` | Body `{"enabled": true, "from": "21:00", "to": "06:00", "theme": "nightstreet"}` — Night mode: every dashboard wears that theme between those clock times. `GET /api/settings` returns it as `editable.night`; `GET /api/hosts` as `night` |
@@ -2589,6 +2591,15 @@ When a snooze runs out, a watched device that has ended up the other way round
 from when you snoozed it gets the alert it missed: "went offline, and was still
 offline when its snooze ended". A reboot that never came back isn't lost in the
 snooze, and one that did come back says nothing.
+
+**Pause alerts** is for when you are about to take something down: **Tools → Pause alerts…**
+holds every alert, for everyone, for 30 minutes up to three days (or until the morning). Like quiet hours
+it holds rather than drops: what comes up meanwhile is sent as one summary when the pause ends, so a
+switch you reboot on purpose doesn't send you an alert for everything behind it. A bar across the
+dashboard says alerts are paused, and **Resume now** ends it early and sends the summary. Alerts still
+show under Activity. It is on by default; untick **Pause alerts in the Tools menu** in the same Settings
+card to remove it, which also ends a pause that is running. A view-only password can see that alerts
+are paused but can't start or end one.
 
 ### Port history and change alerts
 

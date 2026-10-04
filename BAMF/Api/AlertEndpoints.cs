@@ -35,6 +35,23 @@ internal static class AlertEndpoints
             return Results.Json(RulesJson(rules, scanner));
         });
 
+        // Pause every alert for a while, from the Tools menu. 0 minutes ends it now.
+        app.MapPost("/api/alerts/pause", async (PauseRequest body, ScannerService scanner, CancellationToken ct) =>
+        {
+            if (!scanner.PauseEnabled) return Results.Conflict(new { error = "Pausing alerts is switched off in Settings." });
+            if (body.Minutes > ScannerService.MaxPauseMinutes) return Results.BadRequest(new { error = "Three days at most." });
+            var until = await scanner.PauseAlerts(body.Minutes, ct);
+            return Results.Json(new { pausedUntil = until?.ToString("o") });
+        });
+
+        // Whether the Pause alerts control is offered at all. Switching it off ends a pause that's running.
+        app.MapPost("/api/settings/pause", async (ActiveArpRequest body, HostStore store, ScannerService scanner, CancellationToken ct) =>
+        {
+            store.SetSetting("pauseAlerts", body.Enabled ? "true" : "false");
+            if (!body.Enabled && !scanner.IsQuietNow()) await scanner.FlushHeldAlerts(ct);
+            return Results.Json(new { enabled = scanner.PauseEnabled });
+        });
+
         app.MapPost("/api/settings/port-watch", (ActiveArpRequest body, HostStore store) =>
         {
             store.SetSetting("portWatch", body.Enabled ? "true" : "false");
