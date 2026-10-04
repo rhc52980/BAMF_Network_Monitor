@@ -179,6 +179,10 @@
   </div>
   <div class="tools">
     <input class="search" id="search" type="search" placeholder="Search… (* wildcards, e.g. *.245)" aria-label="Search hosts" title="Substring match, or use * / ? wildcards — *.245 matches any IP ending in .245">
+    <div class="tools-menu-wrap" id="viewsWrap">
+      <button class="export-btn" id="viewsBtn" title="Saved views of the device list">Views ▾</button>
+      <div class="tools-menu" id="viewsMenu"></div>
+    </div>
     <div class="tools-menu-wrap">
       <button class="export-btn" id="toolsBtn" title="Tools">Tools ▾</button>
       <div class="tools-menu" id="toolsMenu">
@@ -1673,6 +1677,7 @@
 <script src="js/activity.js"></script>
 <script src="js/map.js"></script>
 <script src="js/dialogs.js"></script>
+<script src="js/views.js"></script>
 <script src="js/bulk.js"></script>
 <script src="js/themes.js"></script>
 <script src="js/screensaver.js"></script>
