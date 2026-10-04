@@ -2,6 +2,14 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.6.1",
+      "date": "2026-10-05",
+      "items": [
+        "Fixes a bug in 2.5.0 and 2.6.0 where thirteen dialogs never appeared: Snooze alerts, Pause alerts, notes, tags, device type, the ports and switch dialogs and more. Clicking them looked like it did nothing. They all open again.",
+        "The Problems card now sits after the hygiene card on the Activity tab, so the Internet card is no longer stretched beside the tall Network services card."
+      ]
+    },
+    {
       "version": "2.6.0",
       "date": "2026-10-04",
       "items": [
