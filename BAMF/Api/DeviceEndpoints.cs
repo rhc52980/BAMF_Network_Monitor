@@ -705,6 +705,17 @@ internal static class DeviceEndpoints
             store.SetSetting("networkTools", body.Enabled ? "true" : "false");
             return Results.Json(new { enabled = body.Enabled });
         });
+        // Saved views of the device list: a name for a tab, network, status, type, tag and search.
+        app.MapGet("/api/views", (HostStore store) => Results.Json(new { max = HostStore.MaxViews, views = store.GetViews() }));
+
+        app.MapPost("/api/views", (ViewRequest body, HostStore store) =>
+        {
+            var error = store.SaveView(new HostStore.SavedView(body.Name ?? "", body.Tab ?? "", body.Network ?? "", body.Status ?? "", body.Guess ?? "", body.Tag ?? "", body.Query ?? ""));
+            return error is null ? Results.Json(new { max = HostStore.MaxViews, views = store.GetViews() }) : Results.BadRequest(new { error });
+        });
+
+        app.MapPost("/api/views/delete", (ViewDeleteRequest body, HostStore store) =>
+            store.DeleteView(body.Name) ? Results.Json(new { max = HostStore.MaxViews, views = store.GetViews() }) : Results.NotFound(new { error = "There's no view by that name." }));
 
         app.MapPost("/api/hosts/{id:long}/known", (long id, KnownRequest body, HostStore store) =>
             store.SetKnown(id, body.Known) ? Results.Ok() : Results.NotFound());

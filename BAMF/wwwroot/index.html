@@ -174,11 +174,15 @@
     <button class="view-btn" data-view="map">Map</button>
     <button class="view-btn" data-view="floor">Floor plan</button>
     <button class="view-btn" data-view="home">Who's home</button>
-    <button class="view-btn" data-view="activity">Activity</button>
+    <button class="view-btn" data-view="activity">Activity <span class="tab-cnt" id="activityCount" hidden></span></button>
     <button class="view-btn" data-view="forgotten">Forgotten</button>
   </div>
   <div class="tools">
     <input class="search" id="search" type="search" placeholder="Search… (* wildcards, e.g. *.245)" aria-label="Search hosts" title="Substring match, or use * / ? wildcards — *.245 matches any IP ending in .245">
+    <div class="tools-menu-wrap" id="viewsWrap">
+      <button class="export-btn" id="viewsBtn" title="Saved views of the device list">Views ▾</button>
+      <div class="tools-menu" id="viewsMenu"></div>
+    </div>
     <div class="tools-menu-wrap">
       <button class="export-btn" id="toolsBtn" title="Tools">Tools ▾</button>
       <div class="tools-menu" id="toolsMenu">
@@ -801,6 +805,12 @@
           </span>
           <span class="set-field speed-fields"><button type="button" class="export-btn" id="setThemeOpen">Choose…</button><button type="button" class="export-btn" id="setIntruderTry" title="Plays the intruder scene on one of your devices">Show me an intruder</button></span>
         </div>
+        <label class="set-row">
+          <span class="set-label">Count what is new on Activity
+            <span class="set-hint">A small number on the Activity tab: the alerts and problems that have appeared since you last opened it. Kept in this browser, so each one counts for itself.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setActivityBadge" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
         <label class="set-row">
           <span class="set-label">Holiday Spirit
             <span class="set-hint">Every dashboard wears Halloween through October, Thanksgiving for the week of the holiday, Christmas from December 1st to 25th and New Year to January 2nd, then goes back to its own theme. Pick another theme during a season and that browser keeps it until the next one.</span>
@@ -1686,6 +1696,7 @@
 <script src="js/map.js"></script>
 <script src="js/dialogs.js"></script>
 <script src="js/tools.js"></script>
+<script src="js/views.js"></script>
 <script src="js/bulk.js"></script>
 <script src="js/themes.js"></script>
 <script src="js/screensaver.js"></script>

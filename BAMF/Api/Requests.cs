@@ -31,6 +31,8 @@ record WebhookRequest(string? Url, string? Format);
 record IgnoreRequest(bool Ignored);
 record SnoozeRequest(int Minutes);
 record ToolRequest(string? Tool);
+record ViewRequest(string? Name, string? Tab, string? Network, string? Status, string? Guess, string? Tag, string? Query);
+record ViewDeleteRequest(string? Name);
 record BulkRequest(List<long>? Ids, string? Action, string? Tag, int? Minutes);
 record TidyRequest(bool Enabled, int? Days);
 record HeartbeatRequest(bool Enabled, string? Url, int? Minutes);

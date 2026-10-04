@@ -22,6 +22,33 @@ async function loadTraffic() {
 // The Activity tab's two cards: who's moving the most bytes, and the DHCP
 // and DNS servers in use with any alerts about them.
 // The Activity tab's log of settings changes.
+// ---- What is new on Activity since this browser last opened it ----
+// The number on the tab. "Seen" is a server time kept in this browser; opening Activity moves it to now.
+const ACTIVITY_SEEN_KEY = "bamf-activity-seen", ACTIVITY_BADGE_KEY = "bamf-activity-badge";
+function activityBadgeOn() { try { return localStorage.getItem(ACTIVITY_BADGE_KEY) !== "off"; } catch { return true; } }
+function activitySeenAt() { try { return localStorage.getItem(ACTIVITY_SEEN_KEY); } catch { return null; } }
+function renderActivityBadge(n) {
+  const el = $("activityCount");
+  if (!el) return;
+  el.hidden = !n || !activityBadgeOn() || view === "activity";
+  if (!el.hidden) {
+    el.textContent = n > 99 ? "99+" : n;
+    el.title = `${n} new on Activity since you last looked`;
+  }
+}
+async function loadUnseen() {
+  try {
+    const since = activitySeenAt();
+    // Looking at Activity now, or never looked: nothing is new; just note the time.
+    const open = view === "activity" || !since;
+    const r = await fetch("/api/activity/unseen" + (open ? "" : "?since=" + encodeURIComponent(since)));
+    if (!r.ok) return;
+    const d = await r.json();
+    if (open) { try { localStorage.setItem(ACTIVITY_SEEN_KEY, d.now); } catch { /* private window */ } renderActivityBadge(0); }
+    else renderActivityBadge((d.alerts || 0) + (d.problems || 0));
+  } catch { /* the next refresh tries again */ }
+}
+
 // ---- Problems: BAMF's own warnings and errors since it started ----
 let problemsCache = null;
 async function loadProblems() {
