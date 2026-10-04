@@ -1853,6 +1853,9 @@ scan, or delete a thing.
 | DELETE | `/api/map/positions?subnet=…` | "Auto-arrange": forget every saved position on one network |
 | GET | `/api/connections` | BAMF's own connections: `{"items": [{id, group, name, state, detail, at, section}]}`, where `state` is `ok`, `warn`, `error`, `waiting` or `off`. Status only; no addresses or keys |
 | POST | `/api/externalip/lookup` | Finds the public address now, with one request to Cloudflare for a file of no bytes. Answers `{externalIp, changed}`, or 502 with `{error}` if Cloudflare can't be reached or doesn't say. Two calls within five seconds share one answer |
+| GET | `/api/settings/tidy` | The tidy-up: `{"enabled", "days", "would", "wouldNames", "last": {"at", "count", "names"}}` — `would` is how many devices would be forgotten now |
+| POST | `/api/settings/tidy` | Body `{"enabled": true, "days": 60}` — switch the daily tidy-up on or off and set the days (14 to 730) |
+| POST | `/api/tidy/run` | Forget the stale devices now, whether or not the daily tidy-up is on: `{"count", "names"}` |
 | GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow", "externalIp"}` — `externalIp` is the home's public address, `{ip, source, at, since, previous, changedAt}` (`source` is `speedtest`, `greynoise` or `lookup`), or null until one of them has learned it; the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
 | GET | `/report/internet` | The internet report as one printable HTML page for sending to the provider. `?days=` 1 to 365 (default 30). See [Report for your provider](#report-for-your-provider) |
 | POST | `/api/settings/wanwatch` | Body `{"enabled": true}` — switch the internet watch on or off |
@@ -3418,6 +3421,21 @@ to add or remove it. Tags show as small chips under the device's name.
   every device carrying one tag, so the board can show "kids" one moment and
   "IoT" the next.
 - Search matches tags as well.
+
+### Tidy up old devices
+
+Old guests' phones and tablets pile up in the list for good, because only your history is pruned.
+**Settings → System → Tidy up old devices** forgets the ones that have been gone a long time and that nobody has taken
+any notice of: **Tidy up every day** (off by default) does it once a day for devices not seen for more than the days you
+set (60 to start with, 14 to 730), and **Tidy up now** does it on the spot, after showing you which.
+
+It is careful about what it touches. A device is left alone if it is online, known, watched or ignored, or if you gave it a
+name, note, link, tag, device type or Map icon, placed it on a switch port or a floor plan, combined its network cards,
+or recorded it as a switch or router. What is left is a device you never did anything with, which has been gone for months.
+The card says how many would be tidied now, and which.
+
+Tidied devices are **forgotten**, not deleted: they go to the Forgotten tab, each can be brought back from there with
+its history, and one that turns up on the network again is no longer forgotten by itself. The card shows the last tidy.
 
 ### Back up the database
 

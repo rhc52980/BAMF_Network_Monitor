@@ -703,6 +703,55 @@ $("backupDownload").onclick = async () => {
 };
 
 $("backupRestore").onclick = () => $("backupFile").click();
+// ---- Tidy up old devices ----
+let tidyCache = null;
+function renderTidy() {
+  const d = tidyCache;
+  if (!d) return;
+  const on = $("tidyEnabled");
+  on.classList.toggle("on", d.enabled);
+  on.setAttribute("aria-pressed", d.enabled ? "true" : "false");
+  $("tidyDays").value = d.days;
+  const last = d.last ? ` Last tidy ${fmtAgo(d.last.at)}: ${d.last.count} device${d.last.count === 1 ? "" : "s"} forgotten.` : "";
+  $("tidyStatus").textContent = (d.would
+    ? `${d.would} device${d.would === 1 ? "" : "s"} would be tidied now (${d.wouldNames.slice(0, 4).join(", ")}${d.would > 4 ? ", \u2026" : ""}).`
+    : "Nothing to tidy: no device untouched by you has been gone that long.") + last;
+  $("tidyRun").disabled = !d.would;
+}
+async function loadTidy() {
+  try { const r = await fetch("/api/settings/tidy"); if (r.ok) { tidyCache = await r.json(); renderTidy(); } } catch { /* leave it */ }
+}
+async function saveTidy(patch) {
+  const d = tidyCache || {};
+  const out = $("tidyResult");
+  try {
+    const r = await fetch("/api/settings/tidy", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: d.enabled, days: Number($("tidyDays").value) || d.days, ...patch }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { out.textContent = j.error || `Couldn't save (HTTP ${r.status}).`; out.className = "set-result err"; return false; }
+    tidyCache = j; renderTidy(); out.textContent = ""; out.className = "set-result";
+    return true;
+  } catch { out.textContent = "Couldn't reach BAMF."; return false; }
+}
+$("tidyEnabled").onclick = async () => {
+  const next = !(tidyCache && tidyCache.enabled);
+  if (await saveTidy({ enabled: next })) toast(next ? "Old devices will be tidied up every day" : "Old devices are left alone");
+};
+$("tidySave").onclick = async () => { if (await saveTidy({})) toast("Saved"); };
+$("tidyRun").onclick = async () => {
+  if (!await saveTidy({})) return;
+  const n = tidyCache.would;
+  if (!n || !confirm(`Forget ${n} device${n === 1 ? "" : "s"} that ${n === 1 ? "has" : "have"} been gone more than ${tidyCache.days} days?\n\n${tidyCache.wouldNames.slice(0, 8).join("\n")}${n > 8 ? "\n\u2026" : ""}\n\nThey go to the Forgotten tab, where each can be brought back.`)) return;
+  try {
+    const r = await fetch("/api/tidy/run", { method: "POST" });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { toast("Couldn't tidy up"); return; }
+    toast(`${j.count} device${j.count === 1 ? "" : "s"} forgotten`);
+    await refresh();
+    loadTidy();
+  } catch { toast("Couldn't reach BAMF"); }
+};
+
 $("settingsExport").onclick = () => { location.href = "/api/settings/export"; };
 $("settingsImport").onclick = () => $("settingsFile").click();
 $("settingsFile").onchange = async () => {
@@ -1261,6 +1310,7 @@ async function loadSettings() {
     return;
   }
   const e = settingsData.editable, ro = settingsData.readOnly;
+  loadTidy();
   renderHttps(e.https);
   $("setInterval").value = e.scanIntervalSeconds;
   $("setInterval").min = settingsData.minIntervalSeconds;

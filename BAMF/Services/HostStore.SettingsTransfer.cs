@@ -19,7 +19,7 @@ public partial class HostStore
         "activeArpScan", "arpWatch", "autoIgnoreRandomizedMacs", "backupHour", "backupKeep", "backupNightly", "certWatch", "greynoise",
         "historyRetentionDays", "holidaySpirit", "ipv6Watch", "latencyProbe", "mdnsListen", "newDays", "nightFrom", "nightMode", "nightTheme",
         "nightTo", "offlineAfterMissedScans", "pingConcurrency", "portWatch", "quietDigest", "quietFrom", "quietTo", "reportDay", "reportHour",
-        "reportSchedule", "scanIntervalSeconds", "speedTest", "trafficMonitor", "unusualWatch", "updateCheck",
+        "reportSchedule", "scanIntervalSeconds", "speedTest", "tidyDays", "tidyEnabled", "trafficMonitor", "unusualWatch", "updateCheck",
         "upnpIgd", "wanInterval", "wanSlow", "wanTarget", "wanWatch", "watchAlerts", "webhookFormat", "webhookKinds",
     };
 

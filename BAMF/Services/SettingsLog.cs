@@ -33,6 +33,7 @@ public static class SettingsLog
         ["destinations"] = "More places alerts go",
         ["report"] = "Scheduled report",
         ["rules"] = "Alert rules",
+        ["tidy"] = "Tidy up old devices",
         ["import"] = "Settings imported from a file",
         ["quiet"] = "Quiet hours",
         ["alertnudge"] = "The alerts-off banner",
