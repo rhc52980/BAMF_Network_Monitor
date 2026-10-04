@@ -899,6 +899,15 @@ function renderDensityToggle() {
   if (t) setToggleState(t, on);
 }
 
+// The count on the Activity tab: a browser setting like the density.
+function renderActivityBadgeToggle() { const t = $("setActivityBadge"); if (t) setToggleState(t, activityBadgeOn()); }
+$("setActivityBadge").onclick = () => {
+  try { localStorage.setItem(ACTIVITY_BADGE_KEY, activityBadgeOn() ? "off" : "on"); } catch {}
+  renderActivityBadgeToggle();
+  loadUnseen();
+};
+renderActivityBadgeToggle();
+
 $("setCompact").onclick = () => {
   const on = !document.documentElement.classList.contains("compact");
   document.documentElement.classList.toggle("compact", on);

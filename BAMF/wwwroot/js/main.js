@@ -21,6 +21,7 @@ function showView(name, { fromHash = false } = {}) {
   }
   if (view === "settings") loadSettings();
   render();
+  loadUnseen();
 }
 document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => showView(b.dataset.view));
 window.addEventListener("hashchange", () => showView(location.hash.slice(1) || "devices", { fromHash: true }));
