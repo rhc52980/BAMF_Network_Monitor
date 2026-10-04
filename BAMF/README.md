@@ -295,6 +295,7 @@ Everything BAMF initiates on its own, and how it's protected:
 | One address on the internet (`8.8.8.8` by default) | **an echo request, nothing else** | A ping a minute, only if you switch on the internet watch. Nothing about your network goes with it |
 | Cloudflare's speed test (`speed.cloudflare.com`) | **HTTPS** | Only when you press Run now, or on the schedule you choose: daily or every six hours. About 125 MB of test data each time. Cloudflare sees your public address, as any website does, and says it back in its answer, which BAMF shows as your public address |
 | Cloudflare, for your public address (`speed.cloudflare.com`) | **HTTPS** | Only when you press **Look it up** (or **Check now**) on the Network services card. One request for a file of no bytes. Cloudflare sees your public address, as any website does, and says it back |
+| A monitoring service you name (Healthchecks.io, Uptime Kuma, anything that takes a visit) | **whatever scheme your address uses** | Every few minutes, only if you switch on the heartbeat. A plain request to the address you gave, with nothing about your network in it |
 | Your webhook | **whatever scheme your URL uses** | When a new host appears, a watched host changes state, or an alert fires |
 
 **On your own network:**
@@ -1853,6 +1854,9 @@ scan, or delete a thing.
 | DELETE | `/api/map/positions?subnet=…` | "Auto-arrange": forget every saved position on one network |
 | GET | `/api/connections` | BAMF's own connections: `{"items": [{id, group, name, state, detail, at, section}]}`, where `state` is `ok`, `warn`, `error`, `waiting` or `off`. Status only; no addresses or keys |
 | POST | `/api/externalip/lookup` | Finds the public address now, with one request to Cloudflare for a file of no bytes. Answers `{externalIp, changed}`, or 502 with `{error}` if Cloudflare can't be reached or doesn't say. Two calls within five seconds share one answer |
+| GET | `/api/settings/heartbeat` | The heartbeat: `{"enabled", "minutes", "configured", "masked", "last": {"at", "ok", "error"}}`. `masked` is where the address goes, never the address |
+| POST | `/api/settings/heartbeat` | Body `{"enabled": true, "url": "https://hc-ping.com/…", "minutes": 5}` — `url` left out keeps the saved address, `""` clears it; 1 to 1440 minutes; switching on needs an address |
+| POST | `/api/heartbeat/test` | Visit the saved address once now: `{"ok", "error", "at"}` |
 | GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow", "externalIp"}` — `externalIp` is the home's public address, `{ip, source, at, since, previous, changedAt}` (`source` is `speedtest`, `greynoise` or `lookup`), or null until one of them has learned it; the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
 | GET | `/report/internet` | The internet report as one printable HTML page for sending to the provider. `?days=` 1 to 365 (default 30). See [Report for your provider](#report-for-your-provider) |
 | POST | `/api/settings/wanwatch` | Body `{"enabled": true}` — switch the internet watch on or off |
@@ -2839,8 +2843,8 @@ one of Google's public DNS servers.
 That second ping is a packet leaving your house every minute. It's an echo
 request like any other ping, and nothing about your network goes with it, but
 it's outbound traffic on a timer, so it's off until you ask for it. With the
-update check, the GreyNoise check and the [speed test](#speed-test), that's
-everything BAMF sends outside.
+update check, the GreyNoise check, the [speed test](#speed-test) and the
+[heartbeat](#heartbeat), that's everything BAMF sends outside.
 
 What you get for it:
 
@@ -3498,6 +3502,22 @@ Settings the file doesn't mention are left as they are. A file that isn't a sett
 server BAMF can't use, is turned down and nothing changes. `GET /api/settings/export` and
 `POST /api/settings/import` do the same from a script, and the import shows in the Activity tab's
 settings changes.
+
+### Heartbeat
+
+BAMF can tell you about everything except itself going quiet. **Settings → System → Heartbeat** takes the
+address a monitoring service shows you (a [Healthchecks.io](https://healthchecks.io) ping URL, an Uptime Kuma push
+monitor's URL, anything that expects a visit) and BAMF asks for it every few minutes, from 1 up to 1440. When the
+visits stop, that service is the one that tells you, by whatever way you set it up, so you hear that BAMF or the machine it
+runs on has stopped. **Send one now** visits once straight away and says how it went, so a wrong address is found while
+you are looking at it.
+
+It is off by default, and it is one more thing BAMF sends out of the house (see [What BAMF talks to](#what-bamf-talks-to)):
+a plain request to that address with nothing about your network in it. The address is a credential, because the secret is
+usually in its path, so it is saved like a webhook: never shown again in full (only where it goes, like `https://hc-ping.com/…`),
+never in an API answer or a settings export, and it can be cleared with **Clear the address**. Switching the heartbeat off
+keeps the address, so switching it on again needs nothing typed. It carries on during a Pause alerts or quiet hours, because
+its whole point is to be noticed when it stops. Its state is on the Network services card under BAMF's own connections.
 
 ### MQTT and Home Assistant
 

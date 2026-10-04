@@ -840,6 +840,40 @@
           <span class="set-field"><button type="button" class="arp-toggle" id="setUpd" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
       </div>
+      <div class="set-card" id="heartbeatCard">
+        <div class="set-card-title">Heartbeat</div>
+        <p class="modal-help">
+          BAMF can tell you about everything except itself going quiet. Give it the address a monitoring service
+          shows (a Healthchecks.io ping URL, an Uptime Kuma push URL, anything that expects a visit) and BAMF visits it
+          every few minutes. When the visits stop, that service tells you, so you hear that BAMF or the machine it runs on has stopped.
+          Off by default, and it is one more thing BAMF sends out of the house: a plain request to that address, with nothing about your network in it.
+        </p>
+        <p class="int-status" id="hbStatus"></p>
+        <label class="set-row">
+          <span class="set-label">Send a heartbeat
+            <span class="set-hint">Needs an address first.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="hbEnabled" aria-label="Send a heartbeat" aria-pressed="false"><span class="pill"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Address
+            <span class="set-hint">The secret is usually in its path, so it's never shown again once saved. Leave it blank to keep the saved one; clear it with the button.</span>
+          </span>
+          <span class="set-field int-fields"><input id="hbUrl" class="modal-input" autocomplete="off" spellcheck="false" placeholder="https://hc-ping.com/…"></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Every
+            <span class="set-hint">Minutes between visits, 1 to 1440. Set the service to expect it a little more often than it's tolerant of, so it waits a couple of visits before it worries.</span>
+          </span>
+          <span class="set-field int-fields"><input id="hbMinutes" class="modal-input" type="number" min="1" max="1440" placeholder="5"></span>
+        </label>
+        <div class="modal-actions" style="justify-content:flex-start">
+          <button class="export-btn" id="hbSave">Save</button>
+          <button class="toggle" id="hbTest">Send one now</button>
+          <button class="toggle" id="hbClear">Clear the address</button>
+        </div>
+        <div class="modal-note" id="hbResult"></div>
+      </div>
       <div class="set-card" id="mqttCard">
         <div class="set-card-title">Home Assistant (MQTT)</div>
         <p class="modal-help">Publishes every device as present or away, and the latest speed test, to an MQTT broker. With discovery on, Home Assistant makes each device a presence sensor by itself.</p>
