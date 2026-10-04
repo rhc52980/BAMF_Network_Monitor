@@ -295,6 +295,7 @@ Everything BAMF initiates on its own, and how it's protected:
 | One address on the internet (`8.8.8.8` by default) | **an echo request, nothing else** | A ping a minute, only if you switch on the internet watch. Nothing about your network goes with it |
 | Cloudflare's speed test (`speed.cloudflare.com`) | **HTTPS** | Only when you press Run now, or on the schedule you choose: daily or every six hours. About 125 MB of test data each time. Cloudflare sees your public address, as any website does, and says it back in its answer, which BAMF shows as your public address |
 | Cloudflare, for your public address (`speed.cloudflare.com`) | **HTTPS** | Only when you press **Look it up** (or **Check now**) on the Network services card. One request for a file of no bytes. Cloudflare sees your public address, as any website does, and says it back |
+| A monitoring service you name (Healthchecks.io, Uptime Kuma, anything that takes a visit) | **whatever scheme your address uses** | Every few minutes, only if you switch on the heartbeat. A plain request to the address you gave, with nothing about your network in it |
 | Your webhook | **whatever scheme your URL uses** | When a new host appears, a watched host changes state, or an alert fires |
 
 **On your own network:**
@@ -1804,6 +1805,8 @@ scan, or delete a thing.
 | GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
 | GET | `/api/settings/rules` | The alert rules, quiet hours and port watch: `{"rules": [...], "quiet": {"from", "to", "digest", "now", "held"}, "portWatch"}` |
 | POST | `/api/settings/rules` | Body: the whole rule list, each `{"id", "name", "kind": "offline"\|"online"\|"hours", "target": "any"\|"watched"\|"tag:kids"\|"host:12", "minutes", "from", "to", "enabled"}`. `id` empty for a new rule |
+| POST | `/api/alerts/pause` | Body `{"minutes": 60}` — hold every alert for that long (up to 4320, three days) and send what was held as one summary when it ends; `0` ends a pause now. `409` when Pause alerts is switched off. `GET /api/hosts` carries `pauseEnabled` and `alertsPausedUntil` |
+| POST | `/api/settings/pause` | Body `{"enabled": false}` — switch the Pause alerts control off or on; off also ends a running pause |
 | POST | `/api/settings/quiet` | Body `{"from": "23:00", "to": "07:00", "digest": true}` — quiet hours in the server's local time; empty times clear them |
 | POST | `/api/settings/port-watch` | Body `{"enabled": true}` — scan every online known device's common ports daily at 4 am |
 | POST | `/api/settings/night` | Body `{"enabled": true, "from": "21:00", "to": "06:00", "theme": "nightstreet"}` — Night mode: every dashboard wears that theme between those clock times. `GET /api/settings` returns it as `editable.night`; `GET /api/hosts` as `night` |
@@ -1856,6 +1859,9 @@ scan, or delete a thing.
 | GET | `/api/settings/tidy` | The tidy-up: `{"enabled", "days", "would", "wouldNames", "last": {"at", "count", "names"}}` — `would` is how many devices would be forgotten now |
 | POST | `/api/settings/tidy` | Body `{"enabled": true, "days": 60}` — switch the daily tidy-up on or off and set the days (14 to 730) |
 | POST | `/api/tidy/run` | Forget the stale devices now, whether or not the daily tidy-up is on: `{"count", "names"}` |
+| GET | `/api/settings/heartbeat` | The heartbeat: `{"enabled", "minutes", "configured", "masked", "last": {"at", "ok", "error"}}`. `masked` is where the address goes, never the address |
+| POST | `/api/settings/heartbeat` | Body `{"enabled": true, "url": "https://hc-ping.com/…", "minutes": 5}` — `url` left out keeps the saved address, `""` clears it; 1 to 1440 minutes; switching on needs an address |
+| POST | `/api/heartbeat/test` | Visit the saved address once now: `{"ok", "error", "at"}` |
 | GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow", "externalIp"}` — `externalIp` is the home's public address, `{ip, source, at, since, previous, changedAt}` (`source` is `speedtest`, `greynoise` or `lookup`), or null until one of them has learned it; the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
 | GET | `/report/internet` | The internet report as one printable HTML page for sending to the provider. `?days=` 1 to 365 (default 30). See [Report for your provider](#report-for-your-provider) |
 | POST | `/api/settings/wanwatch` | Body `{"enabled": true}` — switch the internet watch on or off |
@@ -2593,6 +2599,15 @@ from when you snoozed it gets the alert it missed: "went offline, and was still
 offline when its snooze ended". A reboot that never came back isn't lost in the
 snooze, and one that did come back says nothing.
 
+**Pause alerts** is for when you are about to take something down: **Tools → Pause alerts…**
+holds every alert, for everyone, for 30 minutes up to three days (or until the morning). Like quiet hours
+it holds rather than drops: what comes up meanwhile is sent as one summary when the pause ends, so a
+switch you reboot on purpose doesn't send you an alert for everything behind it. A bar across the
+dashboard says alerts are paused, and **Resume now** ends it early and sends the summary. Alerts still
+show under Activity. It is on by default; untick **Pause alerts in the Tools menu** in the same Settings
+card to remove it, which also ends a pause that is running. A view-only password can see that alerts
+are paused but can't start or end one.
+
 ### Port history and change alerts
 
 Every port scan now leaves a record: each port found open on a device, when
@@ -2842,8 +2857,8 @@ one of Google's public DNS servers.
 That second ping is a packet leaving your house every minute. It's an echo
 request like any other ping, and nothing about your network goes with it, but
 it's outbound traffic on a timer, so it's off until you ask for it. With the
-update check, the GreyNoise check and the [speed test](#speed-test), that's
-everything BAMF sends outside.
+update check, the GreyNoise check, the [speed test](#speed-test) and the
+[heartbeat](#heartbeat), that's everything BAMF sends outside.
 
 What you get for it:
 
@@ -3516,6 +3531,22 @@ Settings the file doesn't mention are left as they are. A file that isn't a sett
 server BAMF can't use, is turned down and nothing changes. `GET /api/settings/export` and
 `POST /api/settings/import` do the same from a script, and the import shows in the Activity tab's
 settings changes.
+
+### Heartbeat
+
+BAMF can tell you about everything except itself going quiet. **Settings → System → Heartbeat** takes the
+address a monitoring service shows you (a [Healthchecks.io](https://healthchecks.io) ping URL, an Uptime Kuma push
+monitor's URL, anything that expects a visit) and BAMF asks for it every few minutes, from 1 up to 1440. When the
+visits stop, that service is the one that tells you, by whatever way you set it up, so you hear that BAMF or the machine it
+runs on has stopped. **Send one now** visits once straight away and says how it went, so a wrong address is found while
+you are looking at it.
+
+It is off by default, and it is one more thing BAMF sends out of the house (see [What BAMF talks to](#what-bamf-talks-to)):
+a plain request to that address with nothing about your network in it. The address is a credential, because the secret is
+usually in its path, so it is saved like a webhook: never shown again in full (only where it goes, like `https://hc-ping.com/…`),
+never in an API answer or a settings export, and it can be cleared with **Clear the address**. Switching the heartbeat off
+keeps the address, so switching it on again needs nothing typed. It carries on during a Pause alerts or quiet hours, because
+its whole point is to be noticed when it stops. Its state is on the Network services card under BAMF's own connections.
 
 ### MQTT and Home Assistant
 

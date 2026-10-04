@@ -147,6 +147,16 @@
   </div>
 </div>
 
+<div class="alerts-off paused" id="pauseBar" role="status" hidden>
+  <div class="ao-text">
+    <b>Alerts are paused</b> until <span id="pauseUntil"></span>.
+    Whatever comes up meanwhile is held and sent as one summary when the pause ends.
+  </div>
+  <div class="ao-actions">
+    <button type="button" class="export-btn" id="pauseResume">Resume now</button>
+  </div>
+</div>
+
 <div class="alerts-off whats-new" id="newsBar" role="status" hidden>
   <div class="ao-text">
     <b>BAMF was updated to <span id="newsVer"></span>.</b>
@@ -173,6 +183,7 @@
       <button class="export-btn" id="toolsBtn" title="Tools">Tools ▾</button>
       <div class="tools-menu" id="toolsMenu">
         <button id="exportCsv">Export CSV</button>
+        <button id="pauseOpen" title="Hold every alert for a while, for when you're about to take something down" hidden>Pause alerts…</button>
         <button id="freeOpen" title="How full each network is, and addresses nothing has used lately">Find a free address…</button>
         <button id="wallOpen" title="A big, calm status board for a TV or a spare tablet: opens /wall in a new tab">Wall display</button>
         <button id="feedback">Feedback / report a bug…</button>
@@ -688,6 +699,12 @@
           <button type="button" class="toggle" id="quietClear">Clear</button>
           <button type="button" class="export-btn" id="quietSave">Save</button>
         </div>
+        <label class="set-row" style="margin-top:8px">
+          <span class="set-label">Pause alerts in the Tools menu
+            <span class="set-hint">Adds <strong>Pause alerts…</strong> to Tools: hold every alert for a while (30 minutes up to three days), then send what was held as one summary. Switch it off and the menu entry goes, and a pause that is running ends.</span>
+          </span>
+          <input type="checkbox" id="pauseEnabled" checked>
+        </label>
         <div class="modal-note" id="quietStatus"></div>
       </div>
     </section>
@@ -839,6 +856,40 @@
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="setUpd" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
+      </div>
+      <div class="set-card" id="heartbeatCard">
+        <div class="set-card-title">Heartbeat</div>
+        <p class="modal-help">
+          BAMF can tell you about everything except itself going quiet. Give it the address a monitoring service
+          shows (a Healthchecks.io ping URL, an Uptime Kuma push URL, anything that expects a visit) and BAMF visits it
+          every few minutes. When the visits stop, that service tells you, so you hear that BAMF or the machine it runs on has stopped.
+          Off by default, and it is one more thing BAMF sends out of the house: a plain request to that address, with nothing about your network in it.
+        </p>
+        <p class="int-status" id="hbStatus"></p>
+        <label class="set-row">
+          <span class="set-label">Send a heartbeat
+            <span class="set-hint">Needs an address first.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="hbEnabled" aria-label="Send a heartbeat" aria-pressed="false"><span class="pill"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Address
+            <span class="set-hint">The secret is usually in its path, so it's never shown again once saved. Leave it blank to keep the saved one; clear it with the button.</span>
+          </span>
+          <span class="set-field int-fields"><input id="hbUrl" class="modal-input" autocomplete="off" spellcheck="false" placeholder="https://hc-ping.com/…"></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Every
+            <span class="set-hint">Minutes between visits, 1 to 1440. Set the service to expect it a little more often than it's tolerant of, so it waits a couple of visits before it worries.</span>
+          </span>
+          <span class="set-field int-fields"><input id="hbMinutes" class="modal-input" type="number" min="1" max="1440" placeholder="5"></span>
+        </label>
+        <div class="modal-actions" style="justify-content:flex-start">
+          <button class="export-btn" id="hbSave">Save</button>
+          <button class="toggle" id="hbTest">Send one now</button>
+          <button class="toggle" id="hbClear">Clear the address</button>
+        </div>
+        <div class="modal-note" id="hbResult"></div>
       </div>
       <div class="set-card" id="mqttCard">
         <div class="set-card-title">Home Assistant (MQTT)</div>
@@ -1191,6 +1242,23 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="pauseModal" hidden>
+  <div class="modal">
+    <div class="modal-title">Pause alerts</div>
+    <div class="modal-note" id="pauseSub"></div>
+    <div class="snooze-picks" id="pausePicks"></div>
+    <p class="modal-help">
+      For when you're about to take something down: a switch, the router, the whole rack. Every alert BAMF would send is
+      held instead, and goes out as one summary when the pause ends, so nothing is lost and nothing floods your phone.
+      Alerts still show under Activity. The pause ends by itself, or with <strong>Resume now</strong>.
+      Untick <em>send what was held as one summary</em> in the quiet hours settings to drop them instead.
+    </p>
+    <div class="modal-actions">
+      <button class="toggle" id="pauseEnd" hidden>Resume now</button>
+      <button class="toggle" id="pauseCancel">Cancel</button>
+    </div>
+  </div>
+</div>
 <div class="modal-backdrop" id="snoozeModal" hidden>
   <div class="modal">
     <div class="modal-title" id="snoozeTitle">Snooze alerts</div>
