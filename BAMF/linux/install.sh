@@ -30,7 +30,7 @@ resolve_source() {
     SRC_DIR="$(dirname "$(find "$TMP_SRC" -name BAMF.csproj | head -1)")"
     [ -f "$SRC_DIR/BAMF.csproj" ] || { echo "BAMF.csproj not found in zip."; exit 1; }
 }
-cleanup() { [ -n "$TMP_SRC" ] && rm -rf "$TMP_SRC"; }
+cleanup() { if [ -n "$TMP_SRC" ]; then rm -rf "$TMP_SRC"; fi; }
 trap cleanup EXIT
 
 step() { echo -e "\e[36m==> $*\e[0m"; }
