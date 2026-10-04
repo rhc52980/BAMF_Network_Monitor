@@ -33,6 +33,8 @@ The dashboard at `http://<server>:8840` polls `/api/hosts` every 10 seconds.
   — the published output can be fully self-contained, so the *server* needs
   nothing installed if you publish that way.
 - Optional, for active ARP scanning: Npcap on Windows, libpcap on Linux.
+- Linux also needs the ICU library (`libicuNN`), which .NET requires and a minimal
+  Debian or Ubuntu install lacks. `linux/install.sh` installs it if it's missing.
 
 ## Where everything lives
 
@@ -83,7 +85,8 @@ dotnet publish -c Release -o publish
 
 # OR fully self-contained single file (no runtime needed on the server):
 dotnet publish -c Release -r win-x64   -p:PublishSingleFile=true --self-contained true -o publish   # Windows
-dotnet publish -c Release -r linux-x64 -p:PublishSingleFile=true --self-contained true -o publish   # Linux
+dotnet publish -c Release -r linux-x64 -p:PublishSingleFile=true --self-contained true -o publish   # Linux, x86-64
+dotnet publish -c Release -r linux-arm64 -p:PublishSingleFile=true --self-contained true -o publish # Linux, arm64
 ```
 
 > **Rebuilding over a folder you already run from?** `dotnet publish` overwrites
@@ -1538,8 +1541,9 @@ sc.exe delete BAMF
 
 ## Install as a systemd service (Linux)
 
-`linux/install.sh` does the whole job as root — installs libpcap and the .NET 10
-SDK (one-time), builds a self-contained binary to `/opt/bamf`, installs
+`linux/install.sh` does the whole job as root — installs libpcap, ICU (if it's missing)
+and the .NET 10 SDK (one-time), builds a self-contained binary for the machine's CPU
+(x86-64 or arm64) to `/opt/bamf`, installs
 `linux/bamf.service`, enables it, and starts it:
 
 ```bash

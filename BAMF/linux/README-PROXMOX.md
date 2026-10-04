@@ -57,7 +57,7 @@ The script extracts the zip to a temp folder, builds to `/opt/bamf`, and cleans
 up - `/opt/bamf` is the only folder that persists, holding the app, your
 config, database, and backups.
 
-The script installs libpcap + the .NET SDK (one-time), builds to `/opt/bamf`,
+The script installs libpcap, ICU (if missing) and the .NET SDK (one-time), builds to `/opt/bamf`,
 installs a systemd service, and starts it. Then open
 `http://<container-ip>:8840`.
 

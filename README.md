@@ -278,6 +278,8 @@ what the evidence suggests and names the evidence, so you can judge it.
 - **Windows** Server 2022, or Windows 10/11 · **Linux** Debian 12 / Ubuntu 22.04+
 - Optional, for raw ARP scanning: [Npcap](https://npcap.com) on Windows,
   `libpcap` on Linux — without it BAMF falls back to a sweep
+- **Linux** also needs the ICU library (`libicuNN`); a minimal Debian or Ubuntu
+  install may lack it, and the installer adds it
 - A network interface on each subnet you want to watch
 
 ## Licence
