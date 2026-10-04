@@ -695,7 +695,8 @@
   .fl-item small { margin-left: auto; color: var(--text-dim); font-size: 11px; white-space: nowrap; }
   body.viewer .floor-wrap .edit-only { display: none !important; }
   /* ---- Drawing a plan ---- */
-  .plan-ed { position: fixed; inset: 0; z-index: 9000; display: flex; flex-direction: column; background: var(--bg); }
+  .plan-ed { position: fixed; inset: 0; z-index: 9000; display: flex; flex-direction: column; background: var(--bg);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
   .plan-ed[hidden] { display: none; }
   .plan-top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
   .plan-top .sp { flex: 1 1 auto; }
@@ -1047,7 +1048,7 @@
   .blink-on .blink-dot { background: var(--led-on); box-shadow: 0 0 8px var(--led-on); }
   .blink-box.done .blink-dot, .blink-box.err .blink-dot { background: var(--led-off); box-shadow: none; }
   .blink-bar {
-    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 450;
+    position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 450;
     display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px);
     background: var(--panel); border: 1px solid var(--focus); border-radius: 999px;
     padding: 8px 10px 8px 14px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.35);
@@ -1140,7 +1141,8 @@
   @media (max-width: 700px) { .topo-frame { height: 70vh; margin: 8px -14px -8px; } }
   /* A map opened full screen: the card covers the window, its drawing fills it. */
   body.map-expanded { overflow: hidden; }
-  .map-card.expanded { position: fixed; inset: 0; z-index: 420; border-radius: 0; border: 0; display: flex; flex-direction: column; }
+  .map-card.expanded { position: fixed; inset: 0; z-index: 420; border-radius: 0; border: 0; display: flex; flex-direction: column;
+    padding: calc(12px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left)); }
   .map-card.expanded .topo-frame { flex: 1; height: auto !important; margin: 8px -14px -8px; }
   tr.blink-on td { background: color-mix(in srgb, var(--focus) 16%, transparent); }
   .blink-box.err .blink-text { color: var(--danger); }
@@ -1289,6 +1291,7 @@
 
   .scan-panel {
     position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 92vw);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) 0;
     z-index: 600; background: var(--panel); border-left: 1px solid var(--line);
     box-shadow: -8px 0 30px rgba(0,0,0,.35); display: flex; flex-direction: column;
   }
@@ -1684,7 +1687,7 @@
   }
 
   .toast {
-    position: fixed; bottom: 20px; right: 20px;
+    position: fixed; bottom: calc(20px + env(safe-area-inset-bottom)); right: calc(20px + env(safe-area-inset-right));
     background: var(--panel-2); border: 1px solid var(--led-warn);
     border-radius: var(--radius); padding: 12px 16px;
     font-size: 13px; display: none; max-width: 340px;
