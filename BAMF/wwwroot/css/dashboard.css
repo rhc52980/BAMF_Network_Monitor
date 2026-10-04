@@ -42,6 +42,8 @@
     font-family: "Space Grotesk", system-ui, sans-serif;
     font-size: 14px;
     -webkit-font-smoothing: antialiased;
+    /* Keep the last row clear of the gesture bar when drawn edge to edge. */
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .mono { font-family: "IBM Plex Mono", monospace; }
 
@@ -51,7 +53,10 @@
      When it wraps, margin-left: auto keeps the countdown on the right. */
   header {
     display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px;
-    padding: 14px 24px;
+    /* Room for the status bar and a camera cutout when the page is drawn edge to
+       edge (the phone app, or an installed app with viewport-fit=cover). Zero
+       in an ordinary browser, so nothing moves there. */
+    padding: calc(14px + env(safe-area-inset-top)) calc(24px + env(safe-area-inset-right)) 14px calc(24px + env(safe-area-inset-left));
     border-bottom: 1px solid var(--line);
     background: var(--panel);
   }
@@ -1566,7 +1571,7 @@
   .addr-note { padding: 6px 10px 2px; font-size: 12px; color: var(--text-dim); max-width: 260px; white-space: normal; }
 
   @media (max-width: 700px) {
-    header { flex-wrap: wrap; gap: 10px; padding: 12px 16px; }
+    header { flex-wrap: wrap; gap: 10px; padding: calc(12px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 12px calc(16px + env(safe-area-inset-left)); }
     .brand { flex-wrap: wrap; }
     .brand .meta { margin-left: 0; padding-left: 0; border-left: 0; width: 100%; flex-wrap: wrap; row-gap: 6px; }
     .scanline { width: 100%; margin-left: 0; }
