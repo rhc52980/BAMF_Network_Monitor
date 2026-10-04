@@ -34,6 +34,7 @@ public static class SettingsLog
         ["report"] = "Scheduled report",
         ["rules"] = "Alert rules",
         ["heartbeat"] = "Heartbeat to a monitoring service",
+        ["pause"] = "The Pause alerts control",
         ["import"] = "Settings imported from a file",
         ["quiet"] = "Quiet hours",
         ["alertnudge"] = "The alerts-off banner",

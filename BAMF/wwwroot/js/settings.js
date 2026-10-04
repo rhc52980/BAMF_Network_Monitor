@@ -889,6 +889,30 @@ $("layoutFile").onchange = async () => {
 // Nothing on the dashboard said when alerts weren't going anywhere: the only
 // sign was a line inside Settings. A viewer can't save a webhook, so they
 // aren't told about something they can't fix.
+// The Pause alerts entry in Tools, and the bar that says alerts are paused.
+function renderPause() {
+  const open = $("pauseOpen");
+  if (open) open.hidden = !pauseEnabled || role === "viewer";
+  const bar = $("pauseBar");
+  if (!bar) return;
+  const until = pauseEnabled && alertsPausedUntil && new Date(alertsPausedUntil) > new Date() ? alertsPausedUntil : null;
+  bar.hidden = !until;
+  if (until) $("pauseUntil").textContent = snoozeClock(until);
+  $("pauseResume").hidden = role === "viewer";
+  const box = $("pauseEnabled");
+  if (box) box.checked = pauseEnabled;
+}
+$("pauseEnabled").onchange = async () => {
+  const enabled = $("pauseEnabled").checked;
+  try {
+    const r = await fetch("/api/settings/pause", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled }) });
+    if (!r.ok) throw new Error();
+    pauseEnabled = enabled;
+    if (!enabled) alertsPausedUntil = null;
+    renderPause();
+    toast(enabled ? "Pause alerts is in the Tools menu" : "Pause alerts is off");
+  } catch { $("pauseEnabled").checked = !enabled; toast("Couldn't save that"); }
+};
 function renderAlertsOff() {
   $("alertsOff").hidden = alertsConfigured || alertsNudgeOff || role === "viewer";
 }

@@ -11,8 +11,43 @@ public partial class ScannerService
     public (string From, string To) QuietHours => (_store.GetSetting("quietFrom") ?? "", _store.GetSetting("quietTo") ?? "");
     public bool QuietDigest => _store.GetSetting("quietDigest") != "false";
 
+    /// <summary>Whether the Pause alerts control is on. It's on unless switched off in Settings.</summary>
+    public bool PauseEnabled => _store.GetSetting("pauseAlerts") != "false";
+
+    /// <summary>The longest a pause can be: a long weekend away.</summary>
+    public const int MaxPauseMinutes = 3 * 24 * 60;
+
+    /// <summary>When alerts start going out again after a pause, or null when they aren't paused (or the control is off).</summary>
+    public DateTime? PausedUntil
+    {
+        get
+        {
+            if (!PauseEnabled) return null;
+            return DateTime.TryParse(_store.GetSetting("alertsPausedUntil"), System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind, out var t) && t.ToUniversalTime() > DateTime.UtcNow ? t.ToUniversalTime() : null;
+        }
+    }
+
+    /// <summary>
+    /// Holds every alert for a while, the way quiet hours do, and sends what was held as one summary when it ends.
+    /// 0 minutes ends a pause now, and sends the summary now. Returns when it will end, or null.
+    /// </summary>
+    public async Task<DateTime?> PauseAlerts(int minutes, CancellationToken ct)
+    {
+        if (minutes <= 0)
+        {
+            _store.SetSetting("alertsPausedUntil", "");
+            if (!IsQuietNow()) await FlushHeldAlerts(ct);
+            return null;
+        }
+        var until = DateTime.UtcNow.AddMinutes(Math.Min(minutes, MaxPauseMinutes));
+        _store.SetSetting("alertsPausedUntil", until.ToString("o"));
+        return until;
+    }
+
     public bool IsQuietNow()
     {
+        if (PausedUntil is not null) return true;
         var (from, to) = QuietHours;
         if (!TimeOnly.TryParse(from, out var f) || !TimeOnly.TryParse(to, out var t) || f == t) return false;
         var now = TimeOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.Local));

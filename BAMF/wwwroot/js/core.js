@@ -66,6 +66,8 @@ let nightMode = { enabled: false, from: "21:00", to: "06:00", theme: "nightstree
 try { const n = JSON.parse(localStorage.getItem("bamf-night") || "null"); if (n && typeof n === "object") nightMode = { ...nightMode, ...n }; } catch {}
 let webhookConfigured = false;
 let alertsConfigured = false;   // any destination, the main webhook or another, takes any alerts
+let pauseEnabled = true;       // the Pause alerts control is offered
+let alertsPausedUntil = null;  // when a pause on every alert ends, or null
 let alertsNudgeOff = false;     // "Don't remind me" on the alerts-off banner
 let webhookMasked = null;   // masked form only; the server never sends the full URL
 let webhookFormat = "auto"; // auto | ntfy | gotify | json
@@ -173,8 +175,11 @@ async function refresh() {
     webhookConfigured = !!data.webhookConfigured;
     alertsConfigured = data.alertsConfigured ?? webhookConfigured;
     alertsNudgeOff = !!data.alertsNudgeOff;
+    pauseEnabled = data.pauseEnabled !== false;
+    alertsPausedUntil = data.alertsPausedUntil || null;
     if (data.newDays) newDays = data.newDays;
     renderAlertsOff();
+    renderPause();
     webhookMasked = data.webhookMasked || null;
     webhookFormat = data.webhookFormat || "auto";
     repoUrl = data.repoUrl || repoUrl;
