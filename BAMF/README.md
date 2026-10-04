@@ -135,6 +135,7 @@ step:
 | `js/screensaver.js` | The screen saver and the watchtower |
 | `js/internet.js` | The internet watch, the speed test, the Scan menu and free addresses |
 | `js/services.js` | The Network services card: the public address, gateways, DHCP, DNS, UPnP, mDNS and what devices offer |
+| `js/sites.js` | The Sites card: this site and every other BAMF server watched, with their devices counted |
 | `js/settings.js` | What's new, where alerts go, and Settings |
 | `js/main.js` | Switching views, and starting the page |
 
@@ -2668,6 +2669,15 @@ changed from here. **All networks** stays this server's own. A remote that
 can't be reached keeps its last answer and its tab says **stale**; the
 **Other BAMF servers** card shows each one's state. The Map draws
 this server's networks only.
+
+The **Sites** card at the top of the Activity tab (shown once you add one) puts this
+site and every other side by side: devices online of the total, when it last scanned, the BAMF
+version, and a line when something needs a look: it has stopped answering, it has unknown devices
+on it, or a watched device is offline. Click a site to open its devices.
+
+A server that has been answering and then misses three polls in a row (about three minutes) raises an alert like
+any other, "Cabin isn't answering", to the same destinations as security alerts, and another when it
+is back. One that has never answered is taken for a wrong address, not an outage, and stays quiet.
 
 ### Scheduled reports
 

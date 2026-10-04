@@ -27,11 +27,57 @@ public sealed class RemoteService : BackgroundService
     private readonly object _lock = new();
     private readonly Dictionary<string, (Status Status, JsonArray Hosts)> _state = new();
     private readonly HostStore _store;
+    private readonly ScannerService? _scanner;
+    private readonly Dictionary<string, Outage> _outages = new();
     private CancellationTokenSource _wake = new();
 
-    public RemoteService(IConfiguration config, IHttpClientFactory http, HostStore store, ILogger<RemoteService> log)
+    public RemoteService(IConfiguration config, IHttpClientFactory http, HostStore store, ILogger<RemoteService> log, ScannerService? scanner = null)
     {
-        _config = config; _http = http; _store = store; _log = log;
+        _config = config; _http = http; _store = store; _log = log; _scanner = scanner;
+    }
+
+    /// <summary>How one remote has been answering: said once when it has gone quiet, and once when it's back.</summary>
+    internal sealed class Outage { public int Failures; public DateTime? Since; public bool EverOk, Alerted; }
+
+    /// <summary>Failed fetches in a row before a remote that has worked is called down: about three minutes at the one-a-minute pace.</summary>
+    internal const int MissesBeforeDown = 3;
+
+    /// <summary>
+    /// Counts one fetch. Returns "down" the first time a remote that has worked has missed enough in a row, "back" when it
+    /// answers after that, and null otherwise. One that never answered at all is a typo in the address, not an outage.
+    /// </summary>
+    internal static string? Step(Outage o, bool ok, DateTime now)
+    {
+        if (ok)
+        {
+            o.EverOk = true; o.Failures = 0;
+            if (!o.Alerted) { o.Since = null; return null; }
+            o.Alerted = false;
+            return "back";
+        }
+        o.Since ??= now;
+        o.Failures++;
+        if (!o.EverOk || o.Alerted || o.Failures < MissesBeforeDown) return null;
+        o.Alerted = true;
+        return "down";
+    }
+
+    private async Task Track(Remote r, bool ok, string? error, CancellationToken ct)
+    {
+        Outage o; string? what; DateTime? since;
+        lock (_lock)
+        {
+            if (!_outages.TryGetValue(r.Name, out o!)) _outages[r.Name] = o = new Outage();
+            since = o.Since;
+            what = Step(o, ok, DateTime.UtcNow);
+        }
+        if (what is null || _scanner is null) return;
+        var mins = since is { } t ? Math.Max(1, (int)Math.Round((DateTime.UtcNow - t).TotalMinutes)) : 1;
+        if (what == "down")
+            await _scanner.RaiseSecurity($"{r.Name} isn't answering",
+                $"The BAMF server at {r.Url} hasn't answered for about {mins} minute{(mins == 1 ? "" : "s")}{(string.IsNullOrEmpty(error) ? "" : " (" + error + ")")}. Its devices are shown as they were at the last answer, marked stale. BAMF will say when it's back.", ct);
+        else
+            await _scanner.RaiseSecurity($"{r.Name} is answering again", $"The BAMF server at {r.Url} is back after about {mins} minute{(mins == 1 ? "" : "s")}.", ct);
     }
 
     /// <summary>The list saved in Settings, or null when appsettings.json decides.</summary>
@@ -82,10 +128,11 @@ public sealed class RemoteService : BackgroundService
             var remotes = Remotes;
             // One taken off the list takes its devices with it.
             lock (_lock)
-                foreach (var gone in _state.Keys.Where(n => !remotes.Any(r => r.Name == n)).ToList()) _state.Remove(gone);
+                foreach (var gone in _state.Keys.Where(n => !remotes.Any(r => r.Name == n)).ToList()) { _state.Remove(gone); _outages.Remove(gone); }
             foreach (var r in remotes)
             {
-                try { await Fetch(r, ct); }
+                var fetched = false;
+                try { await Fetch(r, ct); fetched = true; }
                 catch (OperationCanceledException) { return; }
                 catch (Exception ex)
                 {
@@ -95,6 +142,15 @@ public sealed class RemoteService : BackgroundService
                         _state[r.Name] = (was.Status with { Ok = false, Error = ex.Message, Url = r.Url }, was.Hosts);
                     }
                     _log.LogWarning("Remote {Name}: {Error}", r.Name, ex.Message);
+                    try { await Track(r, false, ex.Message, ct); }
+                    catch (OperationCanceledException) { return; }
+                    catch (Exception again) { _log.LogWarning("Remote {Name}: couldn't raise its alert: {Error}", r.Name, again.Message); }
+                }
+                if (fetched)
+                {
+                    try { await Track(r, true, null, ct); }
+                    catch (OperationCanceledException) { return; }
+                    catch (Exception again) { _log.LogWarning("Remote {Name}: couldn't raise its alert: {Error}", r.Name, again.Message); }
                 }
             }
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _wake.Token);
