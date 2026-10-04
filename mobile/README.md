@@ -63,13 +63,16 @@ name on that port and scan: it should report "No BAMF found".
 - **HTTP is only opened for private addresses** (10/8, 172.16/12, 192.168/16,
   169.254/16, 100.64/10, loopback, `.local` and single-label names). HTTPS goes
   anywhere. This is checked in the plugin, not just in the page.
-- **iPhone, what has and hasn't been checked.** Built for the simulator (iOS 17.2, iPhone
-  SE), the finder renders at 375pt, the plugin registers, and a scan of the Mac's own /24
-  runs and reports correctly. Not yet exercised: opening a server over HTTP (App Transport
-  Security), swiping back to the finder, and a sign-in surviving a restart. Android has
-  been through all three. Capacitor 8's `SceneDelegate.swift` creates the root view
-  controller in code, so it has been changed to `BamfViewController()`; the storyboard is
-  not used. If `npx cap sync` or an upgrade regenerates that file, change it back.
+- **iPhone, what has been checked.** On the simulator (iOS 17.2, iPhone SE) the finder
+  renders at 375pt, discovery scans the Mac's own /24 and finds a BAMF server on it, and
+  the app connects to it over plain HTTP (App Transport Security allows it through
+  `NSAllowsLocalNetworking`). A UI test driving the installed app also signed in, kept the
+  session across a full relaunch, and swiped in from the left edge back to the finder,
+  which did not reconnect by itself. Not yet checked: a real iPhone, and the Local Network
+  permission prompt (the simulator doesn't show one).
+  Capacitor 8's `SceneDelegate.swift` creates the root view controller in code, so it has
+  been changed to `BamfViewController()`; the storyboard is not used. If `npx cap sync` or
+  an upgrade regenerates that file, change it back.
 - **iPhone:** the first scan asks for Local Network permission; if that is refused,
   nothing is found and the address box is the way in. A `PrivacyInfo.xcprivacy` and
   store screenshots are still to do.
