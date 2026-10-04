@@ -891,6 +891,12 @@
           <input type="checkbox" id="bulkEnabled" checked>
         </label>
         <label class="set-row">
+          <span class="set-label">Ping, trace route and DNS lookup
+            <span class="set-hint">Adds <strong>Ping…</strong>, <strong>Trace route…</strong> and <strong>DNS lookup…</strong> to a device's ⋯ menu under Look closer: they run from the machine BAMF is on, and only ever at a device BAMF already knows. Switch it off and they go.</span>
+          </span>
+          <input type="checkbox" id="networkToolsEnabled" checked>
+        </label>
+        <label class="set-row">
           <span class="set-label">Check GitHub daily for a newer release
             <span class="set-hint">Off by default. Read-only: it only reads the latest release tag and never downloads or installs anything. The only outbound call BAMF makes that you didn't ask for.</span>
             <span class="set-hint" id="setUpdStatus"></span>
@@ -1315,6 +1321,18 @@
     </div>
   </div>
 </div>
+<div class="modal-backdrop" id="toolModal" hidden>
+  <div class="modal">
+    <div class="modal-title" id="toolTitle"></div>
+    <div class="modal-note" id="toolSub"></div>
+    <pre class="tool-out" id="toolOut"></pre>
+    <div class="modal-note" id="toolSummary"></div>
+    <div class="modal-actions">
+      <button class="export-btn" id="toolAgain">Run again</button>
+      <button class="toggle" id="toolClose">Close</button>
+    </div>
+  </div>
+</div>
 <div class="modal-backdrop" id="snoozeModal" hidden>
   <div class="modal">
     <div class="modal-title" id="snoozeTitle">Snooze alerts</div>
@@ -1677,6 +1695,7 @@
 <script src="js/activity.js"></script>
 <script src="js/map.js"></script>
 <script src="js/dialogs.js"></script>
+<script src="js/tools.js"></script>
 <script src="js/views.js"></script>
 <script src="js/bulk.js"></script>
 <script src="js/themes.js"></script>

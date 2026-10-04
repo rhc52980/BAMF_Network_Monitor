@@ -132,6 +132,8 @@ internal static class DeviceEndpoints
                 alertsConfigured = scanner.AnyDestination,
                 // Whether "Don't remind me" was pressed on the alerts-off banner.
                 alertsNudgeOff = store.GetSetting("alertsNudgeOff") == "true",
+                // Whether Ping, Trace route and DNS lookup are offered in a device's menu.
+                networkToolsEnabled = store.GetSetting("networkTools") != "false",
                 // Whether the list's Select mode (one change to several devices) is offered.
                 bulkEnabled = store.BulkEnabled,
                 // The Pause alerts control: whether it's offered, and until when alerts are paused (null when they aren't).
@@ -681,6 +683,28 @@ internal static class DeviceEndpoints
             return Results.Json(new { enabled = store.BulkEnabled });
         });
 
+        // Ping, trace route or DNS lookup for a device, run from this machine. The target is the device's own address.
+        app.MapPost("/api/hosts/{id:long}/tool", async (long id, ToolRequest body, HostStore store, NetworkTools tools, CancellationToken ct) =>
+        {
+            if (store.GetSetting("networkTools") == "false") return Results.Conflict(new { error = "Network tools are switched off in Settings." });
+            var tool = (body.Tool ?? "").Trim().ToLowerInvariant();
+            if (!NetworkTools.Tools.Contains(tool)) return Results.BadRequest(new { error = "Ping, trace or dns." });
+            var h = store.GetAll().FirstOrDefault(x => x.Id == id && !x.Forgotten);
+            if (h is null) return Results.NotFound();
+            if (!System.Net.IPAddress.TryParse(h.Ip, out var addr) || addr.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+                return Results.BadRequest(new { error = "BAMF doesn't have an IPv4 address for that device." });
+            var name = !string.IsNullOrEmpty(h.Hostname) && h.Hostname != "—" ? h.Hostname : h.MdnsName;
+            var r = await tools.RunAsync(tool, h.Ip, name, ct);
+            return r is null ? Results.Json(new { error = "Another tool is running. Try again in a moment." }, statusCode: 429)
+                : Results.Json(new { tool = r.Tool, target = r.Target, ok = r.Ok, lines = r.Lines, summary = r.Summary });
+        });
+
+        // Whether the network tools are offered at all.
+        app.MapPost("/api/settings/network-tools", (ActiveArpRequest body, HostStore store) =>
+        {
+            store.SetSetting("networkTools", body.Enabled ? "true" : "false");
+            return Results.Json(new { enabled = body.Enabled });
+        });
         // Saved views of the device list: a name for a tab, network, status, type, tag and search.
         app.MapGet("/api/views", (HostStore store) => Results.Json(new { max = HostStore.MaxViews, views = store.GetViews() }));
 

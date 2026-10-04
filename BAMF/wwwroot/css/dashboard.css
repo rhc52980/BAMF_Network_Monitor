@@ -1741,6 +1741,7 @@
   .bulk-acts { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 auto; }
   .bulk-acts button[hidden] { display: none; }
   .bulk-acts button:disabled { opacity: .45; cursor: default; }
+  .tool-out { margin: 8px 0; padding: 10px 12px; min-height: 90px; max-height: 340px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font: 12px/1.5 "IBM Plex Mono", monospace; white-space: pre-wrap; }
   .toast {
     position: fixed; bottom: 20px; right: 20px;
     background: var(--panel-2); border: 1px solid var(--led-warn);

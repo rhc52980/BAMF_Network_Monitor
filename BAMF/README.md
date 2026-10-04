@@ -134,6 +134,7 @@ step:
 | `js/themes.js` | Themes, Holiday Spirit, Night mode, compact rows and the intruders |
 | `js/screensaver.js` | The screen saver and the watchtower |
 | `js/internet.js` | The internet watch, the speed test, the Scan menu and free addresses |
+| `js/tools.js` | Ping, trace route and DNS lookup for a device, run from its ⋯ menu |
 | `js/services.js` | The Network services card: the public address, gateways, DHCP, DNS, UPnP, mDNS and what devices offer |
 | `js/views.js` | The Views menu: saving the device list's current combination of filters under a name, and applying one |
 | `js/bulk.js` | Select mode for the device list: tick several devices and do one thing to all of them |
@@ -1790,6 +1791,7 @@ scan, or delete a thing.
 | POST | `/api/settings/webhook` | Body `{"url": "https://..."}` — save the notification webhook (empty string clears it). Returns a masked form; the full URL is never read back |
 | POST | `/api/settings/update-check` | Body `{"enabled": true}` — toggle the daily GitHub update check. Turning it on checks immediately and returns the result |
 | POST | `/api/hosts/{id}/watch` | Body `{"watched": true}` — watch a host for downtime (star toggle in the UI) |
+| POST | `/api/hosts/{id}/tool` | Body `{"tool": "ping"}` (or `trace`, `dns`) — run it at that device's own address from this machine: `{"tool", "target", "ok", "lines", "summary"}`. `409` when switched off, `429` while another tool runs. `GET /api/hosts` carries `networkToolsEnabled`; `POST /api/settings/network-tools` with `{"enabled": false}` switches it |
 | POST | `/api/hosts/{id}/snooze` | Body `{"minutes": 120}` — hold back that device's alerts for a while, up to a week; `0` ends the snooze. Returns `{"snoozedUntil"}`, which `/api/hosts` also carries per device |
 | POST | `/api/hosts/{id}/ignore` | Body `{"ignored": true}` — hide a host from main views and suppress its alerts/history |
 | POST | `/api/hosts/{id}/note` | Body `{"note": "..."}` — save a free-text note (max 500 chars) |
@@ -3515,6 +3517,21 @@ The card says how many would be tidied now, and which.
 
 Tidied devices are **forgotten**, not deleted: they go to the Forgotten tab, each can be brought back from there with
 its history, and one that turns up on the network again is no longer forgotten by itself. The card shows the last tidy.
+
+### Ping, trace route and DNS lookup
+
+When a device is flaky, the question is "can BAMF reach it, and by what path?". A device's **⋯ menu → Look closer** has **Ping…**,
+**Trace route…** and **DNS lookup…**, which run from the machine BAMF is on and show the answer in a small window:
+
+- **Ping** sends four echo requests and says what answered, how many were lost, and the fastest, average and slowest time.
+- **Trace route** lists each router on the way to the device, and stops at the device; after five hops in a row with no answer it
+  gives up rather than wait through twenty. It can take half a minute.
+- **DNS lookup** asks what name DNS has for the device's address, and where its name resolves to, and says if that includes the device's own address.
+
+They are careful by design. The target is always the device's own address from BAMF's list, never something typed, so they can't be used to
+probe the internet or anywhere else; they run inside BAMF without starting any program; only one runs at a time (a second is told to try again);
+each is bounded in time; and a view-only password doesn't get them. On by default; untick **Ping, trace route and DNS lookup** under
+**Settings → System** to take them out of every device's menu.
 
 ### Back up the database
 
