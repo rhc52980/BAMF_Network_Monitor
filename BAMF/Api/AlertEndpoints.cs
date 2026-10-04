@@ -16,6 +16,14 @@ internal static class AlertEndpoints
             return Results.Json(mine.Concat(watch).OrderByDescending(a => a.at).Take(50));
         });
 
+        // BAMF's own warnings and errors since it started, for the Problems card.
+        app.MapGet("/api/problems", (ProblemLog problems) => Results.Json(new
+        {
+            since = problems.StartedUtc.ToString("o"),
+            rows = problems.Rows().Select(r => new { source = r.Source, level = r.Level, message = r.Message, count = r.Count, first = r.FirstUtc.ToString("o"), last = r.LastUtc.ToString("o") }),
+        }));
+        app.MapPost("/api/problems/clear", (ProblemLog problems) => { problems.Clear(); return Results.Ok(); });
+
         // Alert rules, and quiet hours.
         app.MapGet("/api/settings/rules", (RuleService rules, ScannerService scanner) => Results.Json(RulesJson(rules, scanner)));
 
