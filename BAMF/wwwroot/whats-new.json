@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.4.0",
+      "date": "2026-10-04",
+      "items": [
+        "A new Report for my provider link on the Internet card opens one printable page of the last 30 days: outages on the line, slow spells and speed tests. Outages that took your own router down too are listed apart, so you only send your provider what is theirs.",
+        "If you watch other BAMF servers, a Sites card on the Activity tab puts them side by side with this one. BAMF now also raises an alert when one of them stops answering, and another when it is back.",
+        "Settings has Export settings and Import settings: set up a second BAMF the way the first one is. Passwords, webhook addresses, the site's networks and the devices stay behind."
+      ]
+    },
+    {
       "version": "2.3.0",
       "date": "2026-10-03",
       "items": [
