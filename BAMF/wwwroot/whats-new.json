@@ -2,6 +2,14 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.6.0",
+      "date": "2026-10-04",
+      "items": [
+        "A new Problems card on the Activity tab lists what has gone wrong inside BAMF since it started: an alert a webhook refused, a router that would not take its password, a scan that failed. Until now that only went to a log file on the server.",
+        "BAMF now says so when it starts again after stopping unexpectedly, such as after a power cut or a crash, with how long it was down. Stopping the service or updating stays quiet. You can switch this off in Settings, under Alerts."
+      ]
+    },
+    {
       "version": "2.5.0",
       "date": "2026-10-04",
       "items": [
