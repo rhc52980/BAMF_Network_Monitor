@@ -54,6 +54,21 @@ build or with `ASPNETCORE_ENVIRONMENT=Development`, listening on `127.0.0.1:8840
 To check that something else on 8840 is turned away, serve a manifest with another
 name on that port and scan: it should report "No BAMF found".
 
+## UI test (iPhone)
+
+`tool/ios-uitest/` drives the installed app on an iOS simulator by its bundle id: it signs
+in, kills and relaunches the app to check the session was kept, then swipes in from the
+left edge and checks it lands on the finder without reconnecting.
+
+```sh
+BAMF_PW=<the BAMF server's password> bash mobile/tool/ios-uitest/run.sh
+```
+
+It builds and installs the app fresh (so discovery runs from scratch), then runs the test
+and shuts the simulator down if it booted it. The app scans the Mac's Wi-Fi subnet, so a
+BAMF server with a password set has to be running there. Needs Xcode and `xcodegen`
+(`brew install xcodegen`). Screenshots of each step are left in `$TMPDIR/bamf-ios-uitest/shots`.
+
 ## Limits, and what's next
 
 - **Plain HTTP only is probed.** Discovery never trusts an unverified certificate. A

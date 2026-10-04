@@ -1,0 +1,23 @@
+name: BamfUITests
+options:
+  bundleIdPrefix: test.bamf
+  deploymentTarget:
+    iOS: "15.0"
+targets:
+  BamfUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [Tests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: test.bamf.uitests
+        SWIFT_VERSION: "5.0"
+        CODE_SIGNING_ALLOWED: NO
+schemes:
+  BamfUITests:
+    build:
+      targets:
+        BamfUITests: all
+    test:
+      targets: [BamfUITests]
