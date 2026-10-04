@@ -239,7 +239,7 @@
 
 .rgb-stick.eject { transform:translate(-50%, 90px); opacity:0; }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .rgb-stick, .rgb-stick .rgb-led, .rgb-rig.intruder .rgb-edge { animation:none !important; }
 
   [data-theme="rgb"] header::after, [data-theme="rgb"] .brand h1, [data-theme="rgb"] .brand .mark, [data-theme="rgb"] .stat,

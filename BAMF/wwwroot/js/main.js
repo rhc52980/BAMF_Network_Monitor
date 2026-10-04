@@ -37,4 +37,7 @@ $("search").oninput = e => { query = e.target.value; render(); };
 if (location.hash.length > 1) showView(location.hash.slice(1), { fromHash: true });
 refresh();
 checkSetup();
-setInterval(refresh, POLL_MS);
+// Not while the page is hidden (a phone with the app in the background, a tab nobody is
+// looking at): no requests and no redrawing. Coming back refreshes at once.
+setInterval(() => { if (!document.hidden) refresh(); }, POLL_MS);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });

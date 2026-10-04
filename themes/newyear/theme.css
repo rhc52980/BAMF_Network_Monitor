@@ -53,6 +53,6 @@
 
 @keyframes ny-list { 0%, 16%, 32% { opacity: 1; } 8%, 24% { opacity: .2; } 85% { opacity: 1; } 100% { opacity: 0; } }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .ny-door .ny-crasher, .ny-list { animation: none !important; }
 }

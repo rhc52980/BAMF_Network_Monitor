@@ -200,7 +200,7 @@ BAMF.registerTheme("my-theme", ctx => {
   // ctx.root: a layer over the page that never takes a click
   // ctx.background(el): put an element behind the page
   // ctx.later(fn, ms), ctx.every(fn, ms), ctx.onStop(fn)
-  // ctx.calm: true when reduced motion is on, so hold still
+  // ctx.calm: true when reduced motion is on or the screen is a touch screen, so hold still
   // ctx.switched: true if the user just switched to this theme
   // ctx.hosts(), ctx.view(), ctx.headerBottom(), ctx.wentOffline()
   // helpers: ctx.svg(tag, attrs), ctx.rnd(a, b), ctx.pick(list), ctx.esc(text), ctx.nameOrIp(host)
@@ -238,7 +238,9 @@ BAMF they come with; a theme of your own should stick to the context.
 The themes here all keep to these, and a theme you share should too:
 
 - nothing runs while the tab is in the background;
-- with reduced motion on, it holds still;
+- with reduced motion on, or on a touch screen, it holds still: in CSS use
+  `@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) { ... }`
+  and in script check `ctx.calm` (a moving theme kept a phone at 90-280% of a CPU core);
 - sound only when the user switches it on;
 - text stays readable: at least AA contrast;
 - online, unknown and offline keep their colours and what they mean;

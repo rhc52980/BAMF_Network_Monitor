@@ -453,7 +453,10 @@ let festivePrev = null;
 // What each theme does, by id. Every theme with effects is in a folder, and its
 // theme.js adds itself here with BAMF.registerTheme when it loads.
 const THEME_FX = {};
-const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
+// Scenes hold still when the system asks for reduced motion, and on a touch screen: a phone's WebView redraws
+// the whole screen every frame for as long as anything moves, which cost 90-280% of a CPU core for an
+// animated theme on a Pixel. The stylesheets use the same query (see "Reduced motion" in the README).
+const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse)").matches; } catch { return false; } };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 function festive(theme) {

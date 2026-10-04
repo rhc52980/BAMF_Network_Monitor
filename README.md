@@ -234,8 +234,9 @@ Agent, a bear, a yeti, a fox after the hens, a leak, a seagull after the hot
 dogs, a werewolf, a burglar on the naughty list. The scene raises the alarm,
 then holds it, tagged, until you say it's known.
 
-Reduced motion holds every scene still, nothing runs in a background tab, and
-sound is off unless you ask for it.
+Reduced motion holds every scene still, and so does a touch screen: on a phone or
+tablet the scenes stay still, because a moving one kept a Pixel's CPU at 90-280% of
+a core. Nothing runs in a background tab, and sound is off unless you ask for it.
 
 Every theme but Dark, Light and High Contrast is a folder you can add or
 remove, so the menu offers only the ones you want. See them all in the

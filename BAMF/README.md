@@ -464,6 +464,36 @@ that work without exposing port 8840:
   pass through to BAMF. Set a password first (Settings → Security); BAMF locks
   an address out after repeated wrong guesses.
 
+### Mobile and battery
+
+A phone's WebView is far less forgiving than a desktop browser, so the dashboard behaves
+differently there. Measured on a Pixel 10 Pro XL (Android 17, 120 Hz) with the BAMF app
+open on the Devices page, nothing happening:
+
+| | Before | After |
+|---|---|---|
+| CPU, page on screen | 139% of a core | 5.7% |
+| CPU, any animated theme | 87-278% | at most 9% |
+| CPU, app in the background | 1.45% | 1.08% |
+| Scrolling frames over 16 ms | 17% | 2.5% |
+
+What changed, and why:
+
+- **Looping animations hold still on a touch screen.** Chromium keeps producing frames at
+  the display's refresh rate for as long as any animation loops, even a slow blink, and
+  Android's WebView redraws the whole screen each time. Ten amber "unknown device" tiles
+  blinking twice a second were enough to use almost two cores. The dashboard's own loops
+  (that blink, the empty-scan shimmer, the offline pin's ring, the map's cogs and packets)
+  and every theme scene now use the reduced-motion look whenever
+  `(hover: none) and (pointer: coarse)` matches, as well as under `prefers-reduced-motion`.
+  A computer with a mouse is unchanged.
+- **Nothing runs while the page is hidden.** The 10-second refresh and the 1-second
+  countdown skip while `document.hidden`, and the page refreshes at once when it comes
+  back.
+- **Pop-ups stay on screen.** The theme menu used to line its right edge up with its
+  button and ran off the left of a phone; panels pinned to the screen edges now leave room
+  for the status bar, camera cutout and gesture bar (`env(safe-area-inset-*)`).
+
 ## Notes
 
 Everything else you can do with a device is in its **⋯** menu, in groups:
@@ -1048,6 +1078,16 @@ Some themes have a little life in them:
 None of it runs while the tab is in the background. With reduced motion switched
 on in your system settings, it all holds still: Matrix shows a still wall of
 glyphs instead of rain.
+
+**On a phone or tablet the scenes hold still as well**, whatever the system setting
+says, and so do the dashboard's own looping effects (the amber blink on unknown
+devices, the empty-scan shimmer, the offline pin's ring). A touch screen is detected by
+the CSS media query `(hover: none) and (pointer: coarse)`, which every stylesheet and
+`calmMotion()` in `themes.js` now use alongside `prefers-reduced-motion`. The reason is
+measured: on a Pixel 10 Pro XL an animated theme kept the app at 87-278% of a CPU core
+with nothing happening, because the phone's WebView redraws the whole screen every frame
+for as long as anything loops. A computer with a mouse is unchanged. See
+[Mobile and battery](#mobile-and-battery).
 
 ### Intruders
 

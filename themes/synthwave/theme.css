@@ -34,7 +34,7 @@
 
 @keyframes sw-roll { to { background-position: 0 64px, 0 0; } }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .sw-grid { animation: none !important; }
 
 }

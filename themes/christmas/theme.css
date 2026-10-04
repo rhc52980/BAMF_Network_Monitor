@@ -149,7 +149,7 @@
 
 @keyframes xm-unroll { 0% { transform: translateX(-50%) scaleY(.05); opacity: 0; } 12% { transform: translateX(-50%) scaleY(1); opacity: 1; } 85% { opacity: 1; } 100% { transform: translateX(-50%); opacity: 0; } }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .xb svg, .xm-red .xl, .xm-list { animation: none !important; }
 
   .xh-bulb, .xh-win { animation: none !important; opacity: 1; }

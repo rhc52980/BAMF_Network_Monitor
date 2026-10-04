@@ -54,7 +54,7 @@
 
 [data-theme="halloween"] .badge.unknown::before { content: "🎃 "; }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   [data-theme="halloween"] .map-svg .t-ghost { animation: none !important; } 
 }
 .pumpkin .face { fill: #ffd23f; animation: pumpkin-flicker 2.4s steps(6) infinite; }

@@ -63,7 +63,7 @@
 
 @keyframes m-pkt { to { stroke-dashoffset: -48; } }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   [data-theme="matrix"] .map-svg .pkt { display: none; }
 
   .m-intro div::after,
@@ -93,6 +93,6 @@
 
 .m-intro.m-alert { color: #ff4b4b; text-shadow: 0 0 10px rgba(255, 60, 60, .8); }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .m-agent svg, .m-agent .glint, .m-agent.gone { animation: none !important; }
 }

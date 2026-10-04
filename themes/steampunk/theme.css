@@ -168,7 +168,7 @@
 
 @keyframes sp-hiss { 0% { opacity: 0; transform: translateY(-50%) translateX(-6px); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-50%) translateX(14px); } }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .sp-gear .spin,
   .sp-bg.burst .sp-gear .kick,
   .sp-ticker, .sp-pirate svg, .sp-pirate .prop, .sp-alarm .sp-gauge, .sp-alarm .sp-bg::after,
@@ -311,7 +311,7 @@
 
 @keyframes sp-thunk { from { r: 3; opacity: .9; } to { r: 18; opacity: 0; } }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .sp-gauge.red .needle-wrap, .sp-clock .sec, .sp-clock.chime, .sp-note, .sp-key .bow, .sp-key.down .bow,
   [data-theme="steampunk"] .scan-entry.busy .scan-entry-body::before, [data-theme="steampunk"] .scan-entry.busy .scan-entry-body::after,
   [data-theme="steampunk"] tbody.sp-glint tr td, .sp-lamps, [data-theme="steampunk"] #mapClusters.sp-unroll .map-card { animation: none !important; }

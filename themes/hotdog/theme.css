@@ -187,7 +187,7 @@
 
 @keyframes hd-winpop { from { transform: translateX(-50%) scale(.6); } }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .hd-thief .hd-gull, .hd-thief .hd-wing, .hd-win,
   [data-theme="hotdog"] .stat::after, .hd-order, .hd-ding, .hd-86, .hd-squig path { animation: none !important; }
 

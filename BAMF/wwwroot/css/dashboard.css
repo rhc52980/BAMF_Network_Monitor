@@ -194,8 +194,12 @@
     border-radius: 2px; background: var(--led-off);
   }
   .legend-swatch.on::after { background: var(--led-on); box-shadow: 0 0 5px rgba(63,219,127,.55); }
+  /* Looping animations are held still on a touch screen as well as under reduced motion.
+     A phone's WebView redraws the whole screen every frame for as long as one loops, even
+     a slow blink: ten amber tiles blinking cost almost two CPU cores on a Pixel, and the
+     static look (the same one reduced motion uses) costs next to nothing. A mouse keeps them. */
   .legend-swatch.warn::after { background: var(--led-warn); box-shadow: 0 0 5px rgba(255,180,84,.6); animation: blink 1.1s steps(2) infinite; }
-  @media (prefers-reduced-motion: reduce) { .legend-swatch.warn::after { animation: none; } }
+  @media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) { .legend-swatch.warn::after { animation: none; } }
   .portstrip {
     display: flex; flex-wrap: wrap; gap: 6px;
     padding: 12px; background: var(--panel);
@@ -214,7 +218,7 @@
   .port.on::after { background: var(--led-on); box-shadow: 0 0 6px rgba(63,219,127,.55); }
   .port.warn::after { background: var(--led-warn); box-shadow: 0 0 6px rgba(255,180,84,.6); animation: blink 1.1s steps(2) infinite; }
   @keyframes blink { 50% { opacity: .35; } }
-  @media (prefers-reduced-motion: reduce) {
+  @media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
     .port.warn::after { animation: none; }
     .scan-fill { transition: none; }
   }
@@ -448,7 +452,7 @@
     0%, 55%  { opacity: 1; }
     56%,100% { opacity: 0; }
   }
-  @media (prefers-reduced-motion: reduce) {
+  @media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
     .watch-star .cam .cam-dot { animation: none; opacity: 1; }
     .watch-star:hover img { transform: none; }
   }
@@ -470,7 +474,7 @@
     font-family: "IBM Plex Mono", monospace;
   }
   @keyframes shimmer { to { background-position: -200% 0; } }
-  @media (prefers-reduced-motion: reduce) { .empty-scan { animation: none; -webkit-text-fill-color: var(--focus); } }
+  @media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) { .empty-scan { animation: none; -webkit-text-fill-color: var(--focus); } }
 
   tr.history-row td {
     background: var(--panel); padding: 14px 16px 16px;
@@ -670,7 +674,7 @@
   /* An offline device calls out: a ring that swells and fades. */
   .fp-pin.off .ico::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--danger); animation: fp-ring 1.8s ease-out infinite; }
   @keyframes fp-ring { from { transform: scale(.7); opacity: .9; } to { transform: scale(1.5); opacity: 0; } }
-  @media (prefers-reduced-motion: reduce) { .fp-pin.off .ico::after { animation: none; opacity: .6; } }
+  @media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) { .fp-pin.off .ico::after { animation: none; opacity: .6; } }
   .fp-pin .lbl { font-size: 11px; line-height: 1.4; background: rgba(10, 14, 20, .78); color: #f2f5f8; padding: 0 6px; border-radius: 8px; white-space: nowrap; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
   .fp-pin.sel .ico { outline: 2px solid var(--focus); outline-offset: 3px; }
   .fp-pin .rm { position: absolute; top: -10px; right: -12px; width: 18px; height: 18px; border-radius: 50%; border: 0; padding: 0;
@@ -1424,7 +1428,7 @@
   @keyframes leaf-spin { from { transform: rotate(-50deg); } to { transform: rotate(70deg); } }
   /* On the map, an offline device becomes a ghost and an unknown one gets a pumpkin. */
   .map-svg .t-ghost, .map-svg .t-pk { display: none; }
-  @media (prefers-reduced-motion: reduce) { #festive, #festive * { animation: none !important; } }
+  @media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) { #festive, #festive * { animation: none !important; } }
 
   /* ---- livelier everyday themes ---- */
   /* A layer behind the whole page: the Matrix rain, the Synthwave sunset. */
@@ -1439,7 +1443,7 @@
   .map-svg .pkt { display: none; }
   @keyframes term-blink { 50% { opacity: 0; } }
 
-  @media (prefers-reduced-motion: reduce) {
+  @media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
     .map-svg .pkt { display: none; }
   }
   .map-svg .t-drip { display: none; }
@@ -1448,7 +1452,7 @@
   .map-svg .t-cog, .map-svg .t-tophat { display: none; }
   .map-svg .t-cog path { fill: #c99a3f; stroke: #4e3412; stroke-width: .6; transform-box: fill-box; transform-origin: center; animation: sp-turn 6s linear infinite; }
   @keyframes sp-turn { to { transform: rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) {
+  @media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
     .map-svg .t-cog path { animation: none !important; }
   }
   /* Identify feeds a punch card; a port scan spins an orrery. */

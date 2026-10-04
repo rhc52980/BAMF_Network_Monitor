@@ -254,6 +254,7 @@ function dueText(iso, fmt) {
   return s === 0 ? "now" : "~" + s + "s";
 }
 setInterval(() => {
+  if (document.hidden) return;   // nothing to redraw while the page can't be seen
   // A network with no local interface is re-checked on its interval in case
   // one appears, but that isn't a scan worth counting down to.
   const nets = Object.keys(subnetNextDue).filter(n => scanModes[n] !== "skipped");

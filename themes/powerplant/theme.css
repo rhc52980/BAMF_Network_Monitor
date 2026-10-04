@@ -145,7 +145,7 @@
   .pp-ann { display:none; } 
   .pp-desk { height:84px; } 
 }
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .pp-spin, .pp-steam, .pp-line, .pp-glow, .pp-freq.trip i, .pp-ann span.bad, .pp-alarm::after { animation:none !important; }
 
 }

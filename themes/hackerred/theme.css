@@ -23,7 +23,7 @@ header.hr-glitch .brand h1 { animation: hr-split .45s steps(3) 1; }
 
 @keyframes hr-split { 0%, 66% { text-shadow: 3px 0 #00e5ff, -3px 0 #ff3333; } 100% { text-shadow: 0 0 8px #ff3333; } }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   header.hr-glitch,
   header.hr-glitch .brand h1 { animation: none !important; }
 
