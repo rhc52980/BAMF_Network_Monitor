@@ -724,6 +724,12 @@
           </span>
           <input type="checkbox" id="pauseEnabled" checked>
         </label>
+        <label class="set-row" style="margin-top:8px">
+          <span class="set-label">Say when BAMF starts again after stopping unexpectedly
+            <span class="set-hint">After a power cut, a crash or the machine being switched off, BAMF starts again on its own, and nothing said it had been blind meanwhile. This sends one alert with how long it was down. Stopping the service or updating doesn't count, so it stays quiet for those.</span>
+          </span>
+          <input type="checkbox" id="restartAlertEnabled" checked>
+        </label>
         <div class="modal-note" id="quietStatus"></div>
       </div>
     </section>

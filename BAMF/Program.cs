@@ -67,6 +67,7 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<SwitchCounters>())
 builder.Services.AddSingleton<PortBlinker>();
 builder.Services.AddSingleton<ScannerService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ScannerService>());
+builder.Services.AddHostedService<StartupWatch>();
 builder.Services.AddSingleton<ReportService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ReportService>());
 builder.Services.AddSingleton<MqttPublisher>();

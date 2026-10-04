@@ -1816,6 +1816,7 @@ scan, or delete a thing.
 | POST | `/api/settings/rules` | Body: the whole rule list, each `{"id", "name", "kind": "offline"\|"online"\|"hours", "target": "any"\|"watched"\|"tag:kids"\|"host:12", "minutes", "from", "to", "enabled"}`. `id` empty for a new rule |
 | POST | `/api/alerts/pause` | Body `{"minutes": 60}` — hold every alert for that long (up to 4320, three days) and send what was held as one summary when it ends; `0` ends a pause now. `409` when Pause alerts is switched off. `GET /api/hosts` carries `pauseEnabled` and `alertsPausedUntil` |
 | POST | `/api/settings/pause` | Body `{"enabled": false}` — switch the Pause alerts control off or on; off also ends a running pause |
+| POST | `/api/settings/restart-alert` | Body `{"enabled": false}` — switch the alert for BAMF starting again after stopping unexpectedly off or on. `GET /api/hosts` carries `restartAlertEnabled` |
 | POST | `/api/settings/quiet` | Body `{"from": "23:00", "to": "07:00", "digest": true}` — quiet hours in the server's local time; empty times clear them |
 | POST | `/api/settings/port-watch` | Body `{"enabled": true}` — scan every online known device's common ports daily at 4 am |
 | POST | `/api/settings/night` | Body `{"enabled": true, "from": "21:00", "to": "06:00", "theme": "nightstreet"}` — Night mode: every dashboard wears that theme between those clock times. `GET /api/settings` returns it as `editable.night`; `GET /api/hosts` as `night` |
@@ -2639,6 +2640,15 @@ dashboard says alerts are paused, and **Resume now** ends it early and sends the
 show under Activity. It is on by default; untick **Pause alerts in the Tools menu** in the same Settings
 card to remove it, which also ends a pause that is running. A view-only password can see that alerts
 are paused but can't start or end one.
+
+**When BAMF itself was cut off.** After a power cut, a crash or the machine being switched off, BAMF starts again on its own,
+and nothing said it had been blind for a while. Now it does: the first thing it sends after such a start is one alert,
+"BAMF started again after stopping unexpectedly", with when it was last running and how long that is. It tells a cut-off from
+a normal stop by writing down once a minute that it is alive, and writing down at a clean shutdown that it was clean, so
+stopping the service, updating, or restarting on purpose stays quiet. It goes to the destinations that take security alerts, and shows
+under Activity → Alerts. On by default; untick **Say when BAMF starts again after stopping unexpectedly** in **Settings → Alerts**
+(the quiet hours card) to switch it off. It is the other half of the [heartbeat](#heartbeat): that one tells a monitoring service
+when BAMF goes quiet, this one tells you once it is back.
 
 ### Port history and change alerts
 

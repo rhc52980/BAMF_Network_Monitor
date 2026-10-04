@@ -60,6 +60,13 @@ internal static class AlertEndpoints
             return Results.Json(new { enabled = scanner.PauseEnabled });
         });
 
+        // Whether BAMF says so when it comes back after stopping unexpectedly (a power cut, a crash).
+        app.MapPost("/api/settings/restart-alert", (ActiveArpRequest body, HostStore store) =>
+        {
+            store.SetSetting("restartAlert", body.Enabled ? "true" : "false");
+            return Results.Json(new { enabled = body.Enabled });
+        });
+
         app.MapPost("/api/settings/port-watch", (ActiveArpRequest body, HostStore store) =>
         {
             store.SetSetting("portWatch", body.Enabled ? "true" : "false");
