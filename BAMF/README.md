@@ -1785,6 +1785,8 @@ scan, or delete a thing.
 | GET | `/api/portscan/pattern` | Wildcard scan: `?ip=*.245`, optional `?ports=...`. Expands only across configured subnets, capped at 256 addresses |
 | GET | `/api/events` | Network-wide activity feed (recent online/offline events, all hosts) |
 | GET | `/api/hosts/{id}/events` | One host's online/offline event history |
+| GET | `/api/settings/export` | The portable settings as one JSON file: `{"bamfSettings": 1, "settings": {...}, "alertRules": [...], "remotes": [...]}`. No secrets, nothing about this site, no rules about one device. See [Export and import the settings](#export-and-import-the-settings) |
+| POST | `/api/settings/import` | Body: such a file. Applies what it holds and leaves the rest, answering `{"applied", "rules", "rulesSkipped", "remotes", "ignored"}`; a file BAMF can't use is a 400 and changes nothing |
 | GET | `/api/layout` | The recorded layout as one JSON file: switches and their kinds, uplinks and port labels; each device's placement, name, note, link, flags, type, tags and combined cards; declared gateways; type icons; Map positions. Devices are keyed by MAC and switches by their place in the file |
 | POST | `/api/layout` | Body: a file from `GET /api/layout`. Replaces the recorded layout. Returns `{"devices", "switches", "skipped"}`, `skipped` being the MACs this server hasn't seen, whose settings wait for a later import |
 | GET | `/api/hosts/{id}/presence?weeks=4` | When a device is usually online: `grid`, 7 rows (Monday first) of 24 hours, each the share of that hour it was online over the last `weeks` (1 to 12), or `null` before BAMF first saw it. Server's local time |
@@ -3472,6 +3474,30 @@ their history aren't touched. A device in the file that this server hasn't
 seen yet is skipped, and the import says so; import again once BAMF has seen
 it and its settings are filled in. `GET /api/layout` and `POST /api/layout`
 do the same from a script.
+
+### Export and import the settings
+
+To set up a second BAMF the way the first one is, **Settings → System → Export settings** downloads the
+settings that make BAMF behave as you've set it, and **Import settings…** applies such a file on any BAMF:
+the scan and watch switches (ARP, certificates, ports, IPv6, traffic, unusual activity, the internet watch
+and speed tests), how long a device counts as new, quiet hours, night mode, the scheduled report, nightly backups,
+which kinds of alert the webhook sends, **alert rules**, and the list of **other BAMF servers**.
+
+What the file never holds:
+
+- **Anything secret**: webhook and ntfy addresses, the MQTT password, other servers' passwords, the inbound token,
+  and BAMF's own passwords. Type those in again. A server that is already in the list at the other end keeps the
+  password saved for it.
+- **What belongs to the site**: its networks, gateways, and the DHCP and DNS servers it trusts.
+- **Alert rules about one device**, which name it by a number that means nothing on another server (rules for
+  everyone, the watched devices or a tag come along). The import says how many it left out.
+- **The devices and their history**, which the [database backup](#back-up-the-database) carries, and the
+  [layout](#export-and-import-the-layout) for the Map.
+
+Settings the file doesn't mention are left as they are. A file that isn't a settings file, or has a rule or
+server BAMF can't use, is turned down and nothing changes. `GET /api/settings/export` and
+`POST /api/settings/import` do the same from a script, and the import shows in the Activity tab's
+settings changes.
 
 ### MQTT and Home Assistant
 

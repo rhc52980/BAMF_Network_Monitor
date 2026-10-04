@@ -703,6 +703,30 @@ $("backupDownload").onclick = async () => {
 };
 
 $("backupRestore").onclick = () => $("backupFile").click();
+$("settingsExport").onclick = () => { location.href = "/api/settings/export"; };
+$("settingsImport").onclick = () => $("settingsFile").click();
+$("settingsFile").onchange = async () => {
+  const f = $("settingsFile").files[0];
+  $("settingsFile").value = "";
+  if (!f) return;
+  let body;
+  try { body = JSON.parse(await f.text()); } catch { toast("That isn't a JSON file"); return; }
+  if (!confirm(`Apply the settings in ${f.name}?
+
+They replace the same settings here, and the alert rules and other BAMF servers if the file has them. Passwords, webhook URLs, this site's networks and the devices aren't touched.`)) return;
+  try {
+    const r = await fetch("/api/settings/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(esc(d.error || `Couldn't import (HTTP ${r.status})`)); return; }
+    const parts = [`${d.applied} setting${d.applied === 1 ? "" : "s"}`];
+    if (d.rules) parts.push(`${d.rules} alert rule${d.rules === 1 ? "" : "s"}`);
+    if (d.remotes) parts.push(`${d.remotes} other server${d.remotes === 1 ? "" : "s"}`);
+    toast(`Settings imported: ${parts.join(", ")}` +
+      (d.rulesSkipped ? `. ${d.rulesSkipped} rule${d.rulesSkipped === 1 ? " was" : "s were"} about one device and left out.` : ""));
+    await refresh();
+    loadSettings();
+  } catch { toast("Couldn't reach BAMF"); }
+};
 
 // ---- Settings → Alerts: unusual activity ----
 async function loadUnusualSetting() {
