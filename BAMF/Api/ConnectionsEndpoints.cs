@@ -20,12 +20,12 @@ internal static class ConnectionsEndpoints
     public static void Map(WebApplication app)
     {
         app.MapGet("/api/connections", (HostStore store, ScannerService scanner, RouterImport import, SwitchCounters switches, RemoteService remotes,
-            MqttPublisher mqtt, ReportService reports, NightlyBackup backup, WanWatch wan, SpeedTest speed, GreyNoiseCheck grey, UpdateChecker updates) =>
-            Results.Json(new { items = Build(store, scanner, import, switches, remotes, mqtt, reports, backup, wan, speed, grey, updates) }));
+            MqttPublisher mqtt, ReportService reports, NightlyBackup backup, WanWatch wan, SpeedTest speed, GreyNoiseCheck grey, UpdateChecker updates, Heartbeat beat) =>
+            Results.Json(new { items = Build(store, scanner, import, switches, remotes, mqtt, reports, backup, wan, speed, grey, updates, beat) }));
     }
 
     internal static List<Item> Build(HostStore store, ScannerService scanner, RouterImport import, SwitchCounters switches, RemoteService remotes,
-        MqttPublisher mqtt, ReportService reports, NightlyBackup backup, WanWatch wan, SpeedTest speed, GreyNoiseCheck grey, UpdateChecker updates)
+        MqttPublisher mqtt, ReportService reports, NightlyBackup backup, WanWatch wan, SpeedTest speed, GreyNoiseCheck grey, UpdateChecker updates, Heartbeat beat)
     {
         var o = new List<Item>();
         static string Iso(DateTime? t) => t?.ToString("o") ?? "";
@@ -114,6 +114,11 @@ internal static class ConnectionsEndpoints
         if (!updates.Enabled) o.Add(new("update", Internet, "Update check", "off", "Asks GitHub once a day whether a newer BAMF is out.", null, "system"));
         else o.Add(new("update", Internet, "Update check", updates.LastCheckedUtc is null ? "waiting" : "ok",
             updates.LastCheckedUtc is null ? "Not checked yet." : updates.UpdateAvailable ? $"{updates.LatestVersion} is out." : "Up to date.", Iso(updates.LastCheckedUtc) is { Length: > 0 } uc ? uc : null, "system"));
+
+        var hb = beat.Last;
+        if (!beat.Active) o.Add(new("heartbeat", Internet, "Heartbeat", "off", "Visits an address you give it every few minutes, so a monitoring service can tell you when BAMF goes quiet.", null, "system"));
+        else o.Add(new("heartbeat", Internet, $"Heartbeat to {Heartbeat.Masked(beat.Url)?.Replace("/…", "")}", hb.Ok is null ? "waiting" : hb.Ok == true ? "ok" : "error",
+            hb.Ok is null ? "Not sent yet." : hb.Error ?? $"Every {Plural(beat.Minutes, "minute")}", At(hb.At), "system"));
 
         return o;
     }

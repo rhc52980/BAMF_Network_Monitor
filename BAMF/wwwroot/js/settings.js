@@ -703,6 +703,55 @@ $("backupDownload").onclick = async () => {
 };
 
 $("backupRestore").onclick = () => $("backupFile").click();
+// ---- Tidy up old devices ----
+let tidyCache = null;
+function renderTidy() {
+  const d = tidyCache;
+  if (!d) return;
+  const on = $("tidyEnabled");
+  on.classList.toggle("on", d.enabled);
+  on.setAttribute("aria-pressed", d.enabled ? "true" : "false");
+  $("tidyDays").value = d.days;
+  const last = d.last ? ` Last tidy ${fmtAgo(d.last.at)}: ${d.last.count} device${d.last.count === 1 ? "" : "s"} forgotten.` : "";
+  $("tidyStatus").textContent = (d.would
+    ? `${d.would} device${d.would === 1 ? "" : "s"} would be tidied now (${d.wouldNames.slice(0, 4).join(", ")}${d.would > 4 ? ", \u2026" : ""}).`
+    : "Nothing to tidy: no device untouched by you has been gone that long.") + last;
+  $("tidyRun").disabled = !d.would;
+}
+async function loadTidy() {
+  try { const r = await fetch("/api/settings/tidy"); if (r.ok) { tidyCache = await r.json(); renderTidy(); } } catch { /* leave it */ }
+}
+async function saveTidy(patch) {
+  const d = tidyCache || {};
+  const out = $("tidyResult");
+  try {
+    const r = await fetch("/api/settings/tidy", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: d.enabled, days: Number($("tidyDays").value) || d.days, ...patch }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { out.textContent = j.error || `Couldn't save (HTTP ${r.status}).`; out.className = "set-result err"; return false; }
+    tidyCache = j; renderTidy(); out.textContent = ""; out.className = "set-result";
+    return true;
+  } catch { out.textContent = "Couldn't reach BAMF."; return false; }
+}
+$("tidyEnabled").onclick = async () => {
+  const next = !(tidyCache && tidyCache.enabled);
+  if (await saveTidy({ enabled: next })) toast(next ? "Old devices will be tidied up every day" : "Old devices are left alone");
+};
+$("tidySave").onclick = async () => { if (await saveTidy({})) toast("Saved"); };
+$("tidyRun").onclick = async () => {
+  if (!await saveTidy({})) return;
+  const n = tidyCache.would;
+  if (!n || !confirm(`Forget ${n} device${n === 1 ? "" : "s"} that ${n === 1 ? "has" : "have"} been gone more than ${tidyCache.days} days?\n\n${tidyCache.wouldNames.slice(0, 8).join("\n")}${n > 8 ? "\n\u2026" : ""}\n\nThey go to the Forgotten tab, where each can be brought back.`)) return;
+  try {
+    const r = await fetch("/api/tidy/run", { method: "POST" });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { toast("Couldn't tidy up"); return; }
+    toast(`${j.count} device${j.count === 1 ? "" : "s"} forgotten`);
+    await refresh();
+    loadTidy();
+  } catch { toast("Couldn't reach BAMF"); }
+};
+
 $("settingsExport").onclick = () => { location.href = "/api/settings/export"; };
 $("settingsImport").onclick = () => $("settingsFile").click();
 $("settingsFile").onchange = async () => {
@@ -889,6 +938,30 @@ $("layoutFile").onchange = async () => {
 // Nothing on the dashboard said when alerts weren't going anywhere: the only
 // sign was a line inside Settings. A viewer can't save a webhook, so they
 // aren't told about something they can't fix.
+// The Pause alerts entry in Tools, and the bar that says alerts are paused.
+function renderPause() {
+  const open = $("pauseOpen");
+  if (open) open.hidden = !pauseEnabled || role === "viewer";
+  const bar = $("pauseBar");
+  if (!bar) return;
+  const until = pauseEnabled && alertsPausedUntil && new Date(alertsPausedUntil) > new Date() ? alertsPausedUntil : null;
+  bar.hidden = !until;
+  if (until) $("pauseUntil").textContent = snoozeClock(until);
+  $("pauseResume").hidden = role === "viewer";
+  const box = $("pauseEnabled");
+  if (box) box.checked = pauseEnabled;
+}
+$("pauseEnabled").onchange = async () => {
+  const enabled = $("pauseEnabled").checked;
+  try {
+    const r = await fetch("/api/settings/pause", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled }) });
+    if (!r.ok) throw new Error();
+    pauseEnabled = enabled;
+    if (!enabled) alertsPausedUntil = null;
+    renderPause();
+    toast(enabled ? "Pause alerts is in the Tools menu" : "Pause alerts is off");
+  } catch { $("pauseEnabled").checked = !enabled; toast("Couldn't save that"); }
+};
 function renderAlertsOff() {
   $("alertsOff").hidden = alertsConfigured || alertsNudgeOff || role === "viewer";
 }
@@ -1262,6 +1335,8 @@ async function loadSettings() {
     return;
   }
   const e = settingsData.editable, ro = settingsData.readOnly;
+  loadTidy();
+  loadHeartbeat();
   renderHttps(e.https);
   $("setInterval").value = e.scanIntervalSeconds;
   $("setInterval").min = settingsData.minIntervalSeconds;
@@ -1777,6 +1852,65 @@ async function postSetting(url, body) {
   if (!r.ok) throw new Error(d.error || "HTTP " + r.status);
   return d;
 }
+// ---- Heartbeat ----
+let heartbeatCache = null;
+function renderHeartbeat() {
+  const d = heartbeatCache;
+  if (!d) return;
+  const on = $("hbEnabled");
+  on.classList.toggle("on", d.enabled);
+  on.setAttribute("aria-pressed", d.enabled ? "true" : "false");
+  $("hbMinutes").value = d.minutes;
+  $("hbUrl").value = "";
+  $("hbUrl").placeholder = d.configured ? `Saved: ${d.masked}` : "https://hc-ping.com/\u2026";
+  const last = d.last || {};
+  $("hbStatus").textContent = !d.enabled ? "Off."
+    : last.ok === null || last.ok === undefined ? "On. The first visit is about to go."
+    : last.ok ? `On. Last visit ${fmtAgo(last.at)}, every ${d.minutes} minute${d.minutes === 1 ? "" : "s"}.`
+    : `On, but the last visit failed: ${last.error}`;
+  $("hbClear").hidden = !d.configured;
+}
+async function loadHeartbeat() {
+  try { const r = await fetch("/api/settings/heartbeat"); if (r.ok) { heartbeatCache = await r.json(); renderHeartbeat(); } } catch { /* leave it */ }
+}
+async function saveHeartbeat(patch) {
+  const d = heartbeatCache || {};
+  const body = { enabled: d.enabled, minutes: Number($("hbMinutes").value) || d.minutes, ...patch };
+  if (!("url" in body) && $("hbUrl").value.trim()) body.url = $("hbUrl").value.trim();
+  const out = $("hbResult");
+  try {
+    const r = await fetch("/api/settings/heartbeat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { out.textContent = j.error || `Couldn't save (HTTP ${r.status}).`; out.className = "set-result err"; return false; }
+    heartbeatCache = j; renderHeartbeat();
+    out.textContent = ""; out.className = "set-result";
+    loadConnections().then(renderServices);
+    return true;
+  } catch { out.textContent = "Couldn't reach BAMF."; return false; }
+}
+$("hbEnabled").onclick = async () => {
+  const next = !(heartbeatCache && heartbeatCache.enabled);
+  if (await saveHeartbeat({ enabled: next })) toast(next ? "Heartbeat on" : "Heartbeat off");
+};
+$("hbSave").onclick = async () => { if (await saveHeartbeat({})) toast("Heartbeat saved"); };
+$("hbClear").onclick = async () => {
+  if (!confirm("Forget the saved heartbeat address? The heartbeat stops.")) return;
+  if (await saveHeartbeat({ url: "", enabled: false })) toast("Heartbeat address cleared");
+};
+$("hbTest").onclick = async () => {
+  const out = $("hbResult"), b = $("hbTest");
+  if ($("hbUrl").value.trim() && !(await saveHeartbeat({}))) return;
+  b.disabled = true; out.textContent = "Visiting\u2026"; out.className = "set-result";
+  try {
+    const r = await fetch("/api/heartbeat/test", { method: "POST" });
+    const j = await r.json().catch(() => ({}));
+    out.textContent = !r.ok ? (j.error || `HTTP ${r.status}`) : j.ok ? "It answered. Check that the service shows the visit." : (j.error || "It didn't answer.");
+    out.className = "set-result" + (r.ok && j.ok ? " ok" : " err");
+    loadHeartbeat();
+  } catch { out.textContent = "Couldn't reach BAMF."; }
+  finally { b.disabled = false; }
+};
+
 $("mqttSave").onclick = async () => {
   intMsg("mqttResult", "Saving…");
   try {

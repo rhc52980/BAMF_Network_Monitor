@@ -134,6 +134,9 @@ internal static class DeviceEndpoints
                 alertsNudgeOff = store.GetSetting("alertsNudgeOff") == "true",
                 // Whether the list's Select mode (one change to several devices) is offered.
                 bulkEnabled = store.BulkEnabled,
+                // The Pause alerts control: whether it's offered, and until when alerts are paused (null when they aren't).
+                pauseEnabled = scanner.PauseEnabled,
+                alertsPausedUntil = scanner.PausedUntil?.ToString("o"),
                 newDays = NewDays(store),
                 // Masked, never the full URL: anyone who can load the dashboard could
                 // read it, and the token in a Discord webhook URL is the credential.

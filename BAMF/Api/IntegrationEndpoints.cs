@@ -29,6 +29,36 @@ internal static class IntegrationEndpoints
             return Results.Json(MqttJson(mqtt));
         });
 
+        // The heartbeat to a dead man's switch service. The address is a credential: only where it goes is ever sent back.
+        app.MapGet("/api/settings/heartbeat", (Heartbeat beat) => Results.Json(HeartbeatJson(beat)));
+
+        app.MapPost("/api/settings/heartbeat", (HeartbeatRequest body, HostStore store, Heartbeat beat) =>
+        {
+            var minutes = body.Minutes ?? beat.Minutes;
+            if (minutes is < Heartbeat.MinMinutes or > Heartbeat.MaxMinutes) return Results.BadRequest(new { error = $"Between {Heartbeat.MinMinutes} minute and a day." });
+            var url = body.Url?.Trim();
+            if (url is not null && url.Length > 0)
+            {
+                var error = Heartbeat.Check(url);
+                if (error is not null) return Results.BadRequest(new { error });
+                store.SetSetting("heartbeatUrl", url);
+            }
+            else if (url is not null) store.SetSetting("heartbeatUrl", "");      // an empty address clears it; leaving the field out keeps it
+            if (body.Enabled && beat.Url is null) return Results.BadRequest(new { error = "Give it an address first." });
+            store.SetSetting("heartbeatEnabled", body.Enabled ? "true" : "false");
+            store.SetSetting("heartbeatMinutes", minutes.ToString());
+            beat.Reconfigure();
+            return Results.Json(HeartbeatJson(beat));
+        });
+
+        // Visits the saved address once, now, so a wrong one is found while you're looking at it.
+        app.MapPost("/api/heartbeat/test", async (Heartbeat beat, CancellationToken ct) =>
+        {
+            if (beat.Url is null) return Results.BadRequest(new { error = "Give it an address first." });
+            var r = await beat.VisitNow(ct);
+            return Results.Json(new { ok = r.Ok == true, error = r.Error, at = r.At });
+        });
+
         app.MapPost("/api/settings/mqtt/reset", (HostStore store, MqttPublisher mqtt) =>
         {
             store.DeleteSetting("mqtt");
@@ -155,4 +185,13 @@ internal static class IntegrationEndpoints
         // Other BAMF servers being watched, and their devices.
         app.MapGet("/api/remotes", (RemoteService remotes) => Results.Json(new { remotes = remotes.Statuses, hosts = remotes.Hosts() }));
     }
+
+    private static object HeartbeatJson(Heartbeat beat) => new
+    {
+        enabled = beat.Enabled,
+        minutes = beat.Minutes,
+        configured = beat.Url is not null,
+        masked = Heartbeat.Masked(beat.Url),
+        last = new { at = beat.Last.At, ok = beat.Last.Ok, error = beat.Last.Error },
+    };
 }

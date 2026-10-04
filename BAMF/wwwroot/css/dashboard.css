@@ -219,6 +219,7 @@
     margin: 0 24px 14px; padding: 10px 14px; background: var(--panel);
     border: 1px solid var(--line); border-left: 3px solid var(--led-warn); border-radius: var(--radius); }
   .alerts-off[hidden] { display: none; }
+  .alerts-off.paused .ao-text b { color: var(--focus); }
   .alerts-off .ao-text { flex: 1 1 360px; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
   .alerts-off .ao-text b { color: var(--led-warn); margin-right: 4px; }
   .alerts-off .ao-actions { display: flex; gap: 8px; flex-wrap: wrap; }

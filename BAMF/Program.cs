@@ -67,6 +67,8 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ReportService>());
 builder.Services.AddSingleton<MqttPublisher>();
 builder.Services.AddSingleton<SecurityCheck>();
 builder.Services.AddSingleton<GreyNoiseCheck>();
+builder.Services.AddSingleton<Heartbeat>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<Heartbeat>());
 builder.Services.AddSingleton<WanWatch>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<WanWatch>());
 builder.Services.AddSingleton<SpeedTest>();
