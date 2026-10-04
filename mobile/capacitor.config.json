@@ -1,0 +1,12 @@
+{
+  "appId": "com.leedellbayinnov.bamf",
+  "appName": "BAMF",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
