@@ -329,6 +329,7 @@ function renderTrafficCards() {
 }
 
 function renderFeed() {
+  renderSites();
   renderTrafficCards();
   const items = feedCache.filter(e => network === "all" || e.subnet === network);
   const wrap = $("feed");
