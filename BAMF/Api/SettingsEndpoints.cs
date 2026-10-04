@@ -8,6 +8,20 @@ namespace LanWatch.Api;
 /// <summary>Settings, backups, the layout file and the wall display.</summary>
 internal static class SettingsEndpoints
 {
+    private static object TidyJson(HostStore store)
+    {
+        var would = store.StaleDevices(store.TidyDays, DateTime.UtcNow);
+        var last = store.LastTidy();
+        return new
+        {
+            enabled = store.TidyEnabled,
+            days = store.TidyDays,
+            would = would.Count,
+            wouldNames = would.Take(20).Select(h => !string.IsNullOrEmpty(h.Hostname) && h.Hostname != "—" ? h.Hostname : h.Ip).ToList(),
+            last = last is null ? null : new { at = last.At, count = last.Count, names = last.Names },
+        };
+    }
+
     public static void Map(WebApplication app, string version, Func<string?> HookToken, Func<object> HttpsJson)
     {
         // Nightly backups: when, how many to keep, and back up now.
@@ -85,6 +99,25 @@ internal static class SettingsEndpoints
             var file = store.SnapshotTo(Path.Combine(Path.GetTempPath(), "bamf-backup"));
             var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.DeleteOnClose);
             return Results.File(stream, "application/vnd.sqlite3", $"bamf-{DateTime.Now:yyyyMMdd-HHmm}.db");
+        });
+
+        // Forgetting devices that have been gone a long time and that nobody has taken any notice of. The automatic
+        // daily run is switched on here; the button works either way.
+        app.MapGet("/api/settings/tidy", (HostStore store) => Results.Json(TidyJson(store)));
+
+        app.MapPost("/api/settings/tidy", (TidyRequest body, HostStore store) =>
+        {
+            var days = body.Days ?? store.TidyDays;
+            if (days is < HostStore.MinTidyDays or > HostStore.MaxTidyDays) return Results.BadRequest(new { error = $"Between {HostStore.MinTidyDays} and {HostStore.MaxTidyDays} days." });
+            store.SetSetting("tidyDays", days.ToString());
+            store.SetSetting("tidyEnabled", body.Enabled ? "true" : "false");
+            return Results.Json(TidyJson(store));
+        });
+
+        app.MapPost("/api/tidy/run", (HostStore store) =>
+        {
+            var r = store.TidyStale(store.TidyDays, DateTime.UtcNow);
+            return Results.Json(new { count = r.Count, names = r.Names });
         });
 
         app.MapPost("/api/settings/newdays", (NewDaysRequest body, HostStore store) =>

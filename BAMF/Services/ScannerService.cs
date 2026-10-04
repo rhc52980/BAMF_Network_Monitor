@@ -429,6 +429,11 @@ public partial class ScannerService : BackgroundService
                 {
                     _store.PruneEvents();
                     _lastPruneUtc = DateTime.UtcNow;
+                    if (_store.TidyEnabled)
+                    {
+                        var tidied = _store.TidyStale(_store.TidyDays, DateTime.UtcNow);
+                        if (tidied.Count > 0) _log.LogInformation("Tidied {Count} device(s) not seen for {Days} days", tidied.Count, _store.TidyDays);
+                    }
                 }
             }
             catch (OperationCanceledException) { break; }

@@ -968,6 +968,33 @@
           <code class="int-token" id="hookToken"></code>
         </div>
       </div>
+      <div class="set-card" id="tidyCard">
+        <div class="set-card-title">Tidy up old devices</div>
+        <p class="modal-help">
+          Old guests' phones and tablets pile up in the list for good. This forgets the ones that have been gone a long time and
+          that nobody has taken any notice of: not known, not watched, not ignored, with no name, note, tag, type, switch port or
+          floor-plan place of yours. They go to the <strong>Forgotten</strong> tab, not out of existence: bring one back from there, and one that
+          turns up again by itself comes back on its own, with its history.
+        </p>
+        <p class="int-status" id="tidyStatus"></p>
+        <label class="set-row">
+          <span class="set-label">Tidy up every day
+            <span class="set-hint">Off by default. The button below works either way.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="tidyEnabled" aria-label="Tidy up every day" aria-pressed="false"><span class="pill"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Gone for more than
+            <span class="set-hint">Days since the device was last seen, 14 to 730.</span>
+          </span>
+          <span class="set-field int-fields"><input id="tidyDays" class="modal-input" type="number" min="14" max="730" placeholder="60"></span>
+        </label>
+        <div class="modal-actions" style="justify-content:flex-start">
+          <button class="export-btn" id="tidySave">Save</button>
+          <button class="toggle" id="tidyRun">Tidy up now</button>
+        </div>
+        <div class="modal-note" id="tidyResult"></div>
+      </div>
       <div class="set-card" id="backupCard">
         <div class="set-card-title">Back up the database</div>
         <p class="modal-help">

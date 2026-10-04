@@ -20,8 +20,8 @@ public partial class HostStore
         "greynoise", "heartbeatEnabled", "heartbeatMinutes", "historyRetentionDays", "holidaySpirit", "ipv6Watch", "latencyProbe",
         "mdnsListen", "newDays", "nightFrom", "nightMode", "nightTheme", "nightTo", "offlineAfterMissedScans", "pauseAlerts",
         "pingConcurrency", "portWatch", "quietDigest", "quietFrom", "quietTo", "reportDay", "reportHour", "reportSchedule",
-        "scanIntervalSeconds", "speedTest", "trafficMonitor", "unusualWatch", "updateCheck", "upnpIgd", "wanInterval", "wanSlow",
-        "wanTarget", "wanWatch", "watchAlerts", "webhookFormat", "webhookKinds",
+        "scanIntervalSeconds", "speedTest", "tidyDays", "tidyEnabled", "trafficMonitor", "unusualWatch", "updateCheck", "upnpIgd",
+        "wanInterval", "wanSlow", "wanTarget", "wanWatch", "watchAlerts", "webhookFormat", "webhookKinds",
     };
 
     private const int MaxTransferValue = 2000;
