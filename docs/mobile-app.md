@@ -7,6 +7,10 @@ installer), how the result was measured, and what is and is not verified.
 Everything here was done on the `phone-app` branch. All numbers come from the scripts in
 `mobile/tool/` and can be re-run; the method is in [How it was measured](#how-it-was-measured).
 
+**Version:** the work was written against BAMF 2.0.0 and the branch has since been merged up to
+**2.3.0** (see [3.5](#35-keeping-up-with-upstream-230)). The headline numbers were measured on 2.0.0
+and re-checked on 2.3.0; the second table below gives the 2.3.0 figures.
+
 ---
 
 ## 1. Summary
@@ -32,6 +36,23 @@ Everything here was done on the `phone-app` branch. All numbers come from the sc
 | Scrolling: 90th / 99th percentile frame | 16 ms / 34 ms | 8 ms / 10 ms |
 | Memory (app + WebView renderer, PSS) | 244 MB | 231 MB |
 | Cold start, median of 5 (`am start -W`) | 218 ms | 205 ms |
+
+**Re-checked on BAMF 2.3.0** (same phone, same script, same release build, merged code):
+
+| | 2.0.0 after the changes | 2.3.0 |
+|---|---|---|
+| CPU, app on screen, idle for 60 s | 5.7% | **5.8%** |
+| CPU, app in the background for 60 s | 1.08% | **0.95%** |
+| Christmas theme (rewritten upstream) | 8% (old version) | **8%** |
+| Halloween theme (rewritten upstream) | 7% (old version) | **6%** |
+| Scrolling: frames over 16 ms (legacy metric) | 2.5% | 11.2% |
+| Scrolling: 90th / 99th percentile frame | 8 ms / 10 ms | 12 ms / 19 ms |
+| Memory (app + WebView renderer, PSS) | 231 MB | 217 MB |
+| Cold start, median of 5 | 205 ms | 212 ms |
+
+The one number that moved the wrong way is scrolling: the 2.3.0 Devices page is a little heavier
+than 2.0.0's (richer device types and icons). It is still far better than the original 17.3% and
+34 ms, and was not investigated further.
 
 ---
 
@@ -202,6 +223,39 @@ workflow still builds only `linux-x64`; an arm64 release is separate work.
   (CSS: `@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse)`; script:
   `ctx.calm`). `.gitignore` / `.dockerignore` exclude `mobile/` build output and `node_modules`.
 
+### 3.5 Keeping up with upstream (2.3.0)
+
+After the work above, `origin/main` moved from 2.0.0 to 2.3.0 (10 commits: the Network services
+card, richer device types, a rewritten Halloween and Christmas theme). `phone-app` was merged
+with `origin/main` (merge commit `5906ffa`); it is 0 commits behind, so a pull request is clean.
+What the merge involved, so nobody has to rediscover it:
+
+- **Three textual conflicts.** `themes/christmas/theme.css` and `themes/halloween/theme.css` were
+  rewritten upstream: their versions were taken and the one mechanical change from this branch
+  (the reduced-motion media query also matching touch screens) was re-applied. `BAMF/README.md`
+  was converted to **CRLF line endings upstream** (every line but one; every other file in the
+  repo is LF), so it conflicted on every hunk. It was merged on line-ending-normalised text and
+  written back with CRLF, which keeps the diff against upstream to this branch's 76 added lines. A
+  word to the original developer: if that conversion was not intended, the file could go back to
+  LF; `.gitattributes` only pins line endings for `.sh`, `.service`, `.timer`, `.bat`, `.cmd`
+  and `.ps1`.
+- **Nothing else needed code changes.** The new upstream JavaScript (`services.js` and edits to
+  `activity.js`, `devices.js`, `map.js`) adds no timers, animation or polling, so the hidden-page
+  pause and the touch-screen rule still cover everything. Upstream did not touch
+  `ApiHelpers.cs`, the static-file handling, caching, auth or the installer, so the offline page,
+  the app's use of `/manifest.webmanifest` and the installer fixes are unaffected.
+- **The two rewritten themes** carry 13 and 15 infinite animations. Their own reduced-motion blocks
+  and `ctx.calm` checks are thorough, so the touch-screen change covers them: Christmas 8% and
+  Halloween 6% of a core on the Pixel.
+- **One real layout bug in the new card**, fixed here: at 320 CSS pixels the Network services card's
+  device chips ended a pixel past the page's edge (a 150px name column plus a 22px count column
+  left a chip too little room). Under 480px the chips now take their own line
+  (`dashboard.css`, commit `8960cf8`). Verified on a 320px-wide emulator with DevTools: the page
+  was 321px wide with two chips overflowing before, 320px with none after.
+- **Checks on the merged tree:** 288 C# tests and 31 web tests pass (this branch's 238 + 12 plus
+  upstream's 50 + 19 new ones); the iPhone UI test passes against a 2.3.0 server; the repo's
+  `install.sh` updated a Debian 13 arm64 VM to 2.3.0 unmodified and exited 0.
+
 ---
 
 ## 4. How it was measured
@@ -302,6 +356,11 @@ Plain themes (12) were 5-12% before and 5-9% after. The 34 that animate:
 Totals: the 34 expensive themes averaged **166%** (maximum 278%) before and **7.3%** (maximum
 9%) after; the 12 plain themes averaged 7.8% before and 7.3% after.
 
+The table was measured on 2.0.0. The Christmas and Halloween rows are for the *old* versions of those
+two themes, which upstream has since rewritten; the 2.3.0 versions were measured separately on the
+same phone and cost 8% and 6% (with dark, aquarium and matrix re-measured as controls at 8%, 7% and 8%,
+in line with the table).
+
 ---
 
 ## 5. Checklist against the optimisation rules
@@ -326,7 +385,8 @@ Totals: the 34 expensive themes averaged **166%** (maximum 278%) before and **7.
 
 ## 6. Verification
 
-- C#: 238 tests pass. Web: `check-web.mjs` and 12 node tests pass.
+- C#: 238 tests pass on the original base, 288 after the merge with 2.3.0. Web: `check-web.mjs` and
+  12 node tests pass, 31 after the merge.
 - Android: fresh-install discovery and connect on an emulator; discovery, connect, Back to the
   finder, a session that survives a force-stop and a decoy service on 8840 being rejected, all
   on the emulator and on the Pixel.
@@ -346,7 +406,7 @@ Totals: the 34 expensive themes averaged **166%** (maximum 278%) before and **7.
    It needs a class on `<html>` and class-based selectors in place of the media query, because
    CSS cannot be toggled from script. It is not built.
 2. **Version bump and What's New.** The dashboard's behaviour changed on touch screens and in
-   hidden tabs, but `BAMF.csproj` `<Version>` (2.0.0) and `wwwroot/whats-new.json` were not
+   hidden tabs, but `BAMF.csproj` `<Version>` (2.3.0 at the time of writing) and `wwwroot/whats-new.json` were not
    touched; that is a release decision.
 3. **iPhone:** a real-device run (and Instruments for CPU/memory), the Local Network permission
    prompt (the simulator does not show one), `PrivacyInfo.xcprivacy`, and store screenshots.
@@ -407,6 +467,10 @@ CPU ticks from `/proc`); it is not packaged as a tool.
 | `fd25752` | iPhone UI test |
 | `5ba490a` | Looping animations still on touch screens; no polling while hidden |
 | `d42b6f0` | Scan cancelled when the app leaves the screen; `measure-android.sh` |
+| `a00499c` | This hand-over note |
+| `5906ffa` | Merge of `origin/main` (BAMF 2.3.0) |
+| `8960cf8` | Network services card no longer overflows a 320px screen |
 
 The optimisation round in section 1 is `5ba490a` (the web changes and README sections) and
-`d42b6f0` (the native scan cancel and the measuring tool). This document was added after them.
+`d42b6f0` (the native scan cancel and the measuring tool). `a00499c` added this note; it was updated
+after the merge with 2.3.0.

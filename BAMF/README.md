@@ -496,6 +496,11 @@ What changed, and why:
   button and ran off the left of a phone; panels pinned to the screen edges now leave room
   for the status bar, camera cutout and gesture bar (`env(safe-area-inset-*)`).
 
+Re-checked on BAMF 2.3.0 (same phone and script): idle CPU 5.8%, background 0.95%, and the rewritten
+Christmas and Halloween themes 8% and 6%. The Network services card is stacked under 480px so its
+device chips no longer run a pixel past a 320px screen. The full write-up, with every theme's
+before and after, is in [`docs/mobile-app.md`](../docs/mobile-app.md).
+
 ## Notes
 
 Everything else you can do with a device is in its **⋯** menu, in groups:
