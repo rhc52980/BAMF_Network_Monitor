@@ -591,6 +591,13 @@
   .site-sub { font-size: 12px; color: var(--text-dim); }
   .site-note { font-size: 12px; color: var(--led-warn); }
   .site-note.bad { color: var(--danger); }
+  .problem-row { display: flex; align-items: flex-start; gap: 9px; padding: 6px 0; border-top: 1px solid var(--line); }
+  .problem-row:first-of-type { border-top: 0; }
+  .problem-row .wan-dot { margin-top: 5px; }
+  .problem-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .problem-msg { font-size: 12.5px; overflow-wrap: anywhere; }
+  .problem-sub { font-size: 11.5px; color: var(--text-dim); }
+  #problemsCard h3 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .svc-conn { display: flex; align-items: flex-start; gap: 9px; padding: 3px 0; font-size: 12.5px; }
   .svc-conn .wan-dot { margin-top: 4px; }
   .svc-cn { flex: 1; min-width: 0; display: flex; flex-direction: column; }

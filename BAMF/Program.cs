@@ -22,6 +22,11 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     ContentRootPath = AppContext.BaseDirectory,
 });
 
+// BAMF's own warnings and errors, kept for the dashboard's Problems card.
+var problems = new ProblemLog();
+builder.Logging.AddProvider(problems);
+builder.Services.AddSingleton(problems);
+
 // As a Home Assistant add-on, the options from the add-on's Configuration tab
 // arrive as /data/options.json; they go on top of appsettings.json.
 if (File.Exists(HomeAssistantAddon.OptionsPath))
