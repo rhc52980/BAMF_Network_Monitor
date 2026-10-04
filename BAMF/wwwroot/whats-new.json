@@ -2,6 +2,16 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.5.0",
+      "date": "2026-10-04",
+      "items": [
+        "Tools has two new entries. Pause alerts holds every alert for a while, for when you are about to reboot a switch, and sends what came up as one summary afterwards. Select devices puts tick boxes on the list so you can mark, watch, ignore, tag, snooze or forget several devices at once.",
+        "A new Heartbeat in Settings visits an address you give it, such as a Healthchecks.io ping, every few minutes, so a monitoring service can tell you when BAMF itself goes quiet. It is off until you set it up.",
+        "Tidy up old devices can forget devices nobody has touched that have been gone a long time. It is off until you switch it on, and nothing is deleted: they go to the Forgotten tab.",
+        "Pause alerts and Select devices each have a switch in Settings if you would rather not have them."
+      ]
+    },
+    {
       "version": "2.4.0",
       "date": "2026-10-04",
       "items": [
