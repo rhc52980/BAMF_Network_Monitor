@@ -178,6 +178,20 @@ public class BamfDiscoveryPlugin extends Plugin {
         if (p != null) p.shutdownNow();
     }
 
+    // A scan is a burst of up to ~2,000 connection attempts. It has no business
+    // continuing once the app is out of sight, so stop it as the app leaves the screen.
+    @Override
+    protected void handleOnPause() {
+        cancel();
+        super.handleOnPause();
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        cancel();
+        super.handleOnDestroy();
+    }
+
     private static boolean isOpen(String host, int port) {
         try (Socket s = new Socket()) {
             s.connect(new InetSocketAddress(host, port), CONNECT_MS);

@@ -1,5 +1,6 @@
 import Capacitor
 import Foundation
+import UIKit
 import WebKit
 
 /// Finds BAMF servers on the phone's Wi-Fi network and opens one in the web view.
@@ -43,6 +44,14 @@ public class BamfDiscoveryPlugin: CAPPlugin, CAPBridgedPlugin {
         c.urlCache = nil
         return URLSession(configuration: c)
     }()
+
+    // A scan is a burst of up to ~2,000 connection attempts. It has no business
+    // continuing once the app is out of sight, so stop it as the app goes to the background.
+    override public func load() {
+        NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.scan?.cancel()
+        }
+    }
 
     // MARK: Wi-Fi
 
