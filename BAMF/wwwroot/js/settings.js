@@ -951,6 +951,15 @@ function renderPause() {
   const box = $("pauseEnabled");
   if (box) box.checked = pauseEnabled;
 }
+$("restartAlertEnabled").onchange = async () => {
+  const enabled = $("restartAlertEnabled").checked;
+  try {
+    const r = await fetch("/api/settings/restart-alert", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled }) });
+    if (!r.ok) throw new Error();
+    restartAlertEnabled = enabled;
+    toast(enabled ? "BAMF will say when it starts again after stopping unexpectedly" : "BAMF won't say when it restarts");
+  } catch { $("restartAlertEnabled").checked = !enabled; toast("Couldn't save that"); }
+};
 $("pauseEnabled").onchange = async () => {
   const enabled = $("pauseEnabled").checked;
   try {

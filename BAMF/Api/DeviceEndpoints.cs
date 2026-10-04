@@ -136,6 +136,8 @@ internal static class DeviceEndpoints
                 bulkEnabled = store.BulkEnabled,
                 // The Pause alerts control: whether it's offered, and until when alerts are paused (null when they aren't).
                 pauseEnabled = scanner.PauseEnabled,
+                // Whether BAMF says so when it starts again after stopping unexpectedly.
+                restartAlertEnabled = store.GetSetting("restartAlert") != "false",
                 alertsPausedUntil = scanner.PausedUntil?.ToString("o"),
                 newDays = NewDays(store),
                 // Masked, never the full URL: anyone who can load the dashboard could

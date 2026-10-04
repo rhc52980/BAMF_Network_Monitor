@@ -66,6 +66,7 @@ let nightMode = { enabled: false, from: "21:00", to: "06:00", theme: "nightstree
 try { const n = JSON.parse(localStorage.getItem("bamf-night") || "null"); if (n && typeof n === "object") nightMode = { ...nightMode, ...n }; } catch {}
 let webhookConfigured = false;
 let alertsConfigured = false;   // any destination, the main webhook or another, takes any alerts
+let restartAlertEnabled = true;  // BAMF says so when it starts again after stopping unexpectedly
 let pauseEnabled = true;       // the Pause alerts control is offered
 let alertsPausedUntil = null;  // when a pause on every alert ends, or null
 let alertsNudgeOff = false;     // "Don't remind me" on the alerts-off banner
@@ -177,6 +178,8 @@ async function refresh() {
     alertsNudgeOff = !!data.alertsNudgeOff;
     bulkEnabled = data.bulkEnabled !== false;
     pauseEnabled = data.pauseEnabled !== false;
+    restartAlertEnabled = data.restartAlertEnabled !== false;
+    { const rb = $("restartAlertEnabled"); if (rb) rb.checked = restartAlertEnabled; }
     alertsPausedUntil = data.alertsPausedUntil || null;
     if (data.newDays) newDays = data.newDays;
     renderAlertsOff();
