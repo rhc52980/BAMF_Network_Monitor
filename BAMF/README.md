@@ -135,6 +135,7 @@ step:
 | `js/screensaver.js` | The screen saver and the watchtower |
 | `js/internet.js` | The internet watch, the speed test, the Scan menu and free addresses |
 | `js/services.js` | The Network services card: the public address, gateways, DHCP, DNS, UPnP, mDNS and what devices offer |
+| `js/views.js` | The Views menu: saving the device list's current combination of filters under a name, and applying one |
 | `js/bulk.js` | Select mode for the device list: tick several devices and do one thing to all of them |
 | `js/sites.js` | The Sites card: this site and every other BAMF server watched, with their devices counted |
 | `js/settings.js` | What's new, where alerts go, and Settings |
@@ -1876,6 +1877,9 @@ scan, or delete a thing.
 | POST | `/api/heartbeat/test` | Visit the saved address once now: `{"ok", "error", "at"}` |
 | GET | `/api/problems` | BAMF's own warnings and errors since it started: `{"since", "rows": [{"source", "level", "message", "count", "first", "last"}]}`, newest first. Web addresses in the messages are cut back to where they go |
 | POST | `/api/problems/clear` | Empty that list |
+| GET | `/api/views` | The saved views: `{"max", "views": [{"name", "tab", "network", "status", "guess", "tag", "query"}]}`. `tab` is `devices` or `forgotten`, `status` one of `all`, `online`, `offline`, `unknown`, `new`, `ignored`, `guess` empty for every type or `__none__` for devices with no guess |
+| POST | `/api/views` | Body: one view as above. Saves it, replacing the one with the same name (any case); up to 20. Answers the list |
+| POST | `/api/views/delete` | Body `{"name": "Kids offline"}` — removes a view; 404 if there isn't one |
 | GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow", "externalIp"}` — `externalIp` is the home's public address, `{ip, source, at, since, previous, changedAt}` (`source` is `speedtest`, `greynoise` or `lookup`), or null until one of them has learned it; the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
 | GET | `/report/internet` | The internet report as one printable HTML page for sending to the provider. `?days=` 1 to 365 (default 30). See [Report for your provider](#report-for-your-provider) |
 | POST | `/api/settings/wanwatch` | Body `{"enabled": true}` — switch the internet watch on or off |
@@ -2500,6 +2504,17 @@ The chips are the guesses themselves with their evidence trimmed off -
 separate category list to get out of step with what BAMF actually reports.
 The row is hidden when everything in view shares one type. **no guess** is the
 useful one: it's the list of devices worth pointing **Identify** at.
+
+## Saved views
+
+Set the device list up the way you want it (a network, a status tab, a device type, a tag, a search) and **Views ▾ → Save this view…**
+keeps that combination under a name: "Kids' devices offline", "Unknown on the guest network", "Everything on the NAS shelf". Picking a view
+from the Views menu sets all of it at once and goes to its tab (Devices or Forgotten); the × beside one deletes it. Saving under a name that
+exists replaces that view. Up to 20 views, names up to 40 characters.
+
+A view says what to show and nothing more: it never changes a device. Views are kept on the server, so every dashboard has the same ones, and a
+view-only password can use them but not make or delete them. A view names its network and tag as they are written, so one for a network or tag that no
+longer exists just shows nothing. They are not part of a settings export, since the networks and tags belong to the site.
 
 ## Plain-text device list
 
