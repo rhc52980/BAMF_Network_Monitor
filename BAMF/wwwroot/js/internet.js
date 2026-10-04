@@ -90,7 +90,7 @@ function renderWanCard() {
   } else if (samples.length) {
     bits.push(`<div class="sub" style="margin-top:8px">No outages recorded yet.</div>`);
   }
-  bits.push(`<div class="sub" style="margin-top:10px"><a href="/report/internet" target="_blank" rel="noopener" id="wanReport">Report for my provider</a> · the last 30 days on one printable page</div>`);
+  bits.push(`<div class="sub" style="margin-top:10px"><a href="/report/internet" target="_blank" rel="noopener" id="wanReport" class="svc-link" style="color:var(--focus)">Report for my provider</a> · the last 30 days on one printable page</div>`);
   $("wanBody").innerHTML = bits.join("");
   const more = $("wanMore");
   if (more) more.onclick = () => { wanAllOutages = !wanAllOutages; renderWanCard(); };
