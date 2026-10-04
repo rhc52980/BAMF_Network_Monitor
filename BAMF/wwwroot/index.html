@@ -1517,5 +1517,10 @@
 <script src="js/internet.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/main.js"></script>
+<script>
+// Only where the browser allows one: HTTPS, or localhost. Over plain HTTP on a
+// LAN address it isn't offered, and BAMF works exactly as before.
+if ("serviceWorker" in navigator && window.isSecureContext) navigator.serviceWorker.register("/sw.js").catch(function () {});
+</script>
 </body>
 </html>

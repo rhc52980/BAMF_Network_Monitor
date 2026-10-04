@@ -47,6 +47,12 @@ for (const page of readdirSync(web).filter(f => f.endsWith(".html"))) {
     if (!m[1].startsWith("/") && !existsSync(join(web, m[1]))) fail(page, `links ${m[1]}, which isn't there`);
 }
 
+// The service worker isn't loaded by a page's script tags, so it's checked here.
+const sw = join(web, "sw.js");
+if (!existsSync(sw)) fail(sw, "isn't there");
+else syntax(sw, readFileSync(sw, "utf8"));
+if (!existsSync(join(web, "offline.html"))) fail(web, "offline.html, which the service worker shows, isn't there");
+
 const json = (where) => {
   try { return JSON.parse(readFileSync(where, "utf8")); }
   catch (e) { fail(where, e.message); return null; }

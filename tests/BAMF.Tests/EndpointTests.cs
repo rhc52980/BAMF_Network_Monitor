@@ -88,6 +88,9 @@ public class EndpointTests
         Assert.Equal(HttpStatusCode.Unauthorized, (await fresh.SendAsync(Get("/api/hosts", "wrong-password"))).StatusCode);
         // What the sign-in page needs stays open.
         Assert.NotEqual(HttpStatusCode.Unauthorized, (await fresh.SendAsync(Get("/manifest.webmanifest"))).StatusCode);
+        // So do the service worker and its offline page, which a phone fetches without the cookie.
+        Assert.NotEqual(HttpStatusCode.Unauthorized, (await fresh.SendAsync(Get("/sw.js"))).StatusCode);
+        Assert.NotEqual(HttpStatusCode.Unauthorized, (await fresh.SendAsync(Get("/offline.html"))).StatusCode);
     }
 
     [Fact]

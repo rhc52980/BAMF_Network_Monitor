@@ -433,6 +433,34 @@ opens it in its own window either way. With a password set, it asks for it
 the first time, and stays signed in like any browser. A link with a `#tab` in
 it opens straight on that tab — see [Linking to a tab](#linking-to-a-tab).
 
+### When the server can't be reached
+
+Opened from the home screen with the server off or out of reach, BAMF shows a
+"Can't reach BAMF" page with a **Try again** button, rather than the browser's
+error page. That page comes from a small service worker (`sw.js`) that only
+steps in when a page is opened and the server doesn't answer. It never
+answers for the dashboard, the API or the sign-in, so it can't show old
+devices or keep you looking signed in.
+
+A browser only allows a service worker over HTTPS (or on `localhost`), and not
+when you've clicked through a certificate warning. So with plain `http://` the
+page just doesn't appear and BAMF behaves exactly as it did, and the
+self-signed certificate that BAMF makes for itself may not be enough on a
+phone. A certificate the phone trusts is.
+
+### Away from home
+
+BAMF doesn't open itself to the internet and a phone can't scan your network,
+so away from home the phone has to reach the BAMF machine another way. Two
+that work without exposing port 8840:
+
+- **A VPN into your network**, such as Tailscale or WireGuard. Tailscale can
+  also issue a certificate the phone trusts for the machine's name
+  (`tailscale cert`), which gives you HTTPS without a warning.
+- **A reverse proxy** with a real certificate for a name you own, set up to
+  pass through to BAMF. Set a password first (Settings → Security); BAMF locks
+  an address out after repeated wrong guesses.
+
 ## Notes
 
 Everything else you can do with a device is in its **⋯** menu, in groups:
