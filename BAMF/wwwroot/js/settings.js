@@ -983,6 +983,31 @@ async function loadDiskAlertSettings() {
 }
 $("diskAlertEnabled").onchange = saveDiskAlert;
 $("diskAlertPercent").onchange = saveDiskAlert;
+// How alerts are sent: retried, grouped under a switch, and calmed for a flapping device.
+async function loadAlertBehaviour() {
+  try {
+    const r = await fetch("/api/settings/alert-behaviour");
+    if (!r.ok) return;
+    const d = await r.json();
+    $("behRetry").checked = d.retry; $("behCascade").checked = d.cascade; $("behFlapAlert").checked = d.flapAlert;
+    $("behFlapHold").checked = d.flapHold; $("behFlapDrops").value = d.flapDrops;
+  } catch { /* leave it */ }
+}
+async function saveAlertBehaviour(patch, what) {
+  try {
+    const r = await fetch("/api/settings/alert-behaviour", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(esc(d.error || "Couldn't save that")); loadAlertBehaviour(); return; }
+    $("behRetry").checked = d.retry; $("behCascade").checked = d.cascade; $("behFlapAlert").checked = d.flapAlert;
+    $("behFlapHold").checked = d.flapHold; $("behFlapDrops").value = d.flapDrops;
+    toast(what);
+  } catch { toast("Couldn't reach BAMF"); }
+}
+$("behRetry").onchange = () => saveAlertBehaviour({ retry: $("behRetry").checked }, $("behRetry").checked ? "Failed alerts will be tried again" : "Failed alerts won't be tried again");
+$("behCascade").onchange = () => saveAlertBehaviour({ cascade: $("behCascade").checked }, $("behCascade").checked ? "Devices behind a switch that went down share one alert" : "Each device alerts on its own");
+$("behFlapAlert").onchange = () => saveAlertBehaviour({ flapAlert: $("behFlapAlert").checked, flapDrops: Number($("behFlapDrops").value) || null }, $("behFlapAlert").checked ? "BAMF will say when a device keeps dropping" : "Flapping devices aren't called out");
+$("behFlapDrops").onchange = () => saveAlertBehaviour({ flapDrops: Number($("behFlapDrops").value) || null }, "Saved");
+$("behFlapHold").onchange = () => saveAlertBehaviour({ flapHold: $("behFlapHold").checked }, $("behFlapHold").checked ? "A flapping device's own alerts are held back" : "A flapping device's alerts are sent as usual");
 $("pauseEnabled").onchange = async () => {
   const enabled = $("pauseEnabled").checked;
   try {
@@ -1368,6 +1393,7 @@ async function loadSettings() {
     return;
   }
   const e = settingsData.editable, ro = settingsData.readOnly;
+  loadAlertBehaviour();
   loadTidy();
   loadHeartbeat();
   loadDiskAlertSettings();

@@ -130,7 +130,7 @@ public partial class ScannerService
     /// true if at least one destination accepted it (or it was held).
     /// </summary>
     private async Task<bool> Deliver(string kind, string title, string text, Func<string, string, HttpRequestMessage> build,
-        CancellationToken ct, bool holdable = true, string? only = null)
+        CancellationToken ct, bool holdable = true, string? only = null, bool retry = true)
     {
         var dests = Destinations().Where(d => only is not null ? d.Id == only : d.Kinds.Contains(kind)).ToList();
         if (dests.Count == 0) return false;
@@ -152,13 +152,18 @@ public partial class ScannerService
                 if (resp.IsSuccessStatusCode) _log.LogInformation("Alert ({Kind}) to {Name} via {Format}: {Status}", kind, d.Name, format, (int)resp.StatusCode);
                 else _log.LogWarning("An alert ({Kind}) wasn't taken by {Name}: it answered HTTP {Status}", kind, d.Name, (int)resp.StatusCode);
                 any |= resp.IsSuccessStatusCode;
-                if (!resp.IsSuccessStatusCode) _lastDeliveryError = $"{d.Name} answered HTTP {(int)resp.StatusCode}.";
+                if (!resp.IsSuccessStatusCode)
+                {
+                    _lastDeliveryError = $"{d.Name} answered HTTP {(int)resp.StatusCode}.";
+                    if (retry && AlertRetryEnabled) QueueRetry(d, kind, title, build, DateTime.UtcNow);
+                }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 _log.LogWarning(ex, "Alert ({Kind}) to {Name} failed", kind, d.Name);
                 _lastDeliveryError = $"{d.Name}: {ex.GetBaseException().Message}";
+                if (retry && AlertRetryEnabled) QueueRetry(d, kind, title, build, DateTime.UtcNow);
             }
         }
         return any;
