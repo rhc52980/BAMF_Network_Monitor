@@ -898,6 +898,12 @@
           <input type="checkbox" id="networkToolsEnabled" checked>
         </label>
         <label class="set-row">
+          <span class="set-label">Warn when disk space is low
+            <span class="set-hint">An alert when the drive BAMF's database and backups are on (or the second copy's) has less than this much free, or under half a gigabyte, and another when there is room again. Shown on the Activity tab under Disk and database.</span>
+          </span>
+          <span class="set-field"><input id="diskAlertPercent" class="modal-input" type="number" min="2" max="50" style="width:70px"> <span class="set-unit">% free</span> <input type="checkbox" id="diskAlertEnabled" checked aria-label="Warn when disk space is low"></span>
+        </label>
+        <label class="set-row">
           <span class="set-label">Check GitHub daily for a newer release
             <span class="set-hint">Off by default. Read-only: it only reads the latest release tag and never downloads or installs anything. The only outbound call BAMF makes that you didn't ask for.</span>
             <span class="set-hint" id="setUpdStatus"></span>
@@ -1181,6 +1187,11 @@
       <h3>Problems <button type="button" class="toggle" id="problemsClear" hidden>Clear</button></h3>
       <div class="sub" id="problemsSub"></div>
       <div id="problemsBody"></div>
+    </div>
+    <div class="act-card" id="healthCard">
+      <h3>Disk and database</h3>
+      <div class="sub" id="healthSub"></div>
+      <div id="healthBody"></div>
     </div>
     <div class="act-card" id="v6Card" hidden>
       <h3>Only on IPv6</h3>

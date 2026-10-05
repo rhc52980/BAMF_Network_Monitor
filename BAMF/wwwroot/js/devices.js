@@ -612,6 +612,7 @@ function render() {
     fetch("/api/alerts").then(r => r.json()).then(a => { alertsCache = a; renderAlertsCard(); renderHygiene(); }).catch(() => {});
     loadSettingsLog();
     loadProblems();
+    loadHealth();
     loadUnusual();
     loadSecurity().then(() => { renderHygiene(); renderServices(); });
     loadGreyNoise().then(() => { renderHygiene(); renderServices(); });

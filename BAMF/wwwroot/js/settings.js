@@ -960,6 +960,29 @@ $("restartAlertEnabled").onchange = async () => {
     toast(enabled ? "BAMF will say when it starts again after stopping unexpectedly" : "BAMF won't say when it restarts");
   } catch { $("restartAlertEnabled").checked = !enabled; toast("Couldn't save that"); }
 };
+// The low disk space alert: its switch and the percentage, saved together.
+async function saveDiskAlert() {
+  const enabled = $("diskAlertEnabled").checked, percent = Number($("diskAlertPercent").value);
+  try {
+    const r = await fetch("/api/settings/disk-alert", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled, percent: percent || null }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(esc(d.error || "Couldn't save that")); loadDiskAlertSettings(); return; }
+    $("diskAlertPercent").value = d.percent;
+    toast(enabled ? `BAMF will warn when its disk has under ${d.percent}% free` : "The low disk space alert is off");
+    loadHealth();
+  } catch { toast("Couldn't reach BAMF"); }
+}
+async function loadDiskAlertSettings() {
+  try {
+    const r = await fetch("/api/health");
+    if (!r.ok) return;
+    const d = await r.json();
+    $("diskAlertEnabled").checked = d.alert.enabled;
+    $("diskAlertPercent").value = d.alert.percent;
+  } catch { /* leave it */ }
+}
+$("diskAlertEnabled").onchange = saveDiskAlert;
+$("diskAlertPercent").onchange = saveDiskAlert;
 $("pauseEnabled").onchange = async () => {
   const enabled = $("pauseEnabled").checked;
   try {
@@ -1347,6 +1370,7 @@ async function loadSettings() {
   const e = settingsData.editable, ro = settingsData.readOnly;
   loadTidy();
   loadHeartbeat();
+  loadDiskAlertSettings();
   renderHttps(e.https);
   $("setInterval").value = e.scanIntervalSeconds;
   $("setInterval").min = settingsData.minIntervalSeconds;

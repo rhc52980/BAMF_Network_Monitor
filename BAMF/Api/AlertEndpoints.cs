@@ -30,6 +30,28 @@ internal static class AlertEndpoints
             return Results.Json(new { alerts, problems = problems.Rows().Count(r => r.LastUtc > t), now });
         });
 
+        // How much room BAMF has: the database, its backups and what is free on their disk, for the Disk and database card.
+        app.MapGet("/api/health", (DiskHealth disk) =>
+        {
+            var r = disk.Snapshot();
+            return Results.Json(new
+            {
+                at = r.AtUtc.ToString("o"), databaseBytes = r.DatabaseBytes, backupBytes = r.BackupBytes, backups = r.BackupCount, historyRows = r.HistoryRows,
+                volumes = r.Volumes.Select(v => new { role = v.Role, totalBytes = v.TotalBytes, freeBytes = v.FreeBytes, freePercent = v.FreePercent, low = v.Low }),
+                alert = new { enabled = disk.AlertEnabled, percent = disk.Percent, minFreeBytes = DiskHealth.MinFreeBytes },
+            });
+        });
+
+        // The low disk space alert: on or off, and below what percentage free it speaks.
+        app.MapPost("/api/settings/disk-alert", (DiskAlertRequest body, HostStore store, DiskHealth disk) =>
+        {
+            var percent = body.Percent ?? disk.Percent;
+            if (percent is < DiskHealth.MinPercent or > DiskHealth.MaxPercent) return Results.BadRequest(new { error = $"Between {DiskHealth.MinPercent} and {DiskHealth.MaxPercent} percent." });
+            store.SetSetting("diskAlert", body.Enabled ? "true" : "false");
+            store.SetSetting("diskAlertPercent", percent.ToString());
+            return Results.Json(new { enabled = disk.AlertEnabled, percent = disk.Percent });
+        });
+
         // BAMF's own warnings and errors since it started, for the Problems card.
         app.MapGet("/api/problems", (ProblemLog problems) => Results.Json(new
         {

@@ -74,6 +74,8 @@ builder.Services.AddSingleton<MqttPublisher>();
 builder.Services.AddSingleton<SecurityCheck>();
 builder.Services.AddSingleton<GreyNoiseCheck>();
 builder.Services.AddSingleton<Heartbeat>();
+builder.Services.AddSingleton<DiskHealth>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<DiskHealth>());
 builder.Services.AddSingleton<NetworkTools>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<Heartbeat>());
 builder.Services.AddSingleton<WanWatch>();
