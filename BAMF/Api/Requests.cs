@@ -30,6 +30,8 @@ record SwitchPortsRequest(List<PortEntry>? Ports, List<PortLabel>? Labels);
 record WebhookRequest(string? Url, string? Format);
 record IgnoreRequest(bool Ignored);
 record SnoozeRequest(int Minutes);
+record BulkRestoreRequest(List<HostStateRequest>? States);
+record HostStateRequest(long Id, bool Known, bool Watched, bool Ignored, bool Forgotten, List<string>? Tags, string? SnoozedUntil);
 record ToolRequest(string? Tool);
 record ViewRequest(string? Name, string? Tab, string? Network, string? Status, string? Guess, string? Tag, string? Query);
 record ViewDeleteRequest(string? Name);

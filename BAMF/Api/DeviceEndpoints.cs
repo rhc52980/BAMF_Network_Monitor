@@ -676,6 +676,14 @@ internal static class DeviceEndpoints
             return result is null ? Results.BadRequest(new { error }) : Results.Json(new { done = result.Done, missing = result.Missing, failed = result.Failed });
         });
 
+        // Undo for a bulk change: each device put back to how it stood before.
+        app.MapPost("/api/hosts/bulk/restore", (BulkRestoreRequest body, HostStore store) =>
+        {
+            if (!store.BulkEnabled) return Results.Conflict(new { error = "Selecting several devices is switched off in Settings." });
+            var (result, error) = store.RestoreStates(body.States?.Select(s => new HostStore.HostState(s.Id, s.Known, s.Watched, s.Ignored, s.Forgotten, s.Tags, s.SnoozedUntil)));
+            return result is null ? Results.BadRequest(new { error }) : Results.Json(new { done = result.Done, missing = result.Missing, failed = result.Failed });
+        });
+
         // Whether Select mode is offered at all.
         app.MapPost("/api/settings/bulk", (ActiveArpRequest body, HostStore store) =>
         {
