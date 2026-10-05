@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using LanWatch.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -9,26 +10,42 @@ namespace BAMF.Tests;
 
 /// <summary>The restart notice: a start after a clean stop says nothing, a start after being cut off says how long BAMF was blind, and it can be switched off.</summary>
 [Collection("Endpoints")]
-public class StartupWatchTests
+public class StartupWatchTests : IDisposable
 {
     private static readonly DateTime T = new(2026, 10, 4, 12, 0, 0, DateTimeKind.Utc);
+
+    // The tests that count starts and stops use a store of their own. A host the test server starts has a StartupWatch of its own,
+    // which writes "alive" in the background, and sharing its store let that land between a test's own writes.
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "bamf-startup-" + Guid.NewGuid().ToString("N"));
+
+    public StartupWatchTests() => Directory.CreateDirectory(_dir);
+    public void Dispose()
+    {
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        try { Directory.Delete(_dir, true); } catch (IOException) { }
+    }
+
+    private StartupWatch Own()
+    {
+        var config = new Microsoft.Extensions.Configuration.ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Bamf:DatabasePath"] = Path.Combine(_dir, "own.db"),
+        }).Build();
+        return new StartupWatch(new HostStore(config), null, NullLogger<StartupWatch>.Instance);
+    }
 
     private static StartupWatch Watch(BamfApp app) => new(app.Services.GetRequiredService<HostStore>(), null, NullLogger<StartupWatch>.Instance);
 
     [Fact]
     public void A_first_ever_start_has_nothing_to_report()
     {
-        using var app = new BamfApp();
-        var store = app.Services.GetRequiredService<HostStore>();
-        store.SetSetting("aliveAt", ""); store.SetSetting("cleanStop", "");
-        Assert.Null(Watch(app).Begin(T));
+        Assert.Null(Own().Begin(T));
     }
 
     [Fact]
     public void A_start_after_a_normal_stop_says_nothing_so_updates_stay_quiet()
     {
-        using var app = new BamfApp();
-        var w = Watch(app);
+        var w = Own();
         w.Begin(T);
         w.Alive(T.AddMinutes(5));
         w.Stopped(T.AddMinutes(6));
@@ -38,8 +55,7 @@ public class StartupWatchTests
     [Fact]
     public void A_start_after_being_cut_off_reports_when_BAMF_was_last_running()
     {
-        using var app = new BamfApp();
-        var w = Watch(app);
+        var w = Own();
         w.Begin(T);
         w.Alive(T.AddMinutes(5));                // ...and then the power went
         var cut = w.Begin(T.AddMinutes(17));
@@ -49,8 +65,7 @@ public class StartupWatchTests
     [Fact]
     public void Being_cut_off_twice_in_a_row_is_reported_twice()
     {
-        using var app = new BamfApp();
-        var w = Watch(app);
+        var w = Own();
         w.Begin(T);
         Assert.NotNull(w.Begin(T.AddMinutes(3)));
         Assert.NotNull(w.Begin(T.AddMinutes(6)));
@@ -90,7 +105,8 @@ public class StartupWatchTests
         using var app = new BamfApp();
         var store = app.Services.GetRequiredService<HostStore>();
         app.Services.GetServices<IHostedService>().OfType<StartupWatch>().Single();      // it's one of the host's own services
-        store.SetSetting("cleanStop", "false");
+        for (var i = 0; i < 100 && string.IsNullOrEmpty(store.GetSetting("aliveAt")); i++) Thread.Sleep(50);      // its own start has been noted
+        Assert.Equal("false", store.GetSetting("cleanStop"));
         app.Services.GetRequiredService<IHostApplicationLifetime>().StopApplication();    // what the service manager's stop and Ctrl+C both end in
         Assert.Equal("true", store.GetSetting("cleanStop"));
     }
