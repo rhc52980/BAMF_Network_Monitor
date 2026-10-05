@@ -2,6 +2,14 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.8.0",
+      "date": "2026-10-05",
+      "items": [
+        "BAMF now watches its own disk. A new Disk and database card on the Activity tab shows how big the database and backups are and how much room is left, and BAMF raises an alert when the drive is running low, which used to show up only as failed backups. The percentage, or switching it off, is in Settings under System.",
+        "Select devices has an Undo. After a bulk change such as forgetting twelve devices, an Undo button puts every one of them back exactly as it was, including their tags, watch and snooze."
+      ]
+    },
+    {
       "version": "2.7.0",
       "date": "2026-10-05",
       "items": [
