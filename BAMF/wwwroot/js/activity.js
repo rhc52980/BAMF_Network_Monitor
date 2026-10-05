@@ -49,6 +49,29 @@ async function loadUnseen() {
   } catch { /* the next refresh tries again */ }
 }
 
+// ---- Disk and database: how much room BAMF has ----
+let healthCache = null;
+async function loadHealth() {
+  try { const r = await fetch("/api/health"); if (r.ok) { healthCache = await r.json(); renderHealth(); } } catch { /* keep the last */ }
+}
+function renderHealth() {
+  const d = healthCache;
+  if (!d || !$("healthBody")) return;
+  const low = (d.volumes || []).some(v => v.low);
+  $("healthSub").textContent = low ? "A drive BAMF writes to is running low. When a disk fills, backups fail and BAMF can stop recording."
+    : d.alert.enabled ? `Fine. BAMF says so when a drive has under ${d.alert.percent}% (or half a gigabyte) free.` : "The low disk space alert is off (Settings \u2192 System).";
+  const rows = [
+    `<div class="health-row"><span>Database</span><b>${esc(fmtBytes(d.databaseBytes))}</b><span class="sub">${Number(d.historyRows).toLocaleString()} history events</span></div>`,
+    `<div class="health-row"><span>Backups</span><b>${esc(fmtBytes(d.backupBytes))}</b><span class="sub">${d.backups} kept</span></div>`,
+  ];
+  for (const v of d.volumes || []) {
+    const used = Math.max(0, Math.min(100, 100 - v.freePercent));
+    rows.push(`<div class="health-vol${v.low ? " low" : ""}"><div class="health-row"><span>${esc(v.role)}</span><b>${esc(fmtBytes(v.freeBytes))} free</b><span class="sub">${v.freePercent}% of ${esc(fmtBytes(v.totalBytes))}</span></div>` +
+      `<div class="health-bar"><i style="width:${used}%"></i></div></div>`);
+  }
+  $("healthBody").innerHTML = rows.join("");
+}
+
 // ---- Problems: BAMF's own warnings and errors since it started ----
 let problemsCache = null;
 async function loadProblems() {

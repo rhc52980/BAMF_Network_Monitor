@@ -1884,6 +1884,8 @@ scan, or delete a thing.
 | POST | `/api/settings/heartbeat` | Body `{"enabled": true, "url": "https://hc-ping.com/…", "minutes": 5}` — `url` left out keeps the saved address, `""` clears it; 1 to 1440 minutes; switching on needs an address |
 | POST | `/api/heartbeat/test` | Visit the saved address once now: `{"ok", "error", "at"}` |
 | GET | `/api/activity/unseen` | What is new on Activity after `?since=<time>`: `{"alerts", "problems", "now"}`. Without `since` it counts nothing and just returns the server's `now`, which the dashboard keeps as "seen" |
+| GET | `/api/health` | The Disk and database card: `{"databaseBytes", "backupBytes", "backups", "historyRows", "volumes": [{"role", "totalBytes", "freeBytes", "freePercent", "low"}], "alert": {"enabled", "percent", "minFreeBytes"}}`. A server path is never in the answer |
+| POST | `/api/settings/disk-alert` | Body `{"enabled": true, "percent": 10}` — the low disk space alert, on or off, and under what percentage free it speaks (2 to 50) |
 | GET | `/api/problems` | BAMF's own warnings and errors since it started: `{"since", "rows": [{"source", "level", "message", "count", "first", "last"}]}`, newest first. Web addresses in the messages are cut back to where they go |
 | POST | `/api/problems/clear` | Empty that list |
 | GET | `/api/views` | The saved views: `{"max", "views": [{"name", "tab", "network", "status", "guess", "tag", "query"}]}`. `tab` is `devices` or `forgotten`, `status` one of `all`, `online`, `offline`, `unknown`, `new`, `ignored`, `guess` empty for every type or `__none__` for devices with no guess |
@@ -3532,6 +3534,18 @@ They are careful by design. The target is always the device's own address from B
 probe the internet or anywhere else; they run inside BAMF without starting any program; only one runs at a time (a second is told to try again);
 each is bounded in time; and a view-only password doesn't get them. On by default; untick **Ping, trace route and DNS lookup** under
 **Settings → System** to take them out of every device's menu.
+
+### Disk space
+
+BAMF runs unattended, and a disk that filled up used to show only as backups failing or BAMF stopping. The **Disk and database** card on the
+Activity tab shows the database's size and how many history events it holds, how big the backups are and how many are kept, and how much is free on
+the drive they are on (and on the **second copy** of the backups, if you set one), as a bar that turns red when it is low.
+
+When a drive has **under 10% free, or under half a gigabyte whichever comes first**, BAMF raises an alert (to the destinations that take security
+alerts, and under Activity → Alerts) saying how much is free and what BAMF is using. It says so again each day it stays low, and once more when there is room
+again. The percentage is yours to set, 2 to 50, and the whole alert can be switched off, under **Warn when disk space is low** in **Settings → System**.
+Free space is only read: nothing is written or deleted, and only the drives BAMF's own files are on are looked at. Docker and the Home Assistant add-on report the
+volume their data is on. Freeing space is up to you: keep fewer backups (Settings → System), lower the history retention, or move the data.
 
 ### Back up the database
 

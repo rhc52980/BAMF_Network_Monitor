@@ -593,6 +593,14 @@
   .site-sub { font-size: 12px; color: var(--text-dim); }
   .site-note { font-size: 12px; color: var(--led-warn); }
   .site-note.bad { color: var(--danger); }
+  .health-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 3px 0; font-size: 12.5px; }
+  .health-row > span:first-child { flex: 1 1 140px; color: var(--text-dim); }
+  .health-row .sub { margin: 0; }
+  .health-vol { margin-top: 6px; }
+  .health-bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .health-bar i { display: block; height: 100%; background: var(--led-on); }
+  .health-vol.low .health-bar i { background: var(--danger); }
+  .health-vol.low b { color: var(--danger); }
   .problem-row { display: flex; align-items: flex-start; gap: 9px; padding: 6px 0; border-top: 1px solid var(--line); }
   .problem-row:first-of-type { border-top: 0; }
   .problem-row .wan-dot { margin-top: 5px; }
