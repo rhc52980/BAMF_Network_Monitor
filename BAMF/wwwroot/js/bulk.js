@@ -16,6 +16,7 @@ const BULK_VERBS = {
 };
 
 function renderBulk() {
+  renderBulkUndo();
   const off = !bulkEnabled || role === "viewer";
   const toggle = $("bulkEnabled");
   if (toggle) toggle.checked = bulkEnabled;
@@ -93,16 +94,52 @@ $("bulkAll").onchange = () => {
 };
 
 // ---- doing it ----
+// How each device stood before a change, so Undo can put it back exactly. Kept until the next change, Undo, or ten minutes.
+let lastUndo = null;
+const UNDO_MS = 10 * 60e3;
+function hostState(h) {
+  return { id: h.id, known: !!h.known, watched: !!h.watched, ignored: !!h.ignored, forgotten: !!h.forgotten, tags: [...(h.tags || [])], snoozedUntil: h.snoozedUntil || null };
+}
+function renderBulkUndo() {
+  const b = $("bulkUndo");
+  if (!b) return;
+  if (lastUndo && Date.now() - lastUndo.at > UNDO_MS) lastUndo = null;
+  b.hidden = !lastUndo || !selectMode;
+  if (lastUndo) b.textContent = `Undo: ${lastUndo.what}`;
+}
+async function bulkUndo() {
+  const u = lastUndo;
+  if (!u) return;
+  lastUndo = null;
+  renderBulkUndo();
+  try {
+    const r = await fetch("/api/hosts/bulk/restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ states: u.states }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(esc(d.error || `Couldn't undo that (HTTP ${r.status})`)); return; }
+    const bad = (d.failed || []).length + (d.missing || 0);
+    toast(`Put ${d.done} device${d.done === 1 ? "" : "s"} back` + (bad ? `. ${bad} couldn't be changed.` : "."));
+    await refresh();
+  } catch { toast("Couldn't reach BAMF"); }
+}
+$("bulkUndo").onclick = bulkUndo;
+
 async function bulkDo(action, extra = {}) {
   const ids = [...selected];
   if (!ids.length) return;
+  const before = ids.map(id => hosts.find(h => h.id === id)).filter(Boolean).map(hostState);
   try {
     const r = await fetch("/api/hosts/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids, action, ...extra }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { toast(esc(d.error || `Couldn't do that (HTTP ${r.status})`)); return; }
     const bad = (d.failed || []).length + (d.missing || 0);
-    toast(`${d.done} device${d.done === 1 ? "" : "s"} ${BULK_VERBS[action]}` + (bad ? `. ${bad} couldn't be changed${d.failed && d.failed[0] ? ": " + esc(d.failed[0].error) : ""}.` : ""));
+    if (!d.done) toast(`Nothing changed` + (bad ? `. ${bad} couldn't be changed${d.failed && d.failed[0] ? ": " + esc(d.failed[0].error) : ""}.` : "."));
     selected.clear(); lastTicked = null;
+    if (d.done) {
+      lastUndo = { states: before, what: `${d.done} device${d.done === 1 ? "" : "s"} ${BULK_VERBS[action]}`, at: Date.now() };
+      // The toast carries the same Undo, for the moment right after.
+      toast(`${d.done} device${d.done === 1 ? "" : "s"} ${BULK_VERBS[action]}` + (bad ? `. ${bad} couldn't be changed.` : "") + ` <button type="button" class="toast-undo" id="toastUndo">Undo</button>`);
+      $("toastUndo").onclick = () => { $("toast").classList.remove("show"); bulkUndo(); };
+    }
     await refresh();
   } catch (e) { console.error(e); toast("Couldn't reach BAMF"); }
 }

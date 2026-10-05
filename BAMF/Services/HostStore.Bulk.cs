@@ -15,8 +15,43 @@ public partial class HostStore
     /// <summary>Whether Select mode is offered. On unless switched off in Settings.</summary>
     public bool BulkEnabled => GetSetting("bulkSelect") != "false";
 
+    /// <summary>
+    /// How a device stood before a bulk change: what Undo puts back. <c>Tags</c> null leaves tags alone; <c>SnoozedUntil</c>
+    /// null means not snoozed.
+    /// </summary>
+    public sealed record HostState(long Id, bool Known, bool Watched, bool Ignored, bool Forgotten, List<string>? Tags, string? SnoozedUntil);
+
     public sealed record BulkFailure(long Id, string Error);
     public sealed record BulkResult(int Done, int Missing, IReadOnlyList<BulkFailure> Failed);
+
+    /// <summary>
+    /// Puts each device back to the state given, the way Undo needs. Forgotten goes first, because forgetting a device also stops
+    /// watching it, and the state's own watched flag has to win. A device that has gone is counted, and the rest are done.
+    /// </summary>
+    public (BulkResult? Result, string? Error) RestoreStates(IEnumerable<HostState>? states)
+    {
+        var list = (states ?? []).GroupBy(s => s.Id).Select(g => g.Last()).ToList();
+        if (list.Count == 0) return (null, "Nothing to put back.");
+        if (list.Count > MaxBulkDevices) return (null, $"Up to {MaxBulkDevices} devices at a time.");
+        var byId = GetAll().ToDictionary(h => h.Id);
+        var failed = new List<BulkFailure>();
+        int done = 0, missing = 0;
+        foreach (var s in list)
+        {
+            if (!byId.TryGetValue(s.Id, out var h)) { missing++; continue; }
+            SetForgotten(s.Id, s.Forgotten);
+            SetKnown(s.Id, s.Known);
+            SetWatched(s.Id, s.Watched);
+            SetIgnored(s.Id, s.Ignored);
+            string? error = null;
+            if (s.Tags is not null) error = SetTags(s.Id, s.Tags);
+            if (DateTime.TryParse(s.SnoozedUntil, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var until) && until.ToUniversalTime() > DateTime.UtcNow)
+                SnoozeHost(s.Id, until.ToUniversalTime(), h.Online);
+            else Unsnooze(s.Id);
+            if (error is not null) failed.Add(new BulkFailure(s.Id, error)); else done++;
+        }
+        return (new BulkResult(done, missing, failed), null);
+    }
 
     /// <summary>Applies <paramref name="action"/> to each device. Returns an error for the request as a whole, or null.</summary>
     public (BulkResult? Result, string? Error) Bulk(IEnumerable<long>? ids, string? action, string? tag, int? minutes)

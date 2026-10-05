@@ -1863,6 +1863,7 @@ scan, or delete a thing.
 | POST | `/api/hosts/{id}/tags` | Body `{"tags": ["kids", "IoT"]}` — replace a device's tags (up to 20, each up to 24 characters, no commas). `GET /api/hosts` lists each host's `tags` |
 | GET | `/api/hosts/{id}/ips` | One host's address history: each main address it has had, with when it began and ended |
 | POST | `/api/hosts/bulk` | Body `{"ids": [3, 7], "action": "known", "tag": "kids", "minutes": 60}` — one change to up to 500 devices. `action` is `known`, `unknown`, `watch`, `unwatch`, `ignore`, `unignore`, `forget`, `restore`, `snooze` (needs `minutes`, up to a week), `unsnooze`, `tag` or `untag` (need `tag`). Answers `{"done", "missing", "failed": [{"id", "error"}]}`; a device that can't take it doesn't stop the rest. `409` when Select mode is switched off. `GET /api/hosts` carries `bulkEnabled` |
+| POST | `/api/hosts/bulk/restore` | Body `{"states": [{"id": 3, "known": true, "watched": true, "ignored": false, "forgotten": false, "tags": ["kids"], "snoozedUntil": null}]}` — put each device back to that state (the dashboard's Undo): `{"done", "missing", "failed"}`. Up to 500; `409` when Select mode is switched off |
 | POST | `/api/settings/bulk` | Body `{"enabled": false}` — switch Select mode off or on |
 | POST | `/api/hosts/{id}/forget` | Body `{"forgotten": true}` — soft-delete to the Forgotten tab (reversible) |
 | DELETE | `/api/hosts/{id}` | Permanently delete a host and its history (from the Forgotten tab) |
@@ -2073,6 +2074,11 @@ Each does exactly what the same choice in a device's own ⋯ menu does, one devi
 all its tags already, is counted and reported while the rest are done. What is selected is what the list is showing: change the
 filter, the network or the search and the ticks that fall out of view are dropped, so nothing is changed out of sight.
 Another site's devices have no tick box, since they can't be changed from here, and a view-only password doesn't get Select mode.
+
+**Undo.** After a change, the message that says what was done has an **Undo** button, and the bar gets an **Undo: 3 devices forgotten**
+button that stays for ten minutes or until the next change. Undo puts each of those devices back exactly as it stood: known or not,
+watched, ignored, forgotten, its tags and its snooze. That includes the watch that forgetting a device drops, which a plain "Restore"
+wouldn't bring back. It only undoes the last change, only for the devices that change touched, and is gone once you leave the page.
 
 It is on by default. Untick **Select several devices** under **Settings → System** to take it out of the Tools menu for every dashboard.
 Up to 500 devices at a time.
