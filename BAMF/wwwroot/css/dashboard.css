@@ -1758,6 +1758,8 @@
   }
   .toast.show { display: block; }
   .toast .mono { color: var(--led-warn); }
+  .toast .toast-undo { margin-left: 10px; background: none; border: 1px solid var(--focus); color: var(--focus); border-radius: 6px; padding: 2px 10px; font: inherit; cursor: pointer; }
+  .toast .toast-undo:hover { background: color-mix(in srgb, var(--focus) 15%, transparent); }
 
   @media (max-width: 640px) {
     .search { width: 100%; margin-left: 0; }
