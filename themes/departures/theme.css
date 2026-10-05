@@ -91,6 +91,6 @@
 @media (max-width: 640px) {
   .df-head { display:none; } 
 }
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .df-flap i.fa, .df-flap i.fb, .df-flap.cancel.watch, .df-flap.sec { animation:none !important; } 
 }

@@ -103,7 +103,7 @@ header.st-rumble { animation: st-rumble .7s linear 1; }
 
 .st-stranger.gone { opacity: 0; }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .st-smoke { display: none; }
 
   .st-cloud, .st-flash.on, header.st-rumble, [data-theme="storm"] tr.st-flicker td,

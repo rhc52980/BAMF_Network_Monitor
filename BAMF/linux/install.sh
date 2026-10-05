@@ -30,11 +30,19 @@ resolve_source() {
     SRC_DIR="$(dirname "$(find "$TMP_SRC" -name BAMF.csproj | head -1)")"
     [ -f "$SRC_DIR/BAMF.csproj" ] || { echo "BAMF.csproj not found in zip."; exit 1; }
 }
-cleanup() { [ -n "$TMP_SRC" ] && rm -rf "$TMP_SRC"; }
+cleanup() { if [ -n "$TMP_SRC" ]; then rm -rf "$TMP_SRC"; fi; }
 trap cleanup EXIT
 
 step() { echo -e "\e[36m==> $*\e[0m"; }
 [ "$(id -u)" -eq 0 ] || { echo "Run as root (inside the container)."; exit 1; }
+
+# The build is self-contained, so it has to be for this machine's CPU: an
+# x86-64 binary won't run on an arm64 host (a Raspberry Pi, an Apple-silicon VM).
+case "$(uname -m)" in
+    x86_64|amd64)  RID="linux-x64" ;;
+    aarch64|arm64) RID="linux-arm64" ;;
+    *) echo "Unsupported CPU: $(uname -m). BAMF builds for x86-64 and arm64."; exit 1 ;;
+esac
 
 resolve_source "${1:-}"
 DOTNET_DIR="/opt/dotnet"
@@ -61,6 +69,18 @@ fi
 step "Installing dependencies (libpcap, curl, ca-certificates)"
 apt-get update -qq
 apt-get install -y -qq libpcap0.8 curl ca-certificates >/dev/null
+
+# --- ICU ---
+# .NET aborts at startup without the ICU library ("Couldn't find a valid ICU
+# package"), the SDK included, and a minimal Debian or Ubuntu install doesn't
+# have it. Its package is named for its version (libicu72, libicu76...), so take
+# the newest this system offers.
+if ! PATH="$PATH:/sbin:/usr/sbin" ldconfig -p 2>/dev/null | grep -q 'libicuuc\.so'; then
+    ICU_PKG="$(apt-cache pkgnames libicu 2>/dev/null | grep -E '^libicu[0-9]+$' | sort -V | tail -1 || true)"
+    [ -n "$ICU_PKG" ] || { echo "No ICU library (libicuNN) found, and none is available to install. Install it and run this again."; exit 1; }
+    step "Installing ICU ($ICU_PKG), which .NET needs"
+    apt-get install -y -qq "$ICU_PKG" >/dev/null
+fi
 
 # --- .NET SDK (distro-agnostic install, works on any Debian version) ---
 # BAMF builds with .NET 10. An install from before has only the .NET 8 SDK in
@@ -97,7 +117,7 @@ fi
 # --- build ---
 step "Building (first build takes a few minutes)"
 cd "$SRC_DIR"
-dotnet publish -c Release -r linux-x64 -p:PublishSingleFile=true --self-contained true -o "$APP_DIR"
+dotnet publish -c Release -r "$RID" -p:PublishSingleFile=true --self-contained true -o "$APP_DIR"
 
 # --- restore config ---
 if [ -n "$CONFIG_BAK" ]; then

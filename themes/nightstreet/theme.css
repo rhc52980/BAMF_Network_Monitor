@@ -165,7 +165,7 @@ html.ns-bright .ns-bg .ns-glow { opacity: 1; filter: brightness(1.5); }
 
 @keyframes ns-sweep { from { transform: rotate(-26deg); } to { transform: rotate(24deg); } }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .ns-bg .ns-star, .ns-bg .ns-lamp.buzz .ns-glow, .ns-bg .ns-win.on.tv,
   .ns-bg .ns-tw, .ns-bg .ns-crown, .ns-bg .ns-beacon,
   .ns-air, .ns-nav, .ns-strobe, .ns-rotor, .ns-beam, .ns-lightbar i, .ns-lightbar::after { animation: none !important; }

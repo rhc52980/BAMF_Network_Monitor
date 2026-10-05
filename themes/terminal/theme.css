@@ -82,7 +82,7 @@
 
 [data-theme="terminal"] .brand h1::after { content: "█"; margin-left: 3px; animation: term-blink 1.06s steps(1) infinite; }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   [data-theme="terminal"] .brand h1::after, .bz-log .bz-q i, .bz-intr.locking { animation: none !important; }
 
 }

@@ -247,7 +247,7 @@
 
 :is([data-theme="goat"], [data-theme="goatnight"]) .map-svg .t-tile { stroke: #8a6a44; }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   :is([data-theme="goat"], [data-theme="goatnight"]) .scan-fill::after, .goat-munch.chewing, .goat-bell, :is([data-theme="goat"], [data-theme="goatnight"]) tr.goat-shake td, .goat-bonk, .goat-cloud,
   .goat-bg .crag-goat .g-head, .goat-svg .g-tail, .goat-svg .g-ear, .goat-bubble, .goat-boom, .goat-star, .goat-fly, .goat-red { animation: none !important; }
 

@@ -368,7 +368,7 @@ html.ww-surge .ww-hvalve .hw { transform: rotate(300deg); }
 
 .ww-lockout.gone { opacity: 0; }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .ww-alarm, .ww-lockout, .ww-lockout *,
   [data-theme="waterworks"] header::after,
   [data-theme="waterworks"] .scan-fill,

@@ -234,7 +234,7 @@
 
 [data-theme="halloween"] .badge.unknown::before { content: "\1F383 "; }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   [data-theme="halloween"] .map-svg .t-ghost { animation: none !important; }
   [data-theme="halloween"] .brand h1 { animation: none !important; }
   .hw-bg *, .hw-bg { animation: none !important; transition: none !important; }

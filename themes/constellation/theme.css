@@ -41,7 +41,7 @@
 
 @keyframes cs-name { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; } }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   [data-theme="constellation"] .map-svg .pkt, .cs-name { animation: none !important; }
 
 }

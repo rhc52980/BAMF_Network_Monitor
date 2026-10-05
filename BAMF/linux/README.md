@@ -8,7 +8,7 @@ sudo bash install.sh                 # from inside this source tree
 sudo bash install.sh /root/BAMF.zip  # or straight from a package
 ```
 
-It installs the dependencies (libpcap, and the .NET 10 SDK on first run), builds
+It installs the dependencies (libpcap, ICU if missing, and the .NET 10 SDK on first run), builds
 to `/opt/bamf`, installs the systemd unit, and starts the service. Re-running it
 later is the update path — your `appsettings.json` and `bamf.db` are preserved,
 and the database is snapshotted to `/opt/bamf/backups` first.

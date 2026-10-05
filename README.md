@@ -247,8 +247,9 @@ Agent, a bear, a yeti, a fox after the hens, a leak, a seagull after the hot
 dogs, a werewolf, a burglar on the naughty list. The scene raises the alarm,
 then holds it, tagged, until you say it's known.
 
-Reduced motion holds every scene still, nothing runs in a background tab, and
-sound is off unless you ask for it.
+Reduced motion holds every scene still, and so does a touch screen: on a phone or
+tablet the scenes stay still, because a moving one kept a Pixel's CPU at 90-280% of
+a core. Nothing runs in a background tab, and sound is off unless you ask for it.
 
 Every theme but Dark, Light and High Contrast is a folder you can add or
 remove, so the menu offers only the ones you want. See them all in the
@@ -291,6 +292,8 @@ what the evidence suggests and names the evidence, so you can judge it.
 - **Windows** Server 2022, or Windows 10/11 · **Linux** Debian 12 / Ubuntu 22.04+
 - Optional, for raw ARP scanning: [Npcap](https://npcap.com) on Windows,
   `libpcap` on Linux — without it BAMF falls back to a sweep
+- **Linux** also needs the ICU library (`libicuNN`); a minimal Debian or Ubuntu
+  install may lack it, and the installer adds it
 - A network interface on each subnet you want to watch
 
 ## Credits

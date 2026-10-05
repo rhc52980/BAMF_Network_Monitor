@@ -236,7 +236,7 @@
 
 [data-theme="aquarium"] .map-svg .tnode.dev.unknown .aq-shell { display: inline; }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .aq-rays,
   .aq-weed,
   .aq-fish .tail,

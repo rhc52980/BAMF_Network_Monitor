@@ -192,7 +192,7 @@
 
 .fac-stopped .fac-wheelbig { animation-play-state:paused; }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .fac-belt::before, .fac-lamp, .fac-wheelbig, .fac-spark, .fac-arm .upper, .fac-arm .fore, .fac-andon i.bad.on, .fac-beacon::after, .fac-alarm::after, .fac-andon.estop i { animation:none !important; }
 
 }

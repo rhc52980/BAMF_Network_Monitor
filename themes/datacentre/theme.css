@@ -165,7 +165,7 @@
 @media (max-width: 1320px) {
   .dc-lcd, .dc-scope { display:none; } 
 }
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .dc-led, .dc-fan, .dc-fibre, .dc-port i.act, .dc-link .ports i.down, .dc-blade, .dc-scanbar i, .dc-intrusion::after, .dc-link.alarm { animation:none !important; }
 
 }

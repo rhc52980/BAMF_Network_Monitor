@@ -40,3 +40,6 @@ appsettings.Local.json
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# The phone app (Capacitor): its packages are fetched by npm install
+mobile/node_modules/

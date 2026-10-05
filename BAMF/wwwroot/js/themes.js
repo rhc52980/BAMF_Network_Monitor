@@ -101,10 +101,15 @@ function buildThemeMenu() {
     setTimeout(() => $("themesCard")?.scrollIntoView({ block: "start" }), 50);
   };
   menu.appendChild(manage);
-  // Under the button that opened it, kept inside the screen on a narrow one.
+  // Under the button that opened it, with its right edge on the button's, and
+  // kept inside the screen on a narrow one. On a phone the header wraps and the
+  // button is at the left, so lining the right edges up would push the menu off
+  // the left side: its right offset is capped so its left edge stays 8px in.
   const r = (themeAnchor || $("themeToggle")).getBoundingClientRect();
+  const vw = document.documentElement.clientWidth;
+  const w = Math.min(300, vw - 16);                // the menu's width, as the stylesheet sets it
   menu.style.top = (r.bottom + 8) + "px";
-  menu.style.right = Math.max(8, window.innerWidth - r.right) + "px";
+  menu.style.right = Math.max(8, Math.min(vw - r.right, vw - w - 8)) + "px";
 }
 
 // ---- Settings → Appearance → Themes ----
@@ -448,7 +453,10 @@ let festivePrev = null;
 // What each theme does, by id. Every theme with effects is in a folder, and its
 // theme.js adds itself here with BAMF.registerTheme when it loads.
 const THEME_FX = {};
-const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
+// Scenes hold still when the system asks for reduced motion, and on a touch screen: a phone's WebView redraws
+// the whole screen every frame for as long as anything moves, which cost 90-280% of a CPU core for an
+// animated theme on a Pixel. The stylesheets use the same query (see "Reduced motion" in the README).
+const calmMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse)").matches; } catch { return false; } };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 function festive(theme) {

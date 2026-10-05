@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>BAMF</title>
+<style>
+  :root { --bg: #10141a; --panel: #171d26; --line: #263040; --text: #d5dde8; --dim: #7e8b9d; --accent: #3fdb7f; --warn: #ffb454; --danger: #f2716f; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-text-size-adjust: 100%; }
+  main { max-width: 30rem; margin: 0 auto;
+    padding: calc(32px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); }
+  .logo { display: block; width: 64px; height: 64px; margin: 0 auto 8px; }
+  h1 { font-size: 1.4rem; text-align: center; margin: 0 0 4px; }
+  .sub { color: var(--dim); text-align: center; margin: 0 0 24px; min-height: 1.5em; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin: 0 0 12px; }
+  .card h2 { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin: 0 0 8px; font-weight: 600; }
+  button, .row { min-height: 48px; }
+  button { font: inherit; font-weight: 600; border-radius: 8px; border: 1px solid var(--line); background: transparent;
+    color: var(--text); padding: 0 16px; cursor: pointer; }
+  button.primary { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: .5; }
+  .row { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--line); padding: 4px 0; }
+  .row:first-of-type { border-top: 0; }
+  .row .go { flex: 1; text-align: left; border: 0; padding: 0 4px; min-width: 0; overflow-wrap: anywhere; }
+  .row .go small { display: block; color: var(--dim); font-weight: 400; }
+  .row .rm { border: 0; color: var(--dim); width: 48px; padding: 0; }
+  .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin: 8px 0 0; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  form { display: flex; gap: 8px; }
+  input { flex: 1; min-width: 0; min-height: 48px; font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .msg { color: var(--warn); margin: 8px 0 0; }
+  .msg.bad { color: var(--danger); }
+  .hint { color: var(--dim); font-size: .85rem; margin: 8px 0 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <svg class="logo" viewBox="0 0 120 120" aria-hidden="true">
+    <polygon fill="#3fdb7f" stroke="#0c3a22" stroke-width="4" stroke-linejoin="round"
+      points="117,60 93.3,73.8 98.2,98.2 73.8,93.3 60,117 46.2,93.3 19.8,101.2 26.7,73.8 3,60 26.7,46.2 21.8,19.8 46.2,26.7 60,3 73.8,26.7 101.2,19.8 93.3,46.2"/>
+    <line x1="42" y1="72" x2="60" y2="48" stroke="#0c3a22" stroke-width="7" stroke-linecap="round"/>
+    <line x1="60" y1="48" x2="78" y2="72" stroke="#0c3a22" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="42" cy="72" r="9" fill="#0c3a22"/><circle cx="60" cy="48" r="9" fill="#0c3a22"/>
+    <circle cx="78" cy="72" r="9" fill="#ffb454" stroke="#0c3a22" stroke-width="3"/>
+  </svg>
+  <h1>BAMF</h1>
+  <p class="sub" id="status" role="status" aria-live="polite">Starting…</p>
+
+  <section class="card" id="saved" hidden>
+    <h2>Your servers</h2>
+    <div id="savedList"></div>
+  </section>
+
+  <section class="card" id="found" hidden>
+    <h2>Found on this network</h2>
+    <div id="foundList"></div>
+  </section>
+
+  <section class="card" id="scan">
+    <div class="bar" id="bar" hidden><i id="barFill"></i></div>
+    <button class="primary" id="scanBtn" type="button" style="width:100%;margin-top:8px">Look for BAMF on this network</button>
+    <p class="hint" id="scanHint"></p>
+  </section>
+
+  <section class="card">
+    <h2>Enter an address</h2>
+    <form id="manual" autocomplete="off">
+      <input id="addr" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false"
+             placeholder="192.168.1.20 or bamf.example.com" aria-label="BAMF server address">
+      <button class="primary" type="submit">Connect</button>
+    </form>
+    <p class="msg" id="manualMsg" hidden></p>
+    <p class="hint">Away from home, use the address your VPN or reverse proxy gives BAMF, with <b>https://</b>.</p>
+  </section>
+</main>
+<script src="finder.js"></script>
+</body>
+</html>

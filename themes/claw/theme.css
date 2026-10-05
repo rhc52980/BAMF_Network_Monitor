@@ -220,7 +220,7 @@ tr.claw-grab td { animation: claw-grab .7s ease-out 1; }
 
 @keyframes claw-bob { 50% { transform: translateY(-2px) rotate(-6deg); } }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   :is([data-theme="claw"], [data-theme="clawdusk"]) header::after, :is([data-theme="claw"], [data-theme="clawdusk"]) .scan-fill, :is([data-theme="claw"], [data-theme="clawdusk"]) .map-svg .pkt, .claw-bg .tube, .claw-bg .chute.win, .claw-mystery, .claw-bg.tilt,
   .claw-charm svg, tr.claw-grab td, .claw-stamp, .claw-drop, .claw-bonus { animation: none !important; }
 

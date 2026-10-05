@@ -33,6 +33,8 @@ The dashboard at `http://<server>:8840` polls `/api/hosts` every 10 seconds.
   — the published output can be fully self-contained, so the *server* needs
   nothing installed if you publish that way.
 - Optional, for active ARP scanning: Npcap on Windows, libpcap on Linux.
+- Linux also needs the ICU library (`libicuNN`), which .NET requires and a minimal
+  Debian or Ubuntu install lacks. `linux/install.sh` installs it if it's missing.
 
 ## Where everything lives
 
@@ -83,7 +85,8 @@ dotnet publish -c Release -o publish
 
 # OR fully self-contained single file (no runtime needed on the server):
 dotnet publish -c Release -r win-x64   -p:PublishSingleFile=true --self-contained true -o publish   # Windows
-dotnet publish -c Release -r linux-x64 -p:PublishSingleFile=true --self-contained true -o publish   # Linux
+dotnet publish -c Release -r linux-x64 -p:PublishSingleFile=true --self-contained true -o publish   # Linux, x86-64
+dotnet publish -c Release -r linux-arm64 -p:PublishSingleFile=true --self-contained true -o publish # Linux, arm64
 ```
 
 > **Rebuilding over a folder you already run from?** `dotnet publish` overwrites
@@ -296,7 +299,7 @@ Everything BAMF initiates on its own, and how it's protected:
 | GitHub update check (`api.github.com`) | **HTTPS** | Daily, only if you enable the update check |
 | Your public address (`api.ipify.org`, or `checkip.amazonaws.com`) and GreyNoise (`api.greynoise.io`) | **HTTPS** | Daily, only if you switch on the GreyNoise check. What they learn is your public address |
 | One address on the internet (`8.8.8.8` by default) | **an echo request, nothing else** | A ping a minute, only if you switch on the internet watch. Nothing about your network goes with it |
-| Cloudflare's speed test (`speed.cloudflare.com`) | **HTTPS** | Only when you press Run now, or on the schedule you choose: daily or every six hours. About 125 MB of test data each time. Cloudflare sees your public address, as any website does, and says it back in its answer, which BAMF shows as your public address |
+| Cloudflare's speed test (`speed.cloudflare.com`) | **HTTPS** | Only when you press Run now, or on the schedule you choose: daily or every six hours. About 125 MB of test data each time. Cloudflare sees your public address, as any website does, and says it back in its answer, which BAMF shows as your public address |
 | Cloudflare, for your public address (`speed.cloudflare.com`) | **HTTPS** | Only when you press **Look it up** (or **Check now**) on the Network services card. One request for a file of no bytes. Cloudflare sees your public address, as any website does, and says it back |
 | A monitoring service you name (Healthchecks.io, Uptime Kuma, anything that takes a visit) | **whatever scheme your address uses** | Every few minutes, only if you switch on the heartbeat. A plain request to the address you gave, with nothing about your network in it |
 | Your webhook | **whatever scheme your URL uses** | When a new host appears, a watched host changes state, or an alert fires |
@@ -439,6 +442,69 @@ plain `http://` they add a shortcut that opens in an ordinary tab. Safari
 opens it in its own window either way. With a password set, it asks for it
 the first time, and stays signed in like any browser. A link with a `#tab` in
 it opens straight on that tab — see [Linking to a tab](#linking-to-a-tab).
+
+### When the server can't be reached
+
+Opened from the home screen with the server off or out of reach, BAMF shows a
+"Can't reach BAMF" page with a **Try again** button, rather than the browser's
+error page. That page comes from a small service worker (`sw.js`) that only
+steps in when a page is opened and the server doesn't answer. It never
+answers for the dashboard, the API or the sign-in, so it can't show old
+devices or keep you looking signed in.
+
+A browser only allows a service worker over HTTPS (or on `localhost`), and not
+when you've clicked through a certificate warning. So with plain `http://` the
+page just doesn't appear and BAMF behaves exactly as it did, and the
+self-signed certificate that BAMF makes for itself may not be enough on a
+phone. A certificate the phone trusts is.
+
+### Away from home
+
+BAMF doesn't open itself to the internet and a phone can't scan your network,
+so away from home the phone has to reach the BAMF machine another way. Two
+that work without exposing port 8840:
+
+- **A VPN into your network**, such as Tailscale or WireGuard. Tailscale can
+  also issue a certificate the phone trusts for the machine's name
+  (`tailscale cert`), which gives you HTTPS without a warning.
+- **A reverse proxy** with a real certificate for a name you own, set up to
+  pass through to BAMF. Set a password first (Settings → Security); BAMF locks
+  an address out after repeated wrong guesses.
+
+### Mobile and battery
+
+A phone's WebView is far less forgiving than a desktop browser, so the dashboard behaves
+differently there. Measured on a Pixel 10 Pro XL (Android 17, 120 Hz) with the BAMF app
+open on the Devices page, nothing happening:
+
+| | Before | After |
+|---|---|---|
+| CPU, page on screen | 139% of a core | 5.7% |
+| CPU, any animated theme | 87-278% | at most 9% |
+| CPU, app in the background | 1.45% | 1.08% |
+| Scrolling frames over 16 ms | 17% | 2.5% |
+
+What changed, and why:
+
+- **Looping animations hold still on a touch screen.** Chromium keeps producing frames at
+  the display's refresh rate for as long as any animation loops, even a slow blink, and
+  Android's WebView redraws the whole screen each time. Ten amber "unknown device" tiles
+  blinking twice a second were enough to use almost two cores. The dashboard's own loops
+  (that blink, the empty-scan shimmer, the offline pin's ring, the map's cogs and packets)
+  and every theme scene now use the reduced-motion look whenever
+  `(hover: none) and (pointer: coarse)` matches, as well as under `prefers-reduced-motion`.
+  A computer with a mouse is unchanged.
+- **Nothing runs while the page is hidden.** The 10-second refresh and the 1-second
+  countdown skip while `document.hidden`, and the page refreshes at once when it comes
+  back.
+- **Pop-ups stay on screen.** The theme menu used to line its right edge up with its
+  button and ran off the left of a phone; panels pinned to the screen edges now leave room
+  for the status bar, camera cutout and gesture bar (`env(safe-area-inset-*)`).
+
+Re-checked on BAMF 2.3.0 (same phone and script): idle CPU 5.8%, background 0.95%, and the rewritten
+Christmas and Halloween themes 8% and 6%. The Network services card is stacked under 480px so its
+device chips no longer run a pixel past a 320px screen. The full write-up, with every theme's
+before and after, is in [`docs/mobile-app.md`](../docs/mobile-app.md).
 
 ## Notes
 
@@ -1025,6 +1091,16 @@ None of it runs while the tab is in the background. With reduced motion switched
 on in your system settings, it all holds still: Matrix shows a still wall of
 glyphs instead of rain.
 
+**On a phone or tablet the scenes hold still as well**, whatever the system setting
+says, and so do the dashboard's own looping effects (the amber blink on unknown
+devices, the empty-scan shimmer, the offline pin's ring). A touch screen is detected by
+the CSS media query `(hover: none) and (pointer: coarse)`, which every stylesheet and
+`calmMotion()` in `themes.js` now use alongside `prefers-reduced-motion`. The reason is
+measured: on a Pixel 10 Pro XL an animated theme kept the app at 87-278% of a CPU core
+with nothing happening, because the phone's WebView redraws the whole screen every frame
+for as long as anything loops. A computer with a mouse is unchanged. See
+[Mobile and battery](#mobile-and-battery).
+
 ### Intruders
 
 In every animated and holiday theme, a new device nobody has marked known is an intruder, and the scene treats it as
@@ -1531,8 +1607,9 @@ sc.exe delete BAMF
 
 ## Install as a systemd service (Linux)
 
-`linux/install.sh` does the whole job as root — installs libpcap and the .NET 10
-SDK (one-time), builds a self-contained binary to `/opt/bamf`, installs
+`linux/install.sh` does the whole job as root — installs libpcap, ICU (if it's missing)
+and the .NET 10 SDK (one-time), builds a self-contained binary for the machine's CPU
+(x86-64 or arm64) to `/opt/bamf`, installs
 `linux/bamf.service`, enables it, and starts it:
 
 ```bash

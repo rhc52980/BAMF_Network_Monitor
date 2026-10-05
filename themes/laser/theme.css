@@ -36,7 +36,7 @@
 
 [data-theme="laser"] tbody tr:hover td { background:linear-gradient(90deg, rgba(0,229,255,.12), rgba(255,47,209,.07) 60%, transparent); }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   [data-theme="laser"] header::after { animation:none; }
 
 }

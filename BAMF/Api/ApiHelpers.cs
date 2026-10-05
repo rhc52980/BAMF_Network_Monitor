@@ -28,7 +28,9 @@ internal static class ApiHelpers
         p == "/signin" || p == "/api/signin" || p == "/api/signout" || p == "/fonts.css" || p == "/bamf-logo.svg" || p == "/bamf-icon.svg"
         || p.StartsWithSegments("/fonts")
         // The home-screen icon and its manifest, which a phone fetches without the sign-in cookie.
-        || p == "/manifest.webmanifest" || p == "/apple-touch-icon.png" || p == "/icon-192.png" || p == "/icon-512.png" || p == "/icon-maskable-512.png";
+        || p == "/manifest.webmanifest" || p == "/apple-touch-icon.png" || p == "/icon-192.png" || p == "/icon-512.png" || p == "/icon-maskable-512.png"
+        // The service worker and the page it shows when the server can't be reached. Neither holds anything private.
+        || p == "/sw.js" || p == "/offline.html";
 
     internal static void SetSessionCookie(HttpContext ctx, string? value) =>
         ctx.Response.Cookies.Append(AuthService.CookieName, value ?? "", new CookieOptions

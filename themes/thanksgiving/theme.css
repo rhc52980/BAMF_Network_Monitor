@@ -79,6 +79,6 @@
 @keyframes tg-gobble { 0% { transform: translateX(-50%) scale(.4); opacity: 0; } 10% { transform: translateX(-50%) scale(1.08); opacity: 1; }
   16%, 28% { transform: translateX(-50%) rotate(-2deg); } 22% { transform: translateX(-50%) rotate(2deg); } 85% { opacity: 1; } 100% { transform: translateX(-50%); opacity: 0; } }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (hover: none) and (pointer: coarse) {
   .tg-coon, .tg-alarm, .tg-gobble { animation: none !important; }
 }
