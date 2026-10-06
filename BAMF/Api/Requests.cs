@@ -34,6 +34,7 @@ record DiskAlertRequest(bool Enabled, int? Percent);
 record BulkRestoreRequest(List<HostStateRequest>? States);
 record HostStateRequest(long Id, bool Known, bool Watched, bool Ignored, bool Forgotten, List<string>? Tags, string? SnoozedUntil);
 record ToolRequest(string? Tool);
+record TraceTargetRequest(string? Tool, string? Target);
 record ViewRequest(string? Name, string? Tab, string? Network, string? Status, string? Guess, string? Tag, string? Query);
 record ViewDeleteRequest(string? Name);
 record BulkRequest(List<long>? Ids, string? Action, string? Tag, int? Minutes);

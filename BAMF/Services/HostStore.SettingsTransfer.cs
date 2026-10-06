@@ -21,7 +21,7 @@ public partial class HostStore
         "latencyProbe", "mdnsListen", "networkTools", "newDays", "nightFrom", "nightMode", "nightTheme", "nightTo", "offlineAfterMissedScans",
         "pauseAlerts", "pingConcurrency", "portWatch", "quietDigest", "quietFrom", "quietTo", "reportDay", "reportHour",
         "reportSchedule", "restartAlert", "scanIntervalSeconds", "speedTest", "tidyDays", "tidyEnabled", "trafficMonitor", "unusualWatch",
-        "updateCheck", "upnpIgd", "wanInterval", "wanSlow", "wanTarget", "wanWatch", "watchAlerts", "webhookFormat",
+        "updateCheck", "traceAnywhere", "upnpIgd", "wanInterval", "wanSlow", "wanTarget", "wanWatch", "watchAlerts", "webhookFormat",
         "webhookKinds",
     };
 

@@ -1791,7 +1791,9 @@ scan, or delete a thing.
 | POST | `/api/settings/webhook` | Body `{"url": "https://..."}` — save the notification webhook (empty string clears it). Returns a masked form; the full URL is never read back |
 | POST | `/api/settings/update-check` | Body `{"enabled": true}` — toggle the daily GitHub update check. Turning it on checks immediately and returns the result |
 | POST | `/api/hosts/{id}/watch` | Body `{"watched": true}` — watch a host for downtime (star toggle in the UI) |
-| POST | `/api/hosts/{id}/tool` | Body `{"tool": "ping"}` (or `trace`, `dns`) — run it at that device's own address from this machine: `{"tool", "target", "ok", "lines", "summary"}`. `409` when switched off, `429` while another tool runs. `GET /api/hosts` carries `networkToolsEnabled`; `POST /api/settings/network-tools` with `{"enabled": false}` switches it |
+| POST | `/api/hosts/{id}/tool` | Body `{"tool": "ping"}` (or `trace`, `path`, `dns`) — run it at that device's own address from this machine: `{"tool", "target", "ok", "lines", "summary"}`. `409` when switched off, `429` while another tool runs. `GET /api/hosts` carries `networkToolsEnabled`; `POST /api/settings/network-tools` with `{"enabled": false}` switches it |
+| POST | `/api/tools/anywhere` | Body `{"tool": "trace", "target": "8.8.8.8"}` (`tool` is `ping`, `trace` or `path`; `target` an IPv4 address or a name) — run it at an address that was typed, from this machine: `{"tool", "target", "ok", "lines", "summary"}`. `400` with the reason for a target that isn't acceptable, `409` while it is switched off, `429` while another tool runs or less than eight seconds after the last. Main password only |
+| POST | `/api/settings/trace-anywhere` | Body `{"enabled": true}` — switch ping and trace to any address on or off (off by default). `GET /api/hosts` carries `traceAnywhereEnabled` |
 | POST | `/api/hosts/{id}/snooze` | Body `{"minutes": 120}` — hold back that device's alerts for a while, up to a week; `0` ends the snooze. Returns `{"snoozedUntil"}`, which `/api/hosts` also carries per device |
 | POST | `/api/hosts/{id}/ignore` | Body `{"ignored": true}` — hide a host from main views and suppress its alerts/history |
 | POST | `/api/hosts/{id}/note` | Body `{"note": "..."}` — save a free-text note (max 500 chars) |
@@ -3529,15 +3531,19 @@ its history, and one that turns up on the network again is no longer forgotten b
 ### Ping, trace route and DNS lookup
 
 When a device is flaky, the question is "can BAMF reach it, and by what path?". A device's **⋯ menu → Look closer** has **Ping…**,
-**Trace route…** and **DNS lookup…**, which run from the machine BAMF is on and show the answer in a small window:
+**Trace route…**, **Path ping…** and **DNS lookup…**, which run from the machine BAMF is on and show the answer in a small window:
 
 - **Ping** sends four echo requests and says what answered, how many were lost, and the fastest, average and slowest time.
 - **Trace route** lists each router on the way to the device, and stops at the device; after five hops in a row with no answer it
   gives up rather than wait through twenty. It can take half a minute.
+- **Path ping** is a trace followed by a few pings of every router that answered it, with how many each lost and how long they took,
+  like `pathping` or `mtr`. It shows where along the path the trouble starts. A router that answers a trace but never a ping is listed as
+  **silent**, not lossy, because many routers ignore pings; loss that begins at one hop and carries on to the end is real, loss at one hop only usually isn't.
+  It takes a minute or two.
 - **DNS lookup** asks what name DNS has for the device's address, and where its name resolves to, and says if that includes the device's own address.
 
-They are careful by design. The target is always the device's own address from BAMF's list, never something typed, so they can't be used to
-probe the internet or anywhere else; they run inside BAMF without starting any program; only one runs at a time (a second is told to try again);
+From a device's menu they are careful by design: the target is always that device's own address from BAMF's list, never something typed, so they can't be used to
+probe the internet or anywhere else (typing a target is the separate, off-by-default feature below); they run inside BAMF without starting any program; only one runs at a time (a second is told to try again);
 each is bounded in time; and a view-only password doesn't get them. On by default; untick **Ping, trace route and DNS lookup** under
 **Settings → System** to take them out of every device's menu.
 
@@ -3552,6 +3558,24 @@ alerts, and under Activity → Alerts) saying how much is free and what BAMF is 
 again. The percentage is yours to set, 2 to 50, and the whole alert can be switched off, under **Warn when disk space is low** in **Settings → System**.
 Free space is only read: nothing is written or deleted, and only the drives BAMF's own files are on are looked at. Docker and the Home Assistant add-on report the
 volume their data is on. Freeing space is up to you: keep fewer backups (Settings → System), lower the history retention, or move the data.
+
+#### Ping and trace route to any address
+
+For "is the problem my network or my provider?", or a device BAMF doesn't know, **Settings → System → Ping and trace route to any address** adds three entries to the
+**Tools** menu: **Ping an address…**, **Trace route to an address…** and **Path ping to an address…**. Type an IPv4 address or a name (`8.8.8.8`, `example.com`,
+`nas.local`) and the answer shows in the same window, from the machine BAMF is on. Private addresses are allowed, so it can trace to a device on a network BAMF
+doesn't scan; a name is looked up first and its first IPv4 address is used, and the window says which.
+
+This is the one place BAMF sends to something you typed, so it is **off by default** and held tighter than the rest:
+
+- it needs the **main password**: a view-only password can't use it (it can't send anything), and with no password set, anyone who can open BAMF can;
+- what is typed is checked: only letters, digits, dots, dashes and underscores in a name, or four numbers in an address. Nothing typed ever reaches a
+  command, because the probes are sent from inside BAMF. `0.0.0.0`, the broadcast address, multicast addresses and this machine itself are refused;
+- one at a time, and at least eight seconds between two of them, so it can't be used to hammer anything;
+- each is bounded in time, and a trace gives up after five silent hops in a row;
+- switching off **Ping, trace route and DNS lookup** switches this off too.
+
+Expect rows of `*` in a trace to the internet: many routers answer a trace's probe but not a ping, and some firewalls block it. IPv6 is not traced.
 
 ### Back up the database
 

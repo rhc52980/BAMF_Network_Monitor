@@ -188,6 +188,9 @@
       <div class="tools-menu" id="toolsMenu">
         <button id="exportCsv">Export CSV</button>
         <button id="bulkOpen" title="Tick several devices and do one thing to all of them" hidden>Select devices</button>
+        <button id="pingAnyOpen" title="Ping any address or name from this machine, including the internet" hidden>Ping an address…</button>
+        <button id="traceOpen" title="Trace the route from this machine to any address or name, including the internet" hidden>Trace route to an address…</button>
+        <button id="pathAnyOpen" title="Trace the route, then ping every router on the way, to see where along it the trouble starts" hidden>Path ping to an address…</button>
         <button id="pauseOpen" title="Hold every alert for a while, for when you're about to take something down" hidden>Pause alerts…</button>
         <button id="freeOpen" title="How full each network is, and addresses nothing has used lately">Find a free address…</button>
         <button id="wallOpen" title="A big, calm status board for a TV or a spare tablet: opens /wall in a new tab">Wall display</button>
@@ -896,6 +899,12 @@
             <span class="set-hint">Adds <strong>Ping…</strong>, <strong>Trace route…</strong> and <strong>DNS lookup…</strong> to a device's ⋯ menu under Look closer: they run from the machine BAMF is on, and only ever at a device BAMF already knows. Switch it off and they go.</span>
           </span>
           <input type="checkbox" id="networkToolsEnabled" checked>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Ping and trace route to any address
+            <span class="set-hint">Off by default. Adds <strong>Ping an address…</strong>, <strong>Trace route to an address…</strong> and <strong>Path ping to an address…</strong> (a trace, then a ping of every router on the way, to see where the trouble starts) to Tools: type an address or a name, even one on the internet or on a network BAMF doesn't scan. These are the tools that send to a target you type, so it needs the main password (the view-only one can't), checks what is typed, runs inside BAMF without starting a program, and waits a few seconds between runs.</span>
+          </span>
+          <input type="checkbox" id="traceAnywhereEnabled">
         </label>
         <label class="set-row">
           <span class="set-label">Warn when disk space is low

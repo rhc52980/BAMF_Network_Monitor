@@ -69,6 +69,7 @@ let alertsConfigured = false;   // any destination, the main webhook or another,
 let restartAlertEnabled = true;  // BAMF says so when it starts again after stopping unexpectedly
 let pauseEnabled = true;       // the Pause alerts control is offered
 let alertsPausedUntil = null;  // when a pause on every alert ends, or null
+let traceAnywhereEnabled = false;  // Tools has a trace route to any address (off by default)
 let networkToolsEnabled = true;  // Ping, Trace route and DNS lookup are offered in a device's menu
 let alertsNudgeOff = false;     // "Don't remind me" on the alerts-off banner
 let webhookMasked = null;   // masked form only; the server never sends the full URL
@@ -178,6 +179,8 @@ async function refresh() {
     alertsConfigured = data.alertsConfigured ?? webhookConfigured;
     alertsNudgeOff = !!data.alertsNudgeOff;
     networkToolsEnabled = data.networkToolsEnabled !== false;
+    traceAnywhereEnabled = !!data.traceAnywhereEnabled;
+    { const tb = $("traceAnywhereEnabled"); if (tb) tb.checked = traceAnywhereEnabled; for (const id of ["pingAnyOpen", "traceOpen", "pathAnyOpen"]) { const to = $(id); if (to) to.hidden = !traceAnywhereEnabled || role === "viewer"; } }
     { const nb = $("networkToolsEnabled"); if (nb) nb.checked = networkToolsEnabled; }
     bulkEnabled = data.bulkEnabled !== false;
     pauseEnabled = data.pauseEnabled !== false;

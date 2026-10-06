@@ -867,6 +867,7 @@ function render() {
       if (networkToolsEnabled && !h.remote && role !== "viewer") {
         addItem("Ping…", () => openToolDialog(h, "ping"));
         addItem("Trace route…", () => openToolDialog(h, "trace"));
+        addItem("Path ping…", () => openToolDialog(h, "path"));
         addItem("DNS lookup…", () => openToolDialog(h, "dns"));
       }
 
