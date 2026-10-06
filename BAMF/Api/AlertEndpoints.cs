@@ -6,6 +6,12 @@ namespace LanWatch.Api;
 /// <summary>Where alerts go, alert rules, quiet hours and the scheduled report.</summary>
 internal static class AlertEndpoints
 {
+    private static object AlertBehaviourJson(ScannerService scanner) => new
+    {
+        retry = scanner.AlertRetryEnabled, cascade = scanner.CascadeEnabled, flapAlert = scanner.FlapAlertEnabled, flapHold = scanner.FlapHold,
+        flapDrops = scanner.FlapDrops, retryQueued = scanner.RetryQueued,
+    };
+
     public static void Map(WebApplication app)
     {
         // Alerts BAMF raised: rules, ports, DHCP and DNS, newest first.
@@ -94,6 +100,23 @@ internal static class AlertEndpoints
             store.SetSetting("pauseAlerts", body.Enabled ? "true" : "false");
             if (!body.Enabled && !scanner.IsQuietNow()) await scanner.FlushHeldAlerts(ct);
             return Results.Json(new { enabled = scanner.PauseEnabled });
+        });
+
+        // How alerts are sent: tried again when a destination refuses them, gathered under the switch that took devices down, and calmed
+        // for a device that keeps dropping. Each can be switched off, and what counts as flapping is set here.
+        app.MapGet("/api/settings/alert-behaviour", (ScannerService scanner) => Results.Json(AlertBehaviourJson(scanner)));
+
+        app.MapPost("/api/settings/alert-behaviour", (AlertBehaviourRequest body, HostStore store, ScannerService scanner) =>
+        {
+            if (body.FlapDrops is { } n && (n < ScannerService.MinFlapDrops || n > ScannerService.MaxFlapDrops))
+                return Results.BadRequest(new { error = $"Between {ScannerService.MinFlapDrops} and {ScannerService.MaxFlapDrops} drops in an hour." });
+            string B(bool v) => v ? "true" : "false";
+            if (body.Retry is { } r) store.SetSetting("alertRetry", B(r));
+            if (body.Cascade is { } c) store.SetSetting("cascadeAlert", B(c));
+            if (body.FlapAlert is { } fa) store.SetSetting("flapAlert", B(fa));
+            if (body.FlapHold is { } fh) store.SetSetting("flapHold", B(fh));
+            if (body.FlapDrops is { } fd) store.SetSetting("flapDrops", fd.ToString());
+            return Results.Json(AlertBehaviourJson(scanner));
         });
 
         // Whether BAMF says so when it comes back after stopping unexpectedly (a power cut, a crash).

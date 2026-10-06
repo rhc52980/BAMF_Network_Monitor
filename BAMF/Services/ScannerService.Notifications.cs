@@ -172,7 +172,7 @@ public partial class ScannerService
                 discordPayload: payload, genericPayload: generic);
         }
 
-        try { return await Deliver("devices", title, text, Build, ct, holdable: !test, only: only); }
+        try { return await Deliver("devices", title, text, Build, ct, holdable: !test, only: only, retry: !test); }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _log.LogWarning(ex, "Webhook notification failed");

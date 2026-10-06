@@ -33,6 +33,7 @@ public static class SettingsLog
         ["destinations"] = "More places alerts go",
         ["report"] = "Scheduled report",
         ["rules"] = "Alert rules",
+        ["alert-behaviour"] = "Retrying alerts, grouping by switch, and flapping devices",
         ["disk-alert"] = "Warn when disk space is low",
         ["network-tools"] = "Ping, trace route and DNS lookup",
         ["restart-alert"] = "Alert when BAMF restarts unexpectedly",
