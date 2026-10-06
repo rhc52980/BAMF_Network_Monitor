@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.9.0",
+      "date": "2026-10-05",
+      "items": [
+        "Alerts are more dependable and quieter. An alert a destination refuses is tried again after 1, 5, 15 and 30 minutes instead of being lost. A device that keeps dropping gets one alert saying so, and when a switch goes down you get one alert, such as Rack switch went offline and 14 devices behind it, instead of one for each device. Each has its own switch in Settings, under Alerts.",
+        "Tools can now ping and trace the route to any address you type, including ones on the internet. Path ping traces the route and then pings every router on the way, to show where the trouble starts. It is off until you switch it on in Settings, under System, and it needs the main password.",
+        "A device's menu has a new Path ping next to Trace route."
+      ]
+    },
+    {
       "version": "2.8.0",
       "date": "2026-10-05",
       "items": [
