@@ -95,6 +95,16 @@ public sealed class RuleService : BackgroundService
         if (_wasQuiet && !quiet) await _scanner.FlushHeldAlerts(ct);
         _wasQuiet = quiet;
 
+        // Alerts a destination refused or couldn't be reached for: tried again when their time comes.
+        try { await _scanner.RetryFailedAlerts(ct); }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { _log.LogWarning(ex, "Retrying failed alerts failed"); }
+
+        // A flapping device whose alerts were held and that is still down.
+        try { await _scanner.FollowUpFlaps(ct); }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { _log.LogWarning(ex, "Following up flapping devices failed"); }
+
         // Snoozes that ran out: a watched device that ended up the other way
         // round from when it was snoozed gets the alert it missed.
         foreach (var (id, wasOnline) in _store.DrainExpiredSnoozes())

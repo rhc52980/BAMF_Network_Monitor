@@ -34,6 +34,7 @@ public static class SettingsLog
         ["report"] = "Scheduled report",
         ["rules"] = "Alert rules",
         ["trace-anywhere"] = "Ping and trace route to any address",
+        ["alert-behaviour"] = "Retrying alerts, grouping by switch, and flapping devices",
         ["disk-alert"] = "Warn when disk space is low",
         ["network-tools"] = "Ping, trace route and DNS lookup",
         ["restart-alert"] = "Alert when BAMF restarts unexpectedly",

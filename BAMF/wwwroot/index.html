@@ -738,6 +738,30 @@
           </span>
           <input type="checkbox" id="restartAlertEnabled" checked>
         </label>
+        <label class="set-row" style="margin-top:8px">
+          <span class="set-label">Try an alert again when it didn't go out
+            <span class="set-hint">If a destination refuses an alert or can't be reached, BAMF tries again a minute later, then after 5, 15 and 30 minutes, and then says in Problems that it gave up. Without this a short outage on their side loses the alert for good. Waiting alerts are forgotten if BAMF restarts.</span>
+          </span>
+          <input type="checkbox" id="behRetry" checked>
+        </label>
+        <label class="set-row" style="margin-top:8px">
+          <span class="set-label">One alert when a switch takes devices down
+            <span class="set-hint">When a switch, access point or router you recorded goes offline and the watched devices plugged into it go too, BAMF sends one alert under it, "Rack switch went offline, and 14 devices behind it", instead of one each. It only knows the wiring you recorded under Switches and routers.</span>
+          </span>
+          <input type="checkbox" id="behCascade" checked>
+        </label>
+        <label class="set-row" style="margin-top:8px">
+          <span class="set-label">Say when a device keeps dropping
+            <span class="set-hint">One alert when a watched device has gone offline this many times in an hour ("kitchen plug keeps dropping: 6 times in the last hour"). Each drop still alerts unless you hold them back below.</span>
+          </span>
+          <span class="set-field"><input id="behFlapDrops" class="modal-input" type="number" min="3" max="20" style="width:64px"> <span class="set-unit">drops</span> <input type="checkbox" id="behFlapAlert" checked aria-label="Say when a device keeps dropping"></span>
+        </label>
+        <label class="set-row" style="margin-top:8px">
+          <span class="set-label">Hold back a flapping device's own alerts
+            <span class="set-hint">Off by default. While a device is flapping its offline and back-online alerts are held, and if it is still offline after 15 minutes BAMF says so, so one that stays down is never hidden.</span>
+          </span>
+          <input type="checkbox" id="behFlapHold">
+        </label>
         <div class="modal-note" id="quietStatus"></div>
       </div>
     </section>

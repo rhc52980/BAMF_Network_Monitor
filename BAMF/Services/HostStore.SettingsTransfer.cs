@@ -16,13 +16,14 @@ public partial class HostStore
     /// <summary>The settings that are the same kind of thing at any site.</summary>
     public static readonly string[] TransferKeys =
     {
-        "activeArpScan", "arpWatch", "autoIgnoreRandomizedMacs", "backupHour", "backupKeep", "backupNightly", "bulkSelect",
-        "certWatch", "diskAlert", "diskAlertPercent", "greynoise", "heartbeatEnabled", "heartbeatMinutes", "historyRetentionDays", "holidaySpirit", "ipv6Watch",
-        "latencyProbe", "mdnsListen", "networkTools", "newDays", "nightFrom", "nightMode", "nightTheme", "nightTo", "offlineAfterMissedScans",
+        "activeArpScan", "alertRetry", "arpWatch", "autoIgnoreRandomizedMacs", "backupHour", "backupKeep", "backupNightly",
+        "bulkSelect", "cascadeAlert", "certWatch", "diskAlert", "diskAlertPercent", "flapAlert", "flapDrops", "flapHold",
+        "greynoise", "heartbeatEnabled", "heartbeatMinutes", "historyRetentionDays", "holidaySpirit", "ipv6Watch", "latencyProbe",
+        "mdnsListen", "networkTools", "newDays", "nightFrom", "nightMode", "nightTheme", "nightTo", "offlineAfterMissedScans",
         "pauseAlerts", "pingConcurrency", "portWatch", "quietDigest", "quietFrom", "quietTo", "reportDay", "reportHour",
-        "reportSchedule", "restartAlert", "scanIntervalSeconds", "speedTest", "tidyDays", "tidyEnabled", "trafficMonitor", "unusualWatch",
-        "updateCheck", "traceAnywhere", "upnpIgd", "wanInterval", "wanSlow", "wanTarget", "wanWatch", "watchAlerts", "webhookFormat",
-        "webhookKinds",
+        "reportSchedule", "restartAlert", "scanIntervalSeconds", "speedTest", "tidyDays", "tidyEnabled", "traceAnywhere",
+        "trafficMonitor", "unusualWatch", "updateCheck", "upnpIgd", "wanInterval", "wanSlow", "wanTarget", "wanWatch",
+        "watchAlerts", "webhookFormat", "webhookKinds",
     };
 
     private const int MaxTransferValue = 2000;

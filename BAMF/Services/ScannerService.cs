@@ -381,8 +381,7 @@ public partial class ScannerService : BackgroundService
                         covered.Count == labels.Count ? null : covered,
                         ConfiguredOfflineMisses,
                         labels);
-                    foreach (var h in wentDown)
-                        await SendStatusAlert(h, up: false, CancellationToken.None);
+                    await SendStatusAlerts(wentDown, up: false, CancellationToken.None);
 
                     // The same judgement per address, for devices answering on
                     // several: an address that stopped answering is retired, and a
@@ -393,8 +392,7 @@ public partial class ScannerService : BackgroundService
                         labels);
 
                     var recovered = _store.DrainRecovered();
-                    foreach (var h in recovered)
-                        await SendStatusAlert(h, up: true, CancellationToken.None);
+                    await SendStatusAlerts(recovered, up: true, CancellationToken.None);
 
                     // Round-trip time to every device still online on the networks
                     // this pass covered: one echo each, a few dozen at a time.

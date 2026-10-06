@@ -1828,6 +1828,8 @@ scan, or delete a thing.
 | POST | `/api/alerts/pause` | Body `{"minutes": 60}` — hold every alert for that long (up to 4320, three days) and send what was held as one summary when it ends; `0` ends a pause now. `409` when Pause alerts is switched off. `GET /api/hosts` carries `pauseEnabled` and `alertsPausedUntil` |
 | POST | `/api/settings/pause` | Body `{"enabled": false}` — switch the Pause alerts control off or on; off also ends a running pause |
 | POST | `/api/settings/restart-alert` | Body `{"enabled": false}` — switch the alert for BAMF starting again after stopping unexpectedly off or on. `GET /api/hosts` carries `restartAlertEnabled` |
+| GET | `/api/settings/alert-behaviour` | How alerts are sent: `{"retry", "cascade", "flapAlert", "flapHold", "flapDrops", "retryQueued"}` — `retryQueued` is how many alerts are waiting to be tried again |
+| POST | `/api/settings/alert-behaviour` | Body with any of `{"retry": true, "cascade": true, "flapAlert": true, "flapHold": false, "flapDrops": 4}` (3 to 20); what is left out stays as it was. See [When alerts fail, or come in bunches](#when-alerts-fail-or-come-in-bunches) |
 | POST | `/api/settings/quiet` | Body `{"from": "23:00", "to": "07:00", "digest": true}` — quiet hours in the server's local time; empty times clear them |
 | POST | `/api/settings/port-watch` | Body `{"enabled": true}` — scan every online known device's common ports daily at 4 am |
 | POST | `/api/settings/night` | Body `{"enabled": true, "from": "21:00", "to": "06:00", "theme": "nightstreet"}` — Night mode: every dashboard wears that theme between those clock times. `GET /api/settings` returns it as `editable.night`; `GET /api/hosts` as `night` |
@@ -2683,6 +2685,28 @@ stopping the service, updating, or restarting on purpose stays quiet. It goes to
 under Activity → Alerts. On by default; untick **Say when BAMF starts again after stopping unexpectedly** in **Settings → Alerts**
 (the quiet hours card) to switch it off. It is the other half of the [heartbeat](#heartbeat): that one tells a monitoring service
 when BAMF goes quiet, this one tells you once it is back.
+
+### When alerts fail, or come in bunches
+
+Three things in **Settings → Alerts** (the quiet hours card) make alerts more dependable and less noisy. Each has its own switch.
+
+**Try an alert again when it didn't go out** (on by default). If a destination refuses an alert or can't be reached, BAMF used to log it and lose
+the alert. Now it tries again a minute later, then 5, 15 and 30 minutes after that, and only then gives up, with a line in the **Problems** card on
+Activity saying it did. The first failure is in Problems at once ("wasn't taken by Discord: it answered HTTP 503"). A retry waits while alerts are
+paused or in quiet hours, an alert for a destination you have since removed is dropped, and the waiting alerts are kept in memory, so a restart
+forgets them (at most a hundred are kept, none for more than two hours). A test message is never retried.
+
+**One alert when a switch takes devices down** (on by default). BAMF knows what is plugged into which switch, access point or router if you recorded it under
+[Switches and routers](#switches-and-cabling-as-you-record-them). When one of those goes offline and the watched devices behind it go with it, you get
+one alert, "Rack switch went offline, and 14 devices behind it", with the first few names, instead of fifteen. It works up a chain (a rack switch
+behind a dead core switch is said under the core switch) and says the same when they come back together. It can only use wiring you recorded and a
+switch that has its own device record; a device with no recorded place, or behind a switch BAMF can't tell is down, alerts on its own as before, and so
+does a single device behind a dead switch that isn't watched itself. A snoozed device says nothing, as always.
+
+**Say when a device keeps dropping** (on by default). A device that has gone offline a set number of times in an hour (4 to start; 3 to 20) gets one alert
+saying so, "kitchen plug keeps dropping: 6 times in the last hour", once an hour at most. A weak Wi-Fi signal, a bad cable or a failing power supply do
+this, and each drop used to alert. **Hold back a flapping device's own alerts** (off unless you choose) goes further: while it flaps its offline and
+back-online alerts are held, and if it is still offline 15 minutes later BAMF says so after all, so holding them back can never hide a device that stayed down.
 
 ### Port history and change alerts
 

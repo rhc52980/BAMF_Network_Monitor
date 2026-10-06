@@ -120,13 +120,15 @@ public partial class ScannerService
         "internet" => ("\U0001F310 ", 0x4FB3D9, "BAMF internet watch", "globe_with_meridians", 4),
         "cert" => ("\U0001F510 ", 0xE0A040, "BAMF certificate watch", "lock", 4),
         "unusual" => ("\U0001F50E ", 0x9A7CE8, "BAMF unusual activity", "mag", 3),
+        "status" => ("\U0001F534 ", 0xF2716F, "BAMF watch alert", "red_circle", 4),
+        "status-up" => ("✅ ", 0x3FDB7F, "BAMF watch alert", "green_circle", 3),
         _ => ("⏰ ", 0xB58AF0, "BAMF alert rule", "alarm_clock", 4),
     };
 
     /// <summary>Which kind of alert, for choosing destinations, each style of alert is.</summary>
     private static string KindOf(string style) => style switch
     {
-        "rule" => "status",
+        "rule" or "status" or "status-up" => "status",
         "internet" => "internet",
         "unusual" => "unusual",
         _ => "security",   // security, port, cert
