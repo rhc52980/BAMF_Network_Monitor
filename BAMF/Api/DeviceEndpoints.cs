@@ -134,6 +134,8 @@ internal static class DeviceEndpoints
                 alertsNudgeOff = store.GetSetting("alertsNudgeOff") == "true",
                 // Whether Ping, Trace route and DNS lookup are offered in a device's menu.
                 networkToolsEnabled = store.GetSetting("networkTools") != "false",
+                // Whether the Tools menu offers a trace route to any address (off by default).
+                traceAnywhereEnabled = store.GetSetting("traceAnywhere") == "true" && store.GetSetting("networkTools") != "false",
                 // Whether the list's Select mode (one change to several devices) is offered.
                 bulkEnabled = store.BulkEnabled,
                 // The Pause alerts control: whether it's offered, and until when alerts are paused (null when they aren't).
@@ -705,6 +707,29 @@ internal static class DeviceEndpoints
             var r = await tools.RunAsync(tool, h.Ip, name, ct);
             return r is null ? Results.Json(new { error = "Another tool is running. Try again in a moment." }, statusCode: 429)
                 : Results.Json(new { tool = r.Tool, target = r.Target, ok = r.Ok, lines = r.Lines, summary = r.Summary });
+        });
+
+        // A ping, trace route or path ping to an address or name that was typed, anywhere including the internet. Off until switched on, and the main password
+        // only (a view-only password can't POST at all). The target is checked, a name is looked up here, and nothing typed reaches a command.
+        app.MapPost("/api/tools/anywhere", async (TraceTargetRequest body, HostStore store, NetworkTools tools, CancellationToken ct) =>
+        {
+            if (store.GetSetting("networkTools") == "false") return Results.Conflict(new { error = "Network tools are switched off in Settings." });
+            if (store.GetSetting("traceAnywhere") != "true") return Results.Conflict(new { error = "Tracing to any address is switched off in Settings." });
+            try
+            {
+                var r = await tools.RunAnywhere((body.Tool ?? "trace").Trim().ToLowerInvariant(), body.Target, ct);
+                return r is null ? Results.Json(new { error = "Another tool is running. Try again in a moment." }, statusCode: 429)
+                    : Results.Json(new { tool = r.Tool, target = r.Target, ok = r.Ok, lines = r.Lines, summary = r.Summary });
+            }
+            catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+            catch (InvalidOperationException ex) { return Results.Json(new { error = ex.Message }, statusCode: 429); }
+        });
+
+        // Whether tracing to an address that was typed is offered. Off by default.
+        app.MapPost("/api/settings/trace-anywhere", (ActiveArpRequest body, HostStore store) =>
+        {
+            store.SetSetting("traceAnywhere", body.Enabled ? "true" : "false");
+            return Results.Json(new { enabled = body.Enabled });
         });
 
         // Whether the network tools are offered at all.
