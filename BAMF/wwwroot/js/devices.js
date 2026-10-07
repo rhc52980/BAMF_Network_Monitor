@@ -599,7 +599,12 @@ function render() {
   $("floorWrap").hidden = view !== "floor";
   $("settingsWrap").hidden = view !== "settings";
   $("mapWrap").hidden = view !== "map";
-  $("statusFilters").style.display = view === "devices" ? "" : "none";
+  $("toolsWrap").hidden = view !== "tools";
+  // The filters row carries Select, which also works in Forgotten, where only Select shows.
+  $("statusFilters").style.display = view === "devices" || view === "forgotten" ? "" : "none";
+  document.querySelector("#statusFilters .tabs").style.display = view === "devices" ? "" : "none";
+  renderToolsTab();
+  if (view !== "tools") tlLeft();
   $("tableWrap").classList.toggle("bare", view === "forgotten");
   renderGuessChips();
   renderTagChips();
@@ -625,6 +630,7 @@ function render() {
     loadIpv6();
     renderFeed();
   }
+  if (view === "tools") renderToolsView();
   if (view === "home") renderHome();
   if (view === "floor") renderFloor();
   if (view === "map") renderMap();
@@ -867,10 +873,11 @@ function render() {
         if (spec) scanPorts(h, more, spec);
       });
       if (networkToolsEnabled && !h.remote && role !== "viewer") {
-        addItem("Ping…", () => openToolDialog(h, "ping"));
-        addItem("Trace route…", () => openToolDialog(h, "trace"));
-        addItem("Path ping…", () => openToolDialog(h, "path"));
-        addItem("DNS lookup…", () => openToolDialog(h, "dns"));
+        addItem("Ping…", () => openTools(h, "ping"));
+        addItem("Trace route…", () => openTools(h, "trace"));
+        addItem("Path ping…", () => openTools(h, "path"));
+        addItem("DNS lookup…", () => openTools(h, "dns"));
+        addItem("HTTP check…", () => openTools(h, "http"));
       }
 
       addHead("Status");

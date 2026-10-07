@@ -1354,7 +1354,7 @@ type, whichever section it's in.
 
 ## Wall display
 
-**Tools → Wall display**, or open `/wall` directly: a status board for a TV
+**More → Wall display**, or open `/wall` directly: a status board for a TV
 on the wall, a spare tablet on a shelf, or a monitor in the rack. Big clock,
 how many devices are online out of how many, how many of those are unknown,
 one square per device (green online, amber online and unknown, dark offline),
@@ -1804,6 +1804,10 @@ scan, or delete a thing.
 | POST | `/api/settings/update-check` | Body `{"enabled": true}` — toggle the daily GitHub update check. Turning it on checks immediately and returns the result |
 | POST | `/api/hosts/{id}/watch` | Body `{"watched": true}` — watch a host for downtime (star toggle in the UI) |
 | POST | `/api/hosts/{id}/tool` | Body `{"tool": "ping"}` (or `trace`, `path`, `dns`) — run it at that device's own address from this machine: `{"tool", "target", "ok", "lines", "summary"}`. `409` when switched off, `429` while another tool runs. `GET /api/hosts` carries `networkToolsEnabled`; `POST /api/settings/network-tools` with `{"enabled": false}` switches it |
+| GET | `/api/tools` | What the Tools tab may do: `{"enabled", "anywhere", "gateways", "dnsServers", "wanTarget", "gapSeconds", "maxPorts", "commonPorts": [{"port", "service"}]}`. `anywhere` is whether an address that was typed is allowed |
+| POST | `/api/tools/ping` | Body `{"hostId": 12}` or `{"target": "8.8.8.8"}` — one echo, for the live ping: `{"ok", "ms", "address", "from", "status"}` (`status` is `ok`, `timeout`, `unreachable` or `error`). `409` when switched off, or for a typed target while that is off; `429` when too many are going at once |
+| POST | `/api/tools/run` | Body `{"tool": "trace", "hostId": 12}` or `{"tool": "http", "target": "https://example.com"}`; `tool` is `trace`, `path`, `dns`, `http` or `port` (`"ports": "22,80,8000-8010"` for the last). Returns `{"tool", "target", "address", "note", "data"}`; `data` for a trace or path ping is `{"hops": [{"n", "address", "name", "ms"…}], "summary", "finding"}` (path ping hops carry `lossPercent`, `min`, `avg`, `max` and `silent`), for `dns` `{"reverse", "compare": {"answers": [{"label", "server", "ms", "addresses", "status"}], "agree", "summary"}}`, for `http` `{"steps": […timings…], "cert", "summary", "ok"}`, for `port` `{"tested", "open", "ms", "summary"}`. A device BAMF knows needs no switch; a typed target needs **Tools to any address** (`409`), is checked (`400` with the reason), and waits `gapSeconds` between runs (`429`) |
+| POST | `/api/tools/diagnose` | The "Why is it slow?" check: `{"steps": [{"key", "label", "target", "status", "ms", "detail"}], "level", "verdict"}`, `status` being `ok`, `slow`, `fail` or `skipped` and `level` `ok`, `warn` or `bad` |
 | POST | `/api/tools/anywhere` | Body `{"tool": "trace", "target": "8.8.8.8"}` (`tool` is `ping`, `trace` or `path`; `target` an IPv4 address or a name) — run it at an address that was typed, from this machine: `{"tool", "target", "ok", "lines", "summary"}`. `400` with the reason for a target that isn't acceptable, `409` while it is switched off, `429` while another tool runs or less than eight seconds after the last. Main password only |
 | POST | `/api/settings/trace-anywhere` | Body `{"enabled": true}` — switch ping and trace to any address on or off (off by default). `GET /api/hosts` carries `traceAnywhereEnabled` |
 | POST | `/api/hosts/{id}/snooze` | Body `{"minutes": 120}` — hold back that device's alerts for a while, up to a week; `0` ends the snooze. Returns `{"snoozedUntil"}`, which `/api/hosts` also carries per device |
@@ -2097,7 +2101,7 @@ confident and false.
 
 ### Select several devices
 
-**Tools → Select devices** puts a tick box on every row and a bar along the top of the list. Tick the devices
+**Select**, beside the filters on the Devices tab, puts a tick box on every row and a bar along the top of the list. Tick the devices
 (shift-click ticks a run of them, and the bar's box ticks everything the list is showing), then pick one thing to do to all of them:
 
 - **Known** or **Unknown**, **Watch** or **Unwatch**, **Ignore** or **Unignore**;
@@ -2116,7 +2120,7 @@ button that stays for ten minutes or until the next change. Undo puts each of th
 watched, ignored, forgotten, its tags and its snooze. That includes the watch that forgetting a device drops, which a plain "Restore"
 wouldn't bring back. It only undoes the last change, only for the devices that change touched, and is gone once you leave the page.
 
-It is on by default. Untick **Select several devices** under **Settings → System** to take it out of the Tools menu for every dashboard.
+It is on by default. Untick **Select several devices** under **Settings → System** to take the button out for every dashboard.
 Up to 500 devices at a time.
 
 ## Search
@@ -2139,7 +2143,7 @@ list — see [Device links and port check](#device-links-and-port-check).
 
 Press `/` anywhere on the page to jump to the search box. `Esc` in the box
 clears the filter; elsewhere it closes whatever is open — a dialog, a row
-menu, the Tools menu, an expanded row.
+menu, the More menu, an expanded row.
 
 ## Network map
 
@@ -2723,12 +2727,12 @@ from when you snoozed it gets the alert it missed: "went offline, and was still
 offline when its snooze ended". A reboot that never came back isn't lost in the
 snooze, and one that did come back says nothing.
 
-**Pause alerts** is for when you are about to take something down: **Tools → Pause alerts…**
+**Pause alerts** is for when you are about to take something down: the **Pause alerts** button in the header
 holds every alert, for everyone, for 30 minutes up to three days (or until the morning). Like quiet hours
 it holds rather than drops: what comes up meanwhile is sent as one summary when the pause ends, so a
 switch you reboot on purpose doesn't send you an alert for everything behind it. A bar across the
 dashboard says alerts are paused, and **Resume now** ends it early and sends the summary. Alerts still
-show under Activity. It is on by default; untick **Pause alerts in the Tools menu** in the same Settings
+show under Activity. It is on by default; untick **Pause alerts in the header** in the same Settings
 card to remove it, which also ends a pause that is running. A view-only password can see that alerts
 are paused but can't start or end one.
 
@@ -3449,7 +3453,7 @@ it again - see [Rolling back](#rolling-back).
 
 ## Feedback and bug reports
 
-The **Feedback** link beside the version in the header, and **Tools ▾ →
+The **Feedback** link beside the version in the header, and **More ▾ →
 Feedback / report a bug…**, both open a new GitHub issue with the version and
 build date already filled in — the one fact every bug report needs and everyone
 forgets.
@@ -3482,7 +3486,7 @@ Alerts → Alert rules and quiet hours**: see [Alert rules and quiet hours](#ale
 
 ## Find a free address
 
-**Tools → Find a free address…** shows how full each network is, with a
+**More → Find a free address…** shows how full each network is, with a
 gauge, and the longest runs of addresses no device has used in the last 30
 days, 90 days or year, with one suggestion to copy. That's the address to
 give a new printer or server a static IP without colliding with anything.
@@ -3775,24 +3779,63 @@ The card says how many would be tidied now, and which.
 Tidied devices are **forgotten**, not deleted: they go to the Forgotten tab, each can be brought back from there with
 its history, and one that turns up on the network again is no longer forgotten by itself. The card shows the last tidy.
 
-### Ping, trace route and DNS lookup
+### The Tools tab: ping, trace route, DNS, web and port checks
 
-When a device is flaky, the question is "can BAMF reach it, and by what path?". A device's **⋯ menu → Look closer** has **Ping…**,
-**Trace route…**, **Path ping…** and **DNS lookup…**, which run from the machine BAMF is on and show the answer in a small window:
+When something is flaky, the question is "can BAMF reach it, and by what path?". The **Tools** tab, beside Activity, answers it without a terminal.
+Everything runs from the machine BAMF is on. Pick a device from the box (or type its name or address), then press a tool; the quick buttons under the
+box fill it in with this machine's router, its DNS server, the internet watch's address and the targets you used last. The same tools are in a
+device's **⋯ menu → Look closer**, which opens the tab on that device.
 
-- **Ping** sends four echo requests and says what answered, how many were lost, and the fastest, average and slowest time.
-- **Trace route** lists each router on the way to the device, and stops at the device; after five hops in a row with no answer it
-  gives up rather than wait through twenty. It can take half a minute.
-- **Path ping** is a trace followed by a few pings of every router that answered it, with how many each lost and how long they took,
-  like `pathping` or `mtr`. It shows where along the path the trouble starts. A router that answers a trace but never a ping is listed as
-  **silent**, not lossy, because many routers ignore pings; loss that begins at one hop and carries on to the end is real, loss at one hop only usually isn't.
-  It takes a minute or two.
-- **DNS lookup** asks what name DNS has for the device's address, and where its name resolves to, and says if that includes the device's own address.
+- **Ping** runs live: one echo a second, with the last, average, fastest and slowest time, the share lost and the jitter, and a line of the last
+  minute with a red tick where one was lost. **Pause** stops it; it stops by itself after ten minutes, or when you leave the tab.
+- **Trace route** is a table of hops: each router's name (a reverse lookup, where it has one), address and time, with a bar for each, and a line
+  in words about where the time jumps: still inside your own network, the first step past your router (your provider or the line to them), or out
+  on the internet beyond your provider. After five hops in a row with no answer it gives up. It can take half a minute.
+- **Path ping** is a trace followed by a few pings of every router that answered it, with the fastest, average and slowest time and how many each
+  lost, like `pathping` or `mtr`. A router that answers a trace but never a ping is shown as **answers a trace, not a ping**, not as lossy, because
+  many routers ignore pings; loss that begins at one hop and carries on to the end is real, and loss at only one hop usually isn't, and the line
+  under the table says which it is. It takes a minute or two.
+- **DNS lookup** of a name asks it of this network's own DNS server and, for a name you typed, also of Cloudflare (`1.1.1.1`) and Google (`8.8.8.8`),
+  and puts the answers side by side. Big sites hand different addresses to different places, so different addresses are not proof of anything; one
+  resolver finding a name that the others say doesn't exist is, and the line under the table says so. A device's own name is only ever asked of your
+  own DNS server, so it doesn't leave the house. Given an address it does the reverse lookup instead.
+- **HTTP check** makes one request to a web address (`example.com`, `https://example.com/health`, `http://192.168.30.1/`) and times each step: DNS,
+  connecting, the TLS handshake and the first byte. It shows the status, follows up to three redirects (each is a row), and for an HTTPS address reads
+  the **certificate**: who it is for, who issued it, whether this machine trusts it, and how many days are left. It sends a plain `GET` with no body, no
+  login and nothing of yours, and doesn't download the page.
+- **Port check** tries to connect to the common ports (the same 34 the port watch uses), or ports you type (`22,80,443` or `8000-8010`, up to 200),
+  and shows which answered and what they usually are. A port that doesn't answer is closed or blocked by a firewall; BAMF can't tell which.
+- **Why is it slow?** is the one button that needs no target. It pings this machine's router, asks its DNS server a question, pings the internet
+  (the internet watch's address, `8.8.8.8` by default) and looks up a web name, in that order, marks each fine, slow or failed, and says in a sentence
+  where it breaks: "Your router answers, but nothing beyond it does: the line out of the house, the modem or your provider", or "your DNS server doesn't
+  answer, so web names won't open". A router over 30 ms, the internet over 150 ms and a DNS lookup over 300 ms count as slow.
 
-From a device's menu they are careful by design: the target is always that device's own address from BAMF's list, never something typed, so they can't be used to
-probe the internet or anywhere else (typing a target is the separate, off-by-default feature below); they run inside BAMF without starting any program; only one runs at a time (a second is told to try again);
-each is bounded in time; and a view-only password doesn't get them. On by default; untick **Ping, trace route and DNS lookup** under
-**Settings → System** to take them out of every device's menu.
+**Copy** puts what is on the screen on the clipboard, and **Recent**, under the result, keeps the last eight runs in this browser (they aren't sent
+anywhere); click one to run it again.
+
+They are careful by design. They run inside BAMF without starting any program, and nothing typed ever reaches a command; one runs at a time (a second is
+told to try again); each is bounded in time; and a view-only password doesn't get them, since it can't send anything. On by default; untick **The Tools tab**
+under **Settings → System** to remove the tab and the entries in a device's menu.
+
+#### An address you type
+
+A device BAMF knows (picked from the box, or typed as its address) needs nothing more. For **"is the problem my network or my provider?"**, or something
+BAMF doesn't know, **Settings → System → Tools to any address** lets the tab take an IPv4 address or a name you type, such as `8.8.8.8`, `example.com` or
+`nas.local`, for every tool above: the DNS lookup is then also asked of Cloudflare and Google, and a typed web address or address for a port check works
+too. Private addresses are allowed, so it can reach a device on a network BAMF doesn't scan; a name is looked up first and its first IPv4 address is used,
+and the result says which.
+
+This is the one place BAMF sends to something you typed, so it is **off by default** and held tighter than the rest:
+
+- it needs the **main password**: a view-only password can't use it (it can't send anything), and with no password set, anyone who can open BAMF can;
+- what is typed is checked: only letters, digits, dots, dashes and underscores in a name, or four numbers in an address; a web address may not carry a
+  user name or password. Nothing typed ever reaches a command. `0.0.0.0`, the broadcast address, multicast addresses and this machine itself are refused;
+- one at a time, and at least eight seconds between two of them (the live ping, one echo a second, is exempt but limited to a few at once), so it
+  can't be used to hammer anything;
+- each is bounded in time, and a trace gives up after five silent hops in a row;
+- switching off **The Tools tab** switches this off too.
+
+Expect rows of `*` in a trace to the internet: many routers answer a trace's probe but not a ping, and some firewalls block it. IPv6 is not traced.
 
 ### Disk space
 
@@ -3805,24 +3848,6 @@ alerts, and under Activity → Alerts) saying how much is free and what BAMF is 
 again. The percentage is yours to set, 2 to 50, and the whole alert can be switched off, under **Warn when disk space is low** in **Settings → System**.
 Free space is only read: nothing is written or deleted, and only the drives BAMF's own files are on are looked at. Docker and the Home Assistant add-on report the
 volume their data is on. Freeing space is up to you: keep fewer backups (Settings → System), lower the history retention, or move the data.
-
-#### Ping and trace route to any address
-
-For "is the problem my network or my provider?", or a device BAMF doesn't know, **Settings → System → Ping and trace route to any address** adds three entries to the
-**Tools** menu: **Ping an address…**, **Trace route to an address…** and **Path ping to an address…**. Type an IPv4 address or a name (`8.8.8.8`, `example.com`,
-`nas.local`) and the answer shows in the same window, from the machine BAMF is on. Private addresses are allowed, so it can trace to a device on a network BAMF
-doesn't scan; a name is looked up first and its first IPv4 address is used, and the window says which.
-
-This is the one place BAMF sends to something you typed, so it is **off by default** and held tighter than the rest:
-
-- it needs the **main password**: a view-only password can't use it (it can't send anything), and with no password set, anyone who can open BAMF can;
-- what is typed is checked: only letters, digits, dots, dashes and underscores in a name, or four numbers in an address. Nothing typed ever reaches a
-  command, because the probes are sent from inside BAMF. `0.0.0.0`, the broadcast address, multicast addresses and this machine itself are refused;
-- one at a time, and at least eight seconds between two of them, so it can't be used to hammer anything;
-- each is bounded in time, and a trace gives up after five silent hops in a row;
-- switching off **Ping, trace route and DNS lookup** switches this off too.
-
-Expect rows of `*` in a trace to the internet: many routers answer a trace's probe but not a ping, and some firewalls block it. IPv6 is not traced.
 
 ### Back up the database
 

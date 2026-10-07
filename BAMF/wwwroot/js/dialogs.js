@@ -92,7 +92,7 @@ async function openHistory(host) {
 // outside the table and needs no such thing.
 let noteHost = null;
 // ---- pause all alerts ----
-// Hold every alert for a while, from the Tools menu.
+// Hold every alert for a while, from the header.
 function openPauseDialog() {
   $("pauseSub").textContent = alertsPausedUntil ? `Paused until ${snoozeClock(alertsPausedUntil)}. Pick a new time to change it.` : "Every alert, for everyone, until the time you pick.";
   const morning = new Date(); if (morning.getHours() >= 8) morning.setDate(morning.getDate() + 1);
@@ -124,7 +124,7 @@ async function savePause(minutes) {
     await refresh();
   } catch (e) { console.error(e); toast("Couldn't pause alerts - see the server log"); }
 }
-$("pauseOpen").onclick = () => { toolsOpen = false; $("toolsMenu").classList.remove("show"); openPauseDialog(); };
+$("pauseOpen").onclick = () => openPauseDialog();
 $("pauseEnd").onclick = () => savePause(0);
 $("pauseResume").onclick = () => savePause(0);
 $("pauseCancel").onclick = closePauseDialog;

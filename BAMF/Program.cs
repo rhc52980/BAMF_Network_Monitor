@@ -392,5 +392,6 @@ UnusualEndpoints.Map(app);
 ScoreEndpoints.Map(app);
 FlowEndpoints.Map(app);
 MoreAlertsEndpoints.Map(app);
+ToolsEndpoints.Map(app);
 
 app.Run();

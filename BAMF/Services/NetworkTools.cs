@@ -12,7 +12,7 @@ namespace LanWatch.Services;
 /// comes from the device, never from what's typed), so this can't be used to probe the internet. In-process only: no program is run
 /// and no text from a request is ever put in a command. One at a time, and each is bounded in time.
 /// </summary>
-public sealed class NetworkTools
+public sealed partial class NetworkTools
 {
     /// <summary>One echo request's answer: its status, how long it took, and who answered (a router in the middle, for a trace).</summary>
     public sealed record Probe(IPStatus Status, long Ms, IPAddress? From);
@@ -36,10 +36,12 @@ public sealed class NetworkTools
     private readonly SemaphoreSlim _one = new(1, 1);
 
     private readonly Func<string, CancellationToken, Task<IPAddress[]>> _resolve;
+    private readonly Func<IPAddress, CancellationToken, Task<string?>>? _reverse;
     private DateTime _lastAnywhere = DateTime.MinValue;
 
-    public NetworkTools(IProbe? probe = null, Func<string, CancellationToken, Task<IPAddress[]>>? resolve = null)
+    public NetworkTools(IProbe? probe = null, Func<string, CancellationToken, Task<IPAddress[]>>? resolve = null, Func<IPAddress, CancellationToken, Task<string?>>? reverse = null)
     {
+        _reverse = reverse;
         _probe = probe ?? new SystemProbe();
         _resolve = resolve ?? ((name, ct) => System.Net.Dns.GetHostAddressesAsync(name, ct));
     }
