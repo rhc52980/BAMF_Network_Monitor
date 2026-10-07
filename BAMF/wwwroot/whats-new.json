@@ -2,6 +2,17 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.10.0",
+      "date": "2026-10-07",
+      "items": [
+        "BAMF now watches what devices do, not just whether they are there. A new Where devices talk card on Activity shows which outside networks each device talks to; after a week, a camera, plug or thermostat that starts talking somewhere new is an alert. A device scanning the network, or moving far more in a day than usual, is an alert too, and every new device gets a report after its first week. Each has a switch under Settings, Security, What devices do.",
+        "A DNS watch, off until you switch it on under Settings, Security: once an hour it checks that your resolver gives the right answers for names that never change, says no such name when it should, and hasn't been joined by a server you never saw before.",
+        "The internet watch now measures quality as well as up or down: lost pings, jitter and how long a DNS lookup takes, on the Internet card, with alerts when any of them goes wrong for a quarter of an hour. Switch under Settings, Internet.",
+        "A watched device that is slow to answer for five pings running is an alert, and so is its coming right. The limit is yours to set under Settings, Scanning.",
+        "A network score, 0 to 100, with the reasons it isn't 100, on Activity and at the top of scheduled reports. And a daily all-quiet note, off by default under Settings, Alerts: one message a day saying nothing happened, or what did."
+      ]
+    },
+    {
       "version": "2.9.0",
       "date": "2026-10-05",
       "items": [
