@@ -15,7 +15,7 @@ serves a dashboard on port 8840.
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
 
-![The BAMF dashboard: every device on two networks, with vendor, device guess, 24-hour history and latency, a row of device-type filters, a v6 chip on devices with IPv6 addresses, and a New tab counting recent arrivals. In the header, a Scan button beside the countdown to the next scan](docs/dashboard.png)
+![The BAMF dashboard: every device on two networks, with vendor, device guess, 24-hour history and latency, a row of device-type filters, a v6 chip on devices with IPv6 addresses, and a New tab counting recent arrivals. In the header, a Scan button beside the countdown to the next scan, a Tools tab beside Activity, and Pause alerts, Views, More and Settings buttons, with Select beside the filters](docs/dashboard.png)
 
 <sub>Sample data — a demo database, not a real network.</sub>
 
@@ -196,6 +196,22 @@ SSH, file sharing, printing, AirPlay and more. Under that, **BAMF's own
 connections** says what BAMF reads from, sends to and calls out to, and whether
 each is working: a router import, MQTT, the nightly backup, the speed test and
 the rest. Anything not set up is a line of links to its Settings.
+
+![The Tools tab with a trace route to 8.8.8.8 run: a target box and a Why is it slow? button, quick targets for the router, DNS server and internet, buttons for Ping, Trace route, Path ping, DNS lookup, HTTP check and Port check, and a table of seven hops, each with its name, address and a time bar. Hop 4's bar is amber at 38 ms against 9 ms before it, and a line under the table says the time jumps there, the first step past your own network: your provider or the line to them. Copy and Run again below, and the last run listed under Recent](docs/tools.png)
+
+The **Tools** tab is for when something is flaky and the question is "can BAMF
+reach it, and by what path?". Pick a device or type an address, then press a
+tool: **Ping** runs live with a line of the last minute, the average, loss and
+jitter; **Trace route** and **Path ping** are hop tables that say where the
+time jumps and whether loss is real; **DNS lookup** asks your own resolver and,
+for a name you type, Cloudflare and Google, and compares; **HTTP check** times
+each step of a web request and reads the certificate; **Port check** shows
+which ports answer. Everything runs from the machine BAMF is on.
+
+![The Tools tab after pressing Why is it slow?: four checks in order, your router at 1 ms, your DNS server answering in 11 ms, the internet at 212 ms marked slow and a web name resolving in 14 ms, and an amber line saying the internet takes 212 ms while your router answers fast, so the delay is beyond the router: the line, the modem or your provider](docs/tools-why.png)
+
+**Why is it slow?** needs no target. It checks your router, your DNS server,
+the internet and a web name in turn and says in a sentence where it breaks.
 
 
 ### Tune it without touching the server
