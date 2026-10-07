@@ -65,8 +65,8 @@ optional daily update check you have to switch on, and your own webhook.
 **Alerting**
 - Discord webhooks with rich embeds — amber for a new unknown device, red when
   a watched device goes offline, green when it returns with how long it was down
-- Self-hosted push too: ntfy and Gotify, each in the format it expects, plus a
-  generic JSON body for anything else
+- Self-hosted push too: ntfy and Gotify, each in the format it expects, plus
+  Slack, Telegram, email and a generic JSON body for anything else
 - Set it up by pasting a URL into the dashboard; no config file, no restart
 - Star only the devices you actually care about
 - More than one destination: your phone and Discord both, or security alerts
@@ -200,7 +200,7 @@ the rest. Anything not set up is a line of links to its Settings.
 
 ### Tune it without touching the server
 
-![The Settings tab: a Find a setting box and a list of sections down the side (Scanning, Internet, Security, Alerts, Your network, Appearance and System) with Scanning open: the default scan interval, probe concurrency, offline after missed scans and mDNS listening, each network with an on/off switch and its own interval, Reset to file defaults and Save, then the switches that apply at once: active ARP, randomised MACs, latency, IPv6 neighbours, the traffic monitor and the daily port watch](docs/settings.png)
+![The Settings tab: a Find a setting box and a list of sections down the side (Scanning, Internet, Security, Alerts, Your network, Appearance and System) with Scanning open: the default scan interval, probe concurrency, offline after missed scans and mDNS listening, each network with an on/off switch and its own interval, Reset to file defaults and Save, then the switches that apply at once: active ARP, randomised MACs, latency and an alert when a watched device is slow to answer, IPv6 neighbours, the traffic monitor and the daily port watch](docs/settings.png)
 
 Scan cadence, probe concurrency and history retention are editable from the
 dashboard and applied on the next scan — no restart, no editing a file over SSH.
