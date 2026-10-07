@@ -16,14 +16,15 @@ public partial class HostStore
     /// <summary>The settings that are the same kind of thing at any site.</summary>
     public static readonly string[] TransferKeys =
     {
-        "activeArpScan", "alertRetry", "allQuiet", "allQuietHour", "arpWatch", "autoIgnoreRandomizedMacs", "backupHour", "backupKeep", "backupNightly",
-        "bulkSelect", "cascadeAlert", "certWatch", "diskAlert", "diskAlertPercent", "flapAlert", "flapDrops", "flapHold",
-        "greynoise", "heartbeatEnabled", "heartbeatMinutes", "historyRetentionDays", "holidaySpirit", "ipv6Watch", "latencyProbe",
-        "mdnsListen", "networkScore", "networkTools", "newDays", "nightFrom", "nightMode", "nightTheme", "nightTo", "offlineAfterMissedScans",
+        "activeArpScan", "alertRetry", "allQuiet", "allQuietHour", "arpWatch", "autoIgnoreRandomizedMacs", "backupHour",
+        "backupKeep", "backupNightly", "bulkSelect", "cascadeAlert", "certWatch", "diskAlert", "diskAlertPercent", "dnsWatch",
+        "firstWeekReport", "flapAlert", "flapDrops", "flapHold", "flowWatch", "greynoise", "heartbeatEnabled", "heartbeatMinutes",
+        "historyRetentionDays", "holidaySpirit", "ipv6Watch", "latencyAlert", "latencyAlertMs", "latencyProbe", "mdnsListen",
+        "networkScore", "networkTools", "newDays", "nightFrom", "nightMode", "nightTheme", "nightTo", "offlineAfterMissedScans",
         "pauseAlerts", "pingConcurrency", "portWatch", "quietDigest", "quietFrom", "quietTo", "reportDay", "reportHour",
-        "reportSchedule", "restartAlert", "scanIntervalSeconds", "speedTest", "tidyDays", "tidyEnabled", "traceAnywhere",
-        "trafficMonitor", "unusualWatch", "updateCheck", "upnpIgd", "wanInterval", "wanSlow", "wanTarget", "wanWatch",
-        "watchAlerts", "webhookFormat", "webhookKinds",
+        "reportSchedule", "restartAlert", "scanIntervalSeconds", "speedTest", "spikeAlert", "tidyDays", "tidyEnabled",
+        "traceAnywhere", "trafficMonitor", "unusualWatch", "updateCheck", "upnpIgd", "wanInterval", "wanQuality", "wanSlow",
+        "wanTarget", "wanWatch", "watchAlerts", "webhookFormat", "webhookKinds",
     };
 
     private const int MaxTransferValue = 2000;

@@ -25,6 +25,16 @@ function renderWanCard() {
     : ["down", st.routerUp ? "The internet is down" : "The internet is down, and so is your router",
        st.routerUp ? "Your router is answering, so it's the line out of the house" : "Your router isn't answering either, so it's in here"];
   bits.push(`<div class="wan-state"><span class="wan-dot ${state[0]}"></span><span class="wan-now">${esc(state[1])}</span><span class="wan-ms">${esc(state[2])}</span></div>`);
+  // The last hour's quality: what share of pings went unanswered, how much the time varied, how long a DNS lookup took.
+  const q = d.quality, probs = d.qualityProblems || [];
+  if (q && q.samples >= 2) {
+    const parts = [`${q.lossPercent}% of pings lost`];
+    if (q.jitterMs != null) parts.push(`jitter ${q.jitterMs} ms`);
+    if (q.dnsMs != null) parts.push(`DNS ${q.dnsMs} ms`);
+    else if (q.dnsMeasured) parts.push("DNS not answering");
+    const bad = probs.length ? ` <span class="bad">${esc(probs.map(p => p === "loss" ? "dropping packets" : p === "jitter" ? "jittery" : "DNS slow").join(", "))} now</span>` : "";
+    bits.push(`<div class="sub wan-quality">Last hour: ${esc(parts.join(" · "))}${bad}${d.qualityAlert ? "" : " · quality alerts off"}</div>`);
+  }
   // A day of samples, one bar a minute, with gaps where BAMF wasn't watching.
   const samples = (d.samples || []).slice(-1440);
   if (samples.length) {
@@ -113,6 +123,8 @@ function renderWanToggle() {
   setToggleState(t, on);
   t.title = on ? "BAMF is watching the internet connection - click to stop" : "Click to have BAMF watch the internet connection";
   if (st && st.target) $("setWanTarget").value = st.target;
+  if (wanCache && typeof wanCache.qualityAlert === "boolean") wanQualityAlert = wanCache.qualityAlert;
+  renderWanQualityToggle();
   if (settingsData && settingsData.editable && settingsData.editable.wanInterval) {
     const secs = settingsData.editable.wanInterval;
     $("setWanInterval").value = secs;
@@ -140,6 +152,23 @@ function renderWanSlow(keepInputs) {
     : st.slowMs ? `${usual} Slow above ${st.slowMs} ms.`
     : "It learns your usual ping over the first half hour or so, then starts watching.";
 }
+// Internet quality alerts: lost pings, jitter and slow DNS, from the watch's own readings.
+function renderWanQualityToggle() {
+  const t = $("setWanQuality");
+  if (!t) return;
+  setToggleState(t, wanQualityAlert);
+  t.title = wanQualityAlert ? "Lost pings, jitter and slow DNS are reported - click to stop" : "Click to be told about lost pings, jitter and slow DNS";
+}
+$("setWanQuality").onclick = async () => {
+  const next = !wanQualityAlert;
+  try {
+    const r = await fetch("/api/settings/wan-quality", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    wanQualityAlert = (await r.json()).enabled;
+    renderWanQualityToggle();
+    toast(wanQualityAlert ? "Lost pings, jitter and slow DNS will be reported" : "Internet quality alerts are off");
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
+};
 $("setWanSlowMode").onchange = () => renderWanSlow(true);
 $("setWanSlowSave").onclick = async () => {
   const mode = $("setWanSlowMode").value, ms = Math.round(Number($("setWanSlowMs").value));

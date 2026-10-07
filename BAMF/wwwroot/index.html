@@ -439,6 +439,13 @@
           <span class="set-field"><button type="button" class="arp-toggle" id="setLatency" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
         <label class="set-row">
+          <span class="set-label">Alert when a watched device is slow to answer
+            <span class="set-hint">A watched device that has taken this long or longer to answer five pings in a row gets one alert, and another when it has answered three in a row under it. Watched devices only: a phone or a laptop on Wi-Fi is often slow for no reason worth hearing about. Needs latency measuring on. The unusual-activity watch separately notices any device slower than its own usual.</span>
+            <span class="set-hint" id="setLatencyAlertStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setLatencyAlert" aria-label="Alert when a watched device is slow to answer" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button><input class="modal-input" id="setLatencyAlertMs" type="number" min="20" max="5000" step="10" value="250" size="5"><span class="set-unit">ms</span><button type="button" class="export-btn" id="setLatencyAlertSave">Save</button></span>
+        </label>
+        <label class="set-row">
           <span class="set-label">Watch IPv6 neighbours
             <span class="set-hint">Every five minutes, one ping to the all-nodes address on each network BAMF scans, then a read of this machine's IPv6 neighbour table; with the traffic monitor on, neighbour discovery on the wire as it happens. Each device's IPv6 addresses sit beside its IPv4 one, and devices seen only over IPv6 get their own card under Activity.</span>
           </span>
@@ -490,6 +497,12 @@
             <span class="set-hint" id="setWanSlowStatus"></span>
           </span>
           <span class="set-field"><select class="modal-input" id="setWanSlowMode"><option value="auto">Automatic</option><option value="fixed">Above a set time</option><option value="off">Don't watch</option></select><input class="modal-input" id="setWanSlowMs" type="number" min="20" max="5000" step="10" value="200" size="5" hidden><span class="set-unit" id="setWanSlowUnit" hidden>ms</span><button type="button" class="export-btn" id="setWanSlowSave">Save</button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Internet quality alerts
+            <span class="set-hint">From the readings the internet watch already takes, plus one timed DNS lookup a reading: an alert when a tenth of the pings in a quarter hour go unanswered while the line is up (calls break up, downloads stall), when the ping varies by 50 ms or more from one reading to the next (jitter: calls stutter, games lag), and when DNS lookups take 300 ms or more or a third of them fail (every page starts slowly). Each says when it's over. The Internet card shows the last hour's figures.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setWanQuality" aria-label="Internet quality alerts" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
         <label class="set-row">
           <span class="set-label">Test the internet speed
@@ -571,6 +584,38 @@
             <span class="set-hint" id="setGreyNoiseStatus"></span>
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="setGreyNoise" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">DNS watch
+            <span class="set-hint">Off by default. Once an hour, BAMF asks the DNS server this network uses (usually your router) three questions: the addresses of names that never change, such as dns.google (8.8.8.8); a name that doesn't exist, which should get "no such name"; and which DNS servers this machine is set to use at all. A wrong answer, an invented one, or a new server never seen before is a security alert and a finding on the hygiene card. It's three small lookups an hour that leave the house, which is why it's off until you switch it on. Switching it on checks straight away, and so does the health check while it's on.</span>
+            <span class="set-hint" id="setDnsWatchStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setDnsWatch" aria-label="DNS watch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+      </div>
+      <div class="set-card">
+        <div class="set-card-title">What devices do</div>
+        <p class="set-hint" style="margin:0 0 8px">
+          From the packets the traffic monitor hears (Scanning &rarr; Traffic monitor). On a switched network that is BAMF's own traffic plus
+          what every device broadcasts; on a mirrored port, everything. The Where devices talk card on Activity says what is being heard.
+        </p>
+        <label class="set-row">
+          <span class="set-label">Where devices talk, and scans
+            <span class="set-hint">Counts which outside networks each device talks to. After a week, a device with a small, fixed set of servers (a camera, a plug, a thermostat) raises an alert the first time it talks to somewhere new. A device that reaches dozens of local addresses, or dozens of ports on one, inside a minute is reported as scanning the network.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setFlowWatch" aria-label="Where devices talk, and scans" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Bandwidth spikes
+            <span class="set-hint">A device that moved five times its usual day, and at least half a gigabyte, in the last 24 hours gets one alert a day: a backup gone wrong, a camera uploading constantly, or something leaving. Needs three days of traffic history first.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setSpikeAlert" aria-label="Bandwidth spikes" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">A new device's first week
+            <span class="set-hint">Seven days after a device first appears, one alert of the New devices kind sums up what it did: how much it was online, what ports it opened, where it talked and how much it moved. Whether the thing you let on the Wi-Fi is behaving.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setFirstWeek" aria-label="A new device's first week" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
       </div>
     </section>
@@ -1259,6 +1304,11 @@
       <h3>Only on IPv6</h3>
       <div class="sub">Devices seen over IPv6 this week that never answered BAMF's IPv4 scan: often a sleeping speaker or a phone with a private address.</div>
       <div id="v6Body"></div>
+    </div>
+    <div class="act-card" id="flowsCard">
+      <h3>Where devices talk</h3>
+      <div class="sub" id="flowsSub"></div>
+      <div id="flowsBody"></div>
     </div>
   </div>
   <div class="feed" id="feed"></div>

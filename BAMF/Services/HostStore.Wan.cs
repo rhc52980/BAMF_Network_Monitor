@@ -10,7 +10,8 @@ namespace LanWatch.Services;
 /// </summary>
 public partial class HostStore
 {
-    public sealed record WanSample(string At, int Gateway, int Internet);
+    /// <summary>One reading: ms to the gateway and to the address beyond it (-1 for no reply), and ms for a DNS lookup (-1 failed, -2 not measured).</summary>
+    public sealed record WanSample(string At, int Gateway, int Internet, int Dns = -2);
     public sealed record WanOutage(string Start, string End, int Minutes, bool Local);
     /// <summary>A stretch when the line was up but slow: its worst reading, and what was usual before it.</summary>
     public sealed record WanSlowSpell(string Start, string End, int Minutes, int WorstMs, int UsualMs, bool Local);
@@ -40,18 +41,30 @@ public partial class HostStore
             );
             """;
         cmd.ExecuteNonQuery();
+        // The DNS timing came later (2.10.0); readings from before it are marked not measured.
+        using var cols = conn.CreateCommand();
+        cols.CommandText = "PRAGMA table_info(wan_samples)";
+        var hasDns = false;
+        using (var r = cols.ExecuteReader()) while (r.Read()) if (r.GetString(1) == "dns") hasDns = true;
+        if (!hasDns)
+        {
+            using var alter = conn.CreateCommand();
+            alter.CommandText = "ALTER TABLE wan_samples ADD COLUMN dns INTEGER NOT NULL DEFAULT -2";
+            alter.ExecuteNonQuery();
+        }
     }
 
-    public void AddWanSample(int gatewayMs, int internetMs)
+    public void AddWanSample(int gatewayMs, int internetMs, int dnsMs = -2)
     {
         lock (_lock)
         {
             using var conn = Open();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "INSERT OR REPLACE INTO wan_samples (at, gateway, internet) VALUES ($at, $g, $i)";
+            cmd.CommandText = "INSERT OR REPLACE INTO wan_samples (at, gateway, internet, dns) VALUES ($at, $g, $i, $d)";
             cmd.Parameters.AddWithValue("$at", DateTime.UtcNow.ToString("o"));
             cmd.Parameters.AddWithValue("$g", gatewayMs);
             cmd.Parameters.AddWithValue("$i", internetMs);
+            cmd.Parameters.AddWithValue("$d", dnsMs);
             cmd.ExecuteNonQuery();
         }
     }
@@ -132,11 +145,11 @@ public partial class HostStore
         {
             using var conn = Open();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT at, gateway, internet FROM wan_samples WHERE at >= $from ORDER BY at";
+            cmd.CommandText = "SELECT at, gateway, internet, dns FROM wan_samples WHERE at >= $from ORDER BY at";
             cmd.Parameters.AddWithValue("$from", DateTime.UtcNow.AddHours(-hours).ToString("o"));
             var list = new List<WanSample>();
             using var r = cmd.ExecuteReader();
-            while (r.Read()) list.Add(new WanSample(r.GetString(0), r.GetInt32(1), r.GetInt32(2)));
+            while (r.Read()) list.Add(new WanSample(r.GetString(0), r.GetInt32(1), r.GetInt32(2), r.GetInt32(3)));
             return list;
         }
     }

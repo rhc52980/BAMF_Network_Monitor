@@ -95,6 +95,10 @@ builder.Services.AddSingleton<HealthScore>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<HealthScore>());
 builder.Services.AddSingleton<DailyNote>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DailyNote>());
+builder.Services.AddSingleton<DnsWatch>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<DnsWatch>());
+builder.Services.AddSingleton<FlowWatch>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<FlowWatch>());
 builder.Services.AddSingleton<NightlyBackup>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NightlyBackup>());
 builder.Services.AddHttpClient();
@@ -375,5 +379,6 @@ SettingsEndpoints.Map(app, version, HookToken, HttpsJson);
 DeviceEndpoints.Map(app, version, buildDate);
 UnusualEndpoints.Map(app);
 ScoreEndpoints.Map(app);
+FlowEndpoints.Map(app);
 
 app.Run();

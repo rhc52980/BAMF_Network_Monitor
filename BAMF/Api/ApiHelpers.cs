@@ -128,10 +128,12 @@ internal static class ApiHelpers
     };
 
     // What the hygiene card needs beyond /api/hosts: certificates, UPnP, the gateways' MACs.
-    internal static object SecurityJson(HostStore store, ScannerService scanner, SecurityCheck security) => new
+    internal static object SecurityJson(HostStore store, ScannerService scanner, SecurityCheck security, DnsWatch dns) => new
     {
         arpWatch = scanner.ArpWatchEnabled,
         certWatch = security.CertWatchEnabled,
+        dnsWatch = dns.Enabled,
+        dns = dns.Last,
         checkedAt = security.LastCheck,
         busy = security.Busy,
         certs = store.GetCerts().Select(c => new

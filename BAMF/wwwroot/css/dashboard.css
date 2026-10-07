@@ -865,6 +865,8 @@
   .gn-status { margin-top: 4px; color: var(--text-dim); font-size: 12px; }
   .gn-status.bad { color: var(--danger); }
   .score-num { font-size: 1.7em; font-weight: 700; }
+  .wan-quality { margin-top: 4px; }
+  .wan-quality .bad { color: var(--danger); }
   .hy-more { margin-top: 6px; background: none; border: 0; padding: 2px 4px; color: var(--focus); font: inherit; font-size: 12px; cursor: pointer; }
   .hy-more:hover { text-decoration: underline; }
   .hy-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px; }

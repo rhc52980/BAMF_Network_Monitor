@@ -173,6 +173,30 @@ function renderScore() {
   $("scoreBody").innerHTML = `<div class="wan-state"><span class="wan-dot ${cls}"></span><span class="wan-now score-num">${d.value}</span><span class="wan-ms">${esc(d.word)}${esc(trend)}</span></div>` +
     (reasons || `<div class="watch-note">Nothing is taking points off.</div>`);
 }
+// Where each device talks on the internet, as the traffic monitor hears it: how many outside networks, how many
+// are new this week, and the biggest three. A device with a small fixed set is "watched": a new one raises an alert.
+let flowsCache = null;
+async function loadFlows() {
+  try { const r = await fetch("/api/flows"); if (r.ok) { flowsCache = await r.json(); renderFlows(); } } catch { /* keep the last */ }
+}
+function renderFlows() {
+  const d = flowsCache;
+  if (!d || !$("flowsBody")) return;
+  const devices = d.devices || [];
+  const watched = devices.filter(x => x.watched).length, learning = devices.filter(x => x.learning).length;
+  $("flowsSub").textContent = !d.enabled ? "Off. Settings → Security switches it on."
+    : !d.listening ? (devices.length ? "The traffic monitor isn't listening now; this is what was heard before. Settings → Scanning → Traffic monitor."
+      : "The traffic monitor isn't listening, so nothing is heard. Settings → Scanning → Traffic monitor.")
+    : !devices.length ? "Listening. Nothing has talked to the internet within earshot yet: on a switched network BAMF hears its own traffic and what devices broadcast; a mirrored switch port lets it hear everything."
+    : `${devices.length} device${devices.length === 1 ? "" : "s"} heard talking to the internet` +
+      (watched ? `; ${watched} with a small fixed set of servers, which alert when they gain one` : "") +
+      (learning ? `; ${learning} still learning (each needs ${d.learnDays} days).` : ".");
+  $("flowsBody").innerHTML = devices.slice(0, 12).map(x => {
+    const tag = x.learning ? " · learning" : x.watched ? " · watched" : "";
+    const top = (x.top || []).map(t => `${esc(t.sample)}${t.bytes ? " " + esc(fmtBytes(t.bytes)) : ""}`).join(" · ");
+    return `<div class="health-row"><span>${esc(x.name)}${tag}</span><b>${x.networks} network${x.networks === 1 ? "" : "s"}${x.newThisWeek ? `, ${x.newThisWeek} new this week` : ""}</b><span class="sub">${top}</span></div>`;
+  }).join("") + (devices.length > 12 ? `<div class="sub" style="margin-top:6px">And ${devices.length - 12} more.</div>` : "");
+}
 function renderSettingsLog(list) {
   $("setLogBody").innerHTML = list.length ? list.slice(0, 15).map(c =>
     `<div class="alert-item k-settings"><div><b>${esc(c.what)}</b><span class="when">${esc(fmtAgo(c.at))}</span></div>`
@@ -308,6 +332,16 @@ function hygieneFindings() {
     const h = hosts.find(x => x.id === u.hostId) || { ip: u.ip };
     add("high", h, "UPnP port forwarding is on",
       "Any device on your network can open ports on this router to the internet without asking. Turn UPnP off in the router unless a game console or app needs it.");
+  }
+  // The DNS watch: a resolver answering wrongly for a name with a fixed address, or inventing answers.
+  const dns = sec.dnsWatch && sec.dns;
+  if (dns) {
+    for (const w of dns.wrongAnswers || [])
+      add("high", null, `Your DNS says ${w.name} is at ${w.got}`,
+        `It is ${w.expected}, and always has been. A resolver (${dns.server}) that answers wrongly for a name like that can send any site's traffic where it likes: check the DNS setting in your router and on this machine, unless you set up a filtering DNS service on purpose.`);
+    if (dns.inventsAnswers)
+      add("low", null, "Your DNS makes up answers for names that don't exist",
+        `Asked about a name nobody has registered, ${dns.server} answered ${dns.invented} instead of "no such name". Providers do it to put adverts on typos; it also breaks software that expects an honest answer. Public resolvers such as 1.1.1.1 or 9.9.9.9 don't.`);
   }
   const gr = greynoiseCache && greynoiseCache.enabled && greynoiseCache.result;
   if (gr && gr.noise)

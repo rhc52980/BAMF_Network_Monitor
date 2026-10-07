@@ -199,7 +199,11 @@ public partial class ScannerService
             catch { samples.Add((h.Id, null)); }
             finally { gate.Release(); }
         }));
-        _store.RecordLatency(samples.ToList());
+        var list = samples.ToList();
+        _store.RecordLatency(list);
+        try { await LatencyAlerts(list, ct); }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { _log.LogDebug(ex, "Latency alert check failed"); }
     }
 
     /// <summary>

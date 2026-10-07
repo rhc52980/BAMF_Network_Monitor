@@ -181,6 +181,15 @@ internal static class SettingsEndpoints
             return Results.Ok();
         });
 
+        // A watched device slow to answer: the switch, and the ms it has to reach.
+        app.MapPost("/api/settings/latency-alert", (LatencyAlertRequest body, HostStore store, ScannerService scanner) =>
+        {
+            if (body.Ms is { } ms && ms is < 20 or > 5000) return Results.BadRequest(new { error = "Between 20 and 5000 ms." });
+            if (body.Enabled is { } on) store.SetSetting("latencyAlert", on ? "true" : "false");
+            if (body.Ms is { } v) store.SetSetting("latencyAlertMs", v.ToString());
+            return Results.Json(new { enabled = scanner.LatencyAlertEnabled, ms = scanner.LatencyAlertMs });
+        });
+
         app.MapPost("/api/settings/active-arp", (ActiveArpRequest body, HostStore store) =>
         {
             store.SetSetting("activeArpScan", body.Enabled ? "true" : "false");
@@ -249,11 +258,18 @@ internal static class SettingsEndpoints
                     activeArpAvailable = scanner.NpcapAvailable,
                     autoIgnoreRandomizedMacs = scanner.AutoIgnoreRandomEnabled,
                     latencyProbe = scanner.LatencyProbeEnabled,
+                    latencyAlert = scanner.LatencyAlertEnabled,
+                    latencyAlertMs = scanner.LatencyAlertMs,
+                    dnsWatch = store.GetSetting("dnsWatch") == "true",
+                    wanQuality = store.GetSetting("wanQuality") != "false",
                     arpWatch = scanner.ArpWatchEnabled,
                     certWatch = store.GetSetting("certWatch") != "false",
                     networkScore = store.GetSetting("networkScore") != "false",
                     allQuiet = store.GetSetting("allQuiet") == "true",
                     allQuietHour = int.TryParse(store.GetSetting("allQuietHour"), out var aqh) ? Math.Clamp(aqh, 0, 23) : 8,
+                    flowWatch = store.GetSetting("flowWatch") != "false",
+                    spikeAlert = store.GetSetting("spikeAlert") != "false",
+                    firstWeekReport = store.GetSetting("firstWeekReport") != "false",
                     ipv6Watch = scanner.Ipv6WatchEnabled,
                     greynoise = store.GetSetting("greynoise") == "true",
                     wanWatch = wan.Enabled,
