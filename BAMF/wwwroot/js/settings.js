@@ -623,6 +623,65 @@ function fillReport(r) {
       (r.lastSent ? ` · last sent ${fmtAgo(r.lastSent)}` : " · never sent yet") +
       (webhookConfigured ? "" : " · no webhook saved, so nothing will go out");
 }
+// The daily all-quiet note and the network score, under the scheduled report.
+function fillAllQuiet(q) {
+  const sel = $("allQuietHour");
+  if (!sel.options.length) for (let h = 0; h < 24; h++) { const o = document.createElement("option"); o.value = h; o.textContent = `${String(h).padStart(2, "0")}:00`; sel.appendChild(o); }
+  if (q) { allQuiet = !!q.enabled; allQuietHour = q.hour ?? 8; }
+  setToggleState($("setAllQuiet"), allQuiet);
+  $("setAllQuiet").title = allQuiet ? "A note goes out every day - click to stop" : "Click to get one note a day";
+  sel.value = String(allQuietHour);
+  $("allQuietStatus").textContent = !allQuiet ? "Off."
+    : `Every day at ${String(allQuietHour).padStart(2, "0")}:00` + (q && q.next ? ` · next ${new Date(q.next).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })}` : "")
+      + (q && q.lastSent ? ` · last sent ${fmtAgo(q.lastSent)}` : " · never sent yet") + (webhookConfigured ? "" : " · no webhook saved, so nothing will go out");
+}
+async function saveAllQuiet(body) {
+  try {
+    const r = await fetch("/api/settings/all-quiet", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't save that"); fillAllQuiet(null); return false; }
+    fillAllQuiet(d);
+    return true;
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); fillAllQuiet(null); return false; }
+}
+$("setAllQuiet").onclick = async () => { if (await saveAllQuiet({ enabled: !allQuiet })) toast(allQuiet ? `A note will go out every day at ${String(allQuietHour).padStart(2, "0")}:00` : "The daily note is off"); };
+$("allQuietHour").onchange = async () => { if (await saveAllQuiet({ hour: Number($("allQuietHour").value) })) toast(`The daily note goes at ${String(allQuietHour).padStart(2, "0")}:00`); };
+$("allQuietPreview").onclick = async () => {
+  const out = $("allQuietResult");
+  out.innerHTML = `<span class="scan-progress">Composing…</span>`;
+  try {
+    const d = await (await fetch("/api/all-quiet/preview")).json();
+    out.innerHTML = `<div class="report-preview"><b>${esc(d.title)}</b>\n${esc(d.text)}</div>`;
+  } catch { out.innerHTML = `<span class="none">Couldn't reach BAMF.</span>`; }
+};
+$("allQuietSend").onclick = async () => {
+  const out = $("allQuietResult");
+  out.innerHTML = `<span class="scan-progress">Sending…</span>`;
+  try {
+    const r = await fetch("/api/all-quiet/send", { method: "POST" });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { out.innerHTML = `<span class="none">${esc(d.error || "It didn't go.")}</span>`; return; }
+    fillAllQuiet(d);
+    out.innerHTML = `<span class="ok">Sent.</span>`;
+  } catch { out.innerHTML = `<span class="none">Couldn't reach BAMF.</span>`; }
+};
+function renderScoreToggle() {
+  const t = $("setScore");
+  if (!t) return;
+  setToggleState(t, networkScore);
+  t.title = networkScore ? "The network is scored - click to stop" : "Click to score the network";
+}
+$("setScore").onclick = async () => {
+  const next = !networkScore;
+  try {
+    const r = await fetch("/api/settings/score", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    networkScore = (await r.json()).enabled;
+    renderScoreToggle();
+    if (typeof loadScore === "function") loadScore();
+    toast(networkScore ? "The network is scored; see Activity" : "The network score is off");
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
+};
 function syncReportRow() {
   const sch = $("reportSchedule").value;
   $("reportDayWrap").style.display = sch === "weekly" ? "" : "none";
@@ -1414,6 +1473,11 @@ async function loadSettings() {
       : (ms.error ? `Not listening: ${ms.error}` : "Starting on the next scan.");
 
   fillReport(e.report || {});
+  if (typeof e.networkScore === "boolean") networkScore = e.networkScore;
+  renderScoreToggle();
+  if (typeof e.allQuiet === "boolean") { allQuiet = e.allQuiet; allQuietHour = e.allQuietHour ?? 8; }
+  fillAllQuiet(null);
+  fetch("/api/all-quiet").then(r => r.ok ? r.json() : null).then(q => { if (q) fillAllQuiet(q); }).catch(() => {});
   rulesData = e.rules || null;
   fillRules();
   if (typeof e.arpWatch === "boolean") arpWatch = e.arpWatch;

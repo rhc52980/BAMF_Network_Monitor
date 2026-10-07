@@ -28,6 +28,8 @@ public static class SettingsLog
         ["arp-watch"] = "ARP watch",
         ["cert-watch"] = "Certificate watch",
         ["greynoise"] = "GreyNoise check",
+        ["score"] = "Network score",
+        ["all-quiet"] = "The daily all-quiet note",
         ["webhook"] = "Main webhook",
         ["webhookkinds"] = "What the main webhook sends",
         ["destinations"] = "More places alerts go",

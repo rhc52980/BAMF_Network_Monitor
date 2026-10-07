@@ -614,6 +614,7 @@ function render() {
     loadProblems();
     loadHealth();
     loadUnusual();
+    loadScore();
     loadSecurity().then(() => { renderHygiene(); renderServices(); });
     loadGreyNoise().then(() => { renderHygiene(); renderServices(); });
     loadWan(true).then(() => { renderWanCard(); renderServices(); });

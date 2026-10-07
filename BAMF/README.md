@@ -296,7 +296,7 @@ Everything BAMF initiates on its own, and how it's protected:
 | GitHub update check (`api.github.com`) | **HTTPS** | Daily, only if you enable the update check |
 | Your public address (`api.ipify.org`, or `checkip.amazonaws.com`) and GreyNoise (`api.greynoise.io`) | **HTTPS** | Daily, only if you switch on the GreyNoise check. What they learn is your public address |
 | One address on the internet (`8.8.8.8` by default) | **an echo request, nothing else** | A ping a minute, only if you switch on the internet watch. Nothing about your network goes with it |
-| Cloudflare's speed test (`speed.cloudflare.com`) | **HTTPS** | Only when you press Run now, or on the schedule you choose: daily or every six hours. About 125 MB of test data each time. Cloudflare sees your public address, as any website does, and says it back in its answer, which BAMF shows as your public address |
+| Cloudflare's speed test (`speed.cloudflare.com`) | **HTTPS** | Only when you press Run now, or on the schedule you choose: daily or every six hours. About 125 MB of test data each time. Cloudflare sees your public address, as any website does, and says it back in its answer, which BAMF shows as your public address |
 | Cloudflare, for your public address (`speed.cloudflare.com`) | **HTTPS** | Only when you press **Look it up** (or **Check now**) on the Network services card. One request for a file of no bytes. Cloudflare sees your public address, as any website does, and says it back |
 | A monitoring service you name (Healthchecks.io, Uptime Kuma, anything that takes a visit) | **whatever scheme your address uses** | Every few minutes, only if you switch on the heartbeat. A plain request to the address you gave, with nothing about your network in it |
 | Your webhook | **whatever scheme your URL uses** | When a new host appears, a watched host changes state, or an alert fires |
@@ -1822,6 +1822,12 @@ scan, or delete a thing.
 | GET | `/api/unusual` | What unusual activity has been noticed: open now, and anything from the last day, each `{"id", "hostId", "kind", "at", "title", "detail", "resolvedAt", "open", "normal"}`; `kind` is `offline`, `hour` or `slow`. With `enabled`, and how many devices are `watching` and `learning` |
 | POST | `/api/unusual/{id}/normal` | "That's normal": that kind of finding isn't raised for that device for 30 days, and this one is closed |
 | POST | `/api/settings/unusual` | Body `{"enabled": false}` — switch unusual activity off, or back on |
+| GET | `/api/score` | The network score: `{"enabled", "value", "word", "reasons": [{"text", "points"}], "history": [{"date", "value"}]}`, the history one reading a day for a month |
+| POST | `/api/settings/score` | Body `{"enabled": false}` — switch the network score off, or back on |
+| GET | `/api/all-quiet` | The daily note: `{"enabled", "hour", "lastSent", "next", "timeZone"}` |
+| POST | `/api/settings/all-quiet` | Body `{"enabled": true, "hour": 8}`, either or both — the daily note's switch and hour (the server's local time) |
+| GET | `/api/all-quiet/preview` | What today's note would say: `{"title", "text", "quiet"}` |
+| POST | `/api/all-quiet/send` | Send today's note now, to every destination that gets reports |
 | GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
 | GET | `/api/settings/rules` | The alert rules, quiet hours and port watch: `{"rules": [...], "quiet": {"from", "to", "digest", "now", "held"}, "portWatch"}` |
 | POST | `/api/settings/rules` | Body: the whole rule list, each `{"id", "name", "kind": "offline"\|"online"\|"hours", "target": "any"\|"watched"\|"tag:kids"\|"host:12", "minutes", "from", "to", "enabled"}`. `id` empty for a new rule |
@@ -2830,6 +2836,55 @@ On Discord it's an embed with a field per item; on ntfy, Gotify and generic
 webhooks it's text. **Preview** shows what would go out, and **Send now** sends
 it straight away. The API has `/api/settings/report`, `/api/reports/send` and
 `/api/reports/preview`.
+
+### Network score
+
+One number for the network, **0 to 100**, from what BAMF already knows, with
+the reasons it isn't 100. It starts at 100 and loses points for each thing
+worth fixing, each kind capped so one bad category can't zero it on its own:
+
+| Reason | Points |
+|---|---|
+| Your public address seen scanning the internet (GreyNoise) | 20 |
+| The internet down now | 10 |
+| A disk BAMF writes to running low | 10 |
+| A security alert this week | 8 each, up to 24 |
+| Telnet open on a device | 8 each, up to 16 |
+| The router answering UPnP | 8 |
+| A certificate expired | 6 each, up to 12 |
+| A watched device down | 5 each, up to 15 |
+| Nobody set to hear alerts (no destination) | 5 |
+| FTP or VNC open on a device | 4 each, up to 8 |
+| An unknown device online | 3 each, up to 15 |
+| Unusual activity still open | 3 each, up to 9 |
+| An internet outage this week | 3 each, up to 12 |
+| A certificate expiring within a fortnight | 2 each, up to 6 |
+| A slow internet spell this week | 2 each, up to 6 |
+
+**90 and up is healthy, 75 fine, 50 needs attention**, under that in trouble.
+The **Network score** card on Activity shows the number, the word, what's
+taking points off (biggest first) and which way it's going against the last
+reading; one reading a day is kept for a month. With the score on, scheduled
+reports open with it, and so does the daily note below. On by default;
+**Settings → Alerts → Score the network** switches it off. `GET /api/score`
+has the number, the reasons and the history.
+
+### The daily all-quiet note
+
+Silence from a monitor means one of two things: the network is fine, or the
+monitor is dead. **Settings → Alerts → Daily all-quiet note** tells them
+apart: one short message a day, at the hour you pick (the server's local
+time), to every destination that gets **Reports**, like the scheduled report.
+
+- When nothing happened: **"All quiet: 23 of 24 devices up"**, with no alerts
+  in the last 24 hours, all watched devices up, the internet up, and the
+  network score.
+- When something did: **"Yesterday: 3 alerts"**, listing them, and anything
+  still wrong named — a watched device down, the internet down, unusual
+  activity still open — so the note is never a false all-clear.
+
+**Preview** shows what would go now; **Send now** sends it. Off by default. A
+scheduled daily report says more; this says less, on purpose, every day.
 
 ### Discord
 

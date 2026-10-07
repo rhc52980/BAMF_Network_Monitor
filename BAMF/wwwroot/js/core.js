@@ -31,6 +31,7 @@ let alertsCache = null;     // the last /api/alerts answer
 let securityCache = null;   // the last /api/security answer: certificates, UPnP, gateway MACs
 const presenceCache = {};   // device id -> its week of hours, for the History panel
 let arpWatch = true, certWatch = true, ipv6Watch = true;
+let networkScore = true, allQuiet = false, allQuietHour = 8;   // the network score, and the daily all-quiet note
 let greynoiseCache = null;  // the last /api/greynoise answer: { enabled, result }
 let role = "open";          // "admin", "viewer" (the view-only password) or "open" (no password set)
 let rulesData = null;       // { rules, quiet, portWatch } from /api/settings

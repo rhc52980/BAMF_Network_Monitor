@@ -680,6 +680,30 @@
           <button class="export-btn" id="reportSave">Save schedule</button>
         </div>
         <div class="modal-result" id="reportResult"></div>
+        <div class="set-card-title" style="margin-top:18px">Daily all-quiet note</div>
+        <p class="modal-help">
+          One short message a day, at the hour you pick, to every destination that gets Reports: "All quiet: 23 of 24 devices up, no
+          alerts in the last 24 hours" when nothing happened, or the day's alerts and anything still wrong when something did. Silence
+          from a monitor can mean the network is fine or that the monitor is dead; this tells them apart. Off by default.
+        </p>
+        <label class="set-row">
+          <span class="set-label">Send a note every day
+            <span class="set-hint" id="allQuietStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setAllQuiet" aria-label="Send a note every day" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button><span class="set-unit">at</span><select class="modal-input" id="allQuietHour"></select></span>
+        </label>
+        <div class="modal-actions">
+          <button class="toggle" id="allQuietPreview">Preview</button>
+          <button class="toggle" id="allQuietSend">Send now</button>
+        </div>
+        <div class="modal-result" id="allQuietResult"></div>
+        <div class="set-card-title" style="margin-top:18px">Network score</div>
+        <label class="set-row">
+          <span class="set-label">Score the network
+            <span class="set-hint">One number from 0 to 100 for the network, from what BAMF already knows, with the reasons it isn't 100: unknown devices online, security alerts this week, Telnet or FTP open, certificates run out, a router answering UPnP, watched devices down, internet outages, a disk running low, nobody set to hear alerts. On the Activity tab, at the top of scheduled reports and in the daily note. One reading a day is kept for a month.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setScore" aria-label="Score the network" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
       </div>
       <div class="set-card" id="unusualSetCard">
         <div class="set-card-title">Unusual activity</div>
@@ -1164,6 +1188,11 @@
       <h3>Sites</h3>
       <div class="sub">This site and the other BAMF servers you watch. Click one to see its devices.</div>
       <div id="sitesBody"></div>
+    </div>
+    <div class="act-card" id="scoreCard">
+      <h3>Network score</h3>
+      <div class="sub" id="scoreSub"></div>
+      <div id="scoreBody"></div>
     </div>
     <div class="act-card" id="unusualActCard">
       <h3>Unusual</h3>

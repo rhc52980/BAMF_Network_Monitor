@@ -32,6 +32,7 @@ record IgnoreRequest(bool Ignored);
 record SnoozeRequest(int Minutes);
 record AlertBehaviourRequest(bool? Retry, bool? Cascade, bool? FlapAlert, bool? FlapHold, int? FlapDrops);
 record DiskAlertRequest(bool Enabled, int? Percent);
+record AllQuietRequest(bool? Enabled, int? Hour);
 record BulkRestoreRequest(List<HostStateRequest>? States);
 record HostStateRequest(long Id, bool Known, bool Watched, bool Ignored, bool Forgotten, List<string>? Tags, string? SnoozedUntil);
 record ToolRequest(string? Tool);

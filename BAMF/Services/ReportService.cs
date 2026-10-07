@@ -14,10 +14,11 @@ public sealed class ReportService : BackgroundService
     private readonly HostStore _store;
     private readonly ScannerService _scanner;
     private readonly ILogger<ReportService> _log;
+    private readonly HealthScore? _score;
 
-    public ReportService(HostStore store, ScannerService scanner, ILogger<ReportService> log)
+    public ReportService(HostStore store, ScannerService scanner, ILogger<ReportService> log, HealthScore? score = null)
     {
-        _store = store; _scanner = scanner; _log = log;
+        _store = store; _scanner = scanner; _log = log; _score = score;
     }
 
     public string Schedule => _store.GetSetting("reportSchedule") is "daily" or "weekly" or "monthly" ? _store.GetSetting("reportSchedule")! : "off";
@@ -121,6 +122,14 @@ public sealed class ReportService : BackgroundService
         var sb = new StringBuilder();
         var title = $"BAMF report: {online} of {all.Count} devices online";
         sb.AppendLine($"{all.Count} devices, {online} online now, over {periodName}.");
+        if (_score is { Enabled: true })
+        {
+            // The score first: one number before the detail, with the biggest reasons it isn't 100.
+            var s = _score.Now();
+            var why = s.Reasons.Count == 0 ? "" : ": " + string.Join("; ", s.Reasons.Take(3).Select(r => r.Text.ToLowerInvariant())) + (s.Reasons.Count > 3 ? $"; and {s.Reasons.Count - 3} more" : "");
+            sb.AppendLine($"Network score {s.Value}, {s.Word.ToLowerInvariant()}{why}.");
+            fields.Add(("Network score", $"{s.Value}, {s.Word.ToLowerInvariant()}{why}"));
+        }
         fields.Add(("Devices", $"{all.Count} known, {online} online ({(all.Count == 0 ? 0 : 100 * online / all.Count)}%)"));
 
         var fresh = all.Where(h => When(h.FirstSeen) >= since).OrderByDescending(h => When(h.FirstSeen)).ToList();

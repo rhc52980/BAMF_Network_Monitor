@@ -91,6 +91,10 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<RuleService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MqttPublisher>());
 builder.Services.AddSingleton<UnusualWatch>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<UnusualWatch>());
+builder.Services.AddSingleton<HealthScore>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<HealthScore>());
+builder.Services.AddSingleton<DailyNote>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<DailyNote>());
 builder.Services.AddSingleton<NightlyBackup>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NightlyBackup>());
 builder.Services.AddHttpClient();
@@ -370,5 +374,6 @@ AlertEndpoints.Map(app);
 SettingsEndpoints.Map(app, version, HookToken, HttpsJson);
 DeviceEndpoints.Map(app, version, buildDate);
 UnusualEndpoints.Map(app);
+ScoreEndpoints.Map(app);
 
 app.Run();
