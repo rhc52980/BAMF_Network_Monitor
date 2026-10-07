@@ -133,6 +133,7 @@ step:
 | `js/dialogs.js` | The device dialogs, the scan panel, Find port and switch counters |
 | `js/themes.js` | Themes, Holiday Spirit, Night mode, compact rows and the intruders |
 | `js/screensaver.js` | The screen saver and the watchtower |
+| `saver3d/` | The grid saver: `grid.mjs`, its three.js library, the shaders, and the 46 device models (loaded only when it starts) |
 | `js/internet.js` | The internet watch, the speed test, the Scan menu and free addresses |
 | `js/tools.js` | Ping, trace route and DNS lookup for a device, run from its ⋯ menu |
 | `js/services.js` | The Network services card: the public address, gateways, DHCP, DNS, UPnP, mDNS and what devices offer |
@@ -1293,6 +1294,28 @@ with reduced motion. **Try it now** starts it straight away. It's kept per
 browser, like the theme: the screen on the wall can have it while the one on
 your desk doesn't. For a status board that never shows the dashboard at all,
 see the [Wall display](#wall-display).
+
+### The grid (a prototype, in 3D)
+
+**The grid (3D)** is the watchtower's job done in three dimensions: your network as a place at night. Each network is a glowing platform
+with its gateway at the centre, every other device a hologram of what it is (a router, a camera, a printer, a TV: forty-six models),
+green, amber or dim as in the table, with traffic running along the links to the gateway and up to the internet. The camera never stops: a
+wide orbit, then a low pass among the devices of one network, then a flight across all of them, then a look straight down, and round again,
+so nothing sits in one place long enough to burn in.
+
+It watches the way the watchtower does:
+
+- **A scan** is a ring of light rolling out across each platform, lighting every device as it passes.
+- **A new device** is the alarm: the night goes red, the camera swings round to it and circles it while a reticle closes in, with its
+  details in a callout, until you **Mark known** or **Dismiss** it, with the same buttons, queue and test alert (**Show me an alert**).
+- **A watched device dropping** is LOST CONTACT, and coming back REACQUIRED, with the camera taken over to look.
+- **Something unusual** for a device gets a purple beacon and a ghost of its outline that jumps.
+
+Pick **The grid (3D)**, **The grid, terminal green (3D)** (the sky, floor and light drained to one phosphor green) or **The grid, with the
+siren (3D)**. It needs a browser that can draw 3D; where WebGL is off, the saver is the theme's scenery or the points of light instead. The
+3D library (three.js) and the models are files BAMF carries and serves itself, so it works offline, and are only fetched when the saver
+starts, not with the dashboard. Reduced motion holds the camera still and draws again only when something changes. Unlike the
+watchtower, it uses the graphics card, so a wall tablet may prefer the watchtower.
 
 ## Linking to a tab
 
