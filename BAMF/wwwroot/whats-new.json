@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.12.0",
+      "date": "2026-10-08",
+      "items": [
+        "There is a new Tools tab, beside Activity. Ping now runs live, with a line of the last minute and the average, loss and jitter. Trace route and Path ping show each hop as a row with its time and where the delay starts. A DNS lookup asks your own DNS server and, for a name you type, Cloudflare and Google too. New HTTP check and Port check. And a Why is it slow? button checks your router, your DNS server, the internet and a web name and says where it breaks.",
+        "A device's menu now opens the Tools tab on that device. Typing an address that isn't one of your devices still needs the Tools to any address setting, which is off until you switch it on.",
+        "Select moved next to the filters on the Devices tab, Pause alerts is a button in the header that says when alerts are held, and the Tools menu is now called More."
+      ]
+    },
+    {
       "version": "2.11.0",
       "date": "2026-10-07",
       "items": [
