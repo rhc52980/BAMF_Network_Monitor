@@ -6,12 +6,20 @@
 // does it goes no further. Kept per browser: a wall screen wants it, a desk
 // doesn't.
 let saverMins = 0, saverOn = false, saverSince = 0, lastInput = Date.now(), saverTimer = null, saverRaf = 0;
-let saverStyle = "scene", watchtower = null, saverForceWatch = false;
+let saverStyle = "scene", watchtower = null, saverForceWatch = false, saverGen = 0;
 try { saverMins = Number(localStorage.getItem("bamf-saver")) || 0; saverStyle = localStorage.getItem("bamf-saver-style") || "scene"; } catch {}
 // New devices waiting for someone to deal with them on the watchtower, oldest
 // first. Kept in this browser, so a reload of the wall screen doesn't lose them.
 let watchAlerts = [];
 try { watchAlerts = (JSON.parse(localStorage.getItem("bamf-watch-alerts") || "[]") || []).filter(a => a && a.id != null); } catch {}
+// The new device whose alert is held, oldest first: ones marked known, ignored or gone no longer count.
+function waitingAlert() {
+  const before = watchAlerts.length;
+  watchAlerts = watchAlerts.filter(a => { const h = hosts.find(x => x.id === a.id); return h && !h.ignored && !h.forgotten && (a.test || !h.known); });
+  if (watchAlerts.length !== before) saveWatchAlerts();
+  const a = watchAlerts[0];
+  return a ? { a, h: hosts.find(x => x.id === a.id) } : null;
+}
 function saveWatchAlerts() { try { localStorage.setItem("bamf-watch-alerts", JSON.stringify(watchAlerts.filter(a => !a.test))); } catch {} }
 function watchAlert(h, test) {
   if (!h) return;
@@ -63,7 +71,7 @@ function saverCard() {
     // The watchtower keeps it in the corner, drifting a little, in its own words.
     const alert = watchtower.busy();
     $("saver").classList.toggle("alert", alert);
-    $("svBrand").textContent = alert ? "BAMF \u00b7 ALERT" : "BAMF \u00b7 ON WATCH";
+    $("svBrand").textContent = alert ? "BAMF \u00b7 ALERT" : "BAMF \u00b7 " + (watchtower.label || "ON WATCH");
     card.style.transform = `translate(${Math.round(W - 10 + Math.sin(t / 53000) * 14)}px, ${Math.round(H - 10 + Math.sin(t / 71000) * 10)}px)`;
     return;
   }
@@ -118,11 +126,19 @@ function startSaver() {
   s.hidden = false;
   // The watchtower if that's the style; else scenery if the theme has any,
   // otherwise the points of light.
-  const watch = saverForceWatch || saverStyle.startsWith("watch");
-  s.classList.toggle("watch", watch);
-  document.body.classList.toggle("saver-watch", watch);
+  // The grid is the 3D one: its own module, fetched now, which falls back to the scenery or the points of light where WebGL isn't there.
+  const grid = saverStyle.startsWith("grid");
+  const watch = !grid && (saverForceWatch || saverStyle.startsWith("watch"));
+  s.classList.toggle("watch", watch || grid);
+  s.classList.toggle("grid", grid);
+  s.classList.toggle("terminal", saverStyle === "grid-terminal");
+  document.body.classList.toggle("saver-watch", watch || grid);
   $("saverWatch").hidden = !watch;
-  if (watch) {
+  $("saverGrid").hidden = !grid;
+  if (grid) {
+    $("saverDots").hidden = true;
+    startGridSaver();
+  } else if (watch) {
     $("saverDots").hidden = true;
     watchtower = buildWatchtower($("saverWatch"), saverStyle === "watch-siren", placeSaverActions);
   } else {
@@ -135,8 +151,49 @@ function startSaver() {
   saverCard();
   saverTimer = setInterval(saverCard, 1200);
 }
+// The grid, in 3D: the library and models come the first time, and where the browser can't draw 3D the saver is the scenery or the points of light.
+async function startGridSaver() {
+  const gen = ++saverGen;
+  try {
+    const mod = await import("/saver3d/grid.mjs");
+    if (gen !== saverGen || !saverOn) return;
+    const g = await mod.createGridSaver($("saverGrid"), {
+      skin: saverStyle === "grid-terminal" ? "terminal" : "neon", calm: calmMotion(), siren: saverStyle === "grid-siren" ? saverSiren : null,
+      hosts: sceneHosts, kindOf: deviceKind, nameOf: dispName, gatewayIp: subnet => (networkPlaces[subnet] || {}).gateway || null,
+      rateOf: h => { const top = (trafficCache && trafficCache.top) || [], i = top.findIndex(x => x.hostId === h.id); return i < 0 ? 2 : Math.max(3, 9 - i); },
+      unusual: async () => { const r = await fetch("/api/unusual"); return r.ok ? (await r.json()).items || [] : []; },
+      waiting: () => { const w = waitingAlert(); return w ? { h: w.h, test: !!w.a.test, count: watchAlerts.length } : null; },
+      describe: gridDescribe, onBox: placeSaverActions,
+    });
+    if (gen !== saverGen || !saverOn) { g.stop(); return; }
+    watchtower = g;
+    saverCard();
+  } catch (err) {
+    console.warn("The grid saver couldn't start:", err);
+    if (gen !== saverGen || !saverOn) return;
+    // Nothing 3D: the theme's scenery, or the points of light.
+    $("saverGrid").hidden = true; $("saver").classList.remove("grid", "watch"); document.body.classList.remove("saver-watch");
+    const scene = !!(document.getElementById("themeBg") || document.querySelector("#festive > *"));
+    $("saverDots").hidden = scene;
+    if (!scene) saverDots();
+  }
+}
+// What the grid's callout says about a device, the same as the watchtower's.
+function gridDescribe(h) {
+  const name = nameOrIp(h);
+  const guess = h.typeName || guessFamily(h.osGuess), maker = (h.vendor || "").split(/[ ,.]/)[0].toLowerCase();
+  const what = [h.vendor, guess && !(maker && guess.toLowerCase().includes(maker)) ? guess : null].filter(Boolean);
+  const seen = h.firstSeen ? new Date(h.firstSeen).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+  return {
+    name,
+    line1: (name !== h.ip ? h.ip + "  \u00b7  " : "") + (what.length ? (what.length > 1 ? `${what[0]}, looks like ${what[1].toLowerCase()}` : what[0]) : "no vendor known"),
+    line2: `${h.mac}${seen ? "  \u00b7  first seen " + seen : ""}`,
+    line3: `${h.subnet}  \u00b7  ${h.known ? "known" : "not on the known list"}`,
+  };
+}
 function stopSaver() {
   if (!saverOn) return;
+  saverGen++;
   saverOn = false; lastInput = Date.now();
   clearInterval(saverTimer); cancelAnimationFrame(saverRaf); saverRaf = 0;
   watchtower?.stop(); watchtower = null; saverForceWatch = false;
@@ -147,7 +204,7 @@ function stopSaver() {
   $("saver").classList.remove("alert", "pointer");
   // The overlay stays a moment to catch the rest of the click that woke it.
   const s = $("saver"); s.classList.add("waking");
-  setTimeout(() => { if (!saverOn) { s.hidden = true; s.classList.remove("watch"); $("saverWatch").hidden = true; document.body.classList.remove("saver-anim"); } }, 900);
+  setTimeout(() => { if (!saverOn) { s.hidden = true; s.classList.remove("watch", "grid", "terminal"); $("saverWatch").hidden = true; $("saverGrid").hidden = true; document.body.classList.remove("saver-anim"); } }, 900);
 }
 function noteInput(e) {
   lastInput = Date.now();
@@ -183,7 +240,9 @@ $("setSaver").onchange = () => {
 $("setSaverStyle").onchange = () => {
   saverStyle = $("setSaverStyle").value;
   try { localStorage.setItem("bamf-saver-style", saverStyle); } catch {}
-  toast(saverStyle === "scene" ? "The screen saver shows the theme's scenery" : "The screen saver is the watchtower" + (saverStyle === "watch-siren" ? ", with the siren" : ""));
+  toast(saverStyle === "scene" ? "The screen saver shows the theme's scenery"
+    : saverStyle.startsWith("grid") ? "The screen saver is the grid" + (saverStyle === "grid-terminal" ? ", in terminal green" : saverStyle === "grid-siren" ? ", with the siren" : "")
+    : "The screen saver is the watchtower" + (saverStyle === "watch-siren" ? ", with the siren" : ""));
 };
 $("setSaverTry").onclick = () => { $("setSaverTry").blur(); setTimeout(startSaver, 250); };
 // A look at what a new device does to the watchtower, on one of your own
@@ -194,7 +253,7 @@ $("setSaverAlert").onclick = () => {
   const h = list.find(x => x.online && !x.known) || list.find(x => x.online) || list[0];
   if (!h) { toast("There's no device to show it on yet"); return; }
   watchAlert(h, true);
-  saverForceWatch = true;
+  saverForceWatch = !saverStyle.startsWith("grid");
   setTimeout(startSaver, 250);
 };
 saverStatus();

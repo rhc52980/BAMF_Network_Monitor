@@ -122,6 +122,7 @@
 <div class="saver" id="saver" hidden aria-hidden="true">
   <canvas class="saver-dots" id="saverDots"></canvas>
   <canvas class="saver-dots" id="saverWatch" hidden></canvas>
+  <div class="saver-grid" id="saverGrid" hidden></div>
   <div class="saver-actions" id="saverActions" hidden>
     <span class="sv-queue" id="svQueue"></span>
     <button type="button" class="sv-btn" id="svKnown">Mark known</button>
@@ -1009,10 +1010,10 @@
         <div class="set-row">
           <span class="set-label">Screen saver
             <span class="set-hint">After this long with no mouse or keyboard, this screen fades the dashboard away and leaves the theme's scenery, still answering scans and devices, with a card that drifts slowly and says how many devices are online, and which watched ones are down. A theme without scenery gets your devices as slowly drifting points of light instead. Move the mouse or press a key to come back; the click that wakes it doesn't press anything. It waits while a dialog is open or you're typing, and stops in a background tab.</span>
-            <span class="set-hint"><b>The watchtower</b> is a saver of its own, whatever the theme: a watchman in a fedora keeps watch over your network from a tower by moonlight, his searchlight sweeping the yard where every device stands. A new device sets off the beacons, turns the night red and brings the light round to lock onto it with its details, like a jailbreak, and it stays that way until you <b>Mark known</b> or <b>Dismiss</b> it: moving the mouse brings up the pointer for those rather than waking the page. A watched device dropping is LOST CONTACT. The siren is only if you pick it. <b>Show me an alert</b> starts the watchtower with a test alert on one of your devices.</span>
+            <span class="set-hint"><b>The watchtower</b> is a saver of its own, whatever the theme: a watchman in a fedora keeps watch over your network from a tower by moonlight, his searchlight sweeping the yard where every device stands. A new device sets off the beacons, turns the night red and brings the light round to lock onto it with its details, like a jailbreak, and it stays that way until you <b>Mark known</b> or <b>Dismiss</b> it: moving the mouse brings up the pointer for those rather than waking the page. A watched device dropping is LOST CONTACT. The siren is only if you pick it. <b>The grid</b> is the same watch kept in 3D: your network as glowing platforms at night, every device a hologram of what it is, the camera drifting over them and now and then sweeping low among them. A scan is a ring of light rolling across each platform; a new device turns the night red, the camera swings round to it and circles it while a reticle locks on, with the same <b>Mark known</b> and <b>Dismiss</b>. It needs a browser that can draw 3D and falls back to the theme's scenery where it can't. <b>Show me an alert</b> starts the watchtower or the grid with a test alert on one of your devices.</span>
             <span class="set-hint" id="setSaverStatus"></span>
           </span>
-          <span class="set-field speed-fields"><select class="modal-input" id="setSaver" aria-label="Screen saver"><option value="0">Off</option><option value="5">After 5 minutes</option><option value="10">After 10 minutes</option><option value="30">After 30 minutes</option><option value="60">After an hour</option></select><select class="modal-input" id="setSaverStyle" aria-label="Screen saver style"><option value="scene">The theme's scenery</option><option value="watch">The watchtower</option><option value="watch-siren">The watchtower, with the siren</option></select><button type="button" class="export-btn" id="setSaverTry">Try it now</button><button type="button" class="export-btn" id="setSaverAlert" title="The watchtower, with a test alert on one of your devices">Show me an alert</button></span>
+          <span class="set-field speed-fields"><select class="modal-input" id="setSaver" aria-label="Screen saver"><option value="0">Off</option><option value="5">After 5 minutes</option><option value="10">After 10 minutes</option><option value="30">After 30 minutes</option><option value="60">After an hour</option></select><select class="modal-input" id="setSaverStyle" aria-label="Screen saver style"><option value="scene">The theme's scenery</option><option value="watch">The watchtower</option><option value="watch-siren">The watchtower, with the siren</option><option value="grid">The grid (3D)</option><option value="grid-terminal">The grid, terminal green (3D)</option><option value="grid-siren">The grid, with the siren (3D)</option></select><button type="button" class="export-btn" id="setSaverTry">Try it now</button><button type="button" class="export-btn" id="setSaverAlert" title="The watchtower, with a test alert on one of your devices">Show me an alert</button></span>
         </div>
         <label class="set-row">
           <span class="set-label">Keyboard
@@ -1870,6 +1871,8 @@
   <button class="toggle" id="blinkBarStop">Stop</button>
 </div>
 
+<!-- The grid saver's 3D library and models are saved here, not fetched from the internet, and only loaded when that saver starts. -->
+<script type="importmap">{"imports":{"three":"/saver3d/three/three.module.min.js","three/addons/":"/saver3d/three/addons/"}}</script>
 <script src="js/core.js"></script>
 <script src="js/floorplan.js"></script>
 <script src="js/devices.js"></script>

@@ -4,6 +4,7 @@
 //   node .github/scripts/check-web.mjs
 //
 // Exits non-zero, listing every problem, if anything is wrong.
+import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import vm from "node:vm";
@@ -26,6 +27,16 @@ const web = "BAMF/wwwroot";
 for (const page of readdirSync(web).filter(f => f.endsWith(".html"))) {
   const html = readFileSync(join(web, page), "utf8");
   for (const m of html.matchAll(/<script(\s[^>]*)?>([\s\S]*?)<\/script>/g)) {
+    if (/type=["']?importmap/.test(m[1] || "")) {
+      // The grid saver's map of where its 3D library is: valid JSON, pointing at files that are there.
+      try {
+        for (const target of Object.values(JSON.parse(m[2]).imports)) {
+          const rel = target.replace(/^\//, "");
+          if (!existsSync(join(web, rel))) fail(page, `the import map points at ${target}, which isn't there`);
+        }
+      } catch (e) { fail(page, "the import map isn't valid JSON: " + e.message); }
+      continue;
+    }
     if (/\bsrc=/.test(m[1] || "") || /type=["']?(application\/json|module)/.test(m[1] || "")) continue;
     const start = html.slice(0, m.index + m[0].indexOf(">") + 1).split("\n").length - 1;
     syntax(page, m[2], start);
@@ -127,4 +138,17 @@ if (problems.length) {
   console.error(`\n${problems.length} problem${problems.length === 1 ? "" : "s"}.`);
   process.exit(1);
 }
+// The grid saver's own modules, each parsed as a module without being run, and every model its data module names.
+const saver3d = join(web, "saver3d");
+if (existsSync(saver3d)) {
+  for (const f of readdirSync(saver3d).filter(f => f.endsWith(".mjs"))) {
+    try { execFileSync(process.execPath, ["--check", join(saver3d, f)], { stdio: "pipe" }); }
+    catch (e) { fail(join(saver3d, f), String(e.stderr || e.message).split("\n").slice(0, 4).join(" ")); }
+  }
+  const names = [...readFileSync(join(saver3d, "data.mjs"), "utf8").matchAll(/^export const MODELS = \{([\s\S]*?)\};/gm)]
+    .flatMap(m => [...m[1].matchAll(/(\w+):\s*[\d.]+/g)].map(x => x[1]));
+  if (names.length < 10) fail("saver3d/data.mjs", "couldn't read the model list");
+  for (const k of names) if (!existsSync(join(saver3d, "models", k + ".glb"))) fail("saver3d/models", `${k}.glb is missing`);
+}
+
 console.log(`OK: the dashboard's scripts, What's New and ${count} themes.`);
