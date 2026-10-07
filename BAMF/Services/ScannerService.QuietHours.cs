@@ -122,6 +122,7 @@ public partial class ScannerService
         "unusual" => ("\U0001F50E ", 0x9A7CE8, "BAMF unusual activity", "mag", 3),
         "status" => ("\U0001F534 ", 0xF2716F, "BAMF watch alert", "red_circle", 4),
         "status-up" => ("✅ ", 0x3FDB7F, "BAMF watch alert", "green_circle", 3),
+        "devices" => ("\U0001F4CB ", 0x5B9BD5, "BAMF device report", "clipboard", 3),
         _ => ("⏰ ", 0xB58AF0, "BAMF alert rule", "alarm_clock", 4),
     };
 
@@ -131,6 +132,7 @@ public partial class ScannerService
         "rule" or "status" or "status-up" => "status",
         "internet" => "internet",
         "unusual" => "unusual",
+        "devices" => "devices",
         _ => "security",   // security, port, cert
     };
 

@@ -593,6 +593,31 @@
           <span class="set-field"><button type="button" class="arp-toggle" id="setDnsWatch" aria-label="DNS watch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
       </div>
+      <div class="set-card">
+        <div class="set-card-title">What devices do</div>
+        <p class="set-hint" style="margin:0 0 8px">
+          From the packets the traffic monitor hears (Scanning &rarr; Traffic monitor). On a switched network that is BAMF's own traffic plus
+          what every device broadcasts; on a mirrored port, everything. The Where devices talk card on Activity says what is being heard.
+        </p>
+        <label class="set-row">
+          <span class="set-label">Where devices talk, and scans
+            <span class="set-hint">Counts which outside networks each device talks to. After a week, a device with a small, fixed set of servers (a camera, a plug, a thermostat) raises an alert the first time it talks to somewhere new. A device that reaches dozens of local addresses, or dozens of ports on one, inside a minute is reported as scanning the network.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setFlowWatch" aria-label="Where devices talk, and scans" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Bandwidth spikes
+            <span class="set-hint">A device that moved five times its usual day, and at least half a gigabyte, in the last 24 hours gets one alert a day: a backup gone wrong, a camera uploading constantly, or something leaving. Needs three days of traffic history first.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setSpikeAlert" aria-label="Bandwidth spikes" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">A new device's first week
+            <span class="set-hint">Seven days after a device first appears, one alert of the New devices kind sums up what it did: how much it was online, what ports it opened, where it talked and how much it moved. Whether the thing you let on the Wi-Fi is behaving.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setFirstWeek" aria-label="A new device's first week" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+      </div>
     </section>
     <section class="set-sec" data-sec="alerts" aria-label="Alerts">
       <h2 class="set-sec-title">Alerts</h2>
@@ -1250,6 +1275,11 @@
       <h3>Only on IPv6</h3>
       <div class="sub">Devices seen over IPv6 this week that never answered BAMF's IPv4 scan: often a sleeping speaker or a phone with a private address.</div>
       <div id="v6Body"></div>
+    </div>
+    <div class="act-card" id="flowsCard">
+      <h3>Where devices talk</h3>
+      <div class="sub" id="flowsSub"></div>
+      <div id="flowsBody"></div>
     </div>
   </div>
   <div class="feed" id="feed"></div>

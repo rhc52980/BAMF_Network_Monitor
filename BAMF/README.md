@@ -1822,6 +1822,10 @@ scan, or delete a thing.
 | GET | `/api/unusual` | What unusual activity has been noticed: open now, and anything from the last day, each `{"id", "hostId", "kind", "at", "title", "detail", "resolvedAt", "open", "normal"}`; `kind` is `offline`, `hour` or `slow`. With `enabled`, and how many devices are `watching` and `learning` |
 | POST | `/api/unusual/{id}/normal` | "That's normal": that kind of finding isn't raised for that device for 30 days, and this one is closed |
 | POST | `/api/settings/unusual` | Body `{"enabled": false}` — switch unusual activity off, or back on |
+| GET | `/api/flows` | Where devices talk on the internet: per device `{"mac", "hostId", "name", "ip", "networks", "newThisWeek", "bytes", "firstSeen", "learning", "watched", "top": [{"net", "sample", "bytes", "lastSeen"}]}`, biggest first; with `enabled`, `spikeAlert`, `firstWeekReport`, whether the traffic monitor is `listening`, `learnDays` and `maxKnownForAlert` |
+| POST | `/api/settings/flow-watch` | Body `{"enabled": false}` — stop watching where devices talk and noticing scans, or start again |
+| POST | `/api/settings/spike-alert` | Body `{"enabled": false}` — switch the bandwidth spike alert off, or back on |
+| POST | `/api/settings/first-week-report` | Body `{"enabled": false}` — switch a new device's first-week report off, or back on |
 | GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
 | GET | `/api/settings/rules` | The alert rules, quiet hours and port watch: `{"rules": [...], "quiet": {"from", "to", "digest", "now", "held"}, "portWatch"}` |
 | POST | `/api/settings/rules` | Body: the whole rule list, each `{"id", "name", "kind": "offline"\|"online"\|"hours", "target": "any"\|"watched"\|"tag:kids"\|"host:12", "minutes", "from", "to", "enabled"}`. `id` empty for a new rule |
@@ -1902,6 +1906,7 @@ scan, or delete a thing.
 | POST | `/api/views` | Body: one view as above. Saves it, replacing the one with the same name (any case); up to 20. Answers the list |
 | POST | `/api/views/delete` | Body `{"name": "Kids offline"}` — removes a view; 404 if there isn't one |
 | GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow", "quality", "qualityAlert", "qualityProblems", "externalIp"}` — `quality` is the last hour as `{"samples", "lossPercent", "jitterMs", "dnsMs", "dnsMeasured", "dnsFailed"}` and `qualityProblems` the ones being reported now (`loss`, `jitter`, `dns`); each sample carries `dns` ms (-1 failed, -2 not measured); `externalIp` is the home's public address, `{ip, source, at, since, previous, changedAt}` (`source` is `speedtest`, `greynoise` or `lookup`), or null until one of them has learned it; the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
+| GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow", "externalIp"}` — `externalIp` is the home's public address, `{ip, source, at, since, previous, changedAt}` (`source` is `speedtest`, `greynoise` or `lookup`), or null until one of them has learned it; the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
 | GET | `/report/internet` | The internet report as one printable HTML page for sending to the provider. `?days=` 1 to 365 (default 30). See [Report for your provider](#report-for-your-provider) |
 | POST | `/api/settings/wanwatch` | Body `{"enabled": true}` — switch the internet watch on or off |
 | POST | `/api/settings/wantarget` | Body `{"target": "8.8.8.8"}` — which address it pings |
@@ -3212,6 +3217,53 @@ Before it shipped, it was replayed over two weeks of a real home network's
 history, 40-odd devices: it would have spoken up three times, each a device on
 at an hour it never is. It's on by default; **Settings → Alerts → Unusual
 activity** switches it off.
+
+### What devices do: where they talk, scans, spikes and a first week
+
+From the packets the [traffic monitor](#traffic-dhcp-and-dns) hears, BAMF watches
+what the devices are doing, not just whether they're there. Four things come
+of it, each with its own switch under **Settings → Security → What devices
+do**, all on by default:
+
+- **Where devices talk.** Every packet from a device here to an address on the
+  internet is counted against that device and the outside network (a /24) it
+  went to. The **Where devices talk** card on Activity lists each device heard,
+  how many outside networks it has talked to, how many of those are new this
+  week, and its three biggest. After a device has been watched for **seven
+  days**, one whose habits are small (**25 or fewer** outside networks, the
+  way a camera, a plug or a thermostat behaves) raises a **security** alert the
+  first time it talks to somewhere new, with the address and its name when it
+  has one: "garage-cam has talked to 4 outside networks in 12 days of
+  watching, and today reached 185.220.101.4". Once a day per device at most. A
+  laptop or a phone talks to hundreds of places and is never called out for
+  one more. Where devices talk survives a restart: it's kept in the database
+  and pruned with the rest of the history.
+- **Scans.** A device that reaches **40 or more** different local addresses,
+  or **40 or more** ports on one of them, inside a minute is reported as
+  scanning: malware looking for a way to spread, or a guest being nosy. One
+  **security** alert, once an hour per device. BAMF's own scans and the
+  router's don't count, and neither does a device that's ignored or snoozed.
+- **Bandwidth spikes.** Once an hour, each device's last 24 hours is set
+  against its previous days from the traffic history. **Five times** the median
+  of at least **three** prior days, and at least **500 MB**, is a spike: one
+  **security** alert a day, with the usual day for comparison. A backup or an
+  update does this once; a camera that has started uploading constantly, or
+  something sending your data out, does it every day. Needs the traffic monitor
+  to have been counting for three days first.
+- **A new device's first week.** Seven days after a device first appeared, one
+  alert of the **New devices** kind sums it up: "doorbell-cam, a Ring device,
+  has been here a week. It was online 99% of the time, has open ports 80, 443,
+  and talked to 3 outside networks, moving 1.2 GB." A device still marked
+  unknown is told so. Once per device; a device already older than eight days
+  when this arrived isn't written up.
+
+What's heard depends on where BAMF's machine sits. On a switched network it
+hears its own traffic plus whatever devices broadcast, so the cameras and
+plugs that chatter to their clouds show up, and a scan of the network (which
+is mostly broadcast ARP and probes aimed everywhere) shows up well. On a
+mirrored switch port it hears everything. The card says which. The packet path
+keeps no locks for long and never touches the database; what was counted is
+written every five minutes.
 
 ## Backups
 

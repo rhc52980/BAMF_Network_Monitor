@@ -179,6 +179,13 @@ function renderCertWatchToggle() {
   setToggleState(t, certWatch);
   t.title = certWatch ? "Certificates are checked every morning - click to stop" : "Click to check HTTPS certificates every morning";
 }
+function renderFlowToggles() {
+  for (const [id, on, yes, no] of [
+    ["setFlowWatch", flowWatch, "Where devices talk is watched, and scans are noticed - click to stop", "Click to watch where devices talk and notice scans"],
+    ["setSpikeAlert", spikeAlert, "A device that moves far more than usual in a day is reported - click to stop", "Click to be told when a device moves far more than usual"],
+    ["setFirstWeek", firstWeekReport, "Each new device gets a first-week report - click to stop", "Click to get a report on each new device after its first week"],
+  ]) { const t = $(id); if (t) { setToggleState(t, on); t.title = on ? yes : no; } }
+}
 for (const [id, url, get, set, on, off] of [
   ["setArpWatch", "/api/settings/arp-watch", () => arpWatch, v => { arpWatch = v; renderArpWatchToggle(); },
     "The ARP watch is on", "The ARP watch is off"],
@@ -186,6 +193,12 @@ for (const [id, url, get, set, on, off] of [
     "Certificates will be checked every morning at 4:30", "The certificate watch is off"],
   ["setIpv6Watch", "/api/settings/ipv6-watch", () => ipv6Watch, v => { ipv6Watch = v; renderIpv6WatchToggle(); },
     "IPv6 addresses will be watched", "The IPv6 watch is off"],
+  ["setFlowWatch", "/api/settings/flow-watch", () => flowWatch, v => { flowWatch = v; renderFlowToggles(); if (typeof loadFlows === "function") loadFlows(); },
+    "Where devices talk is watched, and scans are noticed", "Where devices talk, and scans, are no longer watched"],
+  ["setSpikeAlert", "/api/settings/spike-alert", () => spikeAlert, v => { spikeAlert = v; renderFlowToggles(); },
+    "A device that moves far more than usual in a day will be reported", "The bandwidth spike alert is off"],
+  ["setFirstWeek", "/api/settings/first-week-report", () => firstWeekReport, v => { firstWeekReport = v; renderFlowToggles(); },
+    "Each new device will get a first-week report", "The first-week report is off"],
 ]) {
   $(id).onclick = async () => {
     const next = !get();
@@ -1487,10 +1500,14 @@ async function loadSettings() {
   if (typeof e.wanQuality === "boolean") wanQualityAlert = e.wanQuality;
   if (typeof e.latencyAlert === "boolean") latencyAlert = e.latencyAlert;
   if (typeof e.latencyAlertMs === "number") latencyAlertMs = e.latencyAlertMs;
+  if (typeof e.flowWatch === "boolean") flowWatch = e.flowWatch;
+  if (typeof e.spikeAlert === "boolean") spikeAlert = e.spikeAlert;
+  if (typeof e.firstWeekReport === "boolean") firstWeekReport = e.firstWeekReport;
   renderArpWatchToggle();
   renderCertWatchToggle();
   renderIpv6WatchToggle();
   renderLatencyAlert();
+  renderFlowToggles();
   loadSecurity().then(renderDnsWatch);
   loadGreyNoise().then(renderGreyNoiseToggle);
   loadWan(true).then(renderWanToggle);
