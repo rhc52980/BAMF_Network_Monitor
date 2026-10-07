@@ -2,6 +2,16 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.11.0",
+      "date": "2026-10-07",
+      "items": [
+        "Alerts can now go to Slack, Telegram or an email address. Paste a Slack or Telegram webhook URL and BAMF recognises it, and under Settings, Alerts, More destinations there is a new Email option: a mail server, your login if it asks, and who to send to. Email takes the same choice of what it gets, waits out quiet hours and is retried when the mail server is down. Its password is kept on this machine and never shown again.",
+        "BAMF can tell you when your public IP address changes, which is usually the modem restarting and breaks anything that reaches your network by its address. It is off until you switch it on under Settings, Internet, because it asks Cloudflare every 15 minutes.",
+        "BAMF can also tell you when it is signed into from an address that never has been. Off until you switch it on under Settings, Security, Sign-in.",
+        "The network score now counts a DNS server that gives wrong answers and an internet connection with quality problems."
+      ]
+    },
+    {
       "version": "2.10.0",
       "date": "2026-10-07",
       "items": [
