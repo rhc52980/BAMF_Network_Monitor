@@ -213,6 +213,22 @@ which ports answer. Everything runs from the machine BAMF is on.
 **Why is it slow?** needs no target. It checks your router, your DNS server,
 the internet and a web name in turn and says in a sentence where it breaks.
 
+### See it in 3D
+
+The **3D** tab draws the same network as a place you can look around: one glowing platform per network, your gateway at the middle of each, and every
+device standing on it as a model of what it is, forty-six in all, from routers, switches, NASes and Raspberry Pis to streaming boxes, soundbars,
+doorbells, thermostats, robot vacuums, fridges, game consoles, VR headsets and cars. BAMF picks one from what the device says about itself (its name,
+vendor and type), not just its icon on the Map, so a Roku is a streamer and a Nest Hub is a display. Green ones are online, amber haven't been
+approved yet, grey are off, and a device doing something unusual gets a purple beacon you can see from across the room. Lines carry little pulses of
+traffic, busier for the devices using the most. Drag to turn it, scroll to zoom, arrow keys to move, and click a device for its details, with a
+**History** button that takes you to its row on the Devices tab. **Stacked** puts the networks on top of each other as floors, and **Full screen**
+gives it the whole display.
+
+It costs nothing until you use it: the 3D library and models are only fetched the first time you open the tab, and they come from BAMF itself, so it
+works offline. It stops drawing when you leave the tab, turns off the slow spin and the pulses if your system asks for reduced motion, drops to a
+lighter look above 150 devices, and says so in plain words if your browser has no WebGL (the Map and Devices tabs show the same network without it).
+The same scene, with the camera on its own, is [the grid screen saver](#the-grid-for-the-wall).
+
 
 ### Tune it without touching the server
 
@@ -316,6 +332,8 @@ what the evidence suggests and names the evidence, so you can judge it.
 The Halloween theme's headings are set in [Creepster](https://fonts.google.com/specimen/Creepster)
 by Font Diner, used unmodified under the
 [SIL Open Font License 1.1](https://openfontlicense.org).
+
+The 3D tab and the grid screen saver are drawn with [three.js](https://threejs.org) (MIT). Their 46 device models were all made for BAMF.
 
 ## Licence
 
