@@ -153,6 +153,26 @@ function renderUnusual(d) {
     body.appendChild(row);
   }
 }
+// The network score: one number, the word for it, why it isn't 100, and which way it's going.
+let scoreCache = null;
+async function loadScore() {
+  try { const r = await fetch("/api/score"); if (r.ok) { scoreCache = await r.json(); renderScore(); } } catch { /* keep the last */ }
+}
+function renderScore() {
+  const d = scoreCache;
+  if (!d || !$("scoreBody")) return;
+  if (!d.enabled) { $("scoreSub").textContent = "Off. Settings → Alerts switches it on."; $("scoreBody").innerHTML = ""; return; }
+  const hist = d.history || [];
+  const today = new Date().toISOString().slice(0, 10);
+  const earlier = hist.filter(h => h.date !== today);
+  const prev = earlier.length ? earlier[earlier.length - 1] : null;
+  const trend = prev ? (d.value > prev.value ? ` · up from ${prev.value}` : d.value < prev.value ? ` · down from ${prev.value}` : " · same as before") : "";
+  $("scoreSub").textContent = `From what BAMF knows now: starts at 100 and loses points for each thing worth fixing${hist.length > 1 ? `, one reading a day kept for ${hist.length} days` : ""}.`;
+  const cls = d.value >= 90 ? "up" : d.value >= 75 ? "" : d.value >= 50 ? "slow" : "down";
+  const reasons = (d.reasons || []).map(r => `<div class="health-row"><span>${esc(r.text)}</span><b>−${r.points}</b></div>`).join("");
+  $("scoreBody").innerHTML = `<div class="wan-state"><span class="wan-dot ${cls}"></span><span class="wan-now score-num">${d.value}</span><span class="wan-ms">${esc(d.word)}${esc(trend)}</span></div>` +
+    (reasons || `<div class="watch-note">Nothing is taking points off.</div>`);
+}
 // Where each device talks on the internet, as the traffic monitor hears it: how many outside networks, how many
 // are new this week, and the biggest three. A device with a small fixed set is "watched": a new one raises an alert.
 let flowsCache = null;

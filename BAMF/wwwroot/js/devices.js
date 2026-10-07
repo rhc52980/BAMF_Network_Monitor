@@ -614,6 +614,7 @@ function render() {
     loadProblems();
     loadHealth();
     loadUnusual();
+    loadScore();
     loadFlows();
     loadSecurity().then(() => { renderHygiene(); renderServices(); });
     loadGreyNoise().then(() => { renderHygiene(); renderServices(); });
