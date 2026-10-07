@@ -264,6 +264,8 @@ internal static class SettingsEndpoints
                     wanQuality = store.GetSetting("wanQuality") != "false",
                     arpWatch = scanner.ArpWatchEnabled,
                     certWatch = store.GetSetting("certWatch") != "false",
+                    addressWatch = store.GetSetting("addressWatch") == "true",
+                    signInAlert = store.GetSetting("signInAlert") == "true",
                     networkScore = store.GetSetting("networkScore") != "false",
                     allQuiet = store.GetSetting("allQuiet") == "true",
                     allQuietHour = int.TryParse(store.GetSetting("allQuietHour"), out var aqh) ? Math.Clamp(aqh, 0, 23) : 8,

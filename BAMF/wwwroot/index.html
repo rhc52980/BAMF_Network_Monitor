@@ -505,6 +505,13 @@
           <span class="set-field"><button type="button" class="arp-toggle" id="setWanQuality" aria-label="Internet quality alerts" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
         <label class="set-row">
+          <span class="set-label">Alert when your public IP address changes
+            <span class="set-hint">Off by default. Every 15 minutes BAMF asks Cloudflare, with one request for a file of no bytes (the one the speed test and the Look it up button use), which address this network appears from, and sends a security alert when it differs from the last one. The modem restarting or your provider moving you is the usual cause, and it breaks anything that reaches this network by its address: a port forward, a VPN, a dynamic DNS name. Cloudflare sees your public address, as any website does. A change the speed test or the GreyNoise check notices is announced too. Switching it on takes today's address as the starting point.</span>
+            <span class="set-hint" id="setAddressWatchStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setAddressWatch" aria-label="Alert when your public IP address changes" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
           <span class="set-label">Test the internet speed
             <span class="set-hint">Off by default. BAMF times a download and an upload against Cloudflare's speed test (speed.cloudflare.com) from the machine it runs on, so it measures the line rather than your Wi-Fi, and keeps the results on the Internet card under Activity. <b>Each test uses about 125 MB</b> (100 MB down, 25 MB up, less on a slow line), so once a day comes to about 4 GB a month; mind that if your plan has a cap. Cloudflare sees your public address, as any website you visit does. A scheduled test well under your usual is an Internet alert. <b>Run now</b> tests straight away, whatever the schedule. The internet watch sits out the minute a test takes, so it doesn't call the line slow.</span>
             <span class="set-hint" id="setSpeedStatus"></span>
@@ -546,6 +553,12 @@
             <button type="button" class="toggle" id="authViewerRemove" hidden>Remove</button>
           </span>
         </div>
+        <label class="set-row">
+          <span class="set-label">Alert on a sign-in from a new address
+            <span class="set-hint">Off by default. When BAMF is signed into with a right password from an address that has never signed in before, a security alert says which. Each phone and laptop of yours is new once, so expect a few at first. (Five wrong passwords in a row already lock an address out and send an alert, whatever this says.)</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setSignInAlert" aria-label="Alert on a sign-in from a new address" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
         <div class="set-actions">
           <button type="button" class="toggle" id="authSignOut" hidden>Sign out</button>
           <span class="set-result" id="authResult"></span>
@@ -663,6 +676,8 @@
             <option value="auto">Auto — Discord embed, or generic JSON</option>
             <option value="ntfy">ntfy</option>
             <option value="gotify">Gotify</option>
+            <option value="slack">Slack</option>
+            <option value="telegram">Telegram</option>
             <option value="json">Generic JSON</option>
           </select>
         </label>
@@ -685,17 +700,41 @@
           <label class="modal-row">Name
             <input id="destName" class="modal-input" maxlength="40" placeholder="e.g. Phone, or Discord #security" autocomplete="off">
           </label>
-          <label class="modal-row">URL
-            <input id="destUrl" class="modal-input" placeholder="https://ntfy.sh/topic or a Discord webhook URL" autocomplete="off" spellcheck="false">
-          </label>
           <label class="modal-row">Format
             <select id="destFormat">
             <option value="auto">Auto — Discord embed, or generic JSON</option>
             <option value="ntfy">ntfy</option>
             <option value="gotify">Gotify</option>
+            <option value="slack">Slack</option>
+            <option value="telegram">Telegram</option>
             <option value="json">Generic JSON</option>
+            <option value="email">Email (SMTP)</option>
             </select>
           </label>
+          <label class="modal-row" id="destUrlRow">URL
+            <input id="destUrl" class="modal-input" placeholder="https://ntfy.sh/topic, a Discord or Slack webhook URL, or https://api.telegram.org/bot&lt;token&gt;/sendMessage?chat_id=&lt;id&gt;" autocomplete="off" spellcheck="false">
+          </label>
+          <div id="destEmail" hidden>
+            <p class="modal-help" style="margin:0 0 6px">Sends each alert as an email through a mail server you give: your provider's, Gmail's (smtp.gmail.com, port 587, an app password) or a relay on your own network. The password is kept on this machine and never shown again; leave every box empty while editing to keep what's saved.</p>
+            <label class="modal-row">Mail server
+              <input id="destSmtpHost" class="modal-input" placeholder="smtp.example.com" autocomplete="off" spellcheck="false">
+            </label>
+            <label class="modal-row">Port
+              <span><input id="destSmtpPort" class="modal-input" type="number" min="1" max="65535" value="587" size="6"> <select id="destSmtpTls"><option value="1">Encrypted (STARTTLS)</option><option value="0">Not encrypted (a relay on your own network)</option></select></span>
+            </label>
+            <label class="modal-row">User name
+              <input id="destSmtpUser" class="modal-input" placeholder="optional" autocomplete="off" spellcheck="false">
+            </label>
+            <label class="modal-row">Password
+              <input id="destSmtpPass" class="modal-input" type="password" placeholder="optional" autocomplete="new-password">
+            </label>
+            <label class="modal-row">From
+              <input id="destMailFrom" class="modal-input" placeholder="bamf@example.com (optional)" autocomplete="off" spellcheck="false">
+            </label>
+            <label class="modal-row">Send to
+              <input id="destMailTo" class="modal-input" placeholder="you@example.com, them@example.com" autocomplete="off" spellcheck="false">
+            </label>
+          </div>
           <div class="dest-kinds"><span class="dest-kinds-lbl">Sends</span><span class="dest-kinds" id="destKinds" style="margin:0"></span></div>
           <div class="modal-actions">
             <button class="toggle" id="destCancel">Cancel</button>

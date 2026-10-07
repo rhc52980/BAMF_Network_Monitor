@@ -95,6 +95,8 @@ builder.Services.AddSingleton<HealthScore>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<HealthScore>());
 builder.Services.AddSingleton<DailyNote>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DailyNote>());
+builder.Services.AddSingleton<PublicAddressWatch>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<PublicAddressWatch>());
 builder.Services.AddSingleton<DnsWatch>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DnsWatch>());
 builder.Services.AddSingleton<FlowWatch>();
@@ -210,6 +212,15 @@ auth.LockedOut = (address, count) =>
     var scanner = app.Services.GetRequiredService<ScannerService>();
     _ = scanner.SendGenericAlert("Wrong passwords",
         $"{count} wrong passwords for BAMF from {address}. That address can't sign in for {(int)AuthService.LockoutTime.TotalMinutes} minutes.",
+        "security", CancellationToken.None);
+};
+// Someone signed in from an address that never has: say so, if asked to.
+auth.NewAddress = address =>
+{
+    if (app.Services.GetRequiredService<HostStore>().GetSetting("signInAlert") != "true") return;
+    var scanner = app.Services.GetRequiredService<ScannerService>();
+    _ = scanner.SendGenericAlert("BAMF was signed into from a new address",
+        $"{address} signed in to BAMF with a right password and has never done so before. If that's your phone or laptop, nothing is wrong; if it isn't one of yours, change the password under Settings, Security.",
         "security", CancellationToken.None);
 };
 // The log of settings changes, on the Activity tab: once a change has gone
@@ -380,5 +391,6 @@ DeviceEndpoints.Map(app, version, buildDate);
 UnusualEndpoints.Map(app);
 ScoreEndpoints.Map(app);
 FlowEndpoints.Map(app);
+MoreAlertsEndpoints.Map(app);
 
 app.Run();

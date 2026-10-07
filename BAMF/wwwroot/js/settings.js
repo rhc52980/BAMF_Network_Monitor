@@ -230,6 +230,43 @@ $("setLatency").onclick = async () => {
 };
 
 // A watched device slow to answer: the switch and the ms it has to reach.
+function renderAddressWatch() {
+  const t = $("setAddressWatch");
+  if (!t) return;
+  setToggleState(t, addressWatch);
+  t.title = addressWatch ? "A changed public address is reported - click to stop" : "Click to be told when your public IP address changes";
+  const x = wanCache && wanCache.externalIp;
+  $("setAddressWatchStatus").textContent = !addressWatch ? "Off." : x ? `Now ${x.ip}${x.previous ? `; changed ${fmtAgo(x.changedAt)}, from ${x.previous}` : `, the same since ${fmtAgo(x.since)}`}.` : "On; the address isn't known yet.";
+}
+$("setAddressWatch").onclick = async () => {
+  const next = !addressWatch;
+  $("setAddressWatchStatus").textContent = next ? "Checking\u2026" : "";
+  try {
+    const r = await fetch("/api/settings/address-watch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const d = await r.json();
+    addressWatch = d.enabled;
+    if (wanCache && d.externalIp) wanCache.externalIp = d.externalIp;
+    renderAddressWatch();
+    toast(addressWatch ? (d.error ? "The address watch is on, but the first look failed: " + d.error : "The address watch is on") : "The address watch is off");
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); renderAddressWatch(); }
+};
+function renderSignInAlert() {
+  const t = $("setSignInAlert");
+  if (!t) return;
+  setToggleState(t, signInAlert);
+  t.title = signInAlert ? "A sign-in from a new address is reported - click to stop" : "Click to be told when BAMF is signed into from an address that never has";
+}
+$("setSignInAlert").onclick = async () => {
+  const next = !signInAlert;
+  try {
+    const r = await fetch("/api/settings/sign-in-alert", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    signInAlert = (await r.json()).enabled;
+    renderSignInAlert();
+    toast(signInAlert ? "A sign-in from a new address will be reported" : "The new sign-in alert is off");
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); renderSignInAlert(); }
+};
 function renderLatencyAlert() {
   const t = $("setLatencyAlert");
   if (!t) return;
@@ -557,13 +594,35 @@ function openDestForm(d) {
   destEditing = d || {};
   $("destName").value = d ? d.name : "";
   $("destUrl").value = "";
-  $("destUrl").placeholder = d ? `Saved: ${d.masked || "(saved)"} - leave empty to keep it` : "https://ntfy.sh/topic or a Discord webhook URL";
+  $("destUrl").placeholder = d ? `Saved: ${d.masked || "(saved)"} - leave empty to keep it` : "https://ntfy.sh/topic, a Discord or Slack webhook URL, or https://api.telegram.org/bot<token>/sendMessage?chat_id=<id>";
   $("destFormat").value = d ? d.format : "auto";
+  for (const id of ["destSmtpHost", "destSmtpUser", "destSmtpPass", "destMailFrom", "destMailTo"]) $(id).value = "";
+  $("destSmtpHost").placeholder = d && d.format === "email" ? `Saved: ${d.masked || "(saved)"} - leave every box empty to keep it` : "smtp.example.com";
+  $("destSmtpPort").value = "587"; $("destSmtpTls").value = "1";
+  syncDestFormat();
   kindBoxes($("destKinds"), d ? d.kinds : ALERT_KINDS.map(k => k[0]));
   $("destForm").hidden = false;
   $("destAdd").hidden = true;
   $("destResult").innerHTML = "";
   $("destName").focus();
+}
+// The email form takes the place of the URL box when the format is Email.
+function syncDestFormat() {
+  const email = $("destFormat").value === "email";
+  $("destUrlRow").style.display = email ? "none" : "";   // a .modal-row is a flex row, which would ignore [hidden]
+  $("destEmail").hidden = !email;
+}
+$("destFormat").onchange = syncDestFormat;
+// An email destination is stored as one smtp:// URL built from the form's boxes; empty boxes while editing keep what's saved.
+function emailDestUrl() {
+  const host = $("destSmtpHost").value.trim();
+  const to = $("destMailTo").value.split(/[,; ]+/).map(x => x.trim()).filter(Boolean);
+  if (!host && !to.length) return { url: "" };
+  if (!host || !to.length) return { error: "Give the mail server and at least one address to send to." };
+  const port = Math.round(Number($("destSmtpPort").value)) || 587;
+  const user = $("destSmtpUser").value.trim(), pass = $("destSmtpPass").value, from = $("destMailFrom").value.trim();
+  const info = user ? encodeURIComponent(user) + (pass ? ":" + encodeURIComponent(pass) : "") + "@" : "";
+  return { url: `smtp://${info}${host}:${port}/?to=${encodeURIComponent(to.join(","))}${from ? "&from=" + encodeURIComponent(from) : ""}&tls=${$("destSmtpTls").value}` };
 }
 function closeDestForm() { destEditing = null; $("destForm").hidden = true; $("destAdd").hidden = false; }
 async function saveDestinations(list) {
@@ -590,7 +649,13 @@ $("destCancel").onclick = closeDestForm;
 $("destSave").onclick = async () => {
   const d = destEditing || {};
   const entry = { id: d.id || "", name: $("destName").value.trim(), url: $("destUrl").value.trim(), format: $("destFormat").value, kinds: checkedKinds($("destKinds")) };
-  if (!d.id && !entry.url) { destSay("Paste the URL alerts should go to.", true); return; }
+  if (entry.format === "email") {
+    const m = emailDestUrl();
+    if (m.error) { destSay(m.error, true); return; }
+    entry.url = m.url;
+    if (!d.id && !entry.url) { destSay("Give the mail server and at least one address to send to.", true); return; }
+  }
+  else if (!d.id && !entry.url) { destSay("Paste the URL alerts should go to.", true); return; }
   const before = new Set(destData().map(x => x.id));
   const others = destData().filter(x => x.id !== d.id).map(x => ({ id: x.id, name: x.name, format: x.format, kinds: x.kinds }));
   const list = d.id ? destData().map(x => x.id === d.id ? entry : { id: x.id, name: x.name, format: x.format, kinds: x.kinds }) : [...others, entry];
@@ -1571,7 +1636,12 @@ async function loadSettings() {
   renderCertWatchToggle();
   renderIpv6WatchToggle();
   renderLatencyAlert();
+  if (typeof e.addressWatch === "boolean") addressWatch = e.addressWatch;
+  if (typeof e.signInAlert === "boolean") signInAlert = e.signInAlert;
   renderFlowToggles();
+  renderLatencyAlert();
+  renderSignInAlert();
+  loadWan(true).then(renderAddressWatch);
   loadSecurity().then(renderDnsWatch);
   loadGreyNoise().then(renderGreyNoiseToggle);
   loadWan(true).then(renderWanToggle);
