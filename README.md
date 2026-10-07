@@ -170,9 +170,11 @@ rather than your Wi-Fi. Press **Run now**, or have it test every morning or
 every six hours and chart the last month; a test well under your usual is an
 alert. Each test is capped at about 125 MB, and it's off until you ask for it.
 
-![Two cards from the Activity tab. Unusual: watching 18 devices for what isn't normal for them, one still learning, and workshop-pi has been off for 9 hours 14 minutes; it's almost always on, and in the last 28 days it was never off for more than 4 minutes, with a That's normal button beside it. Beside it, What changed, for this week: one device arrived, sonos-kitchen, two days ago, and three left nine hours ago, an unnamed device, garage-cam and workshop-pi](docs/activity.png)
+![Three cards from the Activity tab. Network score: 59, needs attention, with the reasons listed and the points each takes off, such as four unknown devices online, two internet outages this week and a watched device down. Unusual: watching 18 devices for what isn't normal for them, one still learning, and workshop-pi has been off for 9 hours 14 minutes; it's almost always on, and in the last 28 days it was never off for more than 4 minutes, with a That's normal button beside it. What changed, for this week: one device arrived, sonos-kitchen, two days ago, and three left nine hours ago, an unnamed device, garage-cam and workshop-pi](docs/activity.png)
 
-The rest of **Activity** keeps count. **Unusual** says when a device does
+The rest of **Activity** keeps count. The **Network score** is one number for
+the network, 0 to 100, with the reasons it isn't 100 listed under it, biggest
+first. **Unusual** says when a device does
 something that isn't normal for it, learned from its own history: off far
 longer than it ever is, on at an hour it never is, or much slower than usual.
 **What changed** lists the devices that arrived and the ones that left, today,
