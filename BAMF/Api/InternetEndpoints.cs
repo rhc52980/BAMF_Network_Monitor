@@ -20,7 +20,7 @@ internal static class InternetEndpoints
             return Results.Json(new
             {
                 state = wan.Now(),
-                samples = store.GetWanSamples(24).Select(s => new { at = s.At, gateway = s.Gateway, internet = s.Internet }),
+                samples = store.GetWanSamples(24).Select(s => new { at = s.At, gateway = s.Gateway, internet = s.Internet, dns = s.Dns }),
                 outages = logged,
                 slow = SlowSpells(),
                 // The last hour's quality: pings lost, jitter and DNS time; and which problems are being reported now.
