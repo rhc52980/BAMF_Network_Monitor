@@ -27,7 +27,8 @@ public partial class ScannerService
     /// behaviour: a Discord URL gets a rich embed, anything else a generic JSON
     /// body. "ntfy" posts plain text with Title/Priority/Tags headers the way
     /// ntfy expects; "gotify" posts its {title, message, priority} JSON; "json"
-    /// forces the generic body even for a Discord URL. Dashboard value wins over
+    /// forces the generic body even for a Discord URL; "slack" and "telegram" post what
+    /// those two expect (and are picked by "auto" for their URLs). Dashboard value wins over
     /// appsettings.json, like the URL itself.
     /// </summary>
     public string WebhookFormat
@@ -36,7 +37,7 @@ public partial class ScannerService
         {
             var v = (_store.GetSetting("webhookFormat") ?? _config["Bamf:WebhookFormat"] ?? "auto")
                 .Trim().ToLowerInvariant();
-            return v is "ntfy" or "gotify" or "json" or "discord" ? v : "auto";
+            return v is "ntfy" or "gotify" or "json" or "discord" or "slack" or "telegram" ? v : "auto";
         }
     }
 
@@ -45,8 +46,12 @@ public partial class ScannerService
         url.Contains("discordapp.com/api/webhooks", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The concrete format to use for a URL once "auto" is resolved.</summary>
-    private static string ResolveFormat(string url, string format) =>
-        format == "auto" ? (IsDiscordUrl(url) ? "discord" : "json") : format;
+    internal static string ResolveFormat(string url, string format) =>
+        format != "auto" ? format
+        : IsDiscordUrl(url) ? "discord"
+        : url.Contains("hooks.slack.com", StringComparison.OrdinalIgnoreCase) ? "slack"
+        : url.Contains("api.telegram.org/bot", StringComparison.OrdinalIgnoreCase) ? "telegram"
+        : "json";
 
     /// <summary>
     /// One alert as an HTTP request in the resolved format. ntfy carries the
@@ -54,7 +59,7 @@ public partial class ScannerService
     /// ASCII and the device name - which may not be - lives in the body.
     /// Priority is on ntfy's 1-5 scale; Gotify's 0-10 gets double.
     /// </summary>
-    private static HttpRequestMessage BuildAlertRequest(string url, string format, string title, string message,
+    internal static HttpRequestMessage BuildAlertRequest(string url, string format, string title, string message,
         int priority, string tags, string discordPayload, string genericPayload)
     {
         switch (format)
@@ -83,6 +88,22 @@ public partial class ScannerService
                 {
                     Content = new StringContent(discordPayload, Encoding.UTF8, "application/json"),
                 };
+            case "slack":
+                // An incoming webhook: {"text": ...}, with the title in bold in Slack's own markup.
+                return new HttpRequestMessage(HttpMethod.Post, url)
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(new { text = $"*{title}*\n{message}" }), Encoding.UTF8, "application/json"),
+                };
+            case "telegram":
+            {
+                // The Bot API's sendMessage: the URL carries the bot's token and ?chat_id=, the body just the text
+                // (plain, so nothing in a device's name is read as markup), which Telegram caps at 4096 characters.
+                var plain = $"{title}\n{message}";
+                return new HttpRequestMessage(HttpMethod.Post, url)
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(new { text = plain.Length > 4000 ? plain[..4000] : plain }), Encoding.UTF8, "application/json"),
+                };
+            }
             default:
                 return new HttpRequestMessage(HttpMethod.Post, url)
                 {

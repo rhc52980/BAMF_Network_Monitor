@@ -73,7 +73,7 @@ function servicesOnDevices() {
 
 // The public address: what BAMF last learned, where from and how long it has been that, with a button to
 // ask again now. Learned from the speed test, the daily GreyNoise check, or this button.
-const IP_SOURCES = { speedtest: "the speed test", greynoise: "the GreyNoise check", lookup: "a lookup" };
+const IP_SOURCES = { speedtest: "the speed test", greynoise: "the GreyNoise check", lookup: "a lookup", watch: "the address watch" };
 function externalIpHtml(x) {
   const ask = label => `<button type="button" class="toggle" id="svcLookup" title="Asks Cloudflare which address this network appears from: one request for a file of no bytes">${label}</button>`;
   if (!x) return `<div class="svc-row">${ask("Look it up")}</div><div class="watch-note" style="margin-top:4px">Not known yet. BAMF learns it from the speed test (Settings → Internet), the daily GreyNoise check (Settings → Security) or the button above, which asks Cloudflare once.</div>`;

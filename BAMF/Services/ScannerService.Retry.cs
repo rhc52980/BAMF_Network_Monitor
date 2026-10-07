@@ -19,7 +19,7 @@ public partial class ScannerService
     private sealed class RetryItem
     {
         public string DestinationId = "";
-        public string Kind = "", Title = "";
+        public string Kind = "", Title = "", Text = "";
         public Func<string, string, HttpRequestMessage> Build = null!;
         public int Tries;                    // retries done
         public DateTime NextAtUtc, FirstAtUtc;
@@ -31,11 +31,11 @@ public partial class ScannerService
     /// <summary>How many alerts are waiting to be tried again.</summary>
     public int RetryQueued { get { lock (_retryLock) return _retry.Count; } }
 
-    private void QueueRetry(Destination d, string kind, string title, Func<string, string, HttpRequestMessage> build, DateTime nowUtc)
+    private void QueueRetry(Destination d, string kind, string title, Func<string, string, HttpRequestMessage> build, DateTime nowUtc, string text = "")
     {
         lock (_retryLock)
         {
-            _retry.Add(new RetryItem { DestinationId = d.Id, Kind = kind, Title = title, Build = build, NextAtUtc = nowUtc + RetryDelays[0], FirstAtUtc = nowUtc });
+            _retry.Add(new RetryItem { DestinationId = d.Id, Kind = kind, Title = title, Text = text, Build = build, NextAtUtc = nowUtc + RetryDelays[0], FirstAtUtc = nowUtc });
             while (_retry.Count > MaxRetryQueue) _retry.RemoveAt(0);
         }
     }
@@ -66,10 +66,14 @@ public partial class ScannerService
             string? error = null;
             try
             {
-                var format = ResolveFormat(d.Url, d.Format);
-                using var req = item.Build(d.Url, format);
-                using var resp = await client.SendAsync(req, ct);
-                if (!resp.IsSuccessStatusCode) error = $"HTTP {(int)resp.StatusCode}";
+                if (d.Format == "email") await SendEmail(d, item.Title, item.Text, ct);
+                else
+                {
+                    var format = ResolveFormat(d.Url, d.Format);
+                    using var req = item.Build(d.Url, format);
+                    using var resp = await client.SendAsync(req, ct);
+                    if (!resp.IsSuccessStatusCode) error = $"HTTP {(int)resp.StatusCode}";
+                }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex) { error = ex.GetBaseException().Message; }

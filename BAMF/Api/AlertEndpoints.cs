@@ -181,7 +181,7 @@ internal static class AlertEndpoints
             // which is the original behaviour: Discord embed for a Discord URL, generic
             // JSON for everything else.
             var format = (body.Format ?? "auto").Trim().ToLowerInvariant();
-            if (format is not ("auto" or "ntfy" or "gotify" or "json" or "discord")) format = "auto";
+            if (format is not ("auto" or "ntfy" or "gotify" or "json" or "discord" or "slack" or "telegram")) format = "auto";
             store.SetSetting("webhookFormat", format);
 
             if (url.Length == 0)

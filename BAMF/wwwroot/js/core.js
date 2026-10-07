@@ -31,6 +31,7 @@ let alertsCache = null;     // the last /api/alerts answer
 let securityCache = null;   // the last /api/security answer: certificates, UPnP, gateway MACs
 const presenceCache = {};   // device id -> its week of hours, for the History panel
 let arpWatch = true, certWatch = true, ipv6Watch = true;
+let addressWatch = false, signInAlert = false;   // alert on a changed public address, on a sign-in from a new address
 let networkScore = true, allQuiet = false, allQuietHour = 8;   // the network score, and the daily all-quiet note
 let dnsWatch = false, wanQualityAlert = true, latencyAlert = true, latencyAlertMs = 250;   // the DNS watch, internet quality alerts, a slow watched device
 let flowWatch = true, spikeAlert = true, firstWeekReport = true;   // where devices talk and scans, bandwidth spikes, a new device's first week

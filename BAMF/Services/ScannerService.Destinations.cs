@@ -34,7 +34,7 @@ public partial class ScannerService
     private static string CleanFormat(string? f)
     {
         var v = (f ?? "auto").Trim().ToLowerInvariant();
-        return v is "ntfy" or "gotify" or "json" or "discord" ? v : "auto";
+        return v is "ntfy" or "gotify" or "json" or "discord" or "slack" or "telegram" or "email" ? v : "auto";
     }
 
     private static List<string> CleanKinds(IEnumerable<string>? kinds) =>
@@ -108,8 +108,13 @@ public partial class ScannerService
                 url = was.Url;
             }
             if (url.Length > 500) return "That URL is implausibly long.";
-            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            if (CleanFormat(d.Format) == "email")
+            {
+                if (EmailTarget.Parse(url) is null) return "Email needs a server and at least one address to send to.";
+            }
+            else if (!Uri.TryCreate(url, UriKind.Absolute, out var checkUri) || (checkUri.Scheme != Uri.UriSchemeHttp && checkUri.Scheme != Uri.UriSchemeHttps))
                 return "Enter a full http:// or https:// URL.";
+            var uri = new Uri(url);
             var name = (d.Name ?? "").Trim();
             if (name.Length == 0) name = uri.Host;
             if (name.Length > 40) name = name[..40];
@@ -144,6 +149,23 @@ public partial class ScannerService
         _lastDeliveryError = null;
         foreach (var d in dests)
         {
+            if (d.Format == "email")
+            {
+                try
+                {
+                    await SendEmail(d, title, text, ct);
+                    _log.LogInformation("Alert ({Kind}) to {Name} by email", kind, d.Name);
+                    any = true;
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                catch (Exception ex)
+                {
+                    _log.LogWarning(ex, "Alert ({Kind}) to {Name} by email failed", kind, d.Name);
+                    _lastDeliveryError = ex.GetBaseException().Message;
+                    if (retry && AlertRetryEnabled) QueueRetry(d, kind, title, build, DateTime.UtcNow, text);
+                }
+                continue;
+            }
             try
             {
                 var format = ResolveFormat(d.Url, d.Format);
@@ -155,7 +177,7 @@ public partial class ScannerService
                 if (!resp.IsSuccessStatusCode)
                 {
                     _lastDeliveryError = $"{d.Name} answered HTTP {(int)resp.StatusCode}.";
-                    if (retry && AlertRetryEnabled) QueueRetry(d, kind, title, build, DateTime.UtcNow);
+                    if (retry && AlertRetryEnabled) QueueRetry(d, kind, title, build, DateTime.UtcNow, text);
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -163,7 +185,7 @@ public partial class ScannerService
             {
                 _log.LogWarning(ex, "Alert ({Kind}) to {Name} failed", kind, d.Name);
                 _lastDeliveryError = $"{d.Name}: {ex.GetBaseException().Message}";
-                if (retry && AlertRetryEnabled) QueueRetry(d, kind, title, build, DateTime.UtcNow);
+                if (retry && AlertRetryEnabled) QueueRetry(d, kind, title, build, DateTime.UtcNow, text);
             }
         }
         return any;

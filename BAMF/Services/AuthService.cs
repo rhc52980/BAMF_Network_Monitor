@@ -51,6 +51,13 @@ public sealed class AuthService
     /// <summary>Called when an address is locked out: the address and how many wrong passwords.</summary>
     public Action<string, int>? LockedOut { get; set; }
 
+    /// <summary>Called the first time an address signs in with a right password.</summary>
+    public Action<string>? NewAddress { get; set; }
+
+    private readonly object _knownLock = new();
+    private List<string>? _known;
+    public const int MaxKnownAddresses = 200;
+
     public AuthService(HostStore store, IConfiguration config, ILogger<AuthService> log)
     {
         _store = store; _config = config; _log = log;
@@ -282,6 +289,32 @@ public sealed class AuthService
         try { LockedOut?.Invoke(address, count); } catch (Exception ex) { _log.LogWarning(ex, "Sign-in: couldn't report the lockout"); }
     }
 
-    /// <summary>The right password: an address's count of wrong ones starts again.</summary>
-    public void Succeeded(string address) => _failures.TryRemove(address, out _);
+    /// <summary>
+    /// The right password: an address's count of wrong ones starts again, and an address that has never signed in before is
+    /// remembered and reported (always remembered, so switching the alert on later doesn't treat every device as new). This machine
+    /// itself isn't news.
+    /// </summary>
+    public void Succeeded(string address)
+    {
+        _failures.TryRemove(address, out _);
+        if (address.Length == 0 || address is "127.0.0.1" or "::1" or "::ffff:127.0.0.1") return;
+        bool isNew;
+        lock (_knownLock)
+        {
+            if (_known is null)
+            {
+                try { _known = System.Text.Json.JsonSerializer.Deserialize<List<string>>(_store.GetSetting("signInAddresses") ?? "[]") ?? new(); }
+                catch (System.Text.Json.JsonException) { _known = new(); }
+            }
+            isNew = !_known.Contains(address);
+            if (isNew)
+            {
+                _known.Add(address);
+                // The oldest go first once it's full; the list stays in the order they were learned.
+                if (_known.Count > MaxKnownAddresses) _known.RemoveRange(0, _known.Count - MaxKnownAddresses);
+                _store.SetSetting("signInAddresses", System.Text.Json.JsonSerializer.Serialize(_known));
+            }
+        }
+        if (isNew) { try { NewAddress?.Invoke(address); } catch (Exception ex) { _log.LogWarning(ex, "Sign-in: couldn't report a new address"); } }
+    }
 }

@@ -299,7 +299,11 @@ Everything BAMF initiates on its own, and how it's protected:
 | Cloudflare's speed test (`speed.cloudflare.com`) | **HTTPS** | Only when you press Run now, or on the schedule you choose: daily or every six hours. About 125 MB of test data each time. Cloudflare sees your public address, as any website does, and says it back in its answer, which BAMF shows as your public address |
 | Cloudflare, for your public address (`speed.cloudflare.com`) | **HTTPS** | Only when you press **Look it up** (or **Check now**) on the Network services card. One request for a file of no bytes. Cloudflare sees your public address, as any website does, and says it back |
 | A monitoring service you name (Healthchecks.io, Uptime Kuma, anything that takes a visit) | **whatever scheme your address uses** | Every few minutes, only if you switch on the heartbeat. A plain request to the address you gave, with nothing about your network in it |
+| Cloudflare, for a change of public address (`speed.cloudflare.com`) | **HTTPS** | Every 15 minutes, only if you switch on **Alert when your public IP address changes**. One request for a file of no bytes. Cloudflare sees your public address, as any website does |
+| Your DNS server, asked about `dns.google`, `one.one.one.one` and `dns.quad9.net` and one name that doesn't exist | **plain DNS (UDP 53)**, to the server this machine is set to use, which is usually your router and passes it on | Every hour, only if you switch on the DNS watch. Nothing about your network is in the question |
+| Your DNS server, asked for `dns.google` | **plain DNS (UDP 53)** | Once a reading, with the internet watch on and **Internet quality alerts** on, to time a lookup |
 | Your webhook | **whatever scheme your URL uses** | When a new host appears, a watched host changes state, or an alert fires |
+| Your mail server | **TLS (STARTTLS) unless you chose not encrypted** | When an alert fires, only for an email destination you added. The alert's title and text go in the mail |
 
 **On your own network:**
 
@@ -1657,6 +1661,14 @@ Five wrong passwords from the same address within 15 minutes lock that
 address out for 15 minutes, whether they came from the sign-in page or a
 script, and send a security alert saying so.
 
+**Alert on a sign-in from a new address**, under **Settings → Security →
+Sign-in** (off by default), covers the other half: when BAMF is signed into
+with a *right* password from an address that has never signed in before, a
+security alert says which address. Each of your phones and laptops is new once,
+so expect a few at the start. BAMF remembers up to 200 addresses, whether or
+not the alert is on, so switching it on later doesn't treat every device you
+already use as new; this machine itself doesn't count.
+
 #### A forgotten password
 
 To take a password off, open **Settings → Security → Sign-in** and use
@@ -1770,7 +1782,7 @@ scan, or delete a thing.
 | POST | `/api/webhook/test` | Send a test notification to `Bamf:WebhookUrl` (**Test** under Settings → Alerts). Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/destinations/{id}/test` | Send a test to one destination: `main` for the main webhook, or another's `id`. Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/settings/webhookkinds` | Body `{"kinds": ["devices", "status"]}` — which kinds of alert the main webhook gets: `devices`, `status`, `unusual`, `security`, `internet`, `reports`. `GET /api/settings` returns it as `webhookKinds` |
-| POST | `/api/settings/destinations` | Body `{"destinations": [{"id": "…", "name": "Phone", "url": "https://…", "format": "ntfy", "kinds": ["security", "internet"]}]}` — replace the destinations besides the main webhook, up to 8. `id` blank adds one; a saved one sent with `url` empty keeps its URL. `GET /api/settings` returns them as `destinations`, URLs masked |
+| POST | `/api/settings/destinations` | Body `{"destinations": [{"id": "…", "name": "Phone", "url": "https://…", "format": "ntfy", "kinds": ["security", "internet"]}]}` — replace the destinations besides the main webhook, up to 8. `id` blank adds one; a saved one sent with `url` empty keeps its URL. `GET /api/settings` returns them as `destinations`, URLs masked. `format` is `auto`, `ntfy`, `gotify`, `slack`, `telegram`, `json` or `discord`, or `email` for a destination whose `url` is `smtp://[user:password@]host[:port]/?to=a@x.com,b@x.com[&from=…][&tls=0]` (encrypted unless `tls=0`) |
 | POST | `/api/settings/networks` | Body `{"networks": ["192.168.1.0/24"]}` — the networks to scan, replacing `Bamf:Subnets`, and scan them now. Private networks from /22 to /30 only; see [Networks](#networks). `GET /api/settings` returns them as `editable.networks`, with where they come from and the ones this machine is on |
 | POST | `/api/settings/networks/reset` | Hand the networks back to `appsettings.json` |
 | POST | `/api/settings/mqtt` | Body `{"server": "10.0.0.2", "port": 1883, "username": "bamf", "password": null, "tls": false, "discovery": true, "topicPrefix": "bamf"}` — the MQTT broker, replacing `Bamf:Mqtt`, and connect now. `server` empty turns MQTT off. `password` null keeps the saved one, but only for the same server and port. `GET /api/settings` returns it as `editable.mqtt`, with `password` only saying whether one is saved |
@@ -1855,6 +1867,8 @@ scan, or delete a thing.
 | GET | `/api/greynoise` | The GreyNoise check: `enabled`, and the last `result` (`ip`, `noise`, `riot`, `classification`, `lastSeen`, `message`, `error`, `checkedAt`) |
 | POST | `/api/settings/greynoise` | Body `{"enabled": true}` — turn the daily GreyNoise check on (it checks straight away) or off. Off by default |
 | GET | `/api/dns` | The DNS watch: `enabled`, the `canaries` (names and their fixed addresses), and the last `result`: `{"checkedAt", "servers", "server", "wrongAnswers": [{"name", "got", "expected"}], "inventsAnswers", "invented", "newServers", "error"}` |
+| POST | `/api/settings/address-watch` | Body `{"enabled": true}` — alert when the public IP address changes: checks every 15 minutes, once now when switched on, which also takes today's address as the starting point. Returns `{"enabled", "externalIp", "error"}`. Off by default |
+| POST | `/api/settings/sign-in-alert` | Body `{"enabled": true}` — a security alert when BAMF is signed into from an address that never has been. Off by default |
 | POST | `/api/settings/dns-watch` | Body `{"enabled": true}` — turn the hourly DNS watch on (it checks straight away) or off. Off by default |
 | POST | `/api/dns/check` | Ask the questions now; 409 while the watch is off |
 | POST | `/api/settings/wan-quality` | Body `{"enabled": false}` — switch the internet quality alerts (lost pings, jitter, slow DNS) off, or back on |
@@ -2579,13 +2593,15 @@ remind me** hides it for good, in every browser; it only comes back if you save
 a webhook and later remove it. The view-only password never sees it, since it
 can't save a webhook anyway.
 
-Four formats, chosen in the dialog (or with `Bamf:WebhookFormat`):
+Six formats, chosen in the dialog (or with `Bamf:WebhookFormat`), and a seventh, email, for the destinations below it:
 
 | Format | What BAMF sends | Your URL |
 |---|---|---|
 | **Auto** (default) | A rich Discord embed for a Discord URL; the generic JSON body for anything else | either |
 | **ntfy** | Plain text with `Title`, `Priority` and `Tags` headers, the way ntfy expects | your topic, e.g. `https://ntfy.sh/bamf-alerts` — add `?auth=…` if the topic needs a token |
 | **Gotify** | Gotify's `{title, message, priority}` JSON | your server's `/message?token=…` |
+| **Slack** | `{"text": …}` with the title in bold, the way Slack's incoming webhooks expect. **Auto** picks it for a `hooks.slack.com` URL | the **Incoming Webhook** URL from a Slack app, `https://hooks.slack.com/services/…` |
+| **Telegram** | `{"text": …}` through the Bot API's `sendMessage`, plain text, cut at Telegram's 4096-character limit. **Auto** picks it for an `api.telegram.org/bot…` URL | `https://api.telegram.org/bot<token>/sendMessage?chat_id=<id>`: make a bot with @BotFather for the token, message it once, and read your `chat_id` from `https://api.telegram.org/bot<token>/getUpdates` |
 | **Generic JSON** | `{content, message, mac, ip, …}` — `content` and `message` both carry the text, so most simple endpoints show it | anything |
 
 Priorities: a new device or an offline alert is high (ntfy 4, Gotify 8); a
@@ -2624,6 +2640,29 @@ Quiet hours hold an alert once, not once per destination, and the summary when
 they end goes to each destination with just the held alerts of its own kinds:
 a phone that only takes Internet gets "the internet is back", and not the
 devices that came and went overnight.
+
+### Alerts by email
+
+A destination can be an **email address**: under **More destinations**, pick
+**Email (SMTP)** as the format and the URL box gives way to a mail server (host,
+port, whether it's encrypted, and a user name and password if it asks), an
+optional From address and up to ten addresses to send to. Each alert goes as
+one email, subject `[BAMF] ` and the alert's title, the text in the body, and
+everything above still holds: it takes the kinds you tick, quiet hours hold its
+alerts and send the summary at the end, a mail server that is down gets the
+usual retries, and **Test** sends one straight away.
+
+- **Encryption.** **Encrypted (STARTTLS)**, the default, is what port 587 means
+  at Gmail, Outlook, Fastmail and most providers. **Not encrypted** is for a
+  relay on your own network that takes plain SMTP on port 25. Implicit TLS on
+  port 465 isn't supported by the mail client .NET ships; use 587.
+- **Gmail** needs an **app password** (Google Account → Security → 2-Step
+  Verification → App passwords), not your Google password: server
+  `smtp.gmail.com`, port 587, your address as the user.
+- **The password is kept on this machine** with the rest of the destination, and
+  is never shown again: the dashboard shows only `smtp://smtp.example.com`. While
+  editing, leave every box empty to keep what's saved. Settings export doesn't
+  carry destinations.
 
 ### Alerts on your phone, without Discord
 
@@ -2856,6 +2895,7 @@ worth fixing, each kind capped so one bad category can't zero it on its own:
 | Reason | Points |
 |---|---|
 | Your public address seen scanning the internet (GreyNoise) | 20 |
+| Your DNS giving a wrong answer for a name with a fixed address (DNS watch) | 15 each name, up to 15 |
 | The internet down now | 10 |
 | A disk BAMF writes to running low | 10 |
 | A security alert this week | 8 each, up to 24 |
@@ -2866,6 +2906,8 @@ worth fixing, each kind capped so one bad category can't zero it on its own:
 | Nobody set to hear alerts (no destination) | 5 |
 | FTP or VNC open on a device | 4 each, up to 8 |
 | An unknown device online | 3 each, up to 15 |
+| Your DNS making up answers for names that don't exist | 3 |
+| The internet dropping packets, jittery or with slow DNS right now (quality alerts) | 3 each, up to 9 |
 | Unusual activity still open | 3 each, up to 9 |
 | An internet outage this week | 3 each, up to 12 |
 | A certificate expiring within a fortnight | 2 each, up to 6 |
@@ -3092,6 +3134,18 @@ What you get for it:
   Nothing is said while the line is down, and the same problem isn't raised
   again within six hours. On by default, but nothing happens without the
   internet watch itself.
+
+- **An alert when your public address changes**, with **Alert when your public
+  IP address changes** under **Settings → Internet**. Off by default, because
+  it's the one thing that looks outward on a timer: every 15 minutes, one
+  request to Cloudflare for a file of no bytes (the one the speed test and the
+  **Look it up** button use), whose answer says which address the request came
+  from. When it differs from the last one that's a security alert, "Your public
+  IP address changed", with the old and the new: the modem restarting or your
+  provider moving you, and it breaks anything that reaches this network by its
+  address, such as a port forward, a VPN back home or a dynamic DNS name. A
+  change the speed test or the GreyNoise check notices is announced too, and
+  switching the watch on takes today's address as the starting point.
 
 **How often** it checks is **Settings → Internet → Check the internet every**,
 from 20 seconds to an hour, a minute by default (`Bamf:WanIntervalSeconds`

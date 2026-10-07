@@ -16,7 +16,8 @@ namespace LanWatch.Services;
 public sealed class HealthScore : BackgroundService
 {
     public sealed record Inputs(int UnknownOnline, int SecurityAlerts, int Telnet, int Ftp, int Vnc, int CertsExpired, int CertsExpiring,
-        bool Upnp, bool Noise, int WatchedDown, int UnusualOpen, int Outages, int SlowSpells, bool InternetDown, bool DiskLow, bool NoDestination);
+        bool Upnp, bool Noise, int WatchedDown, int UnusualOpen, int Outages, int SlowSpells, bool InternetDown, bool DiskLow, bool NoDestination,
+        int DnsWrong = 0, bool DnsInvents = false, int QualityProblems = 0);
     public sealed record Reason(string Text, int Points);
     public sealed record Score(int Value, string Word, List<Reason> Reasons);
     public sealed record Day(string Date, int Value);
@@ -26,12 +27,13 @@ public sealed class HealthScore : BackgroundService
     private readonly SecurityCheck _security;
     private readonly GreyNoiseCheck _greynoise;
     private readonly WanWatch _wan;
+    private readonly DnsWatch _dns;
     private readonly DiskHealth _disk;
     private readonly ILogger<HealthScore> _log;
 
-    public HealthScore(HostStore store, ScannerService scanner, SecurityCheck security, GreyNoiseCheck greynoise, WanWatch wan, DiskHealth disk, ILogger<HealthScore> log)
+    public HealthScore(HostStore store, ScannerService scanner, SecurityCheck security, GreyNoiseCheck greynoise, WanWatch wan, DiskHealth disk, DnsWatch dns, ILogger<HealthScore> log)
     {
-        _store = store; _scanner = scanner; _security = security; _greynoise = greynoise; _wan = wan; _disk = disk; _log = log;
+        _store = store; _scanner = scanner; _security = security; _greynoise = greynoise; _wan = wan; _disk = disk; _dns = dns; _log = log;
     }
 
     public bool Enabled => _store.GetSetting("networkScore") != "false";
@@ -50,6 +52,7 @@ public sealed class HealthScore : BackgroundService
         void Flag(bool on, int points, string text) { if (on) reasons.Add(new Reason(text, points)); }
 
         Flag(i.Noise, 20, "Your public address has been seen scanning the internet");
+        Take(i.DnsWrong, 15, 15, "Your DNS gives wrong answers for a name with a fixed address", "Your DNS gives wrong answers for {0} names with fixed addresses");
         Flag(i.InternetDown, 10, "The internet is down");
         Take(i.SecurityAlerts, 8, 24, "A security alert this week", "{0} security alerts this week");
         Take(i.Telnet, 8, 16, "Telnet is open on a device", "Telnet is open on {0} devices");
@@ -63,6 +66,8 @@ public sealed class HealthScore : BackgroundService
         Take(i.UnknownOnline, 3, 15, "An unknown device is online", "{0} unknown devices are online");
         Take(i.UnusualOpen, 3, 9, "Something unusual is going on with a device", "Something unusual is going on with {0} devices");
         Take(i.Outages, 3, 12, "An internet outage this week", "{0} internet outages this week");
+        Flag(i.DnsInvents, 3, "Your DNS makes up answers for names that don't exist");
+        Take(i.QualityProblems, 3, 9, "The internet connection has a quality problem now", "The internet connection has {0} quality problems now");
         Take(i.CertsExpiring, 2, 6, "A certificate expires within a fortnight", "{0} certificates expire within a fortnight");
         Take(i.SlowSpells, 2, 6, "A slow internet spell this week", "{0} slow internet spells this week");
 
@@ -98,7 +103,10 @@ public sealed class HealthScore : BackgroundService
             SlowSpells: _wan.Enabled ? _store.GetWanSlowLog(200).Count(o => string.CompareOrdinal(o.Start, weekIso) >= 0) : 0,
             InternetDown: _wan.Enabled && _wan.Current is not null,
             DiskLow: diskLow,
-            NoDestination: !_scanner.AnyDestination);
+            NoDestination: !_scanner.AnyDestination,
+            DnsWrong: _dns.Enabled ? _dns.Last?.WrongAnswers.Count ?? 0 : 0,
+            DnsInvents: _dns.Enabled && _dns.Last?.InventsAnswers == true,
+            QualityProblems: _wan.Enabled && _wan.QualityEnabled ? _wan.QualityProblems.Count : 0);
     }
 
     public Score Now() => Compute(Gather());

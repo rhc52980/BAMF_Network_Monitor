@@ -28,6 +28,8 @@ public static class SettingsLog
         ["arp-watch"] = "ARP watch",
         ["cert-watch"] = "Certificate watch",
         ["greynoise"] = "GreyNoise check",
+        ["address-watch"] = "Public IP address alert",
+        ["sign-in-alert"] = "New sign-in address alert",
         ["score"] = "Network score",
         ["all-quiet"] = "The daily all-quiet note",
         ["dns-watch"] = "DNS watch",
