@@ -175,23 +175,20 @@
     <button class="view-btn" data-view="floor">Floor plan</button>
     <button class="view-btn" data-view="home">Who's home</button>
     <button class="view-btn" data-view="activity">Activity <span class="tab-cnt" id="activityCount" hidden></span></button>
+    <button class="view-btn" data-view="tools" id="toolsTab" hidden>Tools</button>
     <button class="view-btn" data-view="forgotten">Forgotten</button>
   </div>
   <div class="tools">
     <input class="search" id="search" type="search" placeholder="Search… (* wildcards, e.g. *.245)" aria-label="Search hosts" title="Substring match, or use * / ? wildcards — *.245 matches any IP ending in .245">
+    <button class="export-btn pause-btn" id="pauseOpen" title="Hold every alert for a while, for when you're about to take something down" hidden>Pause alerts</button>
     <div class="tools-menu-wrap" id="viewsWrap">
       <button class="export-btn" id="viewsBtn" title="Saved views of the device list">Views ▾</button>
       <div class="tools-menu" id="viewsMenu"></div>
     </div>
     <div class="tools-menu-wrap">
-      <button class="export-btn" id="toolsBtn" title="Tools">Tools ▾</button>
+      <button class="export-btn" id="toolsBtn" title="Export CSV, find a free address, the wall display and feedback">More ▾</button>
       <div class="tools-menu" id="toolsMenu">
         <button id="exportCsv">Export CSV</button>
-        <button id="bulkOpen" title="Tick several devices and do one thing to all of them" hidden>Select devices</button>
-        <button id="pingAnyOpen" title="Ping any address or name from this machine, including the internet" hidden>Ping an address…</button>
-        <button id="traceOpen" title="Trace the route from this machine to any address or name, including the internet" hidden>Trace route to an address…</button>
-        <button id="pathAnyOpen" title="Trace the route, then ping every router on the way, to see where along it the trouble starts" hidden>Path ping to an address…</button>
-        <button id="pauseOpen" title="Hold every alert for a while, for when you're about to take something down" hidden>Pause alerts…</button>
         <button id="freeOpen" title="How full each network is, and addresses nothing has used lately">Find a free address…</button>
         <button id="wallOpen" title="A big, calm status board for a TV or a spare tablet: opens /wall in a new tab">Wall display</button>
         <button id="feedback">Feedback / report a bug…</button>
@@ -212,6 +209,7 @@
     <button class="tab" data-filter="offline">Offline</button>
     <button class="tab" data-filter="ignored">Ignored</button>
   </div>
+  <button class="export-btn sel-btn" id="bulkOpen" title="Tick several devices and do one thing to all of them" aria-pressed="false" hidden>Select</button>
 </div>
 
 <div class="bulk-bar" id="bulkBar" role="toolbar" aria-label="Do something to the selected devices" hidden>
@@ -337,6 +335,36 @@
   <div class="plan-canvas" id="planCanvas">
     <svg id="planSvgEd" viewBox="0 0 1200 800" width="1200" height="800"></svg>
     <input class="plan-len" id="planLen" hidden inputmode="decimal" title="Type the real length of that wall and press Enter">
+  </div>
+</div>
+
+<div class="tools-wrap" id="toolsWrap" hidden>
+  <div class="tl-panel">
+    <div class="tl-head">
+      <h2>Network tools</h2>
+      <span class="tl-sub">They run from the machine BAMF is on.</span>
+    </div>
+    <div class="tl-target">
+      <input id="tlTarget" class="tl-in" list="tlDevices" placeholder="A device, an address or a name: nas, 192.168.30.10, example.com" autocomplete="off" spellcheck="false" aria-label="Target">
+      <datalist id="tlDevices"></datalist>
+      <input id="tlPorts" class="tl-in tl-ports-in" placeholder="Ports, like 22,80,443 or 8000-8010 (empty: the common ones)" autocomplete="off" spellcheck="false" aria-label="Ports to check" hidden>
+      <button type="button" class="export-btn tl-why" id="tlWhy" title="Checks your router, your DNS server, the internet and a web name, and says where it breaks">Why is it slow?</button>
+    </div>
+    <div class="tl-quick" id="tlQuick" aria-label="Quick targets"></div>
+    <div class="tl-note" id="tlNote" hidden></div>
+    <div class="tl-buttons" id="tlButtons" role="toolbar" aria-label="Tools">
+      <button type="button" data-tool="ping" class="on" title="Ping it every second, live">Ping</button>
+      <button type="button" data-tool="trace" title="The route there, hop by hop">Trace route</button>
+      <button type="button" data-tool="path" title="The route there, then a ping of every router on the way">Path ping</button>
+      <button type="button" data-tool="dns" title="What DNS says, from your resolver and two public ones">DNS lookup</button>
+      <button type="button" data-tool="http" title="Is the web page up, how fast, and when its certificate runs out">HTTP check</button>
+      <button type="button" data-tool="port" title="Which ports answer">Port check</button>
+    </div>
+    <div class="tl-result" id="tlResult" aria-live="polite"></div>
+    <div class="tl-recent" id="tlRecentWrap" hidden>
+      <div class="tl-recent-h"><span>Recent</span><button type="button" class="tl-clear" id="tlClear">Clear</button></div>
+      <div id="tlRecent"></div>
+    </div>
   </div>
 </div>
 
@@ -835,8 +863,8 @@
           <button type="button" class="export-btn" id="quietSave">Save</button>
         </div>
         <label class="set-row" style="margin-top:8px">
-          <span class="set-label">Pause alerts in the Tools menu
-            <span class="set-hint">Adds <strong>Pause alerts…</strong> to Tools: hold every alert for a while (30 minutes up to three days), then send what was held as one summary. Switch it off and the menu entry goes, and a pause that is running ends.</span>
+          <span class="set-label">Pause alerts in the header
+            <span class="set-hint">Adds <strong>Pause alerts</strong> to the header: hold every alert for a while (30 minutes up to three days), then send what was held as one summary. Switch it off and the button goes, and a pause that is running ends.</span>
           </span>
           <input type="checkbox" id="pauseEnabled" checked>
         </label>
@@ -1022,19 +1050,19 @@
         </div>
         <label class="set-row">
           <span class="set-label">Select several devices
-            <span class="set-hint">Adds <strong>Select devices</strong> to Tools: tick devices in the list and mark them known, watch, ignore, tag, snooze or forget them all at once. For every dashboard, not just this browser. Switch it off and the menu entry goes.</span>
+            <span class="set-hint">Adds <strong>Select</strong> beside the filters on the Devices tab: tick devices in the list and mark them known, watch, ignore, tag, snooze or forget them all at once. For every dashboard, not just this browser. Switch it off and the button goes.</span>
           </span>
           <input type="checkbox" id="bulkEnabled" checked>
         </label>
         <label class="set-row">
-          <span class="set-label">Ping, trace route and DNS lookup
-            <span class="set-hint">Adds <strong>Ping…</strong>, <strong>Trace route…</strong> and <strong>DNS lookup…</strong> to a device's ⋯ menu under Look closer: they run from the machine BAMF is on, and only ever at a device BAMF already knows. Switch it off and they go.</span>
+          <span class="set-label">The Tools tab
+            <span class="set-hint">Ping that runs live, trace route, path ping, a DNS lookup that asks three resolvers, an HTTP check, a port check and a <strong>Why is it slow?</strong> button, on their own <strong>Tools</strong> tab and from a device's ⋯ menu. They run from the machine BAMF is on, and only ever at a device BAMF already knows unless you switch on the setting below. Switch it off and the tab goes.</span>
           </span>
           <input type="checkbox" id="networkToolsEnabled" checked>
         </label>
         <label class="set-row">
-          <span class="set-label">Ping and trace route to any address
-            <span class="set-hint">Off by default. Adds <strong>Ping an address…</strong>, <strong>Trace route to an address…</strong> and <strong>Path ping to an address…</strong> (a trace, then a ping of every router on the way, to see where the trouble starts) to Tools: type an address or a name, even one on the internet or on a network BAMF doesn't scan. These are the tools that send to a target you type, so it needs the main password (the view-only one can't), checks what is typed, runs inside BAMF without starting a program, and waits a few seconds between runs.</span>
+          <span class="set-label">Tools to any address
+            <span class="set-hint">Off by default. Lets the Tools tab take an address or a name you type, even one on the internet or on a network BAMF doesn't scan: ping, trace route, path ping, DNS lookup (also asked of Cloudflare and Google), HTTP check and port check. These are the tools that send to a target you type, so they are off until you switch this on, work only with the main password, and wait a few seconds between runs. A device BAMF already knows needs no switch.</span>
           </span>
           <input type="checkbox" id="traceAnywhereEnabled">
         </label>
@@ -1483,18 +1511,6 @@
     <div class="modal-actions">
       <button class="toggle" id="pauseEnd" hidden>Resume now</button>
       <button class="toggle" id="pauseCancel">Cancel</button>
-    </div>
-  </div>
-</div>
-<div class="modal-backdrop" id="toolModal" hidden>
-  <div class="modal">
-    <div class="modal-title" id="toolTitle"></div>
-    <div class="modal-note" id="toolSub"></div>
-    <pre class="tool-out" id="toolOut"></pre>
-    <div class="modal-note" id="toolSummary"></div>
-    <div class="modal-actions">
-      <button class="export-btn" id="toolAgain">Run again</button>
-      <button class="toggle" id="toolClose">Close</button>
     </div>
   </div>
 </div>

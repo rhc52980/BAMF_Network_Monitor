@@ -1139,13 +1139,17 @@ $("layoutFile").onchange = async () => {
 // Nothing on the dashboard said when alerts weren't going anywhere: the only
 // sign was a line inside Settings. A viewer can't save a webhook, so they
 // aren't told about something they can't fix.
-// The Pause alerts entry in Tools, and the bar that says alerts are paused.
+// The Pause alerts button in the header, and the bar that says alerts are paused.
 function renderPause() {
   const open = $("pauseOpen");
-  if (open) open.hidden = !pauseEnabled || role === "viewer";
   const bar = $("pauseBar");
   if (!bar) return;
   const until = pauseEnabled && alertsPausedUntil && new Date(alertsPausedUntil) > new Date() ? alertsPausedUntil : null;
+  if (open) {
+    open.hidden = !pauseEnabled || role === "viewer";
+    open.textContent = until ? `Alerts paused until ${snoozeClock(until)}` : "Pause alerts";
+    open.classList.toggle("held", !!until);
+  }
   bar.hidden = !until;
   if (until) $("pauseUntil").textContent = snoozeClock(until);
   $("pauseResume").hidden = role === "viewer";
@@ -1217,7 +1221,7 @@ $("pauseEnabled").onchange = async () => {
     pauseEnabled = enabled;
     if (!enabled) alertsPausedUntil = null;
     renderPause();
-    toast(enabled ? "Pause alerts is in the Tools menu" : "Pause alerts is off");
+    toast(enabled ? "Pause alerts is in the header" : "Pause alerts is off");
   } catch { $("pauseEnabled").checked = !enabled; toast("Couldn't save that"); }
 };
 function renderAlertsOff() {
@@ -1348,7 +1352,6 @@ document.addEventListener("keydown", e => {
   if (!$("cardsModal").hidden) { closeCardsDialog(); return; }
   if (!$("gwModal").hidden) { closeGatewayDialog(); return; }
   if (!$("bulkModal").hidden) { closeBulkModal(); return; }
-  if (!$("toolModal").hidden) { closeToolDialog(); return; }
   if (!$("snoozeModal").hidden) { closeSnoozeDialog(); return; }
   if (!$("snmpModal").hidden) { closeSnmpDialog(); return; }
   if (!$("kindModal").hidden) { closeKindDialog(); return; }

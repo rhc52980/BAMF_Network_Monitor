@@ -1,4 +1,4 @@
-// Select mode for the device list: tick several devices and do one thing to all of them. Tools → Select devices
+// Select mode for the device list: tick several devices and do one thing to all of them. Select, beside the filters,
 // turns it on; a bar along the bottom then offers the same choices a device's own ⋯ menu has. What's selected is
 // what the list is showing: change the filter or the network and the ticks that are no longer in view fall away.
 
@@ -21,7 +21,7 @@ function renderBulk() {
   const toggle = $("bulkEnabled");
   if (toggle) toggle.checked = bulkEnabled;
   const entry = $("bulkOpen");
-  if (entry) { entry.hidden = off; entry.textContent = selectMode ? "Stop selecting" : "Select devices"; }
+  if (entry) { entry.hidden = off; entry.textContent = selectMode ? "Stop selecting" : "Select"; entry.setAttribute("aria-pressed", selectMode ? "true" : "false"); entry.classList.toggle("on", selectMode); }
   if (off && selectMode) { selectMode = false; selected.clear(); }
   document.body.classList.toggle("selecting", selectMode);
   const bar = $("bulkBar");
@@ -79,7 +79,6 @@ function syncTicks() {
 
 function endSelect() { selectMode = false; selected.clear(); lastTicked = null; renderBulk(); }
 $("bulkOpen").onclick = () => {
-  toolsOpen = false; $("toolsMenu").classList.remove("show");
   if (view !== "devices" && view !== "forgotten") showView("devices");
   selectMode = !selectMode;
   if (!selectMode) { selected.clear(); lastTicked = null; }
@@ -215,6 +214,6 @@ $("bulkEnabled").onchange = async () => {
     if (!r.ok) throw new Error();
     bulkEnabled = enabled;
     renderBulk();
-    toast(enabled ? "Select devices is in the Tools menu" : "Select devices is off");
+    toast(enabled ? "Select is beside the filters on the Devices tab" : "Select devices is off");
   } catch { $("bulkEnabled").checked = !enabled; toast("Couldn't save that"); }
 };
