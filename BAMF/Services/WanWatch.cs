@@ -42,6 +42,13 @@ public sealed class WanWatch : BackgroundService
     /// <summary>Readings in a row that must all be slow before it's called, and fast ones before it's over.</summary>
     public const int SlowReadings = 5, FastReadings = 3;
 
+    // Quality: which problems (loss, jitter, dns) are being reported now, and when each was last raised.
+    private readonly HashSet<string> _qualityActive = new();
+    private readonly Dictionary<string, DateTime> _qualitySaid = new();
+    public static readonly TimeSpan QualityWindow = TimeSpan.FromMinutes(15);
+    /// <summary>Times one DNS lookup through the system's resolver, in ms (-1 failed, -2 nothing to ask). Swapped out by tests.</summary>
+    internal Func<CancellationToken, Task<int>>? DnsTimer { get; set; }
+
     public WanWatch(HostStore store, ScannerService scanner, SpeedTest speed, IConfiguration cfg, ILogger<WanWatch> log)
     {
         _store = store; _scanner = scanner; _speed = speed; _cfg = cfg; _log = log;
@@ -101,6 +108,19 @@ public sealed class WanWatch : BackgroundService
     /// <summary>Forgets the usual, so the next reading works it out again.</summary>
     public void ResetUsual() => _usualAt = DateTime.MinValue;
 
+    /// <summary>Whether lost pings, jitter and slow DNS are alerted on. On unless switched off; nothing without the watch itself.</summary>
+    public bool QualityEnabled => _store.GetSetting("wanQuality") != "false";
+
+    /// <summary>The last hour's quality, for the Internet card.</summary>
+    public WanQuality.Report Quality(int minutes = 60)
+    {
+        var from = DateTime.UtcNow.AddMinutes(-minutes).ToString("o");
+        return WanQuality.Assess(_store.GetWanSamples(Math.Max(1, (minutes + 59) / 60)).Where(s => string.CompareOrdinal(s.At, from) >= 0).Select(s => (s.Internet, s.Dns)).ToList());
+    }
+
+    /// <summary>The problems being reported now: "loss", "jitter", "dns".</summary>
+    public IReadOnlyCollection<string> QualityProblems => _qualityActive.ToList();
+
     /// <summary>The limit in ms a reading has to reach to count as slow, or null when there isn't one yet.</summary>
     public int? SlowLimit
     {
@@ -153,7 +173,8 @@ public sealed class WanWatch : BackgroundService
         var gateway = PortChecker.DefaultGateways().FirstOrDefault();
         var gwMs = gateway is null ? -1 : await PingMs(gateway, ct);
         var netMs = await PingMs(Target, ct);
-        _store.AddWanSample(gwMs, netMs);
+        var dnsMs = await (DnsTimer ?? DnsLookupMs)(ct);
+        _store.AddWanSample(gwMs, netMs, dnsMs);
 
         if (DateTime.UtcNow - _lastPrune > TimeSpan.FromHours(6)) { _lastPrune = DateTime.UtcNow; _store.PruneWan(); }
 
@@ -193,6 +214,62 @@ public sealed class WanWatch : BackgroundService
         }
 
         await CheckSlow(gwMs, netMs, ct);
+        await CheckQuality(ct);
+    }
+
+    /// <summary>One A lookup of dns.google through the first DNS server this machine is set to use, timed.</summary>
+    private static async Task<int> DnsLookupMs(CancellationToken ct)
+    {
+        var server = DnsClient.SystemServers().FirstOrDefault();
+        if (server is null) return -2;
+        var a = await DnsClient.QueryA(server, "dns.google", 2000, ct);
+        return a.Ok && a.RCode == 0 ? a.Ms : -1;
+    }
+
+    /// <summary>
+    /// The last quarter hour's readings: pings lost (the line not being down), the time varying from one ping to the
+    /// next, and DNS lookups slow or failing. Each problem is one alert when it starts and one when the window is clean
+    /// again, and the same problem isn't raised again within six hours. Nothing is said while the line is down.
+    /// </summary>
+    internal async Task CheckQuality(CancellationToken ct, DateTime? nowUtc = null)
+    {
+        if (!QualityEnabled || _wasDown) { return; }
+        var now = nowUtc ?? DateTime.UtcNow;
+        var from = now.Subtract(QualityWindow).ToString("o");
+        var window = _store.GetWanSamples(1).Where(s => string.CompareOrdinal(s.At, from) >= 0).Select(s => (s.Internet, s.Dns)).ToList();
+        var report = WanQuality.Assess(window);
+        if (report.Samples < WanQuality.MinSamples) return;
+        var problems = WanQuality.Problems(report);
+        var mins = (int)QualityWindow.TotalMinutes;
+        foreach (var p in problems.Where(p => !_qualityActive.Contains(p)).ToList())
+        {
+            _qualityActive.Add(p);
+            if (_qualitySaid.TryGetValue(p, out var at) && now - at < TimeSpan.FromHours(6)) continue;
+            _qualitySaid[p] = now;
+            var (title, detail) = p switch
+            {
+                "loss" => ("The internet is dropping packets",
+                    $"{report.LossPercent}% of the pings to {Target} in the last {mins} minutes got no answer, though the line is up. Pages still load, but calls break up, games lag and downloads stall. Usually the line or the modem: a noisy cable connection, a poor Wi-Fi link if BAMF's machine is on Wi-Fi, or your provider having a bad afternoon."),
+                "jitter" => ("The internet is jittery",
+                    $"The ping to {Target} has been varying by about {report.JitterMs} ms from one reading to the next over the last {mins} minutes. The average can look fine while calls stutter and games rubber-band. Something is filling the connection in bursts (a backup, a cloud upload, a camera) or the line itself is unsteady."),
+                _ => ("DNS lookups are slow",
+                    report.DnsMs is { } d && d >= WanQuality.DnsSlowLimit
+                        ? $"Looking a name up through this network's DNS has been taking about {d} ms over the last {mins} minutes. Every page starts with a lookup, so everything feels slow to begin even when the speed test is fine. The resolver is usually the router passing the question to your provider: a public one such as 1.1.1.1 or 9.9.9.9 is worth trying."
+                        : $"{report.DnsFailed} of the last {report.DnsMeasured} DNS lookups through this network's resolver got no answer. When the resolver fails, pages fail to open even though the line is up. The resolver is usually the router passing the question to your provider: a public one such as 1.1.1.1 or 9.9.9.9 is worth trying."),
+            };
+            await _scanner.RaiseSecurity(title, detail, ct, "internet");
+        }
+        foreach (var p in _qualityActive.Where(p => !problems.Contains(p)).ToList())
+        {
+            _qualityActive.Remove(p);
+            var (title, detail) = p switch
+            {
+                "loss" => ("The internet has stopped dropping packets", $"Pings to {Target} are being answered again: {report.LossPercent}% lost in the last {mins} minutes."),
+                "jitter" => ("The internet is steady again", $"The ping to {Target} varies by about {report.JitterMs} ms again over the last {mins} minutes."),
+                _ => ("DNS lookups are quick again", $"Lookups through this network's DNS are taking about {report.DnsMs} ms again."),
+            };
+            await _scanner.RaiseSecurity(title, detail, ct, "internet");
+        }
     }
 
     /// <summary>

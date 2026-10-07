@@ -54,15 +54,30 @@ internal static class SecurityEndpoints
             greynoise.Enabled ? Results.Json(new { enabled = true, result = await greynoise.Check(ct) })
                               : Results.Json(new { error = "The GreyNoise check is off: switch it on in Settings first." }, statusCode: 409));
 
-        app.MapGet("/api/security", (HostStore store, ScannerService scanner, SecurityCheck security) => Results.Json(SecurityJson(store, scanner, security)));
+        // The DNS watch: is this network's resolver telling the truth? Off unless switched on; turning it on checks straight away.
+        app.MapGet("/api/dns", (DnsWatch dns) => Results.Json(new { enabled = dns.Enabled, result = dns.Last, canaries = DnsWatch.Canaries }));
+
+        app.MapPost("/api/settings/dns-watch", async (ActiveArpRequest body, HostStore store, DnsWatch dns, CancellationToken ct) =>
+        {
+            store.SetSetting("dnsWatch", body.Enabled ? "true" : "false");
+            if (body.Enabled) await dns.Check(ct);
+            return Results.Json(new { enabled = dns.Enabled, result = dns.Last });
+        });
+
+        app.MapPost("/api/dns/check", async (DnsWatch dns, CancellationToken ct) =>
+            dns.Enabled ? Results.Json(new { enabled = true, result = await dns.Check(ct) ?? dns.Last })
+                        : Results.Json(new { error = "The DNS watch is off: switch it on in Settings first." }, statusCode: 409));
+
+        app.MapGet("/api/security", (HostStore store, ScannerService scanner, SecurityCheck security, DnsWatch dns) => Results.Json(SecurityJson(store, scanner, security, dns)));
 
         // Check now: the common ports of every online known device, a UPnP search and
         // every HTTPS certificate, one after the other. About a minute on a home network.
-        app.MapPost("/api/security/check", async (HostStore store, ScannerService scanner, SecurityCheck security, RuleService rules, GreyNoiseCheck greynoise, CancellationToken ct) =>
+        app.MapPost("/api/security/check", async (HostStore store, ScannerService scanner, SecurityCheck security, RuleService rules, GreyNoiseCheck greynoise, DnsWatch dns, CancellationToken ct) =>
         {
             var ran = await security.Run(async c => await rules.PortWatch(c), certs: true, upnp: true, ct);
             if (ran && greynoise.Enabled) await greynoise.Check(ct);
-            return ran ? Results.Json(SecurityJson(store, scanner, security))
+            if (ran && dns.Enabled) await dns.Check(ct);
+            return ran ? Results.Json(SecurityJson(store, scanner, security, dns))
                        : Results.Conflict(new { error = "A check is already running." });
         });
     }

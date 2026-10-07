@@ -1848,6 +1848,11 @@ scan, or delete a thing.
 | POST | `/api/router-import/apply` | Body `{"overwrite": false}` — copy router names into BAMF's own names, only for devices without one unless `overwrite`. Returns `{ "named": 3 }` |
 | GET | `/api/greynoise` | The GreyNoise check: `enabled`, and the last `result` (`ip`, `noise`, `riot`, `classification`, `lastSeen`, `message`, `error`, `checkedAt`) |
 | POST | `/api/settings/greynoise` | Body `{"enabled": true}` — turn the daily GreyNoise check on (it checks straight away) or off. Off by default |
+| GET | `/api/dns` | The DNS watch: `enabled`, the `canaries` (names and their fixed addresses), and the last `result`: `{"checkedAt", "servers", "server", "wrongAnswers": [{"name", "got", "expected"}], "inventsAnswers", "invented", "newServers", "error"}` |
+| POST | `/api/settings/dns-watch` | Body `{"enabled": true}` — turn the hourly DNS watch on (it checks straight away) or off. Off by default |
+| POST | `/api/dns/check` | Ask the questions now; 409 while the watch is off |
+| POST | `/api/settings/wan-quality` | Body `{"enabled": false}` — switch the internet quality alerts (lost pings, jitter, slow DNS) off, or back on |
+| POST | `/api/settings/latency-alert` | Body `{"enabled": true, "ms": 250}`, either or both — the alert for a watched device slow to answer, and the ms it has to reach (20–5000) |
 | POST | `/api/greynoise/check` | Check GreyNoise now; `409` while the check is off |
 | GET | `/api/security` | What the hygiene card needs beyond `/api/hosts`: `certs` (per device and port: `subject`, `issuer`, `notAfter`, `selfSigned`, `error`), `upnp` (routers that answered a UPnP search), `gatewayMacs` (each network's gateway and the MAC last seen for it), `checkedAt` |
 | POST | `/api/security/check` | The health check: scans every online known device's common ports, searches for UPnP routers and reads every HTTPS certificate. Returns the same as `GET /api/security`; `409` if a check is already running |
@@ -1900,6 +1905,7 @@ scan, or delete a thing.
 | GET | `/api/views` | The saved views: `{"max", "views": [{"name", "tab", "network", "status", "guess", "tag", "query"}]}`. `tab` is `devices` or `forgotten`, `status` one of `all`, `online`, `offline`, `unknown`, `new`, `ignored`, `guess` empty for every type or `__none__` for devices with no guess |
 | POST | `/api/views` | Body: one view as above. Saves it, replacing the one with the same name (any case); up to 20. Answers the list |
 | POST | `/api/views/delete` | Body `{"name": "Kids offline"}` — removes a view; 404 if there isn't one |
+| GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow", "quality", "qualityAlert", "qualityProblems", "externalIp"}` — `quality` is the last hour as `{"samples", "lossPercent", "jitterMs", "dnsMs", "dnsMeasured", "dnsFailed"}` and `qualityProblems` the ones being reported now (`loss`, `jitter`, `dns`); each sample carries `dns` ms (-1 failed, -2 not measured); `externalIp` is the home's public address, `{ip, source, at, since, previous, changedAt}` (`source` is `speedtest`, `greynoise` or `lookup`), or null until one of them has learned it; the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
 | GET | `/api/wan` | The internet watch: `{"state", "samples", "outages", "slow", "externalIp"}` — `externalIp` is the home's public address, `{ip, source, at, since, previous, changedAt}` (`source` is `speedtest`, `greynoise` or `lookup`), or null until one of them has learned it; the last reading (with `slowMode`, the limit in force as `slowMs`, the `usualMs`, and whether it's `slow` now), a day of one-a-minute readings, the outage log and the slow spells, each with its `worst` ms |
 | GET | `/report/internet` | The internet report as one printable HTML page for sending to the provider. `?days=` 1 to 365 (default 30). See [Report for your provider](#report-for-your-provider) |
 | POST | `/api/settings/wanwatch` | Body `{"enabled": true}` — switch the internet watch on or off |
@@ -2951,6 +2957,38 @@ Two caveats. If your internet provider shares one address between many homes
 proof: GreyNoise only knows about scanning, not a device quietly sending your
 data somewhere else.
 
+### DNS watch: is your resolver telling the truth?
+
+Every name a device looks up goes through the DNS server this network uses,
+usually the router, which passes the question on to your provider or whatever
+it was pointed at. Whoever controls that resolver can send any site's traffic
+anywhere, which is why a hijacked router, or malware that quietly changed the
+DNS setting, is one of the oldest tricks there is. **DNS watch**, under
+**Settings → Security**, asks it three questions once an hour:
+
+- **Names whose addresses never change.** `dns.google` is 8.8.8.8 and 8.8.4.4,
+  `one.one.one.one` is 1.1.1.1 and 1.0.0.1, `dns.quad9.net` is 9.9.9.9 and
+  149.112.112.112; their owners publish them and they don't move. A resolver
+  that answers with anything else is lying: a **security** alert (once a day)
+  and a **high** finding on the hygiene card, with what it said and what the
+  answer is. A filtering DNS service you set up on purpose can trip this; the
+  alert says so.
+- **A name that doesn't exist.** Something like `bamf-7f3a….example.com` has
+  one honest answer, "no such name". A resolver that gives an address instead is
+  making answers up: some providers do it to put adverts on mistyped
+  addresses, and so does some malware. A **security** alert once a week and a
+  **low** finding, since it's more often the provider than an attacker.
+- **Which DNS servers this machine is using at all.** BAMF remembers the set.
+  A new one that was never seen before is a **security** alert, and the alert
+  says whether it's an address out on the internet rather than your router.
+  Expected if you changed the router's DNS; worth a look if you didn't.
+
+It's **off by default**, because the lookups leave the house: three small DNS
+questions an hour. Switching it on checks straight away, and so does the health
+check while it's on. What it last found is under the switch in Settings and in
+`GET /api/dns`. BAMF builds the DNS packets itself rather than asking the
+operating system, so the answer is the resolver's and not a cached one.
+
 ### Internet watch
 
 Off by default. Switch on **Watch the internet connection** under
@@ -2985,6 +3023,20 @@ What you get for it:
   worst reading of each. On the bar, red is down, full-height amber is down
   with your router too, shorter amber is slow and grey is BAMF not watching.
   Anything still going is listed first, as "still down" or "still slow".
+- **The line's quality**, from the same readings plus one timed DNS lookup a
+  reading (`dns.google`, through the DNS server this machine is set to use).
+  The card shows the last hour: the share of pings lost, the **jitter** (how
+  much the time varies from one ping to the next, which is what makes calls
+  stutter and games lag while the average looks fine) and how long a DNS lookup
+  takes (every page starts with one). With **Internet quality alerts** on,
+  under **Settings → Internet**, each becomes an alert when it goes wrong over
+  a quarter of an hour and another when it's over: a tenth of the pings
+  unanswered while the line is up ("The internet is dropping packets"), the
+  ping varying by 50 ms or more ("The internet is jittery"), and lookups
+  taking 300 ms or more or a third of them failing ("DNS lookups are slow").
+  Nothing is said while the line is down, and the same problem isn't raised
+  again within six hours. On by default, but nothing happens without the
+  internet watch itself.
 
 **How often** it checks is **Settings → Internet → Check the internet every**,
 from 20 seconds to an hour, a minute by default (`Bamf:WanIntervalSeconds`
@@ -3407,6 +3459,17 @@ if you'd rather it didn't.
   look for.
 
 Samples age out on the same window as events (`HistoryRetentionDays`).
+
+**A watched device that's slow to answer** is an alert: with **Alert when a
+watched device is slow to answer** on under **Settings → Scanning** (it is by
+default), a watched device that has taken **250 ms** or more, or whatever you
+set, to answer **five** pings in a row gets one alert saying so, and another
+when it has answered three in a row under the limit, with the worst reading of
+the spell. A ping with no reply counts neither way. Watched devices only: they
+are the ones whose going down already alerts, and a phone or a laptop on Wi-Fi
+is often slow for no reason worth hearing about. The [unusual-activity
+watch](#unusual-activity) separately notices any device much slower than its
+own usual.
 
 ### When it's online
 

@@ -91,6 +91,8 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<RuleService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MqttPublisher>());
 builder.Services.AddSingleton<UnusualWatch>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<UnusualWatch>());
+builder.Services.AddSingleton<DnsWatch>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<DnsWatch>());
 builder.Services.AddSingleton<FlowWatch>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<FlowWatch>());
 builder.Services.AddSingleton<NightlyBackup>();

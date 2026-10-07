@@ -17,13 +17,14 @@ public partial class HostStore
     public static readonly string[] TransferKeys =
     {
         "activeArpScan", "alertRetry", "arpWatch", "autoIgnoreRandomizedMacs", "backupHour", "backupKeep", "backupNightly",
-        "bulkSelect", "cascadeAlert", "certWatch", "diskAlert", "diskAlertPercent", "firstWeekReport", "flapAlert", "flapDrops", "flapHold",
-        "flowWatch", "greynoise", "heartbeatEnabled", "heartbeatMinutes", "historyRetentionDays", "holidaySpirit", "ipv6Watch", "latencyProbe",
-        "mdnsListen", "networkTools", "newDays", "nightFrom", "nightMode", "nightTheme", "nightTo", "offlineAfterMissedScans",
-        "pauseAlerts", "pingConcurrency", "portWatch", "quietDigest", "quietFrom", "quietTo", "reportDay", "reportHour",
-        "reportSchedule", "restartAlert", "scanIntervalSeconds", "speedTest", "spikeAlert", "tidyDays", "tidyEnabled", "traceAnywhere",
-        "trafficMonitor", "unusualWatch", "updateCheck", "upnpIgd", "wanInterval", "wanSlow", "wanTarget", "wanWatch",
-        "watchAlerts", "webhookFormat", "webhookKinds",
+        "bulkSelect", "cascadeAlert", "certWatch", "diskAlert", "diskAlertPercent", "dnsWatch", "firstWeekReport", "flapAlert",
+        "flapDrops", "flapHold", "flowWatch", "greynoise", "heartbeatEnabled", "heartbeatMinutes", "historyRetentionDays",
+        "holidaySpirit", "ipv6Watch", "latencyAlert", "latencyAlertMs", "latencyProbe", "mdnsListen", "networkTools", "newDays",
+        "nightFrom", "nightMode", "nightTheme", "nightTo", "offlineAfterMissedScans", "pauseAlerts", "pingConcurrency",
+        "portWatch", "quietDigest", "quietFrom", "quietTo", "reportDay", "reportHour", "reportSchedule", "restartAlert",
+        "scanIntervalSeconds", "speedTest", "spikeAlert", "tidyDays", "tidyEnabled", "traceAnywhere", "trafficMonitor",
+        "unusualWatch", "updateCheck", "upnpIgd", "wanInterval", "wanQuality", "wanSlow", "wanTarget", "wanWatch", "watchAlerts",
+        "webhookFormat", "webhookKinds",
     };
 
     private const int MaxTransferValue = 2000;
