@@ -17,11 +17,11 @@ public partial class HostStore
     public static readonly string[] TransferKeys =
     {
         "activeArpScan", "alertRetry", "arpWatch", "autoIgnoreRandomizedMacs", "backupHour", "backupKeep", "backupNightly",
-        "bulkSelect", "cascadeAlert", "certWatch", "diskAlert", "diskAlertPercent", "flapAlert", "flapDrops", "flapHold",
-        "greynoise", "heartbeatEnabled", "heartbeatMinutes", "historyRetentionDays", "holidaySpirit", "ipv6Watch", "latencyProbe",
+        "bulkSelect", "cascadeAlert", "certWatch", "diskAlert", "diskAlertPercent", "firstWeekReport", "flapAlert", "flapDrops", "flapHold",
+        "flowWatch", "greynoise", "heartbeatEnabled", "heartbeatMinutes", "historyRetentionDays", "holidaySpirit", "ipv6Watch", "latencyProbe",
         "mdnsListen", "networkTools", "newDays", "nightFrom", "nightMode", "nightTheme", "nightTo", "offlineAfterMissedScans",
         "pauseAlerts", "pingConcurrency", "portWatch", "quietDigest", "quietFrom", "quietTo", "reportDay", "reportHour",
-        "reportSchedule", "restartAlert", "scanIntervalSeconds", "speedTest", "tidyDays", "tidyEnabled", "traceAnywhere",
+        "reportSchedule", "restartAlert", "scanIntervalSeconds", "speedTest", "spikeAlert", "tidyDays", "tidyEnabled", "traceAnywhere",
         "trafficMonitor", "unusualWatch", "updateCheck", "upnpIgd", "wanInterval", "wanSlow", "wanTarget", "wanWatch",
         "watchAlerts", "webhookFormat", "webhookKinds",
     };

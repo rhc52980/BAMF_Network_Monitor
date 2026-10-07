@@ -86,6 +86,8 @@ public sealed class TrafficMonitor : IDisposable
     public Action<string, string>? OnArp { get; set; }
     /// <summary>Every IPv6 neighbour-discovery frame's sender MAC and address, for the IPv6 watch.</summary>
     public Action<string, string>? OnNdp { get; set; }
+    /// <summary>Every IPv4 packet: sender MAC, source and destination address, protocol, destination port (0 when it has none) and length, for the flow watch.</summary>
+    public Action<string, IPAddress, IPAddress, int, int, int>? OnIp { get; set; }
 
     public TrafficMonitor(ILogger<TrafficMonitor> log, HostStore store)
     {
@@ -214,12 +216,16 @@ public sealed class TrafficMonitor : IDisposable
             if (ethType != 0x0800 || d.Length < off + 20) return;
             var ihl = (d[off] & 0x0F) * 4;
             var proto = d[off + 9];
+            var srcAddr = new IPAddress(new ReadOnlySpan<byte>(d, off + 12, 4));
+            var dstAddr = new IPAddress(new ReadOnlySpan<byte>(d, off + 16, 4));
+            var hasPorts = (proto == 6 || proto == 17) && d.Length >= off + ihl + 4;
+            if (OnIp is { } ip) ip(src, srcAddr, dstAddr, proto, hasPorts ? (d[off + ihl + 2] << 8) | d[off + ihl + 3] : 0, len);
             if (proto != 17 || d.Length < off + ihl + 8) return;
             var udp = off + ihl;
             var sport = (d[udp] << 8) | d[udp + 1];
             var dport = (d[udp + 2] << 8) | d[udp + 3];
-            var srcIp = new IPAddress(new ReadOnlySpan<byte>(d, off + 12, 4)).ToString();
-            var dstIp = new IPAddress(new ReadOnlySpan<byte>(d, off + 16, 4)).ToString();
+            var srcIp = srcAddr.ToString();
+            var dstIp = dstAddr.ToString();
             var payload = udp + 8;
             if (sport == 67 && dport == 68) Dhcp(d, payload, src, srcIp);
             else if (dport == 53 && d.Length >= payload + 12 && (d[payload + 2] & 0x80) == 0) Dns(src, dstIp);
