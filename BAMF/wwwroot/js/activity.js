@@ -289,6 +289,16 @@ function hygieneFindings() {
     add("high", h, "UPnP port forwarding is on",
       "Any device on your network can open ports on this router to the internet without asking. Turn UPnP off in the router unless a game console or app needs it.");
   }
+  // The DNS watch: a resolver answering wrongly for a name with a fixed address, or inventing answers.
+  const dns = sec.dnsWatch && sec.dns;
+  if (dns) {
+    for (const w of dns.wrongAnswers || [])
+      add("high", null, `Your DNS says ${w.name} is at ${w.got}`,
+        `It is ${w.expected}, and always has been. A resolver (${dns.server}) that answers wrongly for a name like that can send any site's traffic where it likes: check the DNS setting in your router and on this machine, unless you set up a filtering DNS service on purpose.`);
+    if (dns.inventsAnswers)
+      add("low", null, "Your DNS makes up answers for names that don't exist",
+        `Asked about a name nobody has registered, ${dns.server} answered ${dns.invented} instead of "no such name". Providers do it to put adverts on typos; it also breaks software that expects an honest answer. Public resolvers such as 1.1.1.1 or 9.9.9.9 don't.`);
+  }
   const gr = greynoiseCache && greynoiseCache.enabled && greynoiseCache.result;
   if (gr && gr.noise)
     add("high", null, `Your public address ${gr.ip} has been seen scanning the internet`,

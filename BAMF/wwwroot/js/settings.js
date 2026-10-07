@@ -216,6 +216,70 @@ $("setLatency").onclick = async () => {
   } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
 };
 
+// A watched device slow to answer: the switch and the ms it has to reach.
+function renderLatencyAlert() {
+  const t = $("setLatencyAlert");
+  if (!t) return;
+  setToggleState(t, latencyAlert);
+  t.title = latencyAlert ? "Watched devices slow to answer are reported - click to stop" : "Click to be told when a watched device is slow to answer";
+  if (document.activeElement !== $("setLatencyAlertMs")) $("setLatencyAlertMs").value = latencyAlertMs;
+  $("setLatencyAlertStatus").textContent = !latencyAlert ? "" : !latencyProbe ? "Latency measuring is off, so nothing is measured to alert on."
+    : `Slow at ${latencyAlertMs} ms or more for five pings running.`;
+}
+async function saveLatencyAlert(body) {
+  try {
+    const r = await fetch("/api/settings/latency-alert", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't save that"); renderLatencyAlert(); return false; }
+    latencyAlert = d.enabled; latencyAlertMs = d.ms;
+    renderLatencyAlert();
+    return true;
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); renderLatencyAlert(); return false; }
+}
+$("setLatencyAlert").onclick = async () => { if (await saveLatencyAlert({ enabled: !latencyAlert })) toast(latencyAlert ? "Watched devices slow to answer will be reported" : "The slow-device alert is off"); };
+$("setLatencyAlertSave").onclick = async () => {
+  const ms = Math.round(Number($("setLatencyAlertMs").value));
+  if (await saveLatencyAlert({ ms })) toast(`A watched device is slow at ${latencyAlertMs} ms or more`);
+};
+
+// The DNS watch: the switch, and what it last found.
+function renderDnsWatch() {
+  const t = $("setDnsWatch");
+  if (!t) return;
+  setToggleState(t, dnsWatch);
+  t.title = dnsWatch ? "The DNS watch is on - click to stop" : "Click to check this network's DNS once an hour";
+  $("setDnsWatchStatus").textContent = dnsWatchLine().text;
+}
+function dnsWatchLine() {
+  const r = securityCache && securityCache.dns;
+  if (!dnsWatch) return { text: "Off.", bad: false };
+  if (!r) return { text: "On, not checked yet.", bad: false };
+  const when = fmtAgo(r.checkedAt);
+  if (r.error && !r.server) return { text: `${r.error} Checked ${when}.`, bad: false };
+  const bits = [];
+  if (r.wrongAnswers && r.wrongAnswers.length) bits.push(`${r.server} answers wrongly for ${r.wrongAnswers.map(w => w.name).join(", ")}`);
+  if (r.inventsAnswers) bits.push(`${r.server} makes up answers for names that don't exist`);
+  if (r.newServers && r.newServers.length) bits.push(`new DNS server${r.newServers.length === 1 ? "" : "s"}: ${r.newServers.join(", ")}`);
+  if (r.error) bits.push(r.error);
+  return bits.length ? { text: `Checked ${when}: ${bits.join("; ")}.`, bad: true }
+    : { text: `Checked ${when}: ${r.server} answers honestly for ${Object.keys((securityCache && securityCache.dnsCanaries) || {}).length || 3} names with fixed addresses and says "no such name" when it should.${(r.servers || []).length > 1 ? ` Servers: ${r.servers.join(", ")}.` : ""}`, bad: false };
+}
+$("setDnsWatch").onclick = async () => {
+  const next = !dnsWatch;
+  $("setDnsWatchStatus").textContent = next ? "Checking…" : "";
+  try {
+    const r = await fetch("/api/settings/dns-watch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const d = await r.json();
+    dnsWatch = d.enabled;
+    if (securityCache) securityCache.dns = d.result;
+    else securityCache = { dns: d.result };
+    renderDnsWatch();
+    if (typeof renderHygiene === "function") renderHygiene();
+    toast(next ? (dnsWatchLine().bad ? "DNS watch on: something to look at, see below" : "DNS watch on: your DNS checks out") : "The DNS watch is off");
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); renderDnsWatch(); }
+};
+
 function renderRandToggle() {
   const t = $("setRand");
   setToggleState(t, autoIgnoreRandom);
@@ -1419,9 +1483,15 @@ async function loadSettings() {
   if (typeof e.arpWatch === "boolean") arpWatch = e.arpWatch;
   if (typeof e.certWatch === "boolean") certWatch = e.certWatch;
   if (typeof e.ipv6Watch === "boolean") ipv6Watch = e.ipv6Watch;
+  if (typeof e.dnsWatch === "boolean") dnsWatch = e.dnsWatch;
+  if (typeof e.wanQuality === "boolean") wanQualityAlert = e.wanQuality;
+  if (typeof e.latencyAlert === "boolean") latencyAlert = e.latencyAlert;
+  if (typeof e.latencyAlertMs === "number") latencyAlertMs = e.latencyAlertMs;
   renderArpWatchToggle();
   renderCertWatchToggle();
   renderIpv6WatchToggle();
+  renderLatencyAlert();
+  loadSecurity().then(renderDnsWatch);
   loadGreyNoise().then(renderGreyNoiseToggle);
   loadWan(true).then(renderWanToggle);
   loadSpeed().then(renderSpeedSetting);

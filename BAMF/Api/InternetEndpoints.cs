@@ -23,6 +23,10 @@ internal static class InternetEndpoints
                 samples = store.GetWanSamples(24).Select(s => new { at = s.At, gateway = s.Gateway, internet = s.Internet }),
                 outages = logged,
                 slow = SlowSpells(),
+                // The last hour's quality: pings lost, jitter and DNS time; and which problems are being reported now.
+                quality = wan.Quality(),
+                qualityAlert = wan.QualityEnabled,
+                qualityProblems = wan.QualityProblems,
                 // The home's public address, learned from the speed test or the GreyNoise check; null until one has run.
                 externalIp = store.GetExternalIp(),
             });
@@ -79,6 +83,12 @@ internal static class InternetEndpoints
             if (body.Seconds is < 20 or > 3600) return Results.BadRequest(new { error = "Between 20 seconds and an hour." });
             store.SetSetting("wanInterval", body.Seconds.ToString());
             return Results.Json(new { seconds = wan.IntervalSeconds });
+        });
+
+        app.MapPost("/api/settings/wan-quality", (ActiveArpRequest body, HostStore store, WanWatch wan) =>
+        {
+            store.SetSetting("wanQuality", body.Enabled ? "true" : "false");
+            return Results.Json(new { enabled = wan.QualityEnabled });
         });
 
         app.MapPost("/api/settings/wanwatch", (ActiveArpRequest body, HostStore store, WanWatch wan) =>
