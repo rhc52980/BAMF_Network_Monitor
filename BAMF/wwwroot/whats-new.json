@@ -2,6 +2,14 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.13.0",
+      "date": "2026-10-08",
+      "items": [
+        "There is a new screen saver, The grid, in 3D. Your network becomes a place at night: a glowing platform for each network, every device a hologram of what it is, and a camera that drifts over them, sweeps low among them and flies across them. A scan sends a ring of light across each platform. A new device turns the night red, and the camera swings round to it and circles it while a reticle locks on, with Mark known and Dismiss as before. Pick it under Settings, Appearance, Screen saver style, in neon or in terminal green, and use Show me an alert to see it.",
+        "It needs a browser that can draw 3D, and falls back to your theme's scenery where it can't. It uses the graphics card, so a wall tablet may prefer the watchtower. Its 3D library and models are part of BAMF and load only when the saver starts."
+      ]
+    },
+    {
       "version": "2.12.0",
       "date": "2026-10-08",
       "items": [
