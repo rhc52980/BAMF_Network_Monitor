@@ -180,6 +180,7 @@ public partial class HostStore
         InitWan(conn);
         InitSpeed(conn);
         InitSnmp(conn);
+        InitServiceWatch(conn);
     }
 
     /// <summary>Every address a host has been seen at, oldest first, with when each began.</summary>

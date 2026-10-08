@@ -530,7 +530,7 @@ function fillNotify() {
 // editing a saved one leaves its URL box empty, and empty keeps it.
 const ALERT_KINDS = [
   ["devices", "New devices", "A device BAMF hasn't seen before"],
-  ["status", "Offline and back", "Watched devices going offline and coming back, alert rules, and a snooze ending"],
+  ["status", "Offline and back", "Watched devices going offline and coming back, watched services failing and answering again, alert rules, and a snooze ending"],
   ["unusual", "Unusual activity", "A device off far longer than usual, on at an hour it never is, or much slower than usual"],
   ["security", "Security", "ARP spoofing and IP conflicts, new DHCP or DNS servers, newly open ports, certificates, GreyNoise"],
   ["internet", "Internet", "The internet watch: down, back, slow and back to normal"],
@@ -1763,6 +1763,7 @@ async function loadSettings() {
   renderIntegrations(e, ro);
   renderBackup(e.backup);
   loadUnusualSetting();
+  loadServiceWatch();
 
   const roEl = $("setReadOnly");
   roEl.innerHTML = "";

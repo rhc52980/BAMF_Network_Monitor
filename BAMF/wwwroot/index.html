@@ -839,6 +839,22 @@
           <span class="set-field"><button type="button" class="arp-toggle" id="setUnusual" aria-label="Notice unusual activity" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
       </div>
+      <div class="set-card" id="serviceWatchSetCard">
+        <div class="set-card-title">Service watch</div>
+        <p class="modal-help">
+          Checks the things on your devices, not just the devices: a web page you pick (a normal answer is 200 to 399) or a port that should accept a connection,
+          every minute, for the services you add on the Activity tab. A service that fails two checks in a row gets an alert, and another when it answers again; one that
+          has a slow limit also alerts when five answers in a row are over it. A device BAMF has marked offline isn't asked, and snoozed devices stay quiet.
+          Alerts go to the destinations with <strong>Offline and back</strong> ticked under <strong>Sends</strong>, and quiet hours hold them like any other.
+          Only devices BAMF already knows can be watched, and a down service takes a few points off the network score.
+        </p>
+        <label class="set-row">
+          <span class="set-label">Watch services
+            <span class="set-hint" id="serviceWatchStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setServiceWatch" aria-label="Watch services" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+      </div>
       <div class="set-card" id="rulesCard">
         <div class="set-card-title">Alert rules and quiet hours</div>
         <p class="modal-help">
@@ -1314,6 +1330,34 @@
       <h3>Unusual</h3>
       <div class="sub" id="unusualSub"></div>
       <div id="unusualBody"></div>
+    </div>
+    <div class="act-card svw-card" id="svwCard">
+      <h3>Service watch</h3>
+      <div class="sub" id="svwSub"></div>
+      <div id="svwBody"></div>
+      <div class="svw-foot">
+        <span class="sub" id="svwNote"></span>
+        <button type="button" class="toggle" id="svwAddBtn">Add a service</button>
+      </div>
+      <div class="svw-add" id="svwAdd" hidden>
+        <div class="svw-add-title">Add a service</div>
+        <div class="sub" id="svwSuggHelp">BAMF already knows these are listening. One click fills in the form.</div>
+        <div class="tl-quick" id="svwSugg"></div>
+        <div class="svw-form">
+          <label>Device <select class="tl-in" id="svwDevice" aria-label="Device"></select></label>
+          <label>Check <select class="tl-in" id="svwKind" aria-label="What to check"><option value="web">Web page (http)</option><option value="webs">Web page (https)</option><option value="port">Port answers</option></select></label>
+          <label>Port <input class="tl-in" id="svwPort" type="number" min="1" max="65535" value="80" aria-label="Port"></label>
+          <label id="svwPathWrap">Path <input class="tl-in" id="svwPath" value="/" maxlength="200" spellcheck="false" aria-label="Path"></label>
+          <label>Name <input class="tl-in" id="svwName" maxlength="60" placeholder="Optional" aria-label="Name"></label>
+          <label>Call it slow above <span class="svw-ms"><input class="tl-in" id="svwSlow" type="number" min="50" max="60000" step="50" placeholder="never" aria-label="Slow above, in milliseconds"> ms</span></label>
+        </div>
+        <div class="svw-actions">
+          <button type="button" class="toggle" id="svwTry">Try it now</button>
+          <button type="button" class="toggle" id="svwSave">Watch it</button>
+          <button type="button" class="toggle" id="svwCancel">Cancel</button>
+          <span class="svw-result" id="svwResult" role="status"></span>
+        </div>
+      </div>
     </div>
     <div class="act-card" id="changesCard">
       <h3>What changed <select id="chgDays" class="free-days" aria-label="Period"><option value="1">in 24 hours</option><option value="7" selected>this week</option><option value="30">in 30 days</option></select></h3>
@@ -1889,6 +1933,7 @@
 <script src="js/screensaver.js"></script>
 <script src="js/internet.js"></script>
 <script src="js/services.js"></script>
+<script src="js/servicewatch.js"></script>
 <script src="js/sites.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/view3d.js"></script>

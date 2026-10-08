@@ -177,7 +177,12 @@ the network, 0 to 100, with the reasons it isn't 100 listed under it, biggest
 first. **Unusual** says when a device does
 something that isn't normal for it, learned from its own history: off far
 longer than it ever is, on at an hour it never is, or much slower than usual.
-**What changed** lists the devices that arrived and the ones that left, today,
+**Service watch** checks the things on your devices, not just the devices: a
+web page or a port you pick, such as Home Assistant, Plex or a NAS sign-in,
+every minute, with the last 24 hours drawn as a strip, an uptime and how fast
+it answers. BAMF suggests the ones it already knows are listening, an alert
+goes out when one fails twice running and when it's back, and it can call a
+service slow above a limit you set. **What changed** lists the devices that arrived and the ones that left, today,
 this week or this month. **Settings changes** lists every change made in
 Settings, with which password and from where; only the name of each setting is
 kept, never what it was set to. Beside them are the alerts BAMF raised, the

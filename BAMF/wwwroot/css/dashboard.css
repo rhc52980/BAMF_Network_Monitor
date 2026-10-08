@@ -1790,6 +1790,38 @@
   .tl-quick:empty { display: none; }
   .tl-chip { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; font: inherit; font-size: 12px; color: var(--text-dim); cursor: pointer; }
   .tl-chip:hover { color: var(--text); border-color: var(--focus); }
+
+  /* Service watch */
+  .svw-row { padding: 9px 0; border-top: 1px solid var(--line); }
+  .svw-row:first-child { border-top: 0; padding-top: 2px; }
+  .svw-head { display: flex; align-items: center; gap: 8px; }
+  .svw-name { flex: 1 1 auto; min-width: 0; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .svw-stat { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+  .svw-stat.bad { color: var(--danger); }
+  .svw-stat.warn { color: var(--led-warn); }
+  .svw-del { background: none; border: 0; color: var(--text-dim); cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 4px; }
+  .svw-del:hover { color: var(--danger); }
+  .svw-line { font-size: 11.5px; color: var(--text-dim); margin: 2px 0 0 18px; overflow-wrap: anywhere; }
+  .svw-line.bad { color: var(--danger); }
+  .svw-line.warn { color: var(--led-warn); }
+  .svw-strip { display: flex; gap: 1px; height: 16px; margin: 6px 0 2px 18px; }
+  .svw-strip i { flex: 1 1 0; border-radius: 1px; background: var(--led-on); }
+  .svw-strip i.n, .svw-strip i.o { background: var(--line); }
+  .svw-strip i.d { background: var(--danger); }
+  .svw-strip i.s { background: var(--led-warn); }
+  .svw-ends { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-dim); margin-left: 18px; }
+  .svw-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .svw-foot .sub { margin: 0; flex: 1 1 200px; }
+  .svw-add { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .svw-add-title { font-size: 13.5px; font-weight: 500; }
+  .svw-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 12px 0; }
+  .svw-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-dim); }
+  .svw-form .tl-in { flex: none; width: 100%; box-sizing: border-box; }
+  .svw-ms { display: flex; align-items: center; gap: 6px; }
+  .svw-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .svw-result { font-size: 12px; color: var(--text-dim); }
+  .svw-result.ok { color: var(--led-on); }
+  .svw-result.bad { color: var(--danger); }
   .tl-note { margin-top: 10px; font-size: 12px; color: var(--text-dim); }
   .tl-note a, .tl-bad a { color: var(--focus); }
   .tl-buttons { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0; }

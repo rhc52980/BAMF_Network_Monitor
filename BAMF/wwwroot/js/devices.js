@@ -623,6 +623,7 @@ function render() {
     loadUnusual();
     loadScore();
     loadFlows();
+    loadServiceWatch();
     loadSecurity().then(() => { renderHygiene(); renderServices(); });
     loadGreyNoise().then(() => { renderHygiene(); renderServices(); });
     loadWan(true).then(() => { renderWanCard(); renderServices(); });
