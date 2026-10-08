@@ -6,7 +6,7 @@ namespace LanWatch.Services;
 /// One number for the network, 0 to 100, from what BAMF already knows, with the reasons it isn't 100. It starts at
 /// 100 and loses points for each thing worth fixing: unknown devices online, security alerts this week, Telnet and FTP
 /// open, certificates run out, a router answering UPnP, the public address seen scanning, watched devices down,
-/// unusual activity open, internet outages and slow spells this week, the internet down now, a disk running low, and
+/// unusual activity open, watched services down, internet outages and slow spells this week, the internet down now, a disk running low, and
 /// nobody set to hear alerts. Each kind of thing has a cap, so one bad category can't zero the score on its own.
 ///
 /// 90 and up is healthy, 75 fine, 50 needs attention, under that in trouble. The number is on Activity, at the top
@@ -17,7 +17,7 @@ public sealed class HealthScore : BackgroundService
 {
     public sealed record Inputs(int UnknownOnline, int SecurityAlerts, int Telnet, int Ftp, int Vnc, int CertsExpired, int CertsExpiring,
         bool Upnp, bool Noise, int WatchedDown, int UnusualOpen, int Outages, int SlowSpells, bool InternetDown, bool DiskLow, bool NoDestination,
-        int DnsWrong = 0, bool DnsInvents = false, int QualityProblems = 0);
+        int DnsWrong = 0, bool DnsInvents = false, int QualityProblems = 0, int ServicesDown = 0);
     public sealed record Reason(string Text, int Points);
     public sealed record Score(int Value, string Word, List<Reason> Reasons);
     public sealed record Day(string Date, int Value);
@@ -28,12 +28,13 @@ public sealed class HealthScore : BackgroundService
     private readonly GreyNoiseCheck _greynoise;
     private readonly WanWatch _wan;
     private readonly DnsWatch _dns;
+    private readonly ServiceWatch _services;
     private readonly DiskHealth _disk;
     private readonly ILogger<HealthScore> _log;
 
-    public HealthScore(HostStore store, ScannerService scanner, SecurityCheck security, GreyNoiseCheck greynoise, WanWatch wan, DiskHealth disk, DnsWatch dns, ILogger<HealthScore> log)
+    public HealthScore(HostStore store, ScannerService scanner, SecurityCheck security, GreyNoiseCheck greynoise, WanWatch wan, DiskHealth disk, DnsWatch dns, ServiceWatch services, ILogger<HealthScore> log)
     {
-        _store = store; _scanner = scanner; _security = security; _greynoise = greynoise; _wan = wan; _disk = disk; _dns = dns; _log = log;
+        _store = store; _scanner = scanner; _security = security; _greynoise = greynoise; _wan = wan; _disk = disk; _dns = dns; _services = services; _log = log;
     }
 
     public bool Enabled => _store.GetSetting("networkScore") != "false";
@@ -58,6 +59,7 @@ public sealed class HealthScore : BackgroundService
         Take(i.Telnet, 8, 16, "Telnet is open on a device", "Telnet is open on {0} devices");
         Flag(i.Upnp, 8, "The router answers UPnP, so any device can open ports to the internet");
         Take(i.CertsExpired, 6, 12, "A certificate has expired", "{0} certificates have expired");
+        Take(i.ServicesDown, 4, 12, "A watched service is down", "{0} watched services are down");
         Take(i.WatchedDown, 5, 15, "A watched device is down", "{0} watched devices are down");
         Flag(i.DiskLow, 10, "A disk BAMF writes to is running low");
         Flag(i.NoDestination, 5, "Nobody would hear an alert: no destination is set up");
@@ -106,7 +108,8 @@ public sealed class HealthScore : BackgroundService
             NoDestination: !_scanner.AnyDestination,
             DnsWrong: _dns.Enabled ? _dns.Last?.WrongAnswers.Count ?? 0 : 0,
             DnsInvents: _dns.Enabled && _dns.Last?.InventsAnswers == true,
-            QualityProblems: _wan.Enabled && _wan.QualityEnabled ? _wan.QualityProblems.Count : 0);
+            QualityProblems: _wan.Enabled && _wan.QualityEnabled ? _wan.QualityProblems.Count : 0,
+            ServicesDown: _services.Enabled ? _services.Snapshot(now).Count(r => r.State == "down") : 0);
     }
 
     public Score Now() => Compute(Gather());

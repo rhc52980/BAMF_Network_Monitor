@@ -129,6 +129,7 @@ step:
 | `js/floorplan.js` | Floor plans, and drawing one in BAMF |
 | `js/devices.js` | The device list: drawing it, filters, sorting, network tabs, each device's history, and Who's home |
 | `js/activity.js` | The Activity tab: the feed, alerts, settings changes, top talkers, network hygiene, what changed |
+| `js/servicewatch.js` | The service watch card on Activity: what is watched, its last day, the add panel, and its Settings switch |
 | `js/map.js` | The network map, and printing it |
 | `js/dialogs.js` | The device dialogs, the scan panel, Find port and switch counters |
 | `js/themes.js` | Themes, Holiday Spirit, Night mode, compact rows and the intruders |
@@ -1871,6 +1872,11 @@ scan, or delete a thing.
 | GET | `/api/flows` | Where devices talk on the internet: per device `{"mac", "hostId", "name", "ip", "networks", "newThisWeek", "bytes", "firstSeen", "learning", "watched", "top": [{"net", "sample", "bytes", "lastSeen"}]}`, biggest first; with `enabled`, `spikeAlert`, `firstWeekReport`, whether the traffic monitor is `listening`, `learnDays` and `maxKnownForAlert` |
 | POST | `/api/settings/flow-watch` | Body `{"enabled": false}` — stop watching where devices talk and noticing scans, or start again |
 | POST | `/api/settings/spike-alert` | Body `{"enabled": false}` — switch the bandwidth spike alert off, or back on |
+| GET | `/api/service-watch` | The service watch: `{"enabled", "max", "bucketMinutes", "failsToAlert", "services": [{"id", "hostId", "name", "device", "ip", "kind", "port", "path", "https", "slowMs", "state", "strip", "uptime", "ms", "error", "downSince", "lastDown": {"at", "minutes"}, "checks"}], "suggestions": [{"hostId", "device", "ip", "name", "kind", "port", "https", "path"}], "devices": [{"id", "name", "ip"}]}`. `state` is `up`, `slow`, `down`, `off` (its device is off) or `waiting`; `strip` is 48 characters, half an hour each, oldest first: `u` up, `d` down, `s` slow, `o` device off, `n` no readings |
+| POST | `/api/service-watch` | Body `{"hostId", "kind": "web" or "port", "port", "path", "https", "name", "slowMs"}` — watch a service on a device BAMF knows; 409 if it is already watched or thirty are |
+| POST | `/api/service-watch/try` | The same body; checks once without saving and answers `{"ok", "ms", "slow", "error", "url", "summary"}` |
+| DELETE | `/api/service-watch/{id}` | Stop watching a service, and drop its readings |
+| POST | `/api/settings/service-watch` | Body `{"enabled": false}` — switch the service watch off, or back on |
 | POST | `/api/settings/first-week-report` | Body `{"enabled": false}` — switch a new device's first-week report off, or back on |
 | GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
 | GET | `/api/settings/rules` | The alert rules, quiet hours and port watch: `{"rules": [...], "quiet": {"from", "to", "digest", "now", "held"}, "portWatch"}` |
@@ -2675,7 +2681,7 @@ Every alert is one of six kinds:
 | Kind | What it covers |
 |---|---|
 | **New devices** | A device BAMF hasn't seen before |
-| **Offline and back** | Watched devices going offline and coming back, alert rules, and a snooze ending with the device the other way round |
+| **Offline and back** | Watched devices going offline and coming back, watched services failing and answering again, alert rules, and a snooze ending with the device the other way round |
 | **Unusual activity** | A device off far longer than it ever is, on at an hour it never is, or answering much slower than usual. See [Unusual activity](#unusual-activity) |
 | **Security** | ARP spoofing and IP conflicts, the gateway's MAC changing, new DHCP or DNS servers, newly open ports, certificates, GreyNoise |
 | **Internet** | The internet watch: down, back, slow and back to normal. A scheduled speed test well under the usual |
@@ -2954,6 +2960,7 @@ worth fixing, each kind capped so one bad category can't zero it on its own:
 | The router answering UPnP | 8 |
 | A certificate expired | 6 each, up to 12 |
 | A watched device down | 5 each, up to 15 |
+| A watched service down (service watch) | 4 each, up to 12 |
 | Nobody set to hear alerts (no destination) | 5 |
 | FTP or VNC open on a device | 4 each, up to 8 |
 | An unknown device online | 3 each, up to 15 |
@@ -3346,6 +3353,54 @@ the warnings over.
 With **Watch ports daily** on, the morning run also sends the UPnP search.
 Both are active checks, and the port watch is already the one you switched on
 for that.
+
+### Service watch: is the thing working?
+
+A device answering a ping doesn't mean what it runs is working: a NAS can be up
+with its web page hung, a Home Assistant box up with Home Assistant stopped. The
+**Service watch** card on Activity checks the services you pick, every minute,
+and keeps the answers for three days so it can draw the last 24 hours.
+
+**Add a service** opens a panel. Under it are the open ports BAMF has already
+found on your online devices (a web page on port 80, 443, 8080, 8123 and the
+like; SSH, file sharing, MQTT, RTSP and a few more as plain ports), one click
+each to fill the form, or pick a device and type a port. There are two checks:
+
+- **A web page**, over http or https. BAMF asks for the path, follows redirects,
+  and counts a normal answer, 200 to 399, as working. A self-signed certificate
+  is fine, since most things on a home network have one. An answer of 404 or 500
+  counts as failing, with the status in the message.
+- **A port that answers**, which is enough for SSH, MQTT, a camera stream or a
+  database: does it accept a connection within three seconds.
+
+**Try it now** runs the check once, without saving, so a wrong port or path is
+found before it's watched. A service can also have a **slow limit** in
+milliseconds, off by default, for the page that is up but crawling.
+
+Each service shows a coloured light, its name and device, the share of checks
+that passed in the last 24 hours, how fast it answered last, and a strip of 48
+bars, half an hour each: green up, red when two or more checks in that half hour
+failed, amber when the answers were over the slow limit, grey where there was
+nothing to say. A service that is down says since when and why; one that was down
+earlier today says for how long and when.
+
+An alert goes out when a service has **failed two checks in a row**, and another
+when it **answers again**, saying how long it was down. A service with a slow
+limit alerts when five answers in a row are over it and again when three are back
+under, like a watched device that is slow to answer. They are of the **Offline and
+back** kind, so they go to the destinations that take that, and quiet hours hold
+them. Three things keep it quiet when it should be: a device BAMF has marked
+offline is not asked (its own alert says so, and a service on it can't be
+expected to answer, so those readings are grey and don't count against the
+uptime), a snoozed device is not alerted about, and an ignored or forgotten
+device is not checked at all.
+
+Only devices BAMF already knows can be watched, so there's no way to point it at
+an address you type; for that, the Tools tab does a one-off check. At most thirty
+services are watched. A service that is down takes 4 points off the network score,
+up to 12. **Settings → Alerts → Watch services** switches the whole thing off.
+It's on by default, but it does nothing until a service is added, and each check
+is one small request to a device on your own network.
 
 ### Unusual activity
 
