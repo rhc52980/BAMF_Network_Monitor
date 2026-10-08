@@ -2,6 +2,14 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.15.1",
+      "date": "2026-10-08",
+      "items": [
+        "Fixed a layout slip from 2.15.0 on the Activity tab: the new Service watch card pushed the cards after it along by one, which put the Internet card in the same row as the tall Network services card and stretched it to nearly 1,500 pixels, mostly empty. The Service watch card now sits beside Network services, and every other card is back in the row it had before.",
+        "The README has a picture of the Service watch card, and the other pictures are refreshed."
+      ]
+    },
+    {
       "version": "2.15.0",
       "date": "2026-10-08",
       "items": [
