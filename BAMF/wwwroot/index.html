@@ -1331,6 +1331,35 @@
       <div class="sub" id="unusualSub"></div>
       <div id="unusualBody"></div>
     </div>
+    <div class="act-card" id="changesCard">
+      <h3>What changed <select id="chgDays" class="free-days" aria-label="Period"><option value="1">in 24 hours</option><option value="7" selected>this week</option><option value="30">in 30 days</option></select></h3>
+      <div class="sub" id="chgSub"></div>
+      <div id="chgBody"></div>
+    </div>
+    <div class="act-card">
+      <h3>Top talkers</h3>
+      <div class="sub" id="talkersSub"></div>
+      <div class="talkers" id="talkers"></div>
+      <div class="watch-note" id="talkersNote"></div>
+    </div>
+    <div class="act-card">
+      <h3>Alerts</h3>
+      <div class="sub">What BAMF raised: rules, ports, DHCP and DNS, the ARP watch and certificates.</div>
+      <div id="alertsBody"></div>
+    </div>
+    <div class="act-card" id="wanCard">
+      <h3>Internet</h3>
+      <div class="sub" id="wanSub"></div>
+      <div id="wanBody"></div>
+      <div class="spd" id="spdBody"></div>
+    </div>
+    <div class="act-card" id="servicesCard">
+      <h3>Network services</h3>
+      <div class="sub" id="servicesSub"></div>
+      <div id="servicesBody"></div>
+    </div>
+    <!-- Service watch sits beside Network services, in the tall row, so the cards above it keep the rows they had: put it earlier and Internet shares
+         a row with the tall services card and stretches to match. -->
     <div class="act-card svw-card" id="svwCard">
       <h3>Service watch</h3>
       <div class="sub" id="svwSub"></div>
@@ -1358,33 +1387,6 @@
           <span class="svw-result" id="svwResult" role="status"></span>
         </div>
       </div>
-    </div>
-    <div class="act-card" id="changesCard">
-      <h3>What changed <select id="chgDays" class="free-days" aria-label="Period"><option value="1">in 24 hours</option><option value="7" selected>this week</option><option value="30">in 30 days</option></select></h3>
-      <div class="sub" id="chgSub"></div>
-      <div id="chgBody"></div>
-    </div>
-    <div class="act-card">
-      <h3>Top talkers</h3>
-      <div class="sub" id="talkersSub"></div>
-      <div class="talkers" id="talkers"></div>
-      <div class="watch-note" id="talkersNote"></div>
-    </div>
-    <div class="act-card">
-      <h3>Alerts</h3>
-      <div class="sub">What BAMF raised: rules, ports, DHCP and DNS, the ARP watch and certificates.</div>
-      <div id="alertsBody"></div>
-    </div>
-    <div class="act-card" id="wanCard">
-      <h3>Internet</h3>
-      <div class="sub" id="wanSub"></div>
-      <div id="wanBody"></div>
-      <div class="spd" id="spdBody"></div>
-    </div>
-    <div class="act-card" id="servicesCard">
-      <h3>Network services</h3>
-      <div class="sub" id="servicesSub"></div>
-      <div id="servicesBody"></div>
     </div>
     <!-- After Network services, so the Internet card keeps a row of its own height: a card shares its row's height,
          and the score card at the front of the tab moved this one up beside the tall services card. -->
