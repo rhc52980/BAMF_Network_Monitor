@@ -224,6 +224,10 @@ traffic, busier for the devices using the most. Drag to turn it, scroll to zoom,
 **History** button that takes you to its row on the Devices tab. **Stacked** puts the networks on top of each other as floors, and **Full screen**
 gives it the whole display.
 
+![The 3D tab: a night sky over a neon floor grid with a glowing globe for the internet at the top, and two circular platforms below it joined to it by curved lines of light with small pulses of traffic, the larger for the main network and the smaller for a guest network. Each device stands on its platform as a model of what it is, with its name floating beside it. One is purple with a beam of light above it and a label marked unusual. A key in the corner explains the colours, and a panel in the top corner holds Side by side, Stacked, Slow turn, Names, Traffic, Reset view and Full screen](docs/3d.webp)
+
+![One device picked in the 3D tab: the camera has flown in over the main network's platform to a purple Raspberry Pi with a beam above it, and a card at the right gives its address, network, vendor, kind, status Unusual, whether it is approved, a purple note that it has been off for 9 hours when it is almost always on, and a History button](docs/3d-device.webp)
+
 It costs nothing until you use it: the 3D library and models are only fetched the first time you open the tab, and they come from BAMF itself, so it
 works offline. It stops drawing when you leave the tab, turns off the slow spin and the pulses if your system asks for reduced motion, drops to a
 lighter look above 150 devices, and says so in plain words if your browser has no WebGL (the Map and Devices tabs show the same network without it).
