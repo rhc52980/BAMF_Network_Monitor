@@ -133,7 +133,8 @@ step:
 | `js/dialogs.js` | The device dialogs, the scan panel, Find port and switch counters |
 | `js/themes.js` | Themes, Holiday Spirit, Night mode, compact rows and the intruders |
 | `js/screensaver.js` | The screen saver and the watchtower |
-| `saver3d/` | The grid saver: `grid.mjs`, its three.js library, the shaders, and the 46 device models (loaded only when it starts) |
+| `js/view3d.js` | The 3D tab: feeds it the dashboard's data |
+| `engine3d/` | What the 3D tab and the grid saver share: `scene.mjs` and `grid.mjs`, three.js, the shaders, the data module and the 46 device models (loaded only when one starts) |
 | `js/internet.js` | The internet watch, the speed test, the Scan menu and free addresses |
 | `js/tools.js` | Ping, trace route and DNS lookup for a device, run from its ⋯ menu |
 | `js/services.js` | The Network services card: the public address, gateways, DHCP, DNS, UPnP, mDNS and what devices offer |
@@ -1295,7 +1296,7 @@ browser, like the theme: the screen on the wall can have it while the one on
 your desk doesn't. For a status board that never shows the dashboard at all,
 see the [Wall display](#wall-display).
 
-### The grid (a prototype, in 3D)
+### The grid, in 3D
 
 **The grid (3D)** is the watchtower's job done in three dimensions: your network as a place at night. Each network is a glowing platform
 with its gateway at the centre, every other device a hologram of what it is (a router, a camera, a printer, a TV: forty-six models),
@@ -2444,6 +2445,29 @@ with any switch, including unmanaged ones and budget "smart" switches such as
 TP-Link's Easy Smart line, which can't report which device is on which port.
 Only switches with SNMP or a visible MAC address table can, and BAMF doesn't
 ask them.
+
+## The 3D tab
+
+The **3D** tab, beside Map, draws the network as a place you can look around. It reads the same data as the other tabs (the devices, their kinds and
+names, each network's gateway, what is unusual and who is using the most traffic), so it needs nothing set up.
+
+- **One platform per network**, a radar disc with its gateway at the centre and every other device on a ring round it, grouped by kind. The networks sit
+  round a circle, or, with **Stacked**, on top of each other as floors, the biggest at the bottom. Above them is the internet, with a curved line of
+  light from each gateway.
+- **A model for each device**, forty-six in all. BAMF takes the kind the Map gives a device and makes it more specific from what its name, vendor and type
+  say (a Roku is a streamer, a Nest Hub a display, a Sonos Beam a soundbar, a Roomba a vacuum). Anything it can't place is a plain box.
+- **Colour is state**: green online, amber online but not yet marked known, grey offline, and a purple beacon, with a ripple, a beam and a ghost of its
+  outline that jumps, on a device with something unusual open (see [Unusual activity](#unusual-activity)).
+- **Traffic** as pulses along each link, more of them and faster for the devices the traffic monitor says are busiest.
+- **Looking around**: drag to turn, scroll or pinch to zoom, the arrow keys to move, **Reset view** to come back. Click a device and the camera flies to
+  it and a card gives its network, vendor, kind, status, latency and whether it's approved, any unusual finding, and **History**, which goes to its row
+  on the Devices tab. **Names** and **Traffic** switch the labels and the pulses off, **Slow turn** the idle spin, and **F** or **Full screen** fills the
+  display (and **Esc** leaves it). The choices are kept per browser.
+
+Nothing is fetched until the tab is first opened: the 3D library (three.js) and each model come from BAMF itself, so it works offline, and a model is
+only fetched when a device needs it. The tab stops drawing when you leave it or while the screen saver is up. With reduced motion it holds still and the
+pulses slow; above **150 devices** it drops the glow and shows names only where they matter; and where the browser has no WebGL it says so, and the Map
+and Devices tabs show the same network. The grid screen saver is this scene with the camera on its own, and uses the same library and models.
 
 ## Floor plan
 

@@ -155,7 +155,7 @@ function startSaver() {
 async function startGridSaver() {
   const gen = ++saverGen;
   try {
-    const mod = await import("/saver3d/grid.mjs");
+    const mod = await import("/engine3d/grid.mjs");
     if (gen !== saverGen || !saverOn) return;
     const g = await mod.createGridSaver($("saverGrid"), {
       skin: saverStyle === "grid-terminal" ? "terminal" : "neon", calm: calmMotion(), siren: saverStyle === "grid-siren" ? saverSiren : null,

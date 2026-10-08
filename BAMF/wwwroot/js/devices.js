@@ -599,6 +599,8 @@ function render() {
   $("floorWrap").hidden = view !== "floor";
   $("settingsWrap").hidden = view !== "settings";
   $("mapWrap").hidden = view !== "map";
+  $("view3dWrap").hidden = view !== "3d";
+  refresh3d();   // draws the 3D tab, or stops it drawing once it's left
   $("toolsWrap").hidden = view !== "tools";
   // The filters row carries Select, which also works in Forgotten, where only Select shows.
   $("statusFilters").style.display = view === "devices" || view === "forgotten" ? "" : "none";

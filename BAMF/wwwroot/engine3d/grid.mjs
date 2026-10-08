@@ -65,7 +65,7 @@ async function loadModel(loader, base, kind) {
  *   onBox({ x, y, w, id, test, count } | null): where the saver's own buttons go }
  */
 export async function createGridSaver(container, o) {
-  const base = o.base || "/saver3d", calm = !!o.calm, P = SKINS[o.skin] || SKINS.neon;
+  const base = o.base || "/engine3d", calm = !!o.calm, P = SKINS[o.skin] || SKINS.neon;
   const COLORS = { on: P.on, unk: P.unk, off: P.off, odd: P.odd };
   SKIN.mono.value = P.mono; SKIN.tint.value.setRGB(...P.tint);
 

@@ -173,6 +173,7 @@
   <div class="views" role="tablist">
     <button class="view-btn active" data-view="devices">Devices</button>
     <button class="view-btn" data-view="map">Map</button>
+    <button class="view-btn" data-view="3d" title="The network in 3D">3D</button>
     <button class="view-btn" data-view="floor">Floor plan</button>
     <button class="view-btn" data-view="home">Who's home</button>
     <button class="view-btn" data-view="activity">Activity <span class="tab-cnt" id="activityCount" hidden></span></button>
@@ -234,6 +235,8 @@
 
 <div class="chipbar" id="guessChips" hidden></div>
 <div class="chipbar" id="tagChips" hidden></div>
+
+<div class="v3d-wrap" id="view3dWrap" hidden></div>
 
 <div class="map-wrap" id="mapWrap" hidden>
   <p class="map-note">
@@ -1872,7 +1875,7 @@
 </div>
 
 <!-- The grid saver's 3D library and models are saved here, not fetched from the internet, and only loaded when that saver starts. -->
-<script type="importmap">{"imports":{"three":"/saver3d/three/three.module.min.js","three/addons/":"/saver3d/three/addons/"}}</script>
+<script type="importmap">{"imports":{"three":"/engine3d/three/three.module.min.js","three/addons/":"/engine3d/three/addons/"}}</script>
 <script src="js/core.js"></script>
 <script src="js/floorplan.js"></script>
 <script src="js/devices.js"></script>
@@ -1888,6 +1891,7 @@
 <script src="js/services.js"></script>
 <script src="js/sites.js"></script>
 <script src="js/settings.js"></script>
+<script src="js/view3d.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

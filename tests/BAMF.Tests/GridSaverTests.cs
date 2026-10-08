@@ -11,13 +11,15 @@ namespace BAMF.Tests;
 public class GridSaverTests
 {
     [Theory]
-    [InlineData("/saver3d/grid.mjs", "text/javascript")]
-    [InlineData("/saver3d/data.mjs", "text/javascript")]
-    [InlineData("/saver3d/fx.mjs", "text/javascript")]
-    [InlineData("/saver3d/three/three.module.min.js", "text/javascript")]
-    [InlineData("/saver3d/three/addons/loaders/GLTFLoader.js", "text/javascript")]
-    [InlineData("/saver3d/models/router.glb", "model/gltf-binary")]
-    [InlineData("/saver3d/models/device.glb", "model/gltf-binary")]
+    [InlineData("/engine3d/grid.mjs", "text/javascript")]
+    [InlineData("/engine3d/scene.mjs", "text/javascript")]
+    [InlineData("/engine3d/three/addons/controls/OrbitControls.js", "text/javascript")]
+    [InlineData("/engine3d/data.mjs", "text/javascript")]
+    [InlineData("/engine3d/fx.mjs", "text/javascript")]
+    [InlineData("/engine3d/three/three.module.min.js", "text/javascript")]
+    [InlineData("/engine3d/three/addons/loaders/GLTFLoader.js", "text/javascript")]
+    [InlineData("/engine3d/models/router.glb", "model/gltf-binary")]
+    [InlineData("/engine3d/models/device.glb", "model/gltf-binary")]
     public async Task The_saver_files_are_served_with_the_type_a_browser_needs(string path, string type)
     {
         using var app = new BamfApp();
@@ -30,7 +32,7 @@ public class GridSaverTests
     public async Task The_saver_modules_are_not_held_back_after_an_update()
     {
         using var app = new BamfApp();
-        var r = await app.Client().GetAsync("/saver3d/grid.mjs");
+        var r = await app.Client().GetAsync("/engine3d/grid.mjs");
         Assert.Contains("no-cache", r.Headers.CacheControl?.ToString() ?? "");
     }
 
@@ -40,7 +42,7 @@ public class GridSaverTests
         using var app = new BamfApp();
         var html = await app.Client().GetStringAsync("/");
         Assert.Contains("<script type=\"importmap\">", html);
-        Assert.Contains("\"three\":\"/saver3d/three/three.module.min.js\"", html);       // not a CDN
+        Assert.Contains("\"three\":\"/engine3d/three/three.module.min.js\"", html);       // not a CDN
         Assert.Contains("id=\"saverGrid\"", html);
         foreach (var style in new[] { "grid", "grid-terminal", "grid-siren" }) Assert.Contains($"<option value=\"{style}\">", html);
     }
@@ -49,7 +51,7 @@ public class GridSaverTests
     public void Every_addon_the_grid_imports_is_in_the_folder()
     {
         // The module names its three.js add-ons by path; a missing one would fail only when the saver first started.
-        var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "BAMF", "wwwroot", "saver3d"));
+        var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "BAMF", "wwwroot", "engine3d"));
         Assert.True(Directory.Exists(root), root);
         var imports = System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(Path.Combine(root, "grid.mjs")), "from \"three/addons/([^\"]+)\"");
         Assert.True(imports.Count >= 5);
