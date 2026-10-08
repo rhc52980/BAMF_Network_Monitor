@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.15.0",
+      "date": "2026-10-08",
+      "items": [
+        "There is a new Service watch card on Activity. BAMF knows a device is on; now it also checks that what runs on it is working. Pick a web page (a normal answer, 200 to 399, counts as working) or a port that should accept a connection, such as Home Assistant, Plex, a NAS sign-in or an SSH port, and BAMF checks it every minute and draws the last 24 hours as a strip, with its uptime and how fast it answers. It suggests the open ports it has already found, and Try it now checks once before you save.",
+        "A service that fails two checks in a row sends an alert, and another when it answers again, saying how long it was down. Give a service a slow limit and it also alerts when five answers in a row are over it. A device BAMF has marked offline is not asked, and snoozed devices stay quiet. Only devices BAMF already knows can be watched, up to thirty services, and a service that is down takes a few points off the network score. Settings, Alerts has the switch.",
+        "The README pictures are refreshed for the 3D tab."
+      ]
+    },
+    {
       "version": "2.14.0",
       "date": "2026-10-08",
       "items": [
