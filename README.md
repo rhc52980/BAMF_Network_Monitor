@@ -268,6 +268,22 @@ then holds it, tagged, until you say it's known.
 Reduced motion holds every scene still, nothing runs in a background tab, and
 sound is off unless you ask for it.
 
+### The grid, for the wall
+
+The screen saver can be **the grid**: your network in 3D, as a place at night. Each network is a glowing platform with its gateway at the centre, every
+device a hologram of what it is, traffic running along the links and up to the internet, and a camera that drifts over it all, sweeps low among the
+devices and flies across them, so nothing sits still long enough to burn in. A scan is a ring of light rolling across each platform. It comes in neon
+or terminal green.
+
+![The grid saver in neon: two glowing circular platforms on a neon floor grid under a night sky, the larger with the devices of the main network as green and amber holograms and the gateway at its centre, the smaller with a guest network's, and a curved line of light from each gateway up to a glowing globe for the internet. Corner brackets frame the screen, device names float beside the nearest holograms, and a card in the corner says 16 of 19 online, 4 unknown, and that a watched device is offline](docs/grid.webp)
+
+A new device you haven't marked known is the alarm: the night goes red, the camera swings round to it and circles it, and a reticle locks on, with its
+address, vendor and MAC in a callout and **Mark known** and **Dismiss** under it, held until you deal with it.
+
+![The grid saver with a new device: the screen tinted red, the camera close over a platform with a red reticle on one device, a red callout headed TEST, NEW DEVICE giving its address, vendor and MAC and that it is not on the known list, and a Dismiss button under it](docs/grid-alert.webp)
+
+It needs a browser that can draw 3D and falls back to the theme's scenery where it can't; its library and models load only when the saver starts.
+
 Every theme but Dark, Light and High Contrast is a folder you can add or
 remove, so the menu offers only the ones you want. See them all in the
 [theme gallery](themes/README.md), and pick under **Settings → Appearance →
