@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.14.0",
+      "date": "2026-10-08",
+      "items": [
+        "There is a new 3D tab, beside Map. Your network is a place you can look around: a glowing platform for each network with its gateway at the middle, and every device standing on it as a model of what it is, from routers and NASes to doorbells, thermostats, robot vacuums and cars. Green is online, amber is not yet marked known, grey is offline, and a purple beacon marks something unusual. Drag to turn it, scroll to zoom, and click a device to fly to it and see its details, with a History button that takes you to its row. Stack the networks as floors, or use full screen.",
+        "The tab loads nothing until you first open it, stops drawing when you leave it, and says so if your browser can't draw 3D.",
+        "The README pictures are refreshed for the grid screen saver."
+      ]
+    },
+    {
       "version": "2.13.0",
       "date": "2026-10-08",
       "items": [
