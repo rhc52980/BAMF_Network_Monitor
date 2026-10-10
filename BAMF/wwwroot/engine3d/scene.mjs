@@ -10,7 +10,10 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as BufferGeometryUtils from "three/addons/utils/BufferGeometryUtils.js";
-import { MODELS, slotsFor, placeNetworks, describeScene } from "./data.mjs";
+import { MODELS, slotsFor, placeNetworks, describeScene, worstService } from "./data.mjs";
+import { createExtras } from "./extras.mjs";
+import { buildHouse } from "./house.mjs";
+import { createSound } from "./sound.mjs";
 import { T, SKIN, glowTexture, makeSky, makeFloor, makePlatformFx, edgeMaterial, bodyMaterial, padMaterial, makeDust, makeScreenPass } from "./fx.mjs";
 
 const COLORS = { on: 0x3fdb7f, unk: 0xffb454, off: 0x5d6f86, odd: 0xb36cff };
@@ -55,10 +58,13 @@ async function loadModel(loader, base, kind) {
   return g;
 }
 
-export async function createView(container, { base = "/engine3d", onOpenDevice = () => {}, credits = "" } = {}) {
+export async function createView(container, { base = "/engine3d", onOpenDevice = () => {}, credits = "", onReplayLoad = null, replayScene = null, onReplayEnd = () => {} } = {}) {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const saved = (() => { try { return JSON.parse(localStorage.getItem("bamf-3d") || "{}"); } catch { return {}; } })();
-  const prefs = { mode: saved.mode === "stack" ? "stack" : "side", spin: saved.spin ?? !reduced, labels: saved.labels ?? true, flow: saved.flow ?? true };
+  const prefs = {
+    mode: saved.mode === "stack" ? "stack" : saved.mode === "house" ? "house" : "side", spin: saved.spin ?? !reduced, labels: saved.labels ?? true, flow: saved.flow ?? true,
+    services: saved.services ?? true, strain: saved.strain ?? true, dests: saved.dests ?? true, scans: saved.scans ?? true, sound: false,
+  };
   const savePrefs = () => { try { localStorage.setItem("bamf-3d", JSON.stringify(prefs)); } catch { /* private mode */ } };
 
   // ---------- the page furniture ----------
@@ -66,11 +72,29 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     <div class="v3d-stage" tabindex="0"></div>
     <div class="v3d-panel v3d-controls">
       <div class="v3d-row"><button type="button" data-v3d="side" class="v3d-btn">Side by side</button><button type="button" data-v3d="stack" class="v3d-btn">Stacked</button></div>
+      <button type="button" data-v3d="house" class="v3d-btn v3d-wide" hidden>Your house</button>
       <label class="v3d-chk"><input type="checkbox" data-v3d="spin"> Slow turn</label>
       <label class="v3d-chk"><input type="checkbox" data-v3d="labels"> Names</label>
       <label class="v3d-chk"><input type="checkbox" data-v3d="flow"> Traffic</label>
+      <details class="v3d-more"><summary>More to see</summary>
+        <label class="v3d-chk"><input type="checkbox" data-v3d="services"> Services</label>
+        <label class="v3d-chk"><input type="checkbox" data-v3d="strain"> Strain</label>
+        <label class="v3d-chk"><input type="checkbox" data-v3d="dests"> Destinations</label>
+        <label class="v3d-chk"><input type="checkbox" data-v3d="scans"> Scans</label>
+        <label class="v3d-chk"><input type="checkbox" data-v3d="sound"> Sound</label>
+      </details>
+      <button type="button" data-v3d="replay" class="v3d-btn" ${onReplayLoad ? "" : "hidden"}>Replay the day</button>
+      <button type="button" data-v3d="walk" class="v3d-btn" aria-pressed="false">Walk around</button>
+      <button type="button" data-v3d="vr" class="v3d-btn" hidden>Enter VR</button>
       <button type="button" data-v3d="reset" class="v3d-btn">Reset view</button>
       <button type="button" data-v3d="full" class="v3d-btn" aria-pressed="false">Full screen</button>
+    </div>
+    <div class="v3d-panel v3d-replay" hidden>
+      <button type="button" data-v3d="rpPlay" class="v3d-btn" aria-label="Pause">❚❚</button>
+      <input type="range" data-v3d="rpScrub" min="0" max="1000" value="0" aria-label="Time in the last day">
+      <span class="v3d-rptime"></span>
+      <select data-v3d="rpSpeed" aria-label="Speed"><option value="1440">A day in a minute</option><option value="480">A day in three minutes</option><option value="7200">A day in twelve seconds</option></select>
+      <button type="button" data-v3d="rpClose" class="v3d-btn">Back to now</button>
     </div>
     <div class="v3d-panel v3d-legend">
       <span><i style="background:#3fdb7f;color:#3fdb7f"></i>Online</span><span><i style="background:#ffb454;color:#ffb454"></i>Not yet approved</span>
@@ -80,6 +104,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     <div class="v3d-panel v3d-card" hidden></div>
     <div class="v3d-panel v3d-credits" hidden></div>
     <div class="v3d-note">drag to orbit · scroll to zoom · click a device · F for full screen</div>
+    <div class="v3d-toast" hidden></div>
     <div class="v3d-loading">Loading the 3D view…</div>`;
   const q = s => container.querySelector(s);
   const stage = q(".v3d-stage"), card = q(".v3d-card"), loadingEl = q(".v3d-loading");
@@ -140,12 +165,21 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   { const el = document.createElement("div"); el.className = "v3d-lbl gw"; el.textContent = "Internet"; const o = new CSS2DObject(el); o.position.set(0, 1.5, 0); internet.add(o); }
   scene.add(internet);
   const internetTarget = new THREE.Vector3(0, 10, -1);
+  let internetDown = false;
 
   // ---------- state ----------
   const nets = new Map();        // cidr -> { group, disc, ring, guide, lbl, center, target, R, Rt }
   const ents = new Map();        // key -> device entity
   const pickables = [];
   let links = [], parts = [], linkSig = "", current = null, firstUpdate = true, hovered = null, selected = null, fly = null, reach = 14, lite = false;
+  let houseK = 1;                 // the models are drawn smaller in the house, where the rooms are small
+  const sound = createSound();
+  const cue = name => { if (prefs.sound) sound.cue(name); };
+  const extras = createExtras({ scene, glow, internet, ents, onCue: cue, reduced });
+  let house = null, houseInfo = null, houseSpots = new Map();   // the built house, what it was built from, and each placed device's spot
+  const inHouse = () => prefs.mode === "house" && !!house;
+  const toastEl = () => q(".v3d-toast");
+  function say(text) { const t = toastEl(); if (!t) return; t.textContent = text; t.hidden = false; clearTimeout(say.t); say.t = setTimeout(() => { t.hidden = true; }, 4200); }
 
   const particlePos = new Float32Array(MAX_PARTICLES * 3), particleCol = new Float32Array(MAX_PARTICLES * 3);
   const pGeo = new THREE.BufferGeometry();
@@ -168,7 +202,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     const n = { cidr, group: g, disc, ring, guide, fx, lbl, el, center: new THREE.Vector3(), target: new THREE.Vector3(), R: 6, Rt: 6 };
     nets.set(cidr, n); return n;
   }
-  function disposeNet(n) { scene.remove(n.group); [n.disc, n.ring, n.guide, n.fx].forEach(m => { m.geometry.dispose(); m.material.dispose(); }); }
+  function disposeNet(n) { scene.remove(n.group); n.el.remove(); [n.disc, n.ring, n.guide, n.fx].forEach(m => { m.geometry.dispose(); m.material.dispose(); }); }
 
   function makeEnt(d, dropIn) {
     const e = { d, key: d.key, pos: new THREE.Vector3(), target: new THREE.Vector3(), phase: Math.random() * 6.28, col: new THREE.Color(COLORS[d.state]),
@@ -199,7 +233,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     e.pad.position.y = -size / 2 - 0.02; e.pad.scale.setScalar(Math.max(0.8, size * 0.62) * (e.d.gw ? 1.35 : 1));
   }
   function dropEnt(e) {
-    scene.remove(e.group); e.edges.geometry.dispose(); e.body.material.dispose(); e.edges.material.dispose(); e.pad.geometry.dispose(); e.pad.material.dispose();
+    scene.remove(e.group); e.el.remove(); e.edges.geometry.dispose(); e.body.material.dispose(); e.edges.material.dispose(); e.pad.geometry.dispose(); e.pad.material.dispose();
     if (e.ghosts) e.ghosts.forEach(m => m.material.dispose());
     const i = pickables.indexOf(e.pick); if (i >= 0) pickables.splice(i, 1);
     if (e.beacon) { e.beacon.ripple.geometry.dispose(); e.beacon.beam.geometry.dispose(); }
@@ -218,7 +252,10 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
       if (e.ghosts) { e.ghosts.forEach(m => { e.group.remove(m); m.material.dispose(); }); e.ghosts = null; }
     }
   }
-  function labelText(e) { return (e.d.name || e.d.ip) + (e.d.odd ? "  ⚠ unusual" : ""); }
+  function labelText(e) {
+    return (e.d.name || e.d.ip) + (e.d.odd ? "  ⚠ unusual" : "") + (prefs.strain && e.d.strain > 0.5 && e.d.ms != null ? `  · ${Math.round(e.d.ms)} ms` : "")
+      + (prefs.services && worstService(e.d.services) === "down" ? "  · service down" : "");
+  }
   function styleLabel(e) {
     e.el.className = "v3d-lbl" + (e.d.gw ? " gw" : "") + (e.d.odd ? " odd" : "") + (e.d.state === "off" && !e.d.odd ? " off" : "");
     e.el.textContent = labelText(e);
@@ -256,8 +293,9 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   };
 
   // ---------- the data in ----------
-  function update(data) {
+  function update(data, opts = {}) {
     current = data;
+    internetDown = !!opts.internetDown;
     lite = data.devices.length > LITE_AT;
     bloom.enabled = !lite;
     // networks
@@ -266,15 +304,25 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     for (const net of data.nets) if (!nets.has(net.id)) makeNet(net.id);
     // devices
     const keys = new Set(data.devices.map(d => d.key));
-    for (const e of [...ents.values()]) if (!keys.has(e.key) && !e.leaving) e.leaving = performance.now();
+    for (const e of [...ents.values()]) if (!keys.has(e.key) && !e.leaving) { e.leaving = performance.now(); if (!firstUpdate) cue("leave"); }
     for (const d of data.devices) {
       let e = ents.get(d.key);
       if (e && e.leaving) { e.leaving = 0; }
-      if (!e) e = makeEnt(d, !firstUpdate && !reduced);
+      const was = e ? e.d : null;
+      if (!e) { e = makeEnt(d, !firstUpdate && !reduced); if (!firstUpdate) cue("arrive"); }
       if (e.model !== d.model) { e.model = d.model; applyModel(e); }
       e.d = d; styleLabel(e); setBeacon(e, !!d.odd);
+      if (was && !firstUpdate) {
+        if (d.state === "odd" && was.state !== "odd") cue("unusual");
+        else if (was.state === "on" && d.state === "off") cue("drop");
+        else if (was.state === "off" && d.state !== "off") cue("back");
+        const before = worstService(was.services), after = worstService(d.services);
+        if (after === "down" && before !== "down") cue("service");
+        else if (before === "down" && after && after !== "down") cue("recover");
+      }
       if (selected === e) showCard(e);
     }
+    extras.setServices(prefs.services);
     // where everything goes
     const placed = data.nets.map(net => ({ net, ...slotsFor(net.devices) }));
     const plan = placeNetworks(placed.map(p => p.radius), prefs.mode);
@@ -289,6 +337,17 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     });
     internetTarget.set(0, prefs.mode === "stack" ? (plan.height || 0) + 6 : 10 + Math.max(0, plan.reach - 16) * 0.25, prefs.mode === "stack" ? 0 : -1);
     reach = plan.reach;
+    if (inHouse()) {
+      // Each device goes where it was placed on its plan; one that was never placed stays out of the house.
+      for (const e of ents.values()) {
+        const pl = houseSpots.get(e.d.id);
+        const sp = pl ? house.spot(pl.floorId, pl.x, pl.y) : null;
+        e.inHouse = !!sp;
+        if (sp) e.target.set(sp.x, sp.y, sp.z);
+      }
+      internetTarget.set(house.bounds.cx, house.bounds.height + 9, house.bounds.cz - house.bounds.depth / 2 - 2);
+      reach = Math.max(house.bounds.width, house.bounds.depth) * 0.7 + 4;
+    } else for (const e of ents.values()) e.inHouse = false;
     if (firstUpdate) {
       nets.forEach(n => { n.center.copy(n.target); n.R = n.Rt; });
       ents.forEach(e => e.pos.copy(e.target).add(new THREE.Vector3(0, reduced ? 0 : 6 + Math.random() * 3, 0)));
@@ -301,8 +360,37 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     firstUpdate = false;
   }
 
+  // ---------- the house, the day's extras and the replay's clock, set from outside ----------
+  function setHouse(h) {
+    if (house) { scene.remove(house.group); house.dispose(); house = null; }
+    houseInfo = h && h.floors && h.floors.length ? h : null;
+    houseSpots = new Map(houseInfo ? houseInfo.places.map(p => [p.hostId, p]) : []);
+    const btn = q("[data-v3d=house]");
+    btn.hidden = !houseInfo;
+    if (houseInfo) {
+      house = buildHouse(houseInfo.floors);
+      house.group.visible = prefs.mode === "house";
+      house.group.traverse(o => { if (o.isCSS2DObject) o.visible = prefs.mode === "house"; });
+      scene.add(house.group);
+    } else if (prefs.mode === "house") { prefs.mode = "side"; savePrefs(); syncUi(); }
+    if (current) update(current);
+    const placed = houseInfo ? [...ents.values()].filter(e => e.inHouse).length : 0;
+    if (houseInfo && prefs.mode === "house" && ents.size && placed < ents.size) say(`${placed} of ${ents.size} devices are placed on a floor plan. The others aren't shown in the house; Floor plan, Place devices puts them in.`);
+  }
+  function setExtras(x) {
+    const now = Date.now();
+    byHost = new Map([...ents.values()].filter(e => !e.leaving).map(e => [e.d.id, e]));
+    extras.setDestinations(x.destinations || [], now, prefs.dests);
+    extras.setScans(x.scans || [], now, byHost, prefs.scans);
+  }
+  let byHost = new Map();
+
   // ---------- the camera ----------
   function homeCamera() {
+    if (inHouse()) {
+      const b = house.bounds, d = Math.max(b.width, b.depth) * 0.55 + 5;
+      return { target: new THREE.Vector3(b.cx, b.height / 2 - 0.4, b.cz), pos: new THREE.Vector3(b.cx, d * 0.8 + b.height * 0.5, b.cz + d * 0.8 + b.height * 0.35) };
+    }
     // far enough back that the whole width fits, whatever shape the window is
     const fitW = (reach + 2) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * Math.max(camera.aspect, 0.4)) * 1.0;
     const rmax = current ? Math.max(0, ...current.nets.map(n => slotsFor(n.devices).radius)) : 0;   // a big platform needs standing back from
@@ -323,6 +411,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     card.innerHTML = `<button type="button" class="v3d-x" data-v3d="cardX" aria-label="Close">×</button>
       <h2>${esc(d.name === "—" ? "Unnamed device" : d.name)}</h2><div class="v3d-sub">${esc(d.ip)}</div>
       <dl>${rows.map(r => `<dt>${esc(r[0])}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
+      ${d.services && d.services.length ? `<div class="v3d-svcs">${d.services.map(s => `<div><i class="s-${esc(s.state)}"></i>${esc(s.name)} <b>${esc(s.state === "off" ? "device off" : s.state)}</b>${s.uptime != null ? ` · ${esc(s.uptime)}%` : ""}</div>`).join("")}</div>` : ""}
       ${d.odd ? `<div class="v3d-odd"><b>${esc(d.odd.title)}</b><br>${esc(d.odd.detail)}</div>` : ""}
       <button type="button" class="v3d-btn" data-v3d="history">History</button>`;
     card.hidden = false;
@@ -334,7 +423,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     const to = e.group.position.clone();
     const dir = camera.position.clone().sub(controls.target); dir.y = 0;
     if (dir.lengthSq() < 0.01) dir.set(0, 0, 1);
-    dir.normalize().multiplyScalar(7.5).setY(3.6);
+    dir.normalize().multiplyScalar(houseK < 1 ? 4.2 : 7.5).setY(houseK < 1 ? 2.3 : 3.6);
     if (reduced) { controls.target.copy(to); camera.position.copy(to).add(dir); fly = null; }
     else fly = { t: 0, fromT: controls.target.clone(), toT: to, fromP: camera.position.clone(), toP: to.clone().add(dir) };
   }
@@ -346,7 +435,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     const r = renderer.domElement.getBoundingClientRect();
     mouse.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(mouse, camera);
-    const hit = ray.intersectObjects(pickables, false)[0];
+    const hit = ray.intersectObjects(pickables, false).find(h => h.object.userData.ent.group.visible);
     hovered = hit ? hit.object.userData.ent : null;
     renderer.domElement.style.cursor = hovered ? "pointer" : "grab";
   });
@@ -356,28 +445,195 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     select(hovered);
   });
   const syncUi = () => {
-    container.querySelectorAll("[data-v3d=side],[data-v3d=stack]").forEach(b => b.classList.toggle("on", b.dataset.v3d === prefs.mode));
-    for (const k of ["spin", "labels", "flow"]) q(`input[data-v3d=${k}]`).checked = !!prefs[k];
+    container.querySelectorAll("[data-v3d=side],[data-v3d=stack],[data-v3d=house]").forEach(b => b.classList.toggle("on", b.dataset.v3d === prefs.mode));
+    for (const k of ["spin", "labels", "flow", "services", "strain", "dests", "scans", "sound"]) q(`input[data-v3d=${k}]`).checked = !!prefs[k];
     container.classList.toggle("v3d-nolabels", !prefs.labels);
   };
   container.addEventListener("click", ev => {
     const t = ev.target.closest("[data-v3d]"); if (!t) return;
     const a = t.dataset.v3d;
-    if (a === "side" || a === "stack") { prefs.mode = a; savePrefs(); syncUi(); if (current) { update(current); goHome(false); } }
+    if (a === "side" || a === "stack" || (a === "house" && house)) { setMode(a); }
     else if (a === "reset") { select(null); goHome(false); }
     else if (a === "full") toggleFull();
     else if (a === "cardX") select(null);
     else if (a === "history" && selected) onOpenDevice(selected.d);
     else if (a === "credits") q(".v3d-credits").hidden = false;
     else if (a === "creditsX") q(".v3d-credits").hidden = true;
+    else if (a === "replay") startReplay();
+    else if (a === "rpClose") stopReplay();
+    else if (a === "rpPlay") { if (replay) { replay.playing = !replay.playing; syncReplayUi(); } }
+    else if (a === "walk") toggleWalk();
+    else if (a === "vr") enterVr();
   });
+  function setMode(m) {
+    prefs.mode = m; savePrefs(); syncUi();
+    if (house) {
+      house.group.visible = m === "house";
+      house.group.traverse(o => { if (o.isCSS2DObject) o.visible = m === "house"; });
+    }
+    if (current) { update(current); goHome(false); }
+    if (m === "house") {
+      const placed = [...ents.values()].filter(e => e.inHouse).length;
+      if (ents.size && placed < ents.size) say(`${placed} of ${ents.size} devices are placed on a floor plan. The others aren't shown in the house; Floor plan, Place devices puts them in.`);
+    }
+  }
+  container.addEventListener("input", ev => {
+    const t = ev.target;
+    if (t.matches && t.matches("input[data-v3d=rpScrub]") && replay) {
+      replay.t = replay.from + (replay.to - replay.from) * (t.value / 1000); replay.playing = false; syncReplayUi(); pushReplay(true);
+    }
+  });
+  let lastExtras = {};
+  const setExtrasKept = x => { lastExtras = x; setExtras(x); };
   container.addEventListener("change", ev => {
+    if (ev.target.matches && ev.target.matches("select[data-v3d=rpSpeed]")) { if (replay) replay.speed = Number(ev.target.value) || 1440; return; }
     const t = ev.target.closest("input[data-v3d]"); if (!t) return;
-    prefs[t.dataset.v3d] = t.checked; savePrefs();
-    if (t.dataset.v3d === "spin") controls.autoRotate = t.checked && !reduced;
+    const k = t.dataset.v3d;
+    if (k === "rpScrub") return;
+    prefs[k] = t.checked; if (k !== "sound") savePrefs();
+    if (k === "spin") controls.autoRotate = t.checked && !reduced;
+    if (k === "sound") {
+      if (t.checked) sound.enable().then(ok => { if (!ok) { prefs.sound = false; syncUi(); say("This browser can't play sound."); } else sound.cue("arrive"); });
+      else sound.disable();
+    }
+    if (k === "services") extras.setServices(prefs.services);
+    if (k === "dests" || k === "scans") setExtras(lastExtras);
+    if (k === "strain" && current) for (const e of ents.values()) styleLabel(e);
     syncUi();
   });
   syncUi();
+
+  // ---------- replay the day ----------
+  let replay = null;
+  const replayClock = ms => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  function syncReplayUi() {
+    const bar = q(".v3d-replay");
+    bar.hidden = !replay;
+    container.classList.toggle("v3d-replaying", !!replay);
+    if (!replay) return;
+    q("[data-v3d=rpPlay]").textContent = replay.playing ? "❚❚" : "▶";
+    q("[data-v3d=rpPlay]").setAttribute("aria-label", replay.playing ? "Pause" : "Play");
+    q("[data-v3d=rpScrub]").value = String(Math.round(((replay.t - replay.from) / (replay.to - replay.from)) * 1000));
+    q(".v3d-rptime").textContent = replayClock(replay.t) + (replay.down ? "  · internet down" : "");
+  }
+  function pushReplay(force) {
+    if (!replay || !replayScene) return;
+    const now = performance.now();
+    if (!force && now - replay.pushed < 120) return;
+    replay.pushed = now;
+    const r = replayScene(replay.t);
+    if (!r) return;
+    replay.down = !!r.internetDown;
+    update(r.scene, { internetDown: replay.down });
+    setExtras({ destinations: [], scans: [] });
+    syncReplayUi();
+  }
+  async function startReplay() {
+    if (replay || !onReplayLoad) return;
+    const btn = q("[data-v3d=replay]");
+    btn.disabled = true;
+    let tl = null;
+    try { tl = await onReplayLoad(); } catch { tl = null; }
+    btn.disabled = false;
+    if (!tl || !tl.hosts || !tl.hosts.length) { say("There isn't enough history yet to replay."); return; }
+    const from = Date.parse(tl.from), to = Date.parse(tl.to);
+    replay = { tl, from, to, t: from, playing: true, speed: Number(q("[data-v3d=rpSpeed]").value) || 1440, pushed: 0, down: false };
+    select(null);
+    pushReplay(true);
+  }
+  function stopReplay() {
+    if (!replay) return;
+    replay = null; syncReplayUi(); onReplayEnd();
+  }
+
+  // ---------- walking around ----------
+  // Ground level, a person's height up: W A S D or the arrows to move, drag to look, Shift to hurry, Esc to stop.
+  let walk = null;
+  const keysDown = new Set();
+  function toggleWalk() {
+    const b = q("[data-v3d=walk]");
+    if (walk) {
+      walk = null; controls.enabled = true; b.setAttribute("aria-pressed", "false"); b.textContent = "Walk around";
+      container.classList.remove("v3d-walking");
+      goHome(true);
+      return;
+    }
+    select(null);
+    // Start at the edge of the house, or of the biggest platform, facing in.
+    const base = -0.62;
+    let to;
+    if (inHouse()) to = new THREE.Vector3(house.bounds.cx, base + 1.0, house.bounds.cz + house.bounds.depth / 2 + 1.6);
+    else {
+      const big = [...nets.values()].sort((a, b) => b.Rt - a.Rt)[0];
+      to = big ? new THREE.Vector3(big.center.x, base + 1.0, big.center.z + big.Rt + 1.2) : new THREE.Vector3(0, base + 1.0, 8);
+    }
+    walk = { pos: to, yaw: 0, pitch: -0.12, base };
+    camera.position.copy(to); fly = null;
+    controls.enabled = false;
+    b.setAttribute("aria-pressed", "true"); b.textContent = "Stop walking";
+    container.classList.add("v3d-walking");
+    stage.focus();
+    say("W A S D or the arrow keys to move, drag to look, Shift to hurry, Esc to stop.");
+  }
+  let look = null;
+  renderer.domElement.addEventListener("pointerdown", ev => { if (walk) look = [ev.clientX, ev.clientY]; });
+  addEventListener("pointerup", () => { look = null; });
+  addEventListener("pointermove", ev => {
+    if (!walk || !look) return;
+    walk.yaw -= (ev.clientX - look[0]) * 0.004; walk.pitch = Math.max(-1.2, Math.min(1.2, walk.pitch - (ev.clientY - look[1]) * 0.004));
+    look = [ev.clientX, ev.clientY];
+  });
+  const walkKey = ev => {
+    if (!walk) return;
+    const k = ev.key.toLowerCase();
+    if (ev.type === "keydown") {
+      if (k === "escape") { toggleWalk(); return; }
+      if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", "shift"].includes(k)) { keysDown.add(k); ev.preventDefault(); }
+    } else keysDown.delete(k);
+  };
+  document.addEventListener("keydown", walkKey); document.addEventListener("keyup", walkKey);
+  function stepWalk(dt) {
+    if (!walk) return;
+    const sp = (keysDown.has("shift") ? 9 : 4.2) * dt;
+    const fx = -Math.sin(walk.yaw), fz = -Math.cos(walk.yaw);
+    let mx = 0, mz = 0;
+    if (keysDown.has("w") || keysDown.has("arrowup")) { mx += fx; mz += fz; }
+    if (keysDown.has("s") || keysDown.has("arrowdown")) { mx -= fx; mz -= fz; }
+    if (keysDown.has("a") || keysDown.has("arrowleft")) { mx += fz; mz -= fx; }
+    if (keysDown.has("d") || keysDown.has("arrowright")) { mx -= fz; mz += fx; }
+    walk.pos.x += mx * sp; walk.pos.z += mz * sp;
+    camera.position.copy(walk.pos);
+    camera.rotation.order = "YXZ"; camera.rotation.set(walk.pitch, walk.yaw, 0);
+  }
+
+  // ---------- a headset ----------
+  // WebXR where the browser and a headset offer it. The post-processing is for a flat screen, so inside the headset the
+  // scene is drawn straight; the names (which are page elements) don't come with it.
+  let vrOn = false;
+  if (navigator.xr && navigator.xr.isSessionSupported) {
+    navigator.xr.isSessionSupported("immersive-vr").then(ok => { if (ok) q("[data-v3d=vr]").hidden = false; }).catch(() => {});
+  }
+  async function enterVr() {
+    if (vrOn || !navigator.xr) return;
+    try {
+      const session = await navigator.xr.requestSession("immersive-vr", { optionalFeatures: ["local-floor"] });
+      renderer.xr.enabled = true;
+      await renderer.xr.setSession(session);
+      vrOn = true;
+      select(null);
+      // stand at the middle of the first platform, or the house, at the floor
+      const rig = new THREE.Group(); rig.position.set(0, inHouse() ? 0 : 0.2, inHouse() ? 0 : reach * 0.4);
+      scene.add(rig); rig.add(camera);
+      cancelAnimationFrame(raf);
+      renderer.setAnimationLoop(() => { frameXr(); });
+      session.addEventListener("end", () => {
+        vrOn = false; renderer.setAnimationLoop(null); renderer.xr.enabled = false;
+        rig.remove(camera); scene.remove(rig); camera.position.set(0, 0, 0);
+        goHome(true);
+        if (active) raf = requestAnimationFrame(frame);
+      });
+    } catch (err) { say("The headset couldn't start: " + (err && err.message ? err.message : "no VR session")); }
+  }
 
   // ---------- full screen ----------
   // The browser's own full screen where there is one (not on an iPhone), else the view fills the window.
@@ -414,7 +670,27 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   let raf = 0, active = false;
   function frame() {
     raf = requestAnimationFrame(frame);
+    step();
+    stepWalk(lastDt);
+    if (!walk) controls.update();
+    composer.render();   // the bloom pass sits out above the lite limit; the colour handling still needs the rest
+    labelRenderer.render(scene, camera);
+  }
+  function frameXr() {
+    step();
+    renderer.render(scene, camera);
+  }
+  let lastDt = 0.016;
+  function step() {
     const dt = Math.min(clock.getDelta(), 0.05), time = clock.elapsedTime, now = performance.now();
+    lastDt = dt;
+    if (replay && replay.playing) {
+      replay.t = Math.min(replay.to, replay.t + dt * 1000 * replay.speed);
+      pushReplay(false);
+      if (replay.t >= replay.to) { replay.playing = false; syncReplayUi(); }
+    }
+    houseK += ((inHouse() ? 0.8 : 1) - houseK) * (1 - Math.exp(-4 * dt));
+    const houseMode = inHouse();
     T.value = time * (reduced ? 0.25 : 1);
     const k = 1 - Math.exp(-3.2 * dt);
     nets.forEach(n => {
@@ -423,24 +699,32 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
       n.disc.scale.set(n.R, n.R, 1); n.ring.scale.set(n.R, n.R, 1); n.guide.scale.set(n.R * 0.52, n.R * 0.52, 1); n.fx.scale.set(n.R, n.R, 1);
       n.lbl.position.set(0, 0.4, n.R + 0.9);
     });
+    nets.forEach(n => { n.group.visible = !houseMode; n.lbl.visible = !houseMode; });
     internet.position.lerp(internetTarget, k);
+    iAura.material.color.lerp(tc.set(internetDown ? 0xff4b5c : CYAN).multiplyScalar(0.9), 1 - Math.exp(-6 * dt));
     iHalo.rotation.z = time * 0.5; iHalo2.rotation.z = -time * 0.35; iEdges.rotation.y = time * 0.3; iCore.rotation.y = time * 0.3;
     iAura.material.opacity = 0.45 + Math.sin(time * 1.6) * 0.1;
 
     const odd = new Set();
     for (const e of [...ents.values()]) {
+      e.group.visible = !houseMode || !!e.inHouse;
       if (e.leaving) {
-        const t = (now - e.leaving) / 450; e.scale = Math.max(0, 1 - t); e.group.scale.setScalar(e.scale);
+        const t = (now - e.leaving) / 450; e.scale = Math.max(0, 1 - t); e.group.scale.setScalar(e.scale * houseK);
         if (t >= 1) { dropEnt(e); linkSig = ""; continue; }
       }
       e.pos.lerp(e.target, 1 - Math.exp(-2.6 * dt));
       const off = e.d.state === "off", still = reduced;
-      e.group.position.set(e.pos.x, e.pos.y + (off || still ? 0 : Math.sin(time * 1.3 + e.phase) * 0.07) + (off ? -0.28 : 0), e.pos.z);
+      // strain: a device working hard to answer rides higher and flickers faster, the more so the slower it is
+      const strain = prefs.strain && !off ? e.d.strain || 0 : 0;
+      const lift = strain * 0.55 * houseK;
+      const bob = off || still ? 0 : Math.sin(time * (1.3 + strain * 5) + e.phase) * (0.07 + strain * 0.09);
+      e.group.position.set(e.pos.x, e.pos.y + bob + lift + (off ? -0.28 : 0), e.pos.z);
       if (!off && !still) e.group.rotation.y += dt * 0.15;
       tc.set(COLORS[e.d.state]).multiplyScalar(STATE_GLOW[e.d.state]);
       e.col.lerp(tc, 1 - Math.exp(-5 * dt));
       const hot = e === hovered || e === selected;
-      e.edges.material.uniforms.col.value.copy(e.col); e.edges.material.uniforms.gain.value = (e.dens || 1) * (off ? 0.9 : hot ? 1.05 : 1);
+      const flicker = strain && !still ? 1 + strain * 0.45 * Math.sin(time * (4 + strain * 14) + e.phase) : 1;
+      e.edges.material.uniforms.col.value.copy(e.col); e.edges.material.uniforms.gain.value = (e.dens || 1) * (off ? 0.9 : hot ? 1.05 : 1) * flicker;
       e.body.material.uniforms.col.value.copy(e.col); e.body.material.uniforms.op.value = off ? 0.22 : 0.42; e.body.material.uniforms.gainRim.value = Math.min(1, (e.dens || 1) * 1.2);
       e.pad.material.uniforms.col.value.copy(e.col); e.pad.material.uniforms.off.value = off ? 1 : 0;
       e.pad.material.uniforms.hot.value += ((hot ? 1 : 0) - e.pad.material.uniforms.hot.value) * (1 - Math.exp(-8 * dt));
@@ -448,10 +732,10 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
         const burst = !reduced && fract(Math.sin(Math.floor(time * 6 + e.phase * 3) * 91.7) * 4375.5) > 0.9;
         e.ghosts.forEach((m, i) => { m.visible = burst; if (burst) m.position.set((i ? 1 : -1) * 0.05 * (0.5 + Math.random()), (Math.random() - 0.5) * 0.04, (Math.random() - 0.5) * 0.04); });
       }
-      if (!e.leaving) { e.scale += ((hot ? 1.25 : 1) - e.scale) * (1 - Math.exp(-10 * dt)); e.group.scale.setScalar(e.scale); }
+      if (!e.leaving) { e.scale += ((hot ? 1.25 : 1) - e.scale) * (1 - Math.exp(-10 * dt)); e.group.scale.setScalar(e.scale * houseK); }
       // Names only where they can be read: the nearer ones, always the gateways and anything unusual or picked.
       const near = camera.position.distanceTo(e.group.position) < (lite ? 14 : 26);
-      const showName = prefs.labels && (e.d.gw || e.d.odd || hot || near);
+      const showName = prefs.labels && e.group.visible && (e.d.gw || e.d.odd || hot || near);
       e.label.visible = showName; e.label.position.set(0, (e.d.gw ? 1.5 : 0.95) * (MODELS[e.model] > 1.6 ? 1.1 : 1), 0);
       if (e.birth && !e.rippled && now - e.birth < 1600) { e.rippled = true; ripple(e); }
       if (e.beacon) {
@@ -468,7 +752,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
         for (let i = 0; i < L.N; i++) { pointOn(L, i / (L.N - 1), tmp); arr[i * 3] = tmp.x; arr[i * 3 + 1] = tmp.y; arr[i * 3 + 2] = tmp.z; }
       } else { arr[0] = a.x; arr[1] = a.y; arr[2] = a.z; arr[3] = b.x; arr[4] = b.y; arr[5] = b.z; }
       L.geo.attributes.position.needsUpdate = true;
-      L.line.visible = ents.get(L.e.key) === L.e && !L.e.leaving;   // a device that's gone takes its line with it
+      L.line.visible = ents.get(L.e.key) === L.e && !L.e.leaving && !houseMode;   // a device that's gone takes its line with it
       const off = L.e.d.state === "off";
       L.line.material.opacity = L.curved ? 1 : off ? 0.16 : 0.75;
       L.line.material.color.set(L.curved ? 0x1a8fb8 : L.e.d.state === "odd" ? 0x7a3fc0 : off ? 0x1c2a3a : 0x147a9a);
@@ -477,7 +761,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     let n = 0;
     if (prefs.flow) for (const p of parts) {
       const L = p.L, d = L.e.d;
-      if (d.state === "off" || L.e.leaving) continue;
+      if (d.state === "off" || L.e.leaving || houseMode) continue;
       const speed = (L.curved ? 0.22 : 0.08 + (d.rate || 1) * 0.045) * (reduced ? 0.4 : 1);
       p.t += dt * speed * p.dir; if (p.t > 1) p.t -= 1; if (p.t < 0) p.t += 1;
       pointOn(L, p.t, tmp);
@@ -488,14 +772,12 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     }
     pGeo.setDrawRange(0, n); pGeo.attributes.position.needsUpdate = true; pGeo.attributes.color.needsUpdate = true;
 
-    if (fly) {
+    extras.tick(time, dt, now, prefs);
+    if (fly && !walk) {
       fly.t = Math.min(1, fly.t + dt / 0.9); const e = ease(fly.t);
       controls.target.lerpVectors(fly.fromT, fly.toT, e); camera.position.lerpVectors(fly.fromP, fly.toP, e);
       if (fly.t >= 1) fly = null;
     }
-    controls.update();
-    composer.render();   // the bloom pass sits out above the lite limit; the colour handling still needs the rest
-    labelRenderer.render(scene, camera);
   }
   function ripple(e) {
     const m = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 64), new THREE.MeshBasicMaterial({ color: new THREE.Color(COLORS.unk).multiplyScalar(1.8), transparent: true, depthWrite: false }));
@@ -519,11 +801,18 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
 
   function destroy() {
     setActive(false); ro.disconnect(); document.removeEventListener("visibilitychange", onVisible);
+    document.removeEventListener("keydown", walkKey); document.removeEventListener("keyup", walkKey);
+    sound.dispose(); extras.dispose(); if (house) house.dispose();
     document.removeEventListener("fullscreenchange", onFullChange); document.removeEventListener("keydown", onKey);
     container.classList.remove("v3d-full"); document.documentElement.classList.remove("v3d-lock");
     renderer.dispose(); controls.dispose(); container.innerHTML = "";
   }
-  const api = { update, setActive, select: key => select(ents.get(String(key)) || null), destroy, get count() { return ents.size; }, _ents: ents, _prefs: prefs };
+  const api = {
+    update, setActive, select: key => select(ents.get(String(key)) || null), destroy, get count() { return ents.size; }, _ents: ents, _prefs: prefs,
+    setHouse, setExtras: setExtrasKept, get replaying() { return !!replay; }, stopReplay, get walking() { return !!walk; },
+    get satellites() { return extras.satellites; }, get scanners() { return extras.scanners; }, get inHouse() { return inHouse(); }, _setMode: setMode,
+    _replay: () => replay,
+  };
   container.__v3d = api;
   return api;
 }

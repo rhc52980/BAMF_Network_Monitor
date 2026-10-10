@@ -134,8 +134,8 @@ step:
 | `js/dialogs.js` | The device dialogs, the scan panel, Find port and switch counters |
 | `js/themes.js` | Themes, Holiday Spirit, Night mode, compact rows and the intruders |
 | `js/screensaver.js` | The screen saver and the watchtower |
-| `js/view3d.js` | The 3D tab: feeds it the dashboard's data |
-| `engine3d/` | What the 3D tab and the grid saver share: `scene.mjs` and `grid.mjs`, three.js, the shaders, the data module and the 46 device models (loaded only when one starts) |
+| `js/view3d.js` | The 3D tab: feeds it the dashboard's data, the service watch's rows, the floor plans and the last day |
+| `engine3d/` | What the 3D tab and the grid saver share: `scene.mjs` and `grid.mjs`, three.js, the shaders, the data module and the 46 device models (loaded only when one starts); the tab's own `extras.mjs` (services, satellites, scan rays), `house.mjs` (floor plans stood up) and `sound.mjs` |
 | `js/internet.js` | The internet watch, the speed test, the Scan menu and free addresses |
 | `js/tools.js` | Ping, trace route and DNS lookup for a device, run from its ⋯ menu |
 | `js/services.js` | The Network services card: the public address, gateways, DHCP, DNS, UPnP, mDNS and what devices offer |
@@ -1872,6 +1872,8 @@ scan, or delete a thing.
 | GET | `/api/flows` | Where devices talk on the internet: per device `{"mac", "hostId", "name", "ip", "networks", "newThisWeek", "bytes", "firstSeen", "learning", "watched", "top": [{"net", "sample", "bytes", "lastSeen"}]}`, biggest first; with `enabled`, `spikeAlert`, `firstWeekReport`, whether the traffic monitor is `listening`, `learnDays` and `maxKnownForAlert` |
 | POST | `/api/settings/flow-watch` | Body `{"enabled": false}` — stop watching where devices talk and noticing scans, or start again |
 | POST | `/api/settings/spike-alert` | Body `{"enabled": false}` — switch the bandwidth spike alert off, or back on |
+| GET | `/api/flows/map` | Where devices talk, from the other end, and scans said lately, for the 3D tab: `{"enabled", "destinations": [{"net", "sample", "firstSeen", "lastSeen", "bytes", "isNew", "devices": [hostId]}], "scans": [{"hostId", "what", "count", "target", "at"}]}`, the most recently used first, at most 24 destinations; scans are kept in memory for two hours and listed for thirty minutes |
+| GET | `/api/timeline` | The last day to replay: `?hours=` one to 72, default 24. `{"from", "to", "hosts": [{"id", "first", "online0"}], "events": [{"h", "type", "at"}], "outages": [{"start", "end", "local"}], "unusual": [{"hostId", "at", "resolvedAt", "title"}]}`. `online0` is whether the device was online at `from`; events are oldest first |
 | GET | `/api/service-watch` | The service watch: `{"enabled", "max", "bucketMinutes", "failsToAlert", "services": [{"id", "hostId", "name", "device", "ip", "kind", "port", "path", "https", "slowMs", "state", "strip", "uptime", "ms", "error", "downSince", "lastDown": {"at", "minutes"}, "checks"}], "suggestions": [{"hostId", "device", "ip", "name", "kind", "port", "https", "path"}], "devices": [{"id", "name", "ip"}]}`. `state` is `up`, `slow`, `down`, `off` (its device is off) or `waiting`; `strip` is 48 characters, half an hour each, oldest first: `u` up, `d` down, `s` slow, `o` device off, `n` no readings |
 | POST | `/api/service-watch` | Body `{"hostId", "kind": "web" or "port", "port", "path", "https", "name", "slowMs"}` — watch a service on a device BAMF knows; 409 if it is already watched or thirty are |
 | POST | `/api/service-watch/try` | The same body; checks once without saving and answers `{"ok", "ms", "slow", "error", "url", "summary"}` |
@@ -2469,6 +2471,40 @@ names, each network's gateway, what is unusual and who is using the most traffic
   it and a card gives its network, vendor, kind, status, latency and whether it's approved, any unusual finding, and **History**, which goes to its row
   on the Devices tab. **Names** and **Traffic** switch the labels and the pulses off, **Slow turn** the idle spin, and **F** or **Full screen** fills the
   display (and **Esc** leaves it). The choices are kept per browser.
+
+### More to see in 3D
+
+Beside the platforms, the tab can draw what else BAMF knows. Each of these has its own switch, and **More to see** in the panel holds them. None of them
+needs anything set up beyond the watch it reads from.
+
+- **Your house.** The floor plans you drew in BAMF stand up as glowing walls, with doors in amber and windows in blue, one storey for each plan and the
+  room names floating in them. Each device sits where you placed it on its plan, drawn smaller so the rooms read. A plan that is a picture rather than a
+  drawing becomes the floor, scaled so its longest side is about thirty-two feet. **Your house** in the panel switches to it; it only appears once there
+  is a plan. Devices that were never placed aren't shown in the house, and a note says how many.
+- **Services.** A small tower beside a device for each service the [service watch](#service-watch-is-the-thing-working) is checking on it (up to four):
+  green when it answers, amber when slow, red and flickering when down, grey when its device is off. A device with a down service says so in its name,
+  and its card lists every service with its uptime.
+- **Strain.** A device that is slow to answer rides higher and flickers faster the slower it is: nothing under 40 ms, as strained as it is drawn at
+  400 ms or more, with the time in its name past about half of that. A struggling switch or a weak Wi-Fi spot shows as a cluster you can see.
+- **Destinations.** Each outside network a device has talked to in the last week is a satellite round the internet, nearer in the more recently it was
+  used, with a faint beam to the devices using it right now. One that is new today to a device that has learned its habits is magenta and says so. It
+  reads the [flow watch](#unusual-activity), so it is empty with that off.
+- **Scans.** When the flow watch says a device is scanning the network, the device gets a red ring and fires rays at the others on its platform for as
+  long as the scan is recent, twenty minutes at most.
+- **Replay the day.** A bar with a play button, a slider and a speed (a day in a minute, in three minutes or in twelve seconds). The last 24 hours play
+  back from what BAMF recorded: devices arrive and go grey, the internet goes red while it was down, and a purple beacon is there while something was
+  unusual. Drag the slider to any moment; **Back to now** returns. A device is shown from the first time it was seen.
+- **Walk around.** Drops the camera to ground level, at the edge of the house or the biggest platform. **W A S D** or the arrow keys move, a drag looks
+  round, **Shift** hurries and **Esc** stops.
+- **Enter VR.** Appears where the browser and a headset offer WebXR. It starts a headset session standing in the middle of the scene, drawn without the
+  glow effects, and the names (which are page elements) don't come with it. This is the one part that has not been tried on a headset.
+- **Sound.** Off until ticked, and a click is what lets the page play any: a low hum, and a soft blip for a device arriving, leaving, dropping off,
+  coming back, something unusual, a service failing or recovering, a scan and a new destination. It is made by the browser, so nothing is fetched. It
+  isn't saved between visits, and the screen saver doesn't use it.
+
+`GET /api/flows/map` has the destinations (`net`, `sample`, `firstSeen`, `lastSeen`, `bytes`, `isNew`, `devices`) and recent scans (`hostId`, `what`,
+`count`, `target`, `at`), and `GET /api/timeline?hours=24` has what the replay plays: `from`, `to`, each device's first-seen and whether it was
+online at the start, every online and offline since, internet outages and unusual findings. Hours are one to 72.
 
 Nothing is fetched until the tab is first opened: the 3D library (three.js) and each model come from BAMF itself, so it works offline, and a model is
 only fetched when a device needs it. The tab stops drawing when you leave it or while the screen saver is up. With reduced motion it holds still and the
