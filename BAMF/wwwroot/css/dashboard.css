@@ -1974,6 +1974,28 @@
   .v3d-lbl.net { color: #26d9ff; text-transform: uppercase; letter-spacing: .14em; background: none; border: 0; text-shadow: 0 0 10px #26d9ff; }
   .v3d-lbl.odd { color: #e2d0ff; font-weight: 600; border-left-color: #b36cff; text-shadow: 0 0 10px #b36cff; } .v3d-lbl.off { color: #5b7488; border-left-color: #2a4152; text-shadow: none; }
   .v3d-nolabels .v3d-lbl:not(.net):not(.gw):not(.odd) { display: none; }
+  .v3d-btn[hidden], .v3d-toast[hidden], .v3d-replay[hidden] { display: none; }
+  .v3d-wide { flex: none; width: 100%; }
+  .v3d-more { color: #6fb5cf; }
+  .v3d-more summary { cursor: pointer; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; padding: 2px 0 6px; }
+  .v3d-more .v3d-chk { margin: 0 0 6px 4px; }
+  .v3d-btn[aria-pressed="true"] { border-color: #26d9ff; background: rgba(38, 217, 255, .18); color: #e8fbff; }
+  .v3d-replay { left: 50%; transform: translateX(-50%); top: 14px; display: flex; align-items: center; gap: 12px; padding: 8px 12px; max-width: calc(100% - 260px); }
+  .v3d-replay input[type="range"] { width: 280px; max-width: 28vw; accent-color: #26d9ff; }
+  .v3d-replay select { font: inherit; font-size: 11px; background: rgba(4, 12, 24, .9); color: #9fdcf0; border: 1px solid #14506b; padding: 5px 6px; }
+  .v3d-replay .v3d-btn { flex: none; }
+  .v3d-rptime { min-width: 74px; color: #e8fbff; font-family: ui-monospace, Consolas, monospace; font-size: 12px; letter-spacing: .06em; }
+  .v3d-replaying .v3d-note { display: none; }
+  .v3d-toast { position: absolute; left: 50%; bottom: 46px; transform: translateX(-50%); max-width: min(560px, calc(100% - 40px)); padding: 8px 14px; background: rgba(4, 12, 24, .88);
+    border: 1px solid #14506b; color: #cdeefa; font-size: 12px; line-height: 1.5; text-align: center; }
+  .v3d-walking .v3d-stage canvas { cursor: crosshair; }
+  .v3d-svcs { margin: 0 0 10px; padding: 6px 10px; border-left: 2px solid #26d9ff; background: rgba(38, 217, 255, .08); font-size: 11px; line-height: 1.7; color: #cdeefa; }
+  .v3d-svcs i { display: inline-block; width: 7px; height: 7px; margin-right: 8px; border-radius: 50%; background: #3fdb7f; box-shadow: 0 0 6px currentColor; }
+  .v3d-svcs i.s-down { background: #ff4b5c; } .v3d-svcs i.s-slow { background: #ffb454; } .v3d-svcs i.s-off, .v3d-svcs i.s-waiting { background: #5d6f86; }
+  @media (max-width: 700px) {
+    .v3d-replay { top: 10px; left: 10px; right: 10px; transform: none; max-width: none; flex-wrap: wrap; }
+    .v3d-replay input[type="range"] { width: 100%; max-width: none; flex: 1 1 100%; }
+  }
   @media (max-width: 700px) {
     .v3d-wrap { margin: 0 0 16px; border-radius: 0; border-left: 0; border-right: 0; height: 72vh; min-height: 420px; }
     .v3d-controls { top: auto; bottom: 10px; left: 10px; right: 10px; flex-direction: row; flex-wrap: wrap; }

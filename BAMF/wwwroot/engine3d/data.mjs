@@ -70,9 +70,10 @@ const subnetKey = h => h.subnet || "";
 /**
  * Hosts into what the scene draws: one platform per network, each device on its network's, the
  * gateway at the centre. Ignored and forgotten devices aren't drawn.
- *  input: { hosts, kindOf(h), nameOf(h), unusual: [{hostId, kind, open, title, detail}], gatewayIp(subnet), rateOf(h) }
+ *  input: { hosts, kindOf(h), nameOf(h), unusual: [{hostId, kind, open, title, detail}], gatewayIp(subnet), rateOf(h),
+ *           servicesOf(h) -> [{name, state, uptime, ms}] (the service watch's rows for that device) }
  */
-export function buildScene({ hosts, kindOf, nameOf, unusual = [], gatewayIp = () => null, rateOf = () => 2 }) {
+export function buildScene({ hosts, kindOf, nameOf, unusual = [], gatewayIp = () => null, rateOf = () => 2, servicesOf = () => [] }) {
   const open = new Map();
   for (const u of unusual) if (u.open && !open.has(u.hostId)) open.set(u.hostId, u);
   const shown = hosts.filter(h => !h.ignored && !h.forgotten);
@@ -89,6 +90,8 @@ export function buildScene({ hosts, kindOf, nameOf, unusual = [], gatewayIp = ()
       model: modelFor(kind, h.vendor, textOf(h)), state: stateOf(h, !!odd), online: !!h.online, known: !!h.known, watched: !!h.watched,
       ms: h.latencyMs ?? null, rate: h.online ? Math.max(1, Math.min(9, rateOf(h))) : 0, net: net.id,
       odd: odd ? { title: odd.title, detail: odd.detail } : null, gw: false,
+      strain: strainOf(h.online ? h.latencyMs ?? null : null),
+      services: servicesOf(h).map(x => ({ name: x.name, state: x.state, uptime: x.uptime ?? null, ms: x.ms ?? null })),
     };
     net.devices.push(d); devices.push(d);
   }
@@ -160,3 +163,116 @@ export function describeScene(scene) {
   return `A 3D map of ${d} device${d === 1 ? "" : "s"} on ${n} network${n === 1 ? "" : "s"}` +
     (odd ? `, ${odd} doing something unusual` : "") + ". The Devices tab has the same list as text.";
 }
+
+// ---------------------------------------------------------------- strain: how hard a device is working to answer
+
+/** 0 to 1: how strained a device's answer time is. Under 40 ms is easy, and 400 ms or more is as strained as it is drawn. */
+export function strainOf(ms) {
+  if (ms == null || !(ms > 40)) return 0;
+  return Math.min(1, Math.log10(ms / 40));
+}
+
+// ---------------------------------------------------------------- services
+
+const SERVICE_RANK = { down: 3, slow: 2, off: 1, waiting: 0, up: 0 };
+/** The state a device's services come to as a whole: down beats slow beats the rest; null with nothing watched on it. */
+export function worstService(services) {
+  if (!services || !services.length) return null;
+  let worst = "up";
+  for (const s of services) if ((SERVICE_RANK[s.state] ?? 0) > (SERVICE_RANK[worst] ?? 0)) worst = s.state;
+  return worst;
+}
+
+// ---------------------------------------------------------------- outside destinations, as satellites round the internet
+
+/**
+ * Where each destination sits as it orbits the internet node: the busier or more recently used the closer in, spread round by a
+ * golden angle so a lot of them never line up. `dests` come from /api/flows/map, newest first. `nowMs` is the clock.
+ * Returns [{ net, radius, tilt, phase, speed, hot, fresh }]: hot when it was used in the last ten minutes, fresh when it's new.
+ */
+export function satelliteSlots(dests, nowMs, max = 24) {
+  const list = dests.slice(0, max);
+  return list.map((d, i) => {
+    const last = Date.parse(d.lastSeen) || 0;
+    const ageMin = Math.max(0, (nowMs - last) / 60000);
+    const radius = 3.1 + Math.min(ageMin / 120, 1) * 2.0 + (i % 4) * 0.6;
+    return {
+      net: d.net, sample: d.sample, radius, tilt: ((i * 0.9) % 1.4) - 0.7, phase: (i * 2.399963) % (Math.PI * 2),
+      speed: 0.18 + (i % 5) * 0.035, hot: ageMin <= 10, fresh: !!d.isNew, devices: d.devices || [],
+    };
+  });
+}
+
+// ---------------------------------------------------------------- the day, replayed
+
+/**
+ * What the network looked like at a moment, from /api/timeline: which devices existed, which were online, whether the internet
+ * was down, and which had something unusual open. Pure. `tl` is { from, to, hosts: [{id, first, online0}],
+ * events: [{h, type, at}] oldest first, outages: [{start, end}], unusual: [{hostId, at, resolvedAt}] }; `tMs` is epoch ms.
+ */
+export function stateAt(tl, tMs) {
+  const present = new Set(), online = new Map();
+  const first = new Map(tl.hosts.map(h => [h.id, Date.parse(h.first) || 0]));
+  for (const h of tl.hosts) {
+    if ((first.get(h.id) || 0) <= tMs) present.add(h.id);
+    online.set(h.id, !!h.online0);
+  }
+  for (const e of tl.events) {
+    const at = Date.parse(e.at);
+    if (!(at <= tMs)) break;
+    online.set(e.h, e.type === "online");
+    present.add(e.h);
+  }
+  const internetDown = (tl.outages || []).some(o => Date.parse(o.start) <= tMs && (!o.end || Date.parse(o.end) > tMs));
+  const unusualOpen = new Set((tl.unusual || []).filter(u => Date.parse(u.at) <= tMs && (!u.resolvedAt || Date.parse(u.resolvedAt) > tMs)).map(u => u.hostId));
+  return { present, online, internetDown, unusualOpen };
+}
+
+// ---------------------------------------------------------------- the house: a drawn plan standing up
+
+/** Scene units to a foot: a two-foot square is one unit, so a room of twelve by fourteen feet is six by seven. */
+export const FEET_PER_UNIT = 2;
+/** The height of a wall, in scene units: drawn a little short of eight feet so the rooms can be seen into. */
+export const WALL_HEIGHT = 1.9;
+export const FLOOR_GAP = 4.6;
+
+/** A plan's pixels into scene units, from its own scale (step pixels to perStep of its unit, in feet or metres). */
+export function planScale(plan) {
+  const feet = (plan.unit === "m" ? 3.28084 : 1) * (plan.perStep || 1);
+  return feet / (plan.step || 40) / FEET_PER_UNIT;     // scene units per pixel
+}
+
+/**
+ * A plan as what to build: walls, door and window marks, labels, and the box it all sits in, in scene units about its own
+ * centre. Positions are x right, z down the page, so the plan reads the same from above as it was drawn.
+ */
+export function houseOf(plan) {
+  const k = planScale(plan);
+  const bx = (plan.width || 1200) / 2, by = (plan.height || 800) / 2;
+  const pt = p => [(p[0] - bx) * k, (p[1] - by) * k];
+  const walls = [], doors = [], windows = [], labels = [];
+  let min = [Infinity, Infinity], max = [-Infinity, -Infinity];
+  const grow = q => { min = [Math.min(min[0], q[0]), Math.min(min[1], q[1])]; max = [Math.max(max[0], q[0]), Math.max(max[1], q[1])]; };
+  for (const it of plan.items || []) {
+    if (it.k === "wall" || it.k === "door" || it.k === "window") {
+      const a = pt(it.a), b = pt(it.b);
+      (it.k === "wall" ? walls : it.k === "door" ? doors : windows).push({ a, b });
+      grow(a); grow(b);
+    } else if (it.k === "label" && it.p) {
+      const p = pt(it.p); labels.push({ p, t: String(it.t ?? "") }); grow(p);
+    }
+  }
+  if (!isFinite(min[0])) { min = [-4, -4]; max = [4, 4]; }
+  return { walls, doors, windows, labels, min, max, scale: k, size: [max[0] - min[0], max[1] - min[1]], center: [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2], centerPx: [bx, by] };
+}
+
+/**
+ * A device's spot in the house, from where it was placed on its plan. A placement is a fraction of the plan's width and height;
+ * the result is scene units on the same footing as houseOf, with the floor's height added.
+ */
+export function placeInHouse(place, plan, floorIndex) {
+  const k = planScale(plan);
+  const x = (place.x * plan.width - plan.width / 2) * k, z = (place.y * plan.height - plan.height / 2) * k;
+  return { x, z, y: floorIndex * FLOOR_GAP };
+}
+

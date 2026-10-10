@@ -52,6 +52,11 @@ public sealed class FlowWatch : BackgroundService
     private readonly Dictionary<string, Queue<(DateTime At, string Ip, int Port)>> _recent = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<(string Mac, string What, int Count, string Target, DateTime At)> _scans = new();
     private readonly Dictionary<string, DateTime> _said = new(StringComparer.OrdinalIgnoreCase);
+    // scans as they were said, for the 3D view to show as beams for a while: kept in memory, two hours at most
+    private readonly List<ScanSeen> _scanLog = new();
+    public sealed record ScanSeen(string Mac, string What, int Count, string Target, DateTime At);
+    /// <summary>A destination as seen by every device that has talked to it: the network, an address in it, when first and last, how much, and who.</summary>
+    public sealed record Destination(string Net, string Sample, string FirstSeen, string LastSeen, long Bytes, List<string> Macs);
 
     public FlowWatch(HostStore store, TrafficMonitor traffic, ScannerService? scanner, ILogger<FlowWatch> log, Func<string, CancellationToken, Task<string?>>? reverse = null)
     {
@@ -196,6 +201,8 @@ public sealed class FlowWatch : BackgroundService
         {
             dests = _newDest.ToList(); _newDest.Clear();
             scans = _scans.Where(s => !own.Contains(s.Mac)).ToList(); _scans.Clear();
+            _scanLog.AddRange(scans.Select(s => new ScanSeen(s.Mac, s.What, s.Count, s.Target, s.At)));
+            _scanLog.RemoveAll(s => now - s.At > TimeSpan.FromHours(2));
         }
         var sent = 0;
         if (Enabled && _scanner is not null)
@@ -351,6 +358,28 @@ public sealed class FlowWatch : BackgroundService
             g.Key, g.Count(), g.Count(f => string.CompareOrdinal(f.FirstSeen, week) > 0), g.Sum(f => f.Bytes), g.Min(f => f.FirstSeen),
             g.OrderByDescending(f => f.Bytes).Take(3).Select(f => (f.Net, f.SampleIp, f.Bytes, f.LastSeen)).ToList()))
             .OrderByDescending(d => d.Bytes).ToList();
+    }
+
+    /// <summary>Scans said in the last while, newest first, for the 3D view.</summary>
+    public List<ScanSeen> RecentScans(DateTime? nowUtc = null, TimeSpan? within = null)
+    {
+        var now = nowUtc ?? DateTime.UtcNow;
+        var span = within ?? TimeSpan.FromMinutes(30);
+        lock (_lock) return _scanLog.Where(s => now - s.At <= span).OrderByDescending(s => s.At).ToList();
+    }
+
+    /// <summary>
+    /// Outside networks any device has talked to, seen from the other end: the most recently used first, with who talked to each.
+    /// Only those used in the last week; at most <paramref name="max"/>.
+    /// </summary>
+    public List<Destination> Destinations(DateTime? nowUtc = null, int max = 24)
+    {
+        var now = nowUtc ?? DateTime.UtcNow;
+        var week = now.AddDays(-7).ToString("o");
+        return _store.GetFlows().Where(f => string.CompareOrdinal(f.LastSeen, week) > 0).GroupBy(f => f.Net).Select(g => new Destination(
+                g.Key, g.OrderByDescending(f => f.Bytes).First().SampleIp, g.Min(f => f.FirstSeen)!, g.Max(f => f.LastSeen)!, g.Sum(f => f.Bytes),
+                g.Select(f => f.Mac).Distinct(StringComparer.OrdinalIgnoreCase).ToList()))
+            .OrderByDescending(d => d.LastSeen, StringComparer.Ordinal).ThenByDescending(d => d.Bytes).Take(max).ToList();
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
