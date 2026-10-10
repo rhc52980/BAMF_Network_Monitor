@@ -238,6 +238,12 @@ gives it the whole display.
 It costs nothing until you use it: the 3D library and models are only fetched the first time you open the tab, and they come from BAMF itself, so it
 works offline. It stops drawing when you leave the tab, turns off the slow spin and the pulses if your system asks for reduced motion, drops to a
 lighter look above 150 devices, and says so in plain words if your browser has no WebGL (the Map and Devices tabs show the same network without it).
+More can be switched on under **More to see**: **Your house** stands the floor plans you drew up as glowing walls with each device in the room you
+placed it in; a tower beside a device for each service the service watch checks on it; devices that are slow to answer riding higher and flickering;
+every outside network devices talk to as a satellite round the internet, magenta when it's new; red rays from a device that is scanning; **Replay the
+day**, which plays the last 24 hours back in a minute; **Walk around** at ground level; a headset mode where the browser offers one; and an optional
+quiet hum and soft blips. Each has its own switch.
+
 The same scene, with the camera on its own, is [the grid screen saver](#the-grid-for-the-wall).
 
 
