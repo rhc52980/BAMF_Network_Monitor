@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.17.0",
+      "date": "2026-10-10",
+      "items": [
+        "The 3D tab has a Move freely checkbox. Ticked, a drag slides across the scene instead of turning it about its middle, a right-drag turns about the point you're looking at, and the wheel zooms toward the pointer. W A S D or the arrow keys glide the view the way it faces (Shift for faster, Q and E for down and up), and nothing pulls it back to the middle. A click on a device then shows its card without moving the camera, and the card has a Fly to it button. Unticked, it turns about the middle as before. Reset view still comes home.",
+        "The arrow keys now glide the 3D view in both modes, where before they only nudged it a few pixels. They only act while the pointer is over the view, never while you are typing.",
+        "The README has pictures of Your house in the 3D section, and the other pictures are refreshed."
+      ]
+    },
+    {
       "version": "2.16.0",
       "date": "2026-10-10",
       "items": [
