@@ -1989,6 +1989,7 @@
   .v3d-toast { position: absolute; left: 50%; bottom: 46px; transform: translateX(-50%); max-width: min(560px, calc(100% - 40px)); padding: 8px 14px; background: rgba(4, 12, 24, .88);
     border: 1px solid #14506b; color: #cdeefa; font-size: 12px; line-height: 1.5; text-align: center; }
   .v3d-walking .v3d-stage canvas { cursor: crosshair; }
+  .v3d-card .v3d-row { margin-top: 2px; }
   .v3d-svcs { margin: 0 0 10px; padding: 6px 10px; border-left: 2px solid #26d9ff; background: rgba(38, 217, 255, .08); font-size: 11px; line-height: 1.7; color: #cdeefa; }
   .v3d-svcs i { display: inline-block; width: 7px; height: 7px; margin-right: 8px; border-radius: 50%; background: #3fdb7f; box-shadow: 0 0 6px currentColor; }
   .v3d-svcs i.s-down { background: #ff4b5c; } .v3d-svcs i.s-slow { background: #ffb454; } .v3d-svcs i.s-off, .v3d-svcs i.s-waiting { background: #5d6f86; }

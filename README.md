@@ -227,7 +227,7 @@ device standing on it as a model of what it is, forty-six in all, from routers, 
 doorbells, thermostats, robot vacuums, fridges, game consoles, VR headsets and cars. BAMF picks one from what the device says about itself (its name,
 vendor and type), not just its icon on the Map, so a Roku is a streamer and a Nest Hub is a display. Green ones are online, amber haven't been
 approved yet, grey are off, and a device doing something unusual gets a purple beacon you can see from across the room. Lines carry little pulses of
-traffic, busier for the devices using the most. Drag to turn it, scroll to zoom, arrow keys to move, and click a device for its details, with a
+traffic, busier for the devices using the most. Drag to turn it, scroll to zoom, W A S D or the arrow keys to glide, tick **Move freely** to slide across it instead of turning it about its middle, and click a device for its details, with a
 **History** button that takes you to its row on the Devices tab. **Stacked** puts the networks on top of each other as floors, and **Full screen**
 gives it the whole display.
 

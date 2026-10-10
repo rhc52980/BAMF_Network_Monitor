@@ -64,6 +64,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   const prefs = {
     mode: saved.mode === "stack" ? "stack" : saved.mode === "house" ? "house" : "side", spin: saved.spin ?? !reduced, labels: saved.labels ?? true, flow: saved.flow ?? true,
     services: saved.services ?? true, strain: saved.strain ?? true, dests: saved.dests ?? true, scans: saved.scans ?? true, sound: false,
+    free: saved.free ?? false,
   };
   const savePrefs = () => { try { localStorage.setItem("bamf-3d", JSON.stringify(prefs)); } catch { /* private mode */ } };
 
@@ -73,6 +74,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     <div class="v3d-panel v3d-controls">
       <div class="v3d-row"><button type="button" data-v3d="side" class="v3d-btn">Side by side</button><button type="button" data-v3d="stack" class="v3d-btn">Stacked</button></div>
       <button type="button" data-v3d="house" class="v3d-btn v3d-wide" hidden>Your house</button>
+      <label class="v3d-chk" title="Drag to slide across the scene instead of turning it about its middle. Right-drag turns; W A S D glide; Q and E go down and up."><input type="checkbox" data-v3d="free"> Move freely</label>
       <label class="v3d-chk"><input type="checkbox" data-v3d="spin"> Slow turn</label>
       <label class="v3d-chk"><input type="checkbox" data-v3d="labels"> Names</label>
       <label class="v3d-chk"><input type="checkbox" data-v3d="flow"> Traffic</label>
@@ -103,7 +105,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     </div>
     <div class="v3d-panel v3d-card" hidden></div>
     <div class="v3d-panel v3d-credits" hidden></div>
-    <div class="v3d-note">drag to orbit · scroll to zoom · click a device · F for full screen</div>
+    <div class="v3d-note"></div>
     <div class="v3d-toast" hidden></div>
     <div class="v3d-loading">Loading the 3D view…</div>`;
   const q = s => container.querySelector(s);
@@ -129,7 +131,6 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 4; controls.maxDistance = 120;
   controls.maxPolarAngle = Math.PI * 0.52; controls.autoRotateSpeed = 0.35; controls.autoRotate = prefs.spin && !reduced;
-  controls.listenToKeyEvents(stage);   // the arrow keys move the view, for anyone not using a pointer
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.7, 0.55, 0.26);
@@ -413,13 +414,17 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
       <dl>${rows.map(r => `<dt>${esc(r[0])}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
       ${d.services && d.services.length ? `<div class="v3d-svcs">${d.services.map(s => `<div><i class="s-${esc(s.state)}"></i>${esc(s.name)} <b>${esc(s.state === "off" ? "device off" : s.state)}</b>${s.uptime != null ? ` · ${esc(s.uptime)}%` : ""}</div>`).join("")}</div>` : ""}
       ${d.odd ? `<div class="v3d-odd"><b>${esc(d.odd.title)}</b><br>${esc(d.odd.detail)}</div>` : ""}
-      <button type="button" class="v3d-btn" data-v3d="history">History</button>`;
+      <div class="v3d-row"><button type="button" class="v3d-btn" data-v3d="history">History</button>${prefs.free ? '<button type="button" class="v3d-btn" data-v3d="flyto">Fly to it</button>' : ""}</div>`;
     card.hidden = false;
   }
-  function select(e) {
+  function select(e, fly_ = true) {
     selected = e;
     if (!e) { card.hidden = true; return; }
     showCard(e);
+    if (!fly_) return;
+    flyTo(e);
+  }
+  function flyTo(e) {
     const to = e.group.position.clone();
     const dir = camera.position.clone().sub(controls.target); dir.y = 0;
     if (dir.lengthSq() < 0.01) dir.set(0, 0, 1);
@@ -442,11 +447,11 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   renderer.domElement.addEventListener("pointerdown", ev => { down = [ev.clientX, ev.clientY]; });
   renderer.domElement.addEventListener("pointerup", ev => {
     if (!down || Math.hypot(ev.clientX - down[0], ev.clientY - down[1]) > 5) return;
-    select(hovered);
+    select(hovered, !prefs.free);     // moving freely: a click picks it and says what it is, and the camera stays where you put it
   });
   const syncUi = () => {
     container.querySelectorAll("[data-v3d=side],[data-v3d=stack],[data-v3d=house]").forEach(b => b.classList.toggle("on", b.dataset.v3d === prefs.mode));
-    for (const k of ["spin", "labels", "flow", "services", "strain", "dests", "scans", "sound"]) q(`input[data-v3d=${k}]`).checked = !!prefs[k];
+    for (const k of ["free", "spin", "labels", "flow", "services", "strain", "dests", "scans", "sound"]) q(`input[data-v3d=${k}]`).checked = !!prefs[k];
     container.classList.toggle("v3d-nolabels", !prefs.labels);
   };
   container.addEventListener("click", ev => {
@@ -457,6 +462,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     else if (a === "full") toggleFull();
     else if (a === "cardX") select(null);
     else if (a === "history" && selected) onOpenDevice(selected.d);
+    else if (a === "flyto" && selected) flyTo(selected);
     else if (a === "credits") q(".v3d-credits").hidden = false;
     else if (a === "creditsX") q(".v3d-credits").hidden = true;
     else if (a === "replay") startReplay();
@@ -492,6 +498,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     if (k === "rpScrub") return;
     prefs[k] = t.checked; if (k !== "sound") savePrefs();
     if (k === "spin") controls.autoRotate = t.checked && !reduced;
+    if (k === "free") { applyFree(); if (selected) showCard(selected); }
     if (k === "sound") {
       if (t.checked) sound.enable().then(ok => { if (!ok) { prefs.sound = false; syncUi(); say("This browser can't play sound."); } else sound.cue("arrive"); });
       else sound.disable();
@@ -502,6 +509,20 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     syncUi();
   });
   syncUi();
+  // Centred: drag turns the scene about its middle. Free: drag slides across it, right-drag turns about the point you're looking at, the
+  // wheel zooms toward the pointer, and nothing pulls the view back to the middle.
+  function applyFree() {
+    const free = !!prefs.free;
+    controls.mouseButtons = free ? { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE } : { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+    controls.touches = free ? { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE } : { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+    controls.screenSpacePanning = !free;     // free slides along the ground, as walking over the map would
+    controls.zoomToCursor = free;
+    controls.minDistance = free ? 1.6 : 4;
+    q(".v3d-note").textContent = free
+      ? "drag to move · right-drag to turn · scroll to zoom · W A S D to glide · Q E down, up · F for full screen"
+      : "drag to orbit · scroll to zoom · click a device · F for full screen";
+  }
+  applyFree();
 
   // ---------- replay the day ----------
   let replay = null;
@@ -583,15 +604,52 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     walk.yaw -= (ev.clientX - look[0]) * 0.004; walk.pitch = Math.max(-1.2, Math.min(1.2, walk.pitch - (ev.clientY - look[1]) * 0.004));
     look = [ev.clientX, ev.clientY];
   });
+  let pointerIn = false;
+  container.addEventListener("pointerenter", () => { pointerIn = true; });
+  container.addEventListener("pointerleave", () => { pointerIn = false; });
+  const MOVE_KEYS = ["w", "a", "s", "d", "q", "e", "arrowup", "arrowdown", "arrowleft", "arrowright", "shift"];
   const walkKey = ev => {
-    if (!walk) return;
     const k = ev.key.toLowerCase();
-    if (ev.type === "keydown") {
-      if (k === "escape") { toggleWalk(); return; }
-      if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", "shift"].includes(k)) { keysDown.add(k); ev.preventDefault(); }
-    } else keysDown.delete(k);
+    if (ev.type === "keyup") { keysDown.delete(k); return; }
+    if (walk && k === "escape") { toggleWalk(); return; }
+    // Only while the view has the keyboard, and never while something is being typed into.
+    const tag = (document.activeElement && document.activeElement.tagName) || "";
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(tag) && !(walk && container.contains(document.activeElement))) return;
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    if (!walk && !(pointerIn || container.contains(document.activeElement))) return;
+    if (MOVE_KEYS.includes(k)) { keysDown.add(k); if (k !== "shift") ev.preventDefault(); }
   };
+  window.addEventListener("blur", () => keysDown.clear());
   document.addEventListener("keydown", walkKey); document.addEventListener("keyup", walkKey);
+  // Glide: the camera and the point it looks at move together, along the way the camera is facing, so nothing is pulled back to the middle.
+  const flat = new THREE.Vector3(), side = new THREE.Vector3(), glide = new THREE.Vector3();
+  function stepGlide(dt) {
+    if (walk || vrOn) return;
+    const has = k => keysDown.has(k);
+    const f = (has("w") || has("arrowup") ? 1 : 0) - (has("s") || has("arrowdown") ? 1 : 0);
+    const r = (has("d") || has("arrowright") ? 1 : 0) - (has("a") || has("arrowleft") ? 1 : 0);
+    const u = (has("e") ? 1 : 0) - (has("q") ? 1 : 0);
+    if (!f && !r && !u) return;
+    fly = null;
+    camera.getWorldDirection(flat); flat.y = 0;
+    if (flat.lengthSq() < 1e-6) flat.set(0, 0, -1);
+    flat.normalize();
+    side.set(-flat.z, 0, flat.x);
+    const dist = Math.max(4, camera.position.distanceTo(controls.target));
+    const speed = dist * 0.9 * (has("shift") ? 2.6 : 1) * dt;
+    glide.set(0, 0, 0).addScaledVector(flat, f * speed).addScaledVector(side, r * speed);
+    glide.y = u * speed * 0.7;
+    camera.position.add(glide); controls.target.add(glide);
+  }
+  // Kept inside a box round the scene, so a slide can't lose it; the camera goes with the point it looks at.
+  const clampTo = new THREE.Vector3();
+  function keepInside() {
+    const half = Math.max(24, reach * 1.8), top = inHouse() ? house.bounds.height + 12 : Math.max(14, reach);
+    const t = controls.target;
+    clampTo.set(Math.max(-half, Math.min(half, t.x)), Math.max(-2, Math.min(top, t.y)), Math.max(-half, Math.min(half, t.z)));
+    if (clampTo.distanceToSquared(t) > 1e-6) { clampTo.sub(t); camera.position.add(clampTo); t.add(clampTo); }
+  }
+
   function stepWalk(dt) {
     if (!walk) return;
     const sp = (keysDown.has("shift") ? 9 : 4.2) * dt;
@@ -672,7 +730,8 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     raf = requestAnimationFrame(frame);
     step();
     stepWalk(lastDt);
-    if (!walk) controls.update();
+    stepGlide(lastDt);
+    if (!walk) { controls.update(); if (prefs.free) keepInside(); }
     composer.render();   // the bloom pass sits out above the lite limit; the colour handling still needs the rest
     labelRenderer.render(scene, camera);
   }
@@ -811,7 +870,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     update, setActive, select: key => select(ents.get(String(key)) || null), destroy, get count() { return ents.size; }, _ents: ents, _prefs: prefs,
     setHouse, setExtras: setExtrasKept, get replaying() { return !!replay; }, stopReplay, get walking() { return !!walk; },
     get satellites() { return extras.satellites; }, get scanners() { return extras.scanners; }, get inHouse() { return inHouse(); }, _setMode: setMode,
-    _replay: () => replay,
+    _replay: () => replay, _camera: camera, _controls: controls,
   };
   container.__v3d = api;
   return api;

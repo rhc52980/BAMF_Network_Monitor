@@ -2467,10 +2467,15 @@ names, each network's gateway, what is unusual and who is using the most traffic
 - **Colour is state**: green online, amber online but not yet marked known, grey offline, and a purple beacon, with a ripple, a beam and a ghost of its
   outline that jumps, on a device with something unusual open (see [Unusual activity](#unusual-activity)).
 - **Traffic** as pulses along each link, more of them and faster for the devices the traffic monitor says are busiest.
-- **Looking around**: drag to turn, scroll or pinch to zoom, the arrow keys to move, **Reset view** to come back. Click a device and the camera flies to
+- **Looking around**: drag to turn, scroll or pinch to zoom, **W A S D** or the arrow keys to glide, **Q** and **E** to go down and up, **Reset view** to come back. Click a device and the camera flies to
   it and a card gives its network, vendor, kind, status, latency and whether it's approved, any unusual finding, and **History**, which goes to its row
   on the Devices tab. **Names** and **Traffic** switch the labels and the pulses off, **Slow turn** the idle spin, and **F** or **Full screen** fills the
   display (and **Esc** leaves it). The choices are kept per browser.
+- **Move freely** is for when turning about the middle isn't what you want. With it ticked, a drag slides across the scene (a finger on a touch screen
+  too), a right-drag turns about the point you're looking at, two fingers pinch and twist, and the wheel zooms toward the pointer; the keys glide the
+  view along the way it faces, faster with **Shift**. Nothing pulls it back to the middle, and it is kept inside a box round the scene so it can't be
+  lost. A click then picks a device and shows its card without taking the camera, and **Fly to it** on the card does. Left unticked, the view orbits
+  the middle as before. The keys only act while the pointer is over the view or it has the focus, never while something is being typed into.
 
 ### More to see in 3D
 
