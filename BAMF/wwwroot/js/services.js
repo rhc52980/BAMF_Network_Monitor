@@ -84,6 +84,68 @@ function externalIpHtml(x) {
       : `The same address since ${esc(fmtAgo(x.since))}, as far as BAMF has seen.`}</div>`;
 }
 
+// The DHCP check: what BAMF's own DISCOVER got back on each network. Read with the Network services card, set in Settings → Scanning.
+let dhcpProbeCache = null;
+async function loadDhcpProbe() {
+  bindDhcpProbe();
+  try {
+    const r = await fetch("/api/dhcp-probe");
+    if (!r.ok) return;
+    dhcpProbeCache = await r.json();
+    renderDhcpProbeSetting();
+    if (typeof renderServices === "function" && view === "activity") renderServices();
+  } catch { /* keep the last */ }
+}
+function renderDhcpProbeSetting() {
+  const d = dhcpProbeCache, sel = $("setDhcpProbe");
+  if (!d || !sel) return;
+  sel.value = !d.enabled ? "off" : ["6", "12", "24", "168"].includes(String(d.hours)) ? String(d.hours) : "24";
+  $("dhcpClientMac").textContent = d.clientMac || "";
+  const l = d.last;
+  const servers = l ? new Set((l.networks || []).flatMap(n => (n.offers || []).map(o => o.server))).size : 0;
+  $("dhcpProbeStatus").textContent = !d.enabled ? "Off."
+    : !l ? "On, and not asked yet."
+    : l.error ? `Last asked ${fmtAgo(l.at)}: ${l.error}`
+    : `Last asked ${fmtAgo(l.at)}: ${servers} server${servers === 1 ? "" : "s"} answered on ${(l.networks || []).filter(n => !n.error || n.offers.length).length} network${(l.networks || []).length === 1 ? "" : "s"}.`;
+}
+let dhcpProbeBound = false;
+function bindDhcpProbe() {
+  const sel = document.getElementById("setDhcpProbe"), run = document.getElementById("setDhcpProbeRun");
+  if (dhcpProbeBound || !sel || !run) return;
+  dhcpProbeBound = true;
+  sel.onchange = async () => {
+    const v = sel.value;
+    const body = v === "off" ? { enabled: false } : { enabled: true, hours: Number(v) };
+    try {
+      const r = await fetch("/api/settings/dhcp-probe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error();
+      dhcpProbeCache = await r.json(); renderDhcpProbeSetting();
+      toast(v === "off" ? "BAMF won't ask for DHCP offers" : "BAMF will ask for DHCP offers " + sel.options[sel.selectedIndex].text.toLowerCase());
+    } catch { toast("Couldn't save that"); }
+  };
+  run.onclick = async () => {
+    run.disabled = true; run.textContent = "Asking\u2026";
+    try {
+      const r = await fetch("/api/dhcp-probe/run", { method: "POST" });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { toast(d.error || "Couldn't ask"); }
+      else { dhcpProbeCache = d; renderDhcpProbeSetting(); if (view === "activity") renderServices(); toast("Asked: see the DHCP block in Network services"); }
+    } catch { toast("Couldn't reach BAMF"); }
+    run.disabled = false; run.textContent = "Ask now";
+  };
+}
+
+// One offer, as a line: what it would lease, and what it tells a client to use.
+function dhcpOfferLine(o) {
+  const bits = [];
+  if (o.gateways && o.gateways.length) bits.push("gateway " + o.gateways.join(", "));
+  if (o.dns && o.dns.length) bits.push("DNS " + o.dns.join(", "));
+  if (o.domain) bits.push("domain " + o.domain);
+  if (o.mask) bits.push("mask " + o.mask);
+  if (o.leaseSeconds != null) bits.push("lease " + (o.leaseSeconds >= 86400 ? Math.round(o.leaseSeconds / 86400) + " d" : o.leaseSeconds >= 3600 ? Math.round(o.leaseSeconds / 3600) + " h" : Math.round(o.leaseSeconds / 60) + " min"));
+  return bits.join(" · ");
+}
+
 function renderServices() {
   const body = $("servicesBody");
   if (!body) return;
@@ -104,6 +166,21 @@ function renderServices() {
     const ms = h && h.online && h.latencyMs != null ? ` · answers in ${h.latencyMs} ms` : h && !h.online ? " · not answering" : "";
     return `<div class="svc-row"><span class="mono">${esc(p.gateway)}</span><span class="meta">${esc(h ? dispName(h) + " · " : "")}${esc(cidr)}${esc(ms)}</span></div>`;
   });
+  // What the DHCP offers say the gateway is, where it adds to or differs from the route.
+  const probe = dhcpProbeCache && dhcpProbeCache.last;
+  const probeNets = probe ? (probe.networks || []).filter(n => network === "all" || network === n.subnet) : [];
+  const viaDhcp = [];
+  for (const n of probeNets) {
+    const known = (networkPlaces[n.subnet] || {}).gateway;
+    for (const o of n.offers || []) for (const g of o.gateways || []) {
+      if (g === known || viaDhcp.some(v => v.g === g && v.subnet === n.subnet)) continue;
+      viaDhcp.push({ g, subnet: n.subnet, server: o.server, differs: !!known });
+    }
+  }
+  for (const v of viaDhcp) {
+    const h = hosts.find(y => y.ip === v.g && !y.forgotten && !y.remote);
+    gws.push(`<div class="svc-row"><span class="mono">${esc(v.g)}</span><span class="meta">${esc(h ? dispName(h) + " · " : "")}${esc(v.subnet)} · ${v.differs ? "DHCP from " + esc(v.server) + " says this, not the route's gateway" : "from the DHCP offer of " + esc(v.server)}</span></div>`);
+  }
   html.push(block("Gateway", gws.join("") || note("No gateway known.")));
 
   // DHCP and DNS, from the traffic monitor.
@@ -111,9 +188,29 @@ function renderServices() {
   const why = !st.available ? "The traffic monitor needs the Npcap driver, which isn't installed."
     : !st.enabled ? "Off. Turn on the traffic monitor in Settings → Scanning and BAMF will hear who hands out addresses and answers DNS."
     : !st.running ? "The traffic monitor isn't running" + (st.error ? ": " + st.error : ".") : "";
-  html.push(block("DHCP", ((t.dhcp || []).map(d => `<div class="svc-row"><span class="mono">${esc(d.ip)}</span><span class="meta">${esc(d.name && d.name !== d.mac ? d.name + " · " : "")}${esc(d.mac)} · ${d.offers} offer${d.offers === 1 ? "" : "s"} · last ${esc(fmtAgo(d.lastSeen))}</span>${trust("dhcp", d.ip, d.trusted)}</div>`).join(""))
-    || note(watching ? "No DHCP offer heard yet. One turns up the next time a device asks for an address." : why)));
-  html.push(block("DNS", ((t.dns || []).map(d => `<div class="svc-row"><span class="mono">${esc(d.ip)}</span><span class="meta">${esc(d.name ? d.name + " · " : "")}${d.clients} device${d.clients === 1 ? "" : "s"} · ${Number(d.queries).toLocaleString()} queries · last ${esc(fmtAgo(d.lastSeen))}</span>${trust("dns", d.ip, d.trusted)}</div>`).join(""))
+  const offersBy = new Map();
+  for (const n of probe ? probe.networks || [] : []) for (const o of n.offers || []) { if (!offersBy.has(o.server)) offersBy.set(o.server, []); offersBy.get(o.server).push({ ...o, subnet: n.subnet }); }
+  const dhcpRows = (t.dhcp || []).map(d => {
+    const offs = offersBy.get(d.ip) || [];
+    const detail = offs.map(o => `<div class="watch-note" style="margin:2px 0 0 0">${esc(o.subnet)}: would offer ${esc(o.offered)}${dhcpOfferLine(o) ? " · " + esc(dhcpOfferLine(o)) : ""}</div>`).join("");
+    return `<div class="svc-row"><span class="mono">${esc(d.ip)}</span><span class="meta">${esc(d.name && d.name !== d.mac ? d.name + " · " : "")}${esc(d.mac || "address not learned")} · ${d.offers} offer${d.offers === 1 ? "" : "s"} · last ${esc(fmtAgo(d.lastSeen))}${offs.length ? " · answered BAMF's own check" : ""}</span>${trust("dhcp", d.ip, d.trusted)}</div>${detail}`;
+  });
+  const probeNote = !dhcpProbeCache ? "" : !dhcpProbeCache.enabled ? note("BAMF's own DHCP check is off. Settings → Scanning switches it on.")
+    : !probe ? note("BAMF's own DHCP check hasn't run yet.")
+    : probe.error ? note(`BAMF's own DHCP check, ${esc(fmtAgo(probe.at))}: ${esc(probe.error)}`)
+    : note(`BAMF asked on ${probe.networks.length} network${probe.networks.length === 1 ? "" : "s"} ${esc(fmtAgo(probe.at))}` +
+        probeNets.filter(n => !(n.offers || []).length).map(n => `; nothing answered on ${esc(n.subnet)}${n.error ? " (" + esc(n.error) + ")" : ""}`).join("") +
+        ` <button type="button" class="toggle" id="dhcpAskNow" style="margin-left:6px">Ask again</button>`);
+  html.push(block("DHCP", (dhcpRows.join("") || note(watching ? "No DHCP offer heard yet. One turns up the next time a device asks for an address." : probe && !probe.error ? "" : why)) + probeNote));
+  const dnsSeen = new Set((t.dns || []).map(d => d.ip));
+  const handed = [];
+  for (const n of probeNets) for (const o of n.offers || []) for (const ip of o.dns || []) if (!handed.some(h => h.ip === ip && h.subnet === n.subnet)) handed.push({ ip, subnet: n.subnet, server: o.server });
+  const handedRows = handed.map(h => {
+    const dev = hosts.find(y => y.ip === h.ip && !y.forgotten && !y.remote);
+    return `<div class="svc-row"><span class="mono">${esc(h.ip)}</span><span class="meta">${esc(dev ? dispName(dev) + " · " : "")}${esc(h.subnet)} · handed out by DHCP (${esc(h.server)})${dnsSeen.has(h.ip) ? "" : " · not heard answering yet"}</span></div>`;
+  });
+  html.push(block("DNS", ((t.dns || []).map(d => `<div class="svc-row"><span class="mono">${esc(d.ip)}</span><span class="meta">${esc(d.name ? d.name + " · " : "")}${d.clients} device${d.clients === 1 ? "" : "s"} · ${Number(d.queries).toLocaleString()} queries · last ${esc(fmtAgo(d.lastSeen))}</span>${trust("dns", d.ip, d.trusted)}</div>`).join("")
+    + handedRows.filter((_, i) => !dnsSeen.has(handed[i].ip)).join(""))
     || note(watching ? "No DNS query heard yet." : why)));
 
   // UPnP, from the last health check.
@@ -152,6 +249,15 @@ function renderServices() {
   });
   body.querySelectorAll(".svc-chip").forEach(b => b.onclick = () => jumpToHost(Number(b.dataset.id)));
   const more = $("svcMore"); if (more) more.onclick = () => { servicesAll = !servicesAll; renderServices(); };
+  const askNow = $("dhcpAskNow");
+  if (askNow) askNow.onclick = async () => {
+    askNow.disabled = true; askNow.textContent = "Asking\u2026";
+    try {
+      const r = await fetch("/api/dhcp-probe/run", { method: "POST" });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) { dhcpProbeCache = d; renderDhcpProbeSetting(); renderServices(); } else { toast(d.error || "Couldn't ask"); askNow.disabled = false; askNow.textContent = "Ask again"; }
+    } catch { toast("Couldn't reach BAMF"); askNow.disabled = false; askNow.textContent = "Ask again"; }
+  };
   const look = $("svcLookup");
   if (look) look.onclick = async () => {
     look.disabled = true; look.textContent = "Looking…";
