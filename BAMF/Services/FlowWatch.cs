@@ -62,7 +62,7 @@ public sealed class FlowWatch : BackgroundService
     {
         _store = store; _traffic = traffic; _scanner = scanner; _log = log;
         _reverse = reverse ?? ReverseName;
-        _traffic.OnIp = Observe;
+        _traffic.OnIp = (mac, src, dst, proto, dstPort, len, srcPort) => Observe(mac, src, dst, proto, dstPort, len, DateTime.UtcNow, srcPort);
     }
 
     public bool Enabled => _store.GetSetting("flowWatch") != "false";
@@ -90,7 +90,7 @@ public sealed class FlowWatch : BackgroundService
     /// <summary>One IPv4 packet. Fast: a dictionary or two, no database, no alerting here.</summary>
     public void Observe(string srcMac, IPAddress src, IPAddress dst, int proto, int dstPort, int len) => Observe(srcMac, src, dst, proto, dstPort, len, DateTime.UtcNow);
 
-    internal void Observe(string srcMac, IPAddress src, IPAddress dst, int proto, int dstPort, int len, DateTime now)
+    internal void Observe(string srcMac, IPAddress src, IPAddress dst, int proto, int dstPort, int len, DateTime now, int srcPort = 0)
     {
         if (!Enabled) return;
         var srcLocal = IsLocal(src); var dstLocal = IsLocal(dst);
@@ -98,11 +98,51 @@ public sealed class FlowWatch : BackgroundService
         {
             if (!_loaded) Load();
             if (srcLocal && !dstLocal) Count(srcMac, dst, len, now);
+            if (srcLocal && dstLocal && (proto == 6 || proto == 17) && srcPort > 0)
+            {
+                // An answer to something asked is not a probe: a resolver replying from port 53 to each of the many random ports a
+                // lookup came from looks, to a count of distinct destination ports, exactly like a port scan. So every local packet is
+                // remembered as who asked whom from which port, and a packet that is the other end of one is left out of the scan count.
+                if (IsAnswer(src, srcPort, dst, dstPort, proto, now)) return;
+                Remember(src, srcPort, dst, dstPort, proto, now);
+            }
             // A reply from the internet to a device here counts against that device too, under its own MAC. The frame's source is the
             // router, so the device is found by its address; the dashboard's hosts aren't in reach here, so that is left to the scan
             // of local sources, which sees every request a device makes. Requests are enough to know where it talks.
             if (srcLocal && dstLocal && (proto == 6 || proto == 17)) Probe(srcMac, dst.ToString(), dstPort, now);
         }
+    }
+
+    // who asked whom, from which port: (asker, its port, protocol) -> (who it asked, which port, when)
+    private readonly Dictionary<ulong, (ulong To, long Ticks)> _asked = new();
+    public static readonly TimeSpan AnswerWindow = TimeSpan.FromSeconds(30);
+    private const int MaxAsked = 60000;
+    private static ulong Key(IPAddress ip, int port, int proto)
+    {
+        var b = ip.GetAddressBytes();
+        if (b.Length != 4) return 0;
+        return ((ulong)b[0] << 40) | ((ulong)b[1] << 32) | ((ulong)b[2] << 24) | ((ulong)b[3] << 16) | (ulong)(port & 0xFFFF) | ((ulong)(proto & 0xFF) << 48);
+    }
+
+    private void Remember(IPAddress src, int srcPort, IPAddress dst, int dstPort, int proto, DateTime now)
+    {
+        var from = Key(src, srcPort, proto);
+        if (from == 0) return;
+        if (_asked.Count >= MaxAsked)
+        {
+            var cutoff = (now - AnswerWindow).Ticks;
+            foreach (var k in _asked.Where(kv => kv.Value.Ticks < cutoff).Select(kv => kv.Key).ToList()) _asked.Remove(k);
+            if (_asked.Count >= MaxAsked) _asked.Clear();
+        }
+        _asked[from] = (Key(dst, dstPort, proto), now.Ticks);
+    }
+
+    /// <summary>Whether this packet is the reply to one that went the other way a moment ago: same two ends, same ports, same protocol.</summary>
+    internal bool IsAnswer(IPAddress src, int srcPort, IPAddress dst, int dstPort, int proto, DateTime now)
+    {
+        // the reply goes from where the question went to where it came from, so it is looked up under the destination
+        if (!_asked.TryGetValue(Key(dst, dstPort, proto), out var q)) return false;
+        return q.To == Key(src, srcPort, proto) && now - new DateTime(q.Ticks, DateTimeKind.Utc) <= AnswerWindow;
     }
 
     private void Count(string mac, IPAddress dst, int len, DateTime now)
