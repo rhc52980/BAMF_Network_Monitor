@@ -152,6 +152,73 @@ public class FlowWatchTests : IDisposable
         Assert.Equal(0, w.Pending.Scans);
     }
 
+    [Fact]
+    public void A_resolver_answering_the_lookups_it_was_asked_is_not_scanning()
+    {
+        // BAMF asks 60 reverse lookups from 60 different ports; the resolver answers each from port 53 to the port it came from.
+        var store = Store();
+        var w = Watch(store);
+        const string bamf = "AA:BB:CC:00:00:AA", resolver = "AA:BB:CC:00:00:53";
+        for (var i = 0; i < 60; i++)
+        {
+            var port = 40000 + i;
+            w.Observe(bamf, Ip("192.168.1.2"), Ip("192.168.1.53"), 17, 53, 70, Now.AddMilliseconds(i * 100), srcPort: port);
+            w.Observe(resolver, Ip("192.168.1.53"), Ip("192.168.1.2"), 17, port, 110, Now.AddMilliseconds(i * 100 + 5), srcPort: 53);
+        }
+        Assert.Equal(0, w.Pending.Scans);
+    }
+
+    [Fact]
+    public async Task Answers_from_a_device_to_the_connections_made_to_it_are_not_scanning()
+    {
+        // BAMF checks 70 ports on a device: every closed one answers with a reset to the port the attempt came from. The checking is
+        // what looks like a scan (and is BAMF's own, which is left out where it matters); the answers must not be.
+        var store = Store();
+        var w = Watch(store);
+        for (var i = 0; i < 70; i++)
+        {
+            var port = 50000 + i;
+            w.Observe("AA:BB:CC:00:00:AA", Ip("192.168.1.2"), Ip("192.168.1.40"), 6, 1000 + i, 60, Now.AddMilliseconds(i * 50), srcPort: port);
+            w.Observe("AA:BB:CC:00:00:40", Ip("192.168.1.40"), Ip("192.168.1.2"), 6, port, 60, Now.AddMilliseconds(i * 50 + 3), srcPort: 1000 + i);
+        }
+        await w.Evaluate(CancellationToken.None, Now.AddMinutes(1));
+        var macs = w.RecentScans(Now.AddMinutes(2)).Select(x => x.Mac).ToList();
+        Assert.Equal(new[] { "AA:BB:CC:00:00:AA" }, macs);                      // only the one asking, never the device answering
+    }
+
+    [Fact]
+    public void Traffic_from_port_53_that_answers_nothing_is_still_a_scan()
+    {
+        // The same replies with no question seen: a scanner using 53 as its source port, as scanners do to get past a firewall.
+        var store = Store();
+        var w = Watch(store);
+        for (var i = 0; i < 60; i++)
+            w.Observe("AA:BB:CC:00:00:53", Ip("192.168.1.53"), Ip("192.168.1.2"), 17, 40000 + i, 110, Now.AddMilliseconds(i * 100), srcPort: 53);
+        Assert.Equal(1, w.Pending.Scans);
+    }
+
+    [Fact]
+    public void An_answer_is_only_an_answer_for_a_short_while_and_only_between_the_same_two_ends()
+    {
+        var store = Store();
+        var w = Watch(store);
+        w.Observe("AA:BB:CC:00:00:AA", Ip("192.168.1.2"), Ip("192.168.1.53"), 17, 53, 70, Now, srcPort: 41000);
+        Assert.True(w.IsAnswer(Ip("192.168.1.53"), 53, Ip("192.168.1.2"), 41000, 17, Now.AddSeconds(1)));
+        Assert.False(w.IsAnswer(Ip("192.168.1.53"), 53, Ip("192.168.1.2"), 41000, 17, Now.AddMinutes(2)));          // too late
+        Assert.False(w.IsAnswer(Ip("192.168.1.99"), 53, Ip("192.168.1.2"), 41000, 17, Now.AddSeconds(1)));          // a different server
+        Assert.False(w.IsAnswer(Ip("192.168.1.53"), 123, Ip("192.168.1.2"), 41000, 17, Now.AddSeconds(1)));         // a different port
+        Assert.False(w.IsAnswer(Ip("192.168.1.53"), 53, Ip("192.168.1.2"), 41000, 6, Now.AddSeconds(1)));           // a different protocol
+    }
+
+    [Fact]
+    public void A_real_scan_is_still_caught_when_its_packets_carry_source_ports()
+    {
+        var store = Store();
+        var w = Watch(store);
+        for (var i = 1; i <= 40; i++) w.Observe("AA:BB:CC:00:00:01", Ip("192.168.1.20"), Ip($"192.168.1.{100 + i}"), 6, 445, 60, Now.AddSeconds(i), srcPort: 51515);
+        Assert.Equal(1, w.Pending.Scans);
+    }
+
     // ---------- bandwidth spikes ----------
 
     [Fact]

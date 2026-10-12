@@ -624,6 +624,7 @@ function render() {
     loadScore();
     loadFlows();
     loadServiceWatch();
+    loadDhcpProbe();
     loadSecurity().then(() => { renderHygiene(); renderServices(); });
     loadGreyNoise().then(() => { renderHygiene(); renderServices(); });
     loadWan(true).then(() => { renderWanCard(); renderServices(); });

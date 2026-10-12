@@ -138,7 +138,7 @@ step:
 | `engine3d/` | What the 3D tab and the grid saver share: `scene.mjs` and `grid.mjs`, three.js, the shaders, the data module and the 46 device models (loaded only when one starts); the tab's own `extras.mjs` (services, satellites, scan rays), `house.mjs` (floor plans stood up) and `sound.mjs` |
 | `js/internet.js` | The internet watch, the speed test, the Scan menu and free addresses |
 | `js/tools.js` | Ping, trace route and DNS lookup for a device, run from its ⋯ menu |
-| `js/services.js` | The Network services card: the public address, gateways, DHCP, DNS, UPnP, mDNS and what devices offer |
+| `js/services.js` | The Network services card: the public address, gateways, DHCP (with the DHCP check's offers), DNS, UPnP, mDNS and what devices offer |
 | `js/views.js` | The Views menu: saving the device list's current combination of filters under a name, and applying one |
 | `js/bulk.js` | Select mode for the device list: tick several devices and do one thing to all of them |
 | `js/sites.js` | The Sites card: this site and every other BAMF server watched, with their devices counted |
@@ -1879,6 +1879,9 @@ scan, or delete a thing.
 | POST | `/api/service-watch/try` | The same body; checks once without saving and answers `{"ok", "ms", "slow", "error", "url", "summary"}` |
 | DELETE | `/api/service-watch/{id}` | Stop watching a service, and drop its readings |
 | POST | `/api/settings/service-watch` | Body `{"enabled": false}` — switch the service watch off, or back on |
+| GET | `/api/dhcp-probe` | The DHCP check: `{"enabled", "hours", "nextDue", "clientMac", "last": {"at", "error", "networks": [{"subnet", "selfIp", "error", "offers": [{"server", "mac", "offered", "mask", "gateways", "dns", "domain", "leaseSeconds", "ntp"}]}]}}` |
+| POST | `/api/settings/dhcp-probe` | Body `{"enabled": true, "hours": 24}`, either or both — on or off, and how often (1 to 168 hours, 24 by default) |
+| POST | `/api/dhcp-probe/run` | Ask now, whatever the schedule, and answer as `GET /api/dhcp-probe` does; 429 if asked less than ten seconds ago |
 | POST | `/api/settings/first-week-report` | Body `{"enabled": false}` — switch a new device's first-week report off, or back on |
 | GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
 | GET | `/api/settings/rules` | The alert rules, quiet hours and port watch: `{"rules": [...], "quiet": {"from", "to", "digest", "now", "held"}, "portWatch"}` |
@@ -3347,7 +3350,13 @@ the network: it draws together what BAMF already knows.
 - **DHCP** and **DNS**: the servers the traffic monitor has heard, with how many
   offers or queries, and the **Trust** and **Forget** buttons that decide whether
   a new one alerts. This is what the **Network watch** card used to show. Without
-  the traffic monitor on (it needs Npcap) the card says so.
+  the traffic monitor on (it needs Npcap) the card says so. With the
+  [DHCP check](#dhcp-check-who-hands-out-addresses) on, each DHCP server also
+  says what its offer tells a client to use (the gateway, the DNS servers, the
+  domain, the mask and the lease), a gateway the offers name that the routing
+  table doesn't is added to **Gateway**, and the DNS servers the offers hand out
+  are added to **DNS** even before any device has been heard asking them. That
+  part works without Npcap.
 - **UPnP**: a router that answered the last health check's UPnP search, which
   means any device can ask it to open ports to the internet.
 - **mDNS (Bonjour)**: how many devices announce a name or services this way.
@@ -3499,6 +3508,14 @@ do**, all on by default:
   scanning: malware looking for a way to spread, or a guest being nosy. One
   **security** alert, once an hour per device. BAMF's own scans and the
   router's don't count, and neither does a device that's ignored or snoozed.
+  An **answer** isn't a probe either. A DNS server replying from port 53 to each
+  of the many random ports a run of lookups came from, or a device sending a
+  reset back to each connection BAMF's own port check made, reaches many
+  different ports of one address and would count as a scan. So BAMF remembers
+  who asked whom, from which port and over which protocol, for half a minute,
+  and a packet that is the other end of one is left out of the count. Traffic
+  from port 53 that answers nothing it saw asked still counts, so a scanner
+  using 53 as its source port is not let off.
 - **Bandwidth spikes.** Once an hour, each device's last 24 hours is set
   against its previous days from the traffic history. **Five times** the median
   of at least **three** prior days, and at least **500 MB**, is a spike: one
@@ -3814,6 +3831,48 @@ The Traffic column's tooltip and the History panel say who counted each device
 and router are counting. When both a switch and UniFi count a device, the
 switch wins: it's the wire itself. The hourly history comes from whichever
 counted it, never both, so nothing is counted twice.
+
+### DHCP check: who hands out addresses?
+
+Listening only hears a DHCP server when a device happens to ask for an address,
+and only with Npcap. The **DHCP check** asks for itself. Once a day (every 6
+hours, 12 hours or week if you'd rather, or never, under **Settings →
+Scanning**) BAMF sends a DHCP DISCOVER on each network it is on and listens for
+five seconds.
+
+- **Every server that answers is noted** as a DHCP server, the same way one
+  overheard is: it appears on the **Network services** card, can be trusted or
+  forgotten, and a server not seen before is an alert. The first servers seen
+  while BAMF has none on record are learned quietly.
+- **The offer is read.** Its gateway (option 3), DNS servers (6), domain (15),
+  mask (1), lease (51) and NTP servers (42) are kept with the address it would
+  have leased, and shown on the card against the server.
+- **It asks as a made-up client.** The hardware address is `02:ba:4d:44:48:43`,
+  the same every time, a locally administered address that no real adapter has.
+  BAMF never sends the REQUEST that would take an offered address, so nothing is
+  leased and nothing has to be released; because the client is always the same, a
+  server offers it the same address each time and its pool doesn't fill with
+  ghosts. It is separate from the address this machine uses, static or leased.
+- **It needs UDP port 68** to listen on, which it shares with the system's own
+  DHCP client. Where that isn't allowed, because something holds the port
+  exclusively or BAMF hasn't the rights, the card and Settings say so rather than
+  showing an empty answer. **On Windows the firewall has to let BAMF receive
+  there**, which it doesn't by default for a program it has no rule for:
+
+  ```powershell
+  New-NetFirewallRule -DisplayName "BAMF DHCP check" -Direction Inbound -Protocol UDP -LocalPort 68 -Program "C:\BAMF\BAMF.exe" -Action Allow
+  ```
+
+  Without that rule the check finds nothing on Windows, but the traffic monitor,
+  if it is running, still hears the offers.
+- **Only networks with an interface on this machine** are asked, since the
+  question is a broadcast. A network BAMF reaches through a router is listed as
+  not asked.
+- **Some servers ignore a client they don't know**, or rate-limit; "nothing
+  answered" means just that, not that there's no DHCP server.
+
+**Ask now** in Settings runs it at once, at most once in ten seconds.
+`GET /api/dhcp-probe` has the last result and the schedule.
 
 ### Traffic from your switches
 

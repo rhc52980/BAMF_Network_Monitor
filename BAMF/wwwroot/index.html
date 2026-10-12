@@ -424,6 +424,25 @@
           <span class="set-field"><button type="button" class="arp-toggle" id="setMdns" aria-pressed="false"><span class="pill"></span></button></span>
         </label>
       </div>
+      <div class="set-card" id="dhcpProbeCard">
+        <div class="set-card-title">DHCP check</div>
+        <p class="modal-help">
+          Every so often BAMF asks each of its networks "who hands out addresses?" with a DHCP DISCOVER, and listens for a few seconds. Each server
+          that answers is noted as a DHCP server, and what its offer says is read: the gateway and the DNS servers it tells clients to use, the
+          mask, the domain and the lease. They appear beside what the traffic monitor has heard in the <strong>Network services</strong> card on
+          Activity, and this works without the traffic monitor.
+          It is a question and nothing more: BAMF asks as a made-up client with an address of its own (<span id="dhcpClientMac">02:ba:4d:44:48:43</span>),
+          never accepts an offer, and so takes no address and gives none back. It's separate from the address this machine has, static or leased.
+          A new DHCP server alerts like one that was overheard. It needs to listen on UDP port 68, and on Windows the firewall must let BAMF
+          receive there (see the README).
+        </p>
+        <label class="set-row">
+          <span class="set-label">Ask for DHCP offers
+            <span class="set-hint" id="dhcpProbeStatus"></span>
+          </span>
+          <span class="set-field speed-fields"><select class="modal-input" id="setDhcpProbe" aria-label="How often to ask"><option value="off">Never</option><option value="6">Every 6 hours</option><option value="12">Every 12 hours</option><option value="24">Every day</option><option value="168">Every week</option></select><button type="button" class="export-btn" id="setDhcpProbeRun">Ask now</button></span>
+        </label>
+      </div>
       <div class="set-card">
         <div class="set-card-title">Networks</div>
         <p class="modal-help">

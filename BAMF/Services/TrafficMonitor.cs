@@ -87,7 +87,8 @@ public sealed class TrafficMonitor : IDisposable
     /// <summary>Every IPv6 neighbour-discovery frame's sender MAC and address, for the IPv6 watch.</summary>
     public Action<string, string>? OnNdp { get; set; }
     /// <summary>Every IPv4 packet: sender MAC, source and destination address, protocol, destination port (0 when it has none) and length, for the flow watch.</summary>
-    public Action<string, IPAddress, IPAddress, int, int, int>? OnIp { get; set; }
+    /// <summary>One IPv4 packet: source MAC, source and destination address, protocol, destination port, length and source port (0 when it has none).</summary>
+    public Action<string, IPAddress, IPAddress, int, int, int, int>? OnIp { get; set; }
 
     public TrafficMonitor(ILogger<TrafficMonitor> log, HostStore store)
     {
@@ -219,7 +220,7 @@ public sealed class TrafficMonitor : IDisposable
             var srcAddr = new IPAddress(new ReadOnlySpan<byte>(d, off + 12, 4));
             var dstAddr = new IPAddress(new ReadOnlySpan<byte>(d, off + 16, 4));
             var hasPorts = (proto == 6 || proto == 17) && d.Length >= off + ihl + 4;
-            if (OnIp is { } ip) ip(src, srcAddr, dstAddr, proto, hasPorts ? (d[off + ihl + 2] << 8) | d[off + ihl + 3] : 0, len);
+            if (OnIp is { } ip) ip(src, srcAddr, dstAddr, proto, hasPorts ? (d[off + ihl + 2] << 8) | d[off + ihl + 3] : 0, len, hasPorts ? (d[off + ihl] << 8) | d[off + ihl + 1] : 0);
             if (proto != 17 || d.Length < off + ihl + 8) return;
             var udp = off + ihl;
             var sport = (d[udp] << 8) | d[udp + 1];
@@ -318,6 +319,30 @@ public sealed class TrafficMonitor : IDisposable
         }
         if (isNew)
             Raise("dhcp", $"New DHCP server: {ip}", $"{Describe(serverMac)} answered a DHCP request from {ip}. " +
+                "If you didn't add a router or DHCP server, something on the network is handing out addresses that shouldn't be.", ip);
+    }
+
+    /// <summary>
+    /// A DHCP server found by BAMF's own probe rather than overheard: noted the same way, so it is listed, can be trusted, and a new
+    /// one alerts. The first server ever seen is learned quietly.
+    /// </summary>
+    public void NoteDhcpServer(string ip, string? mac, string subnet)
+    {
+        bool isNew;
+        lock (_lock)
+        {
+            _dhcp[ip] = (mac ?? (_dhcp.TryGetValue(ip, out var was0) ? was0.Mac : ""), DateTime.UtcNow, (_dhcp.TryGetValue(ip, out var was) ? was.Offers : 0) + 1);
+            isNew = !_knownDhcp.Contains(ip);
+            if (isNew)
+            {
+                var learnQuietly = _knownDhcp.Count == 0;
+                _knownDhcp.Add(ip);
+                SaveKnown();
+                if (learnQuietly) { _log.LogInformation("DHCP server on {Subnet}: {Ip}", subnet, ip); isNew = false; }
+            }
+        }
+        if (isNew)
+            Raise("dhcp", $"New DHCP server: {ip}", $"A DHCP server at {ip}{(string.IsNullOrEmpty(mac) ? "" : " (" + Describe(mac) + ")")} answered BAMF's own DHCP check of {subnet}. " +
                 "If you didn't add a router or DHCP server, something on the network is handing out addresses that shouldn't be.", ip);
     }
 

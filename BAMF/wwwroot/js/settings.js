@@ -1764,6 +1764,7 @@ async function loadSettings() {
   renderBackup(e.backup);
   loadUnusualSetting();
   loadServiceWatch();
+  loadDhcpProbe();
 
   const roEl = $("setReadOnly");
   roEl.innerHTML = "";

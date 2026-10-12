@@ -102,6 +102,8 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<DnsWatch>());
 builder.Services.AddSingleton<FlowWatch>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<FlowWatch>());
 builder.Services.AddSingleton<ServiceWatch>();
+builder.Services.AddSingleton<DhcpProbe>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<DhcpProbe>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ServiceWatch>());
 builder.Services.AddSingleton<NightlyBackup>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NightlyBackup>());
@@ -401,6 +403,7 @@ ScoreEndpoints.Map(app);
 FlowEndpoints.Map(app);
 ServiceWatchEndpoints.Map(app);
 Map3dEndpoints.Map(app);
+DhcpProbeEndpoints.Map(app);
 MoreAlertsEndpoints.Map(app);
 ToolsEndpoints.Map(app);
 
