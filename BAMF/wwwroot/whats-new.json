@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.18.0",
+      "date": "2026-10-12",
+      "items": [
+        "Fixed a false port-scan alert. A DNS server answering BAMF's lookups, each from port 53 to a different random port, looked to the scan rule like one device probing many ports, and was reported as scanning the network. BAMF now remembers who asked whom for half a minute and leaves an answer out of the count, so a resolver's replies, or a device's replies to BAMF's own port check, are no longer a scan. Traffic from port 53 that answers nothing BAMF saw asked still counts, so a scanner using 53 as its source port is not let off.",
+        "There is a new DHCP check. Once a day by default (every 6 or 12 hours, weekly, or never, under Settings, Scanning, with an Ask now button), BAMF sends a DHCP DISCOVER on each network it is on and listens for five seconds. Each server that answers is noted as a DHCP server, so it appears on the Network services card, can be trusted, and a new one alerts. Its offer is read for the gateway, DNS servers, domain, mask and lease, which the card now shows, along with a gateway the offers name that the route doesn't and the DNS servers they hand out. It asks as a made-up client and never takes an address, and it works without Npcap.",
+        "The DHCP check needs UDP port 68, and on Windows the firewall has to let BAMF receive there. The README has the one-line rule; without it the check finds nothing."
+      ]
+    },
+    {
       "version": "2.17.0",
       "date": "2026-10-10",
       "items": [
