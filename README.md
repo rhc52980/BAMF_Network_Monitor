@@ -242,6 +242,11 @@ lighter look above 150 devices, and says so in plain words if your browser has n
 
 ![The printer picked in the house: the camera has flown in over the study, close to the printer and its neighbours, with a card at the right giving its address, network, vendor, kind, status Online and answer time, and a red line saying its Printer queue service is down, with 97.4 percent uptime, above a History button. A red service tower stands beside the printer](docs/house-device.webp)
 
+The box at the top left finds a device by words and narrows to offline, unapproved, unusual or service-down ones. Under it a **Needs attention** list
+says what is wrong now, one click away, and a device's card has the actions the Devices tab has: ping, trace, mark known, watch, snooze, wake, open its
+page and copy its address. Where you have recorded which switch or access point a device is on, its line goes there, and a switch says how many devices
+are behind it. **Place devices** in the house puts a device on a plan by clicking the floor, and `#3d/12` in the address flies straight to a device.
+
 More can be switched on under **More to see**: **Your house** stands the floor plans you drew up as glowing walls with each device in the room you
 placed it in; a tower beside a device for each service the service watch checks on it; devices that are slow to answer riding higher and flickering;
 every outside network devices talk to as a satellite round the internet, magenta when it's new; red rays from a device that is scanning; **Replay the

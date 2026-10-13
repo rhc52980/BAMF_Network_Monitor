@@ -101,6 +101,7 @@ export function createExtras({ scene, glow, internet, ents, onCue = () => {}, re
     scanning = next;
   }
   const isScanner = ent => scanning.some(s => s.ent === ent);
+  const scanningKeys = () => new Set(scanning.map(s => s.ent.key));
 
   // ---------------------------------------------------------------- the clock
   const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3(), tc = new THREE.Color();
@@ -177,5 +178,5 @@ export function createExtras({ scene, glow, internet, ents, onCue = () => {}, re
     towerGeo.dispose(); capGeo.dispose(); satGeo.dispose(); satEdges.dispose();
   }
 
-  return { setServices, setDestinations, setScans, tick, dispose, isScanner, get satellites() { return sats.size; }, get scanners() { return scanning.length; }, worstService };
+  return { setServices, setDestinations, setScans, tick, dispose, isScanner, scanningKeys, get satellites() { return sats.size; }, get scanners() { return scanning.length; }, worstService };
 }

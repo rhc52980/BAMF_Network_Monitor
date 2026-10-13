@@ -1990,6 +1990,42 @@
     border: 1px solid #14506b; color: #cdeefa; font-size: 12px; line-height: 1.5; text-align: center; }
   .v3d-walking .v3d-stage canvas { cursor: crosshair; }
   .v3d-card .v3d-row { margin-top: 2px; }
+  .to3d { color: var(--accent, #26d9ff); font-size: 11px; text-decoration: none; white-space: nowrap; }
+  .to3d:hover { text-decoration: underline; }
+  /* finding, and what needs looking at */
+  .v3d-left { position: absolute; left: 14px; top: 14px; width: 270px; max-height: calc(100% - 150px); display: flex; flex-direction: column; gap: 8px; overflow: hidden; pointer-events: none; }
+  .v3d-left > .v3d-panel { position: static; pointer-events: auto; }
+  .v3d-find { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .v3d-search { width: 100%; box-sizing: border-box; background: rgba(2, 8, 18, .7); color: #e8fbff; border: 1px solid #14506b; padding: 7px 10px; font: inherit; font-size: 12px; letter-spacing: .04em; border-radius: 0; }
+  .v3d-search:focus { outline: none; border-color: #26d9ff; box-shadow: 0 0 10px rgba(38, 217, 255, .3); }
+  .v3d-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .v3d-chip { font: inherit; font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: #7fc3dc; background: rgba(38, 217, 255, .05); border: 1px solid #14506b; padding: 3px 8px; cursor: pointer; border-radius: 0; }
+  .v3d-chip:hover { border-color: #26d9ff; color: #e8fbff; }
+  .v3d-chip.on { border-color: #26d9ff; background: rgba(38, 217, 255, .2); color: #e8fbff; }
+  .v3d-findrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .v3d-findrow select { max-width: 130px; font: inherit; font-size: 11px; background: rgba(4, 12, 24, .9); color: #9fdcf0; border: 1px solid #14506b; padding: 4px 6px; }
+  .v3d-notags select { display: none; }
+  .v3d-count { color: #4f90aa; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+  .v3d-attn, .v3d-placing { padding: 10px 12px; }
+  .v3d-attn[hidden], .v3d-placing[hidden] { display: none; }
+  .v3d-attn h3, .v3d-placing h3 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: #e8fbff; font-weight: 500; }
+  .v3d-n { margin-left: 6px; padding: 0 6px; background: #ff4b5c; color: #1a0508; font-size: 10.5px; }
+  .v3d-attn ul, .v3d-placing ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+  .v3d-prob { width: 100%; text-align: left; font: inherit; font-size: 11.5px; line-height: 1.35; color: #cdeefa; background: rgba(38, 217, 255, .04); border: 0; border-left: 2px solid #26d9ff; padding: 5px 8px; cursor: pointer; border-radius: 0; }
+  .v3d-prob:hover, .v3d-prob.on { background: rgba(38, 217, 255, .16); color: #fff; }
+  .v3d-prob i { display: none; }
+  .v3d-p-down { border-left-color: #ff4b5c; } .v3d-p-service { border-left-color: #ff4b5c; } .v3d-p-scan { border-left-color: #ff2fd0; }
+  .v3d-p-odd { border-left-color: #b36cff; } .v3d-p-new { border-left-color: #ffb454; } .v3d-p-slow { border-left-color: #ffb454; }
+  .v3d-more-n, .v3d-hint { margin-top: 6px; font-size: 11px; color: #6fb5cf; line-height: 1.45; }
+  .v3d-hint b { color: #e8fbff; font-weight: 500; }
+  .v3d-acts { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .v3d-act { font: inherit; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: #9fdcf0; background: rgba(38, 217, 255, .06); border: 1px solid #14506b; padding: 4px 8px; cursor: pointer; border-radius: 0; }
+  .v3d-act:hover { border-color: #26d9ff; color: #e8fbff; }
+  .v3d-replaying .v3d-find, .v3d-replaying .v3d-placing { display: none; }
+  @media (max-width: 700px) {
+    .v3d-left { left: 10px; right: 10px; top: 10px; width: auto; }
+    .v3d-attn, .v3d-placing { display: none; }
+  }
   .v3d-svcs { margin: 0 0 10px; padding: 6px 10px; border-left: 2px solid #26d9ff; background: rgba(38, 217, 255, .08); font-size: 11px; line-height: 1.7; color: #cdeefa; }
   .v3d-svcs i { display: inline-block; width: 7px; height: 7px; margin-right: 8px; border-radius: 50%; background: #3fdb7f; box-shadow: 0 0 6px currentColor; }
   .v3d-svcs i.s-down { background: #ff4b5c; } .v3d-svcs i.s-slow { background: #ffb454; } .v3d-svcs i.s-off, .v3d-svcs i.s-waiting { background: #5d6f86; }

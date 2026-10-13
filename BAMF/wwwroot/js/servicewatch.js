@@ -57,7 +57,7 @@ function renderServiceWatch() {
     el.innerHTML = `<div class="svw-head"><span class="wan-dot ${cls}"></span><span class="svw-name">${esc(r.name)}</span>` +
       `<span class="svw-stat" title="Share of checks that passed in the last 24 hours">${r.uptime == null ? "" : r.uptime + "%"}</span>` +
       `<span class="svw-stat ${statCls}">${esc(stat)}</span><button type="button" class="svw-del" aria-label="Stop watching ${esc(r.name)}" title="Stop watching">×</button></div>` +
-      `<div class="svw-line">${esc(r.device)} · ${esc(svwWhat(r))}</div>` +
+      `<div class="svw-line">${esc(r.device)} · ${esc(svwWhat(r))} · <a class="to3d" href="#3d/${Number(r.hostId)}">Show in 3D</a></div>` +
       (line ? `<div class="svw-line ${lineCls}">${esc(line)}</div>` : "") +
       `<div class="svw-strip" role="img" aria-label="Last 24 hours, half an hour a bar">${[...r.strip].map(c => `<i class="${c === "u" ? "" : c}"></i>`).join("")}</div>` +
       `<div class="svw-ends"><span>24 h ago</span><span>now</span></div>`;

@@ -10,7 +10,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as BufferGeometryUtils from "three/addons/utils/BufferGeometryUtils.js";
-import { MODELS, slotsFor, placeNetworks, describeScene, worstService } from "./data.mjs";
+import { MODELS, slotsFor, placeNetworks, describeScene, worstService, FILTERS, matchesFilter, searchRank, problemsOf, behindOf, formatRate, placementFromPoint, FLOOR_GAP } from "./data.mjs";
 import { createExtras } from "./extras.mjs";
 import { buildHouse } from "./house.mjs";
 import { createSound } from "./sound.mjs";
@@ -58,7 +58,7 @@ async function loadModel(loader, base, kind) {
   return g;
 }
 
-export async function createView(container, { base = "/engine3d", onOpenDevice = () => {}, credits = "", onReplayLoad = null, replayScene = null, onReplayEnd = () => {} } = {}) {
+export async function createView(container, { base = "/engine3d", onOpenDevice = () => {}, credits = "", onReplayLoad = null, replayScene = null, onReplayEnd = () => {}, actionsFor = () => [], onAction = () => {}, onSelect = () => {}, onPlace = null } = {}) {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const saved = (() => { try { return JSON.parse(localStorage.getItem("bamf-3d") || "{}"); } catch { return {}; } })();
   const prefs = {
@@ -74,6 +74,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     <div class="v3d-panel v3d-controls">
       <div class="v3d-row"><button type="button" data-v3d="side" class="v3d-btn">Side by side</button><button type="button" data-v3d="stack" class="v3d-btn">Stacked</button></div>
       <button type="button" data-v3d="house" class="v3d-btn v3d-wide" hidden>Your house</button>
+      <button type="button" data-v3d="place" class="v3d-btn v3d-wide" aria-pressed="false" hidden>Place devices</button>
       <label class="v3d-chk" title="Drag to slide across the scene instead of turning it about its middle. Right-drag turns; W A S D glide; Q and E go down and up."><input type="checkbox" data-v3d="free"> Move freely</label>
       <label class="v3d-chk"><input type="checkbox" data-v3d="spin"> Slow turn</label>
       <label class="v3d-chk"><input type="checkbox" data-v3d="labels"> Names</label>
@@ -102,6 +103,15 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
       <span><i style="background:#3fdb7f;color:#3fdb7f"></i>Online</span><span><i style="background:#ffb454;color:#ffb454"></i>Not yet approved</span>
       <span><i style="background:#5d6f86;color:#5d6f86"></i>Offline</span><span><i style="background:#9a7ce8;color:#b36cff"></i>Unusual for this device</span>
       <button type="button" data-v3d="credits" class="v3d-link">Model credits</button>
+    </div>
+    <div class="v3d-left">
+    <div class="v3d-panel v3d-find">
+      <input type="search" class="v3d-search" data-v3d="q" placeholder="Find a device…" aria-label="Find a device" autocomplete="off" spellcheck="false">
+      <div class="v3d-chips">${FILTERS.map(f => `<button type="button" class="v3d-chip" data-v3d-chip="${f.key}" aria-pressed="false">${f.label}</button>`).join("")}</div>
+      <div class="v3d-findrow"><select data-v3d="tag" aria-label="Tag"><option value="">Any tag</option></select><span class="v3d-count"></span></div>
+    </div>
+    <div class="v3d-panel v3d-attn" hidden></div>
+    <div class="v3d-panel v3d-placing" hidden></div>
     </div>
     <div class="v3d-panel v3d-card" hidden></div>
     <div class="v3d-panel v3d-credits" hidden></div>
@@ -174,6 +184,8 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   const pickables = [];
   let links = [], parts = [], linkSig = "", current = null, firstUpdate = true, hovered = null, selected = null, fly = null, reach = 14, lite = false;
   let houseK = 1;                 // the models are drawn smaller in the house, where the rooms are small
+  const filt = { q: "", on: new Set(), tag: "" };
+  let filterOn = false, behind = new Map(), placing = false, placePick = null, problemsList = [];
   const sound = createSound();
   const cue = name => { if (prefs.sound) sound.cue(name); };
   const extras = createExtras({ scene, glow, internet, ents, onCue: cue, reduced });
@@ -281,7 +293,10 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
       if (gw) add(() => internet.position, gw, true);
       for (const d of net.devices) {
         const e = ents.get(d.key); if (!e || e === gw) continue;
-        if (gw) add(() => gw.group.position, e, false);
+        // plugged into a switch or access point that was recorded and is a device here: its line goes there, else to the gateway
+        const up = d.parent ? ents.get(d.parent) : null;
+        if (up && up !== e) add(() => up.group.position, e, false);
+        else if (gw) add(() => gw.group.position, e, false);
         else add(() => n.group.position, e, false);   // no gateway known: it hangs from the platform's centre
       }
     }
@@ -324,6 +339,8 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
       if (selected === e) showCard(e);
     }
     extras.setServices(prefs.services);
+    behind = behindOf(data.devices);
+    renderFindTags(); applyFilter(); renderAttention(); renderPlacing();
     // where everything goes
     const placed = data.nets.map(net => ({ net, ...slotsFor(net.devices) }));
     const plan = placeNetworks(placed.map(p => p.radius), prefs.mode);
@@ -355,7 +372,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
       internet.position.copy(internetTarget);
       goHome(true);
     }
-    const sig = data.nets.map(n => n.id + ":" + n.gateway + ":" + n.devices.map(d => d.key).join(",")).join("|");
+    const sig = data.nets.map(n => n.id + ":" + n.gateway + ":" + n.devices.map(d => d.key + ">" + (d.parent || "")).join(",")).join("|");
     if (sig !== linkSig) { linkSig = sig; rebuildLinks(data); }
     renderer.domElement.setAttribute("aria-label", describeScene(data));
     firstUpdate = false;
@@ -383,6 +400,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     byHost = new Map([...ents.values()].filter(e => !e.leaving).map(e => [e.d.id, e]));
     extras.setDestinations(x.destinations || [], now, prefs.dests);
     extras.setScans(x.scans || [], now, byHost, prefs.scans);
+    renderAttention();
   }
   let byHost = new Map();
 
@@ -409,17 +427,25 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   function showCard(e) {
     const d = e.d;
     const rows = [["Network", d.net], ["Vendor", d.vendor || "—"], ["Kind", d.kind], ["Status", STATE_WORDS[d.state]], ["Answers in", d.ms == null ? "—" : d.ms + " ms"], ["Approved", d.known ? "Yes" : "Not yet"]];
+    if (d.rx != null || d.tx != null) rows.push(["Traffic", `↓ ${formatRate(d.rx || 0)}  ↑ ${formatRate(d.tx || 0)}`]);
+    if (d.tags && d.tags.length) rows.push(["Tags", d.tags.join(", ")]);
+    const bh = behind.get(d.key);
+    if (bh) rows.push(["Behind it", `${bh.count} device${bh.count === 1 ? "" : "s"}${bh.offline ? `, ${bh.offline} offline` : ""}`]);
+    const acts = actionsFor(d) || [];
     card.innerHTML = `<button type="button" class="v3d-x" data-v3d="cardX" aria-label="Close">×</button>
       <h2>${esc(d.name === "—" ? "Unnamed device" : d.name)}</h2><div class="v3d-sub">${esc(d.ip)}</div>
       <dl>${rows.map(r => `<dt>${esc(r[0])}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
       ${d.services && d.services.length ? `<div class="v3d-svcs">${d.services.map(s => `<div><i class="s-${esc(s.state)}"></i>${esc(s.name)} <b>${esc(s.state === "off" ? "device off" : s.state)}</b>${s.uptime != null ? ` · ${esc(s.uptime)}%` : ""}</div>`).join("")}</div>` : ""}
       ${d.odd ? `<div class="v3d-odd"><b>${esc(d.odd.title)}</b><br>${esc(d.odd.detail)}</div>` : ""}
-      <div class="v3d-row"><button type="button" class="v3d-btn" data-v3d="history">History</button>${prefs.free ? '<button type="button" class="v3d-btn" data-v3d="flyto">Fly to it</button>' : ""}</div>`;
+      <div class="v3d-row"><button type="button" class="v3d-btn" data-v3d="history">History</button>${prefs.free ? '<button type="button" class="v3d-btn" data-v3d="flyto">Fly to it</button>' : ""}${bh ? '<button type="button" class="v3d-btn" data-v3d="behind">Show what\'s behind</button>' : ""}</div>
+      ${acts.length ? `<div class="v3d-acts">${acts.map(a => `<button type="button" class="v3d-act" data-v3d-act="${esc(a.id)}" title="${esc(a.title || "")}">${esc(a.label)}</button>`).join("")}</div>` : ""}`;
     card.hidden = false;
   }
   function select(e, fly_ = true) {
     selected = e;
-    if (!e) { card.hidden = true; return; }
+    ents.forEach(x => { x.behindHot = false; });
+    if (!e) { card.hidden = true; onSelect(null); return; }
+    onSelect(e.d);
     showCard(e);
     if (!fly_) return;
     flyTo(e);
@@ -447,6 +473,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   renderer.domElement.addEventListener("pointerdown", ev => { down = [ev.clientX, ev.clientY]; });
   renderer.domElement.addEventListener("pointerup", ev => {
     if (!down || Math.hypot(ev.clientX - down[0], ev.clientY - down[1]) > 5) return;
+    if (placing && inHouse()) { placeAt(ev); return; }
     select(hovered, !prefs.free);     // moving freely: a click picks it and says what it is, and the camera stays where you put it
   });
   const syncUi = () => {
@@ -455,6 +482,18 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     container.classList.toggle("v3d-nolabels", !prefs.labels);
   };
   container.addEventListener("click", ev => {
+    const chip = ev.target.closest("[data-v3d-chip]");
+    if (chip) {
+      const k = chip.dataset.v3dChip;
+      if (filt.on.has(k)) filt.on.delete(k); else filt.on.add(k);
+      applyFilter(); return;
+    }
+    const act = ev.target.closest("[data-v3d-act]");
+    if (act && selected) { onAction(act.dataset.v3dAct, selected.d); return; }
+    const item = ev.target.closest("[data-v3d-go]");
+    if (item) { const e = ents.get(item.dataset.v3dGo); if (e) select(e, true); return; }
+    const plc = ev.target.closest("[data-v3d-pick]");
+    if (plc) { const e = ents.get(plc.dataset.v3dPick); if (e) { placePick = e; renderPlacing(); say(`Click the floor where ${e.d.name} goes.`); } return; }
     const t = ev.target.closest("[data-v3d]"); if (!t) return;
     const a = t.dataset.v3d;
     if (a === "side" || a === "stack" || (a === "house" && house)) { setMode(a); }
@@ -466,6 +505,8 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     else if (a === "credits") q(".v3d-credits").hidden = false;
     else if (a === "creditsX") q(".v3d-credits").hidden = true;
     else if (a === "replay") startReplay();
+    else if (a === "place") togglePlacing();
+    else if (a === "behind" && selected) showBehind(selected);
     else if (a === "rpClose") stopReplay();
     else if (a === "rpPlay") { if (replay) { replay.playing = !replay.playing; syncReplayUi(); } }
     else if (a === "walk") toggleWalk();
@@ -485,6 +526,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   }
   container.addEventListener("input", ev => {
     const t = ev.target;
+    if (t.matches && t.matches("input[data-v3d=q]")) { filt.q = t.value; applyFilter(); return; }
     if (t.matches && t.matches("input[data-v3d=rpScrub]") && replay) {
       replay.t = replay.from + (replay.to - replay.from) * (t.value / 1000); replay.playing = false; syncReplayUi(); pushReplay(true);
     }
@@ -492,6 +534,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   let lastExtras = {};
   const setExtrasKept = x => { lastExtras = x; setExtras(x); };
   container.addEventListener("change", ev => {
+    if (ev.target.matches && ev.target.matches("select[data-v3d=tag]")) { filt.tag = ev.target.value; applyFilter(); return; }
     if (ev.target.matches && ev.target.matches("select[data-v3d=rpSpeed]")) { if (replay) replay.speed = Number(ev.target.value) || 1440; return; }
     const t = ev.target.closest("input[data-v3d]"); if (!t) return;
     const k = t.dataset.v3d;
@@ -509,6 +552,98 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     syncUi();
   });
   syncUi();
+
+  // ---------- finding, and what needs looking at ----------
+  const findEl = q(".v3d-find"), attnEl = q(".v3d-attn"), placingEl = q(".v3d-placing");
+  const searchEl = q("input[data-v3d=q]");
+  function applyFilter() {
+    filterOn = !!(filt.q.trim() || filt.on.size || filt.tag);
+    let shown = 0;
+    ents.forEach(e => { e.dim = filterOn && !matchesFilter(e.d, filt); if (!e.dim) shown++; });
+    container.querySelectorAll("[data-v3d-chip]").forEach(b => { const on = filt.on.has(b.dataset.v3dChip); b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); });
+    q(".v3d-count").textContent = filterOn ? `${shown} of ${ents.size} shown` : ents.size ? `${ents.size} devices` : "";
+  }
+  function renderFindTags() {
+    const sel = q("select[data-v3d=tag]"), have = new Set();
+    ents.forEach(e => (e.d.tags || []).forEach(t => have.add(t)));
+    const list = [...have].sort((a, b) => a.localeCompare(b));
+    const sig = list.join("|");
+    if (sel.dataset.sig === sig) return;
+    sel.dataset.sig = sig;
+    sel.innerHTML = `<option value="">Any tag</option>` + list.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join("");
+    sel.value = list.includes(filt.tag) ? filt.tag : "";
+    findEl.classList.toggle("v3d-notags", list.length === 0);
+  }
+  function renderAttention() {
+    const list = problemsOf(current ? current.devices : [], extras.scanningKeys());
+    problemsList = list;
+    if (!list.length) { attnEl.hidden = true; return; }
+    const top = list.slice(0, 6);
+    attnEl.innerHTML = `<h3>Needs attention <span class="v3d-n">${list.length}</span></h3><ul>` +
+      top.map(p => `<li><button type="button" data-v3d-go="${esc(p.key)}" class="v3d-prob v3d-p-${esc(p.kind)}" title="${esc(p.detail)}"><i></i>${esc(p.title)}</button></li>`).join("") +
+      `</ul>${list.length > top.length ? `<div class="v3d-more-n">and ${list.length - top.length} more</div>` : ""}`;
+    attnEl.hidden = false;
+  }
+  searchEl.addEventListener("keydown", ev => {
+    if (ev.key === "Escape") { searchEl.value = ""; filt.q = ""; applyFilter(); searchEl.blur(); ev.stopPropagation(); return; }
+    if (ev.key !== "Enter") return;
+    // fly to the best match
+    let best = null, bestRank = 0;
+    ents.forEach(e => { const r = searchRank(e.d, searchEl.value); if (r > bestRank && !e.leaving) { best = e; bestRank = r; } });
+    if (best) select(best, true); else say("No device matches that.");
+  });
+  // what is behind a switch or access point: its devices light up, and the rest dim a little
+  function showBehind(e) {
+    const bh = behind.get(e.d.key);
+    ents.forEach(x => { x.behindHot = !!bh && bh.keys.includes(x.d.key); });
+    if (bh) say(`${bh.count} device${bh.count === 1 ? "" : "s"} behind ${e.d.name}${bh.offline ? `, ${bh.offline} offline` : ""}. Their lines run to it.`);
+  }
+
+  // ---------- placing devices by clicking the house ----------
+  function renderPlacing() {
+    const on = placing && inHouse();
+    placingEl.hidden = !on;
+    q("[data-v3d=place]").hidden = !inHouse();
+    q("[data-v3d=place]").setAttribute("aria-pressed", String(!!placing));
+    q("[data-v3d=place]").classList.toggle("on", !!placing);
+    if (!on) return;
+    const out = [...ents.values()].filter(e => !e.inHouse && !e.leaving && !e.d.remote).sort((a, b) => a.d.name.localeCompare(b.d.name));
+    placingEl.innerHTML = `<h3>Place devices</h3><div class="v3d-hint">${placePick ? `Click the floor where <b>${esc(placePick.d.name)}</b> goes.` : "Pick a device, then click where it goes. Click a device in the house to move it."}</div>` +
+      (out.length ? `<ul>${out.slice(0, 14).map(e => `<li><button type="button" data-v3d-pick="${esc(e.key)}" class="v3d-prob${placePick === e ? " on" : ""}"><i></i>${esc(e.d.name)}</button></li>`).join("")}</ul>${out.length > 14 ? `<div class="v3d-more-n">and ${out.length - 14} more</div>` : ""}` : `<div class="v3d-hint">Every device is placed.</div>`);
+  }
+  function togglePlacing() {
+    placing = !placing; placePick = null;
+    if (placing && !inHouse()) { placing = false; say("Switch to Your house first."); }
+    renderPlacing();
+  }
+  // where on a floor the pointer is: the nearest floor whose plan the ray lands inside
+  function floorHit(ev) {
+    if (!houseInfo) return null;
+    const r = renderer.domElement.getBoundingClientRect();
+    mouse.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(mouse, camera);
+    let best = null;
+    houseInfo.floors.forEach((f, i) => {
+      const y = i * FLOOR_GAP - 0.62, dy = ray.ray.direction.y;
+      if (Math.abs(dy) < 1e-6) return;
+      const t = (y - ray.ray.origin.y) / dy;
+      if (t <= 0) return;
+      const x = ray.ray.origin.x + ray.ray.direction.x * t, z = ray.ray.origin.z + ray.ray.direction.z * t;
+      const raw = placementFromPoint(x, z, f.plan);
+      if (raw.x <= 0 || raw.x >= 1 || raw.y <= 0 || raw.y >= 1) return;
+      if (!best || t < best.t) best = { t, floor: f, x: raw.x, y: raw.y };
+    });
+    return best;
+  }
+  function placeAt(ev) {
+    if (hovered && !hovered.leaving) { placePick = hovered; renderPlacing(); say(`Click the floor where ${hovered.d.name} goes.`); return; }
+    if (!placePick) { say("Pick a device from the list first."); return; }
+    const hit = floorHit(ev);
+    if (!hit) { say("Click inside the house."); return; }
+    const e = placePick; placePick = null;
+    if (onPlace) Promise.resolve(onPlace(e.d, hit.floor.id, hit.x, hit.y)).then(ok => { if (ok !== false) say(`${e.d.name} is placed.`); renderPlacing(); });
+  }
+
   // Centred: drag turns the scene about its middle. Free: drag slides across it, right-drag turns about the point you're looking at, the
   // wheel zooms toward the pointer, and nothing pulls the view back to the middle.
   function applyFree() {
@@ -781,10 +916,11 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
       if (!off && !still) e.group.rotation.y += dt * 0.15;
       tc.set(COLORS[e.d.state]).multiplyScalar(STATE_GLOW[e.d.state]);
       e.col.lerp(tc, 1 - Math.exp(-5 * dt));
-      const hot = e === hovered || e === selected;
+      const hot = e === hovered || e === selected || !!e.behindHot;
+      const dim = !!e.dim && e !== selected;
       const flicker = strain && !still ? 1 + strain * 0.45 * Math.sin(time * (4 + strain * 14) + e.phase) : 1;
-      e.edges.material.uniforms.col.value.copy(e.col); e.edges.material.uniforms.gain.value = (e.dens || 1) * (off ? 0.9 : hot ? 1.05 : 1) * flicker;
-      e.body.material.uniforms.col.value.copy(e.col); e.body.material.uniforms.op.value = off ? 0.22 : 0.42; e.body.material.uniforms.gainRim.value = Math.min(1, (e.dens || 1) * 1.2);
+      e.edges.material.uniforms.col.value.copy(e.col); e.edges.material.uniforms.gain.value = (e.dens || 1) * (off ? 0.9 : hot ? 1.05 : 1) * flicker * (dim ? 0.16 : 1);
+      e.body.material.uniforms.col.value.copy(e.col); e.body.material.uniforms.op.value = dim ? 0.05 : off ? 0.22 : 0.42; e.body.material.uniforms.gainRim.value = Math.min(1, (e.dens || 1) * 1.2);
       e.pad.material.uniforms.col.value.copy(e.col); e.pad.material.uniforms.off.value = off ? 1 : 0;
       e.pad.material.uniforms.hot.value += ((hot ? 1 : 0) - e.pad.material.uniforms.hot.value) * (1 - Math.exp(-8 * dt));
       if (e.ghosts) {
@@ -794,7 +930,9 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
       if (!e.leaving) { e.scale += ((hot ? 1.25 : 1) - e.scale) * (1 - Math.exp(-10 * dt)); e.group.scale.setScalar(e.scale * houseK); }
       // Names only where they can be read: the nearer ones, always the gateways and anything unusual or picked.
       const near = camera.position.distanceTo(e.group.position) < (lite ? 14 : 26);
-      const showName = prefs.labels && e.group.visible && (e.d.gw || e.d.odd || hot || near);
+      e.pad.visible = !dim;
+      if (e.beacon) { e.beacon.ripple.visible = !dim; e.beacon.beam.visible = !dim; }
+      const showName = prefs.labels && e.group.visible && !dim && (filterOn || e.d.gw || e.d.odd || hot || near);
       e.label.visible = showName; e.label.position.set(0, (e.d.gw ? 1.5 : 0.95) * (MODELS[e.model] > 1.6 ? 1.1 : 1), 0);
       if (e.birth && !e.rippled && now - e.birth < 1600) { e.rippled = true; ripple(e); }
       if (e.beacon) {
@@ -813,14 +951,14 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
       L.geo.attributes.position.needsUpdate = true;
       L.line.visible = ents.get(L.e.key) === L.e && !L.e.leaving && !houseMode;   // a device that's gone takes its line with it
       const off = L.e.d.state === "off";
-      L.line.material.opacity = L.curved ? 1 : off ? 0.16 : 0.75;
+      L.line.material.opacity = L.curved ? 1 : off ? 0.16 : L.e.dim ? 0.05 : 0.38 + Math.min(9, L.e.d.rate || 1) * 0.045;
       L.line.material.color.set(L.curved ? 0x1a8fb8 : L.e.d.state === "odd" ? 0x7a3fc0 : off ? 0x1c2a3a : 0x147a9a);
     });
     // traffic
     let n = 0;
     if (prefs.flow) for (const p of parts) {
       const L = p.L, d = L.e.d;
-      if (d.state === "off" || L.e.leaving || houseMode) continue;
+      if (d.state === "off" || L.e.leaving || houseMode || L.e.dim) continue;
       const speed = (L.curved ? 0.22 : 0.08 + (d.rate || 1) * 0.045) * (reduced ? 0.4 : 1);
       p.t += dt * speed * p.dir; if (p.t > 1) p.t -= 1; if (p.t < 0) p.t += 1;
       pointOn(L, p.t, tmp);
@@ -869,6 +1007,8 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   const api = {
     update, setActive, select: key => select(ents.get(String(key)) || null), destroy, get count() { return ents.size; }, _ents: ents, _prefs: prefs,
     setHouse, setExtras: setExtrasKept, get replaying() { return !!replay; }, stopReplay, get walking() { return !!walk; },
+    focus: id => { const e = [...ents.values()].find(x => x.d.id === Number(id) && !x.leaving); if (e) { select(e, true); return true; } return false; },
+    get problems() { return problemsList; }, _filter: filt, _applyFilter: applyFilter, get placing() { return placing; },
     get satellites() { return extras.satellites; }, get scanners() { return extras.scanners; }, get inHouse() { return inHouse(); }, _setMode: setMode,
     _replay: () => replay, _camera: camera, _controls: controls,
   };
