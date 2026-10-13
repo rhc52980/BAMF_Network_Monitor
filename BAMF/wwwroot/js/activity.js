@@ -127,7 +127,7 @@ function renderUnusual(d) {
   for (const u of d.items) {
     const row = document.createElement("div");
     row.className = "alert-item k-unusual" + (u.open ? " open" : "");
-    row.innerHTML = `<div><b>${esc(u.title)}</b><span class="when">${u.open ? "now" : esc(fmtAgo(u.at))}</span></div><div class="det">${esc(u.detail)}</div>`;
+    row.innerHTML = `<div><b>${esc(u.title)}</b><span class="when">${u.open ? "now" : esc(fmtAgo(u.at))}</span></div><div class="det">${esc(u.detail)}${u.hostId ? ` <a class="to3d" href="#3d/${Number(u.hostId)}">Show in 3D</a>` : ""}</div>`;
     if (u.normal) {
       const note = document.createElement("span");
       note.className = "unusual-ok marked";

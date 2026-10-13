@@ -5,6 +5,7 @@
 // and engine3d/extras.mjs, and what goes where in engine3d/data.mjs.
 let view3d = null, view3dStarting = null, view3dFailed = null, view3dData = null;
 let view3dServices = [], view3dHouseSig = "", view3dTimeline = null;
+let view3dFocusId = null, view3dFocusTries = 0;      // a device to fly to once the scene has it: from #3d/12, or a Show in 3D
 
 const VIEW3D_CREDITS = `<h3>Model credits</h3>
   <p>All forty-six device models were made for BAMF. The 3D drawing is <a href="https://threejs.org" target="_blank" rel="noopener noreferrer">three.js</a> (MIT licence).</p>`;
@@ -32,12 +33,61 @@ async function start3d() {
         const shown = hosts.filter(h => inNetwork(h) && st.present.has(h.id)).map(h => ({ ...h, online: st.online.get(h.id) ?? h.online, latencyMs: null }));
         const items = [...st.unusualOpen].map(id => ({ hostId: id, open: true, kind: "replay", title: titles.get(id) || "Something unusual", detail: "" }));
         const scene = view3dData.buildScene({
-          hosts: shown, kindOf: deviceKind, nameOf: dispName, unusual: items,
+          hosts: shown, kindOf: deviceKind, nameOf: name3d, unusual: items,
           gatewayIp: subnet => (networkPlaces[subnet] || {}).gateway || null, rateOf: () => 2,
         });
         return { scene, internetDown: st.internetDown };
       },
       onReplayEnd: () => refresh3d(),
+      // What can be done to the picked device from its card, using what the other tabs already do.
+      actionsFor: d => {
+        const h = hosts.find(x => x.id === d.id);
+        if (!h) return [];
+        const writer = role !== "viewer", out = [];
+        if (d.web) out.push({ id: "web", label: "Open page", title: d.web.url });
+        if (networkToolsEnabled && !h.remote && writer) out.push({ id: "ping", label: "Ping" }, { id: "trace", label: "Trace" });
+        if (writer && !h.remote) {
+          out.push({ id: "known", label: h.known ? "Mark unknown" : "Mark known" });
+          out.push({ id: "watch", label: h.watched ? "Stop watching" : "Watch", title: "Alert if it goes offline" });
+          out.push({ id: "snooze", label: h.snoozedUntil ? "Snoozed…" : "Snooze…" });
+          if (!h.online) out.push({ id: "wake", label: "Wake", title: "Send a Wake-on-LAN packet" });
+        }
+        out.push({ id: "copy", label: "Copy IP" });
+        return out;
+      },
+      onAction: async (id, d) => {
+        const h = hosts.find(x => x.id === d.id);
+        if (!h) return;
+        try {
+          if (id === "web") window.open(d.web.url, "_blank", "noopener");
+          else if (id === "ping" || id === "trace") openTools(h, id);
+          else if (id === "snooze") openSnoozeDialog(h);
+          else if (id === "copy") { await navigator.clipboard.writeText(h.ip); toast(`${esc(h.ip)} copied`); }
+          else if (id === "known") { await setKnown(h, !h.known); await refresh(); }
+          else if (id === "watch") {
+            await fetch(`/api/hosts/${h.id}/watch`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ watched: !h.watched }) });
+            toast(h.watched ? `No longer watching ${esc(dispName(h))}` : `Now watching ${esc(dispName(h))} for downtime`);
+            await refresh();
+          } else if (id === "wake") {
+            const r = await fetch(`/api/hosts/${h.id}/wake`, { method: "POST" });
+            const data = await r.json().catch(() => ({}));
+            toast(data.ok ? `Magic packet sent to ${esc(dispName(h))}` : "Wake failed: " + esc(data.error || "unknown"));
+          }
+        } catch { toast("That didn't go through"); }
+      },
+      // The address says which device is picked, so a link to it, or a reload, comes back to it.
+      onSelect: d => { try { history.replaceState(null, "", d ? "#3d/" + d.id : "#3d"); } catch { /* ignore */ } },
+      // A device placed from the house: where it goes on its floor, as a share of the plan.
+      onPlace: async (d, floorId, x, y) => {
+        try {
+          const r = await fetch(`/api/floors/${floorId}/places`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ hostId: d.id, x, y }) });
+          if (!r.ok) { toast("Couldn't place that"); return false; }
+          await loadFloors(true);
+          view3dHouseSig = "";
+          await refresh3d();
+          return true;
+        } catch { toast("Couldn't place that"); return false; }
+      },
     });
   } catch (err) {
     view3dFailed = err;
@@ -45,6 +95,9 @@ async function start3d() {
       The <a href="#map">Map</a> and the <a href="#devices">Devices</a> tab show the same network without it.</div>`;
   }
 }
+
+// A device's name, or its address when it has none, so the scene never labels something with a dash.
+const name3d = h => { const n = dispName(h); return n && n !== "\u2014" ? n : h.ip; };
 
 // What's been noticed as unusual, for the beacons.
 async function unusual3d() {
@@ -114,17 +167,44 @@ async function refresh3d() {
   // While the day is being replayed the scene is the replay's, not now's.
   if (view3d.replaying) { view3d.setActive(true); return; }
   const top = (trafficCache && trafficCache.top) || [];
-  const rateOf = h => { const i = top.findIndex(x => x.hostId === h.id); return i < 0 ? 2 : Math.max(3, 9 - i); };
+  // measured bytes a second where the traffic monitor has them, else how busy it ranks among the busiest
+  const trafficOf = h => { const t = top.find(x => x.hostId === h.id); return t ? { rx: t.rx || 0, tx: t.tx || 0 } : null; };
+  const rateOf = h => {
+    const t = trafficOf(h), r = t ? view3dData.rateScale((t.rx || 0) + (t.tx || 0)) : 0;
+    if (r) return r;
+    const i = top.findIndex(x => x.hostId === h.id);
+    return i < 0 ? 2 : Math.max(3, 9 - i);
+  };
+  // what a device is plugged into, as the Map has it: a switch or access point that is itself a device
+  const parentOf = h => {
+    const own = switches.find(s => s.hostId === h.id);
+    let sw = h.switchId ? switches.find(s => s.id === h.switchId) : null;
+    if (!sw && own && own.uplinkSwitch) sw = switches.find(s => s.id === own.uplinkSwitch) || null;
+    if (!sw) return null;
+    if (sw.kind === "ssid") sw = switches.find(s => s.id === sw.runsOn && s.kind === "ap") || null;
+    return sw && sw.hostId && sw.hostId !== h.id ? sw.hostId : null;
+  };
+  const webOf = h => {
+    const open = h.openPorts || [];
+    for (const [port, scheme] of [[443, "https"], [8443, "https"], [80, "http"], [8080, "http"], [8123, "http"], [5000, "http"]])
+      if (open.includes(port)) return { url: `${scheme}://${h.ip}${(scheme === "https" && port === 443) || (scheme === "http" && port === 80) ? "" : ":" + port}/` };
+    return null;
+  };
   const [items, services, flows] = await Promise.all([unusual3d(), services3d(), flows3d()]);
   if (view !== "3d" || view3d.replaying) return;
   view3dServices = services;
   const servicesOf = h => view3dServices.filter(s => s.hostId === h.id).map(s => ({ name: s.name, state: s.state, uptime: s.uptime, ms: s.ms }));
   const scene = view3dData.buildScene({
-    hosts: hosts.filter(h => inNetwork(h)), kindOf: deviceKind, nameOf: dispName, unusual: items,
+    hosts: hosts.filter(h => inNetwork(h)), kindOf: deviceKind, nameOf: name3d, unusual: items,
     gatewayIp: subnet => (networkPlaces[subnet] || {}).gateway || null, rateOf, servicesOf,
+    tagsOf: h => h.tags || [], parentOf, trafficOf, webOf,
   });
   await house3d();
   view3d.update(scene);
   view3d.setExtras(flows);
   view3d.setActive(true);
+  // flown to once it is there, tried for a few refreshes in case the device list is still arriving
+  if (view3dFocusId != null) {
+    if (view3d.focus(view3dFocusId) || ++view3dFocusTries > 4) { view3dFocusId = null; view3dFocusTries = 0; }
+  }
 }

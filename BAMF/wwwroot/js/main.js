@@ -7,6 +7,8 @@
 // walk between them. The Devices view is the bare URL, no hash.
 const VIEWS = ["devices", "map", "3d", "floor", "home", "activity", "tools", "forgotten", "settings"];
 function showView(name, { fromHash = false } = {}) {
+  // The 3D tab takes a device after a slash: 3d/12 opens it and flies to device 12.
+  if (name && /^3d\/\d+$/.test(name)) { view3dFocusId = Number(name.split("/")[1]); view3dFocusTries = 0; name = "3d"; }
   // Settings takes a section after a slash: settings/internet.
   let sub = null;
   if (name && name.includes("/")) [name, sub] = name.split("/", 2);

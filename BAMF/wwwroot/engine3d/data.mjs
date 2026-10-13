@@ -71,9 +71,12 @@ const subnetKey = h => h.subnet || "";
  * Hosts into what the scene draws: one platform per network, each device on its network's, the
  * gateway at the centre. Ignored and forgotten devices aren't drawn.
  *  input: { hosts, kindOf(h), nameOf(h), unusual: [{hostId, kind, open, title, detail}], gatewayIp(subnet), rateOf(h),
- *           servicesOf(h) -> [{name, state, uptime, ms}] (the service watch's rows for that device) }
+ *           servicesOf(h) -> [{name, state, uptime, ms}] (the service watch's rows for that device),
+ *           tagsOf(h) -> [tag], parentOf(h) -> the id of the device it is plugged into (a switch or access point), or null,
+ *           trafficOf(h) -> {rx, tx} in bytes a second where it is measured, webOf(h) -> {url} where it has a web page }
  */
-export function buildScene({ hosts, kindOf, nameOf, unusual = [], gatewayIp = () => null, rateOf = () => 2, servicesOf = () => [] }) {
+export function buildScene({ hosts, kindOf, nameOf, unusual = [], gatewayIp = () => null, rateOf = () => 2, servicesOf = () => [],
+  tagsOf = () => [], parentOf = () => null, trafficOf = () => null, webOf = () => null }) {
   const open = new Map();
   for (const u of unusual) if (u.open && !open.has(u.hostId)) open.set(u.hostId, u);
   const shown = hosts.filter(h => !h.ignored && !h.forgotten);
@@ -92,8 +95,21 @@ export function buildScene({ hosts, kindOf, nameOf, unusual = [], gatewayIp = ()
       odd: odd ? { title: odd.title, detail: odd.detail } : null, gw: false,
       strain: strainOf(h.online ? h.latencyMs ?? null : null),
       services: servicesOf(h).map(x => ({ name: x.name, state: x.state, uptime: x.uptime ?? null, ms: x.ms ?? null })),
+      tags: (tagsOf(h) || []).map(String), parent: null, parentId: parentOf(h) ?? null,
+      rx: trafficOf(h)?.rx ?? null, tx: trafficOf(h)?.tx ?? null, web: webOf(h) || null,
+      watching: !!h.watched, snoozed: !!h.snoozedUntil, remote: !!h.remote,
     };
     net.devices.push(d); devices.push(d);
+  }
+  // What each device is plugged into, where it was recorded and the device that is that switch or access point is on the same network:
+  // its parent. A loop in what was recorded is cut rather than followed.
+  const byId = new Map(devices.map(d => [d.id, d]));
+  for (const d of devices) {
+    const p = d.parentId != null ? byId.get(d.parentId) : null;
+    if (!p || p === d || p.net !== d.net) continue;
+    let up = p, hops = 0, loop = false;
+    while (up && hops++ < 24) { if (up === d) { loop = true; break; } up = up.parentId != null ? byId.get(up.parentId) : null; }
+    if (!loop) d.parent = p.key;
   }
   for (const net of nets) {
     // The gateway: the device at the address BAMF knows the gateway to be, else the first router on the network.
@@ -276,3 +292,112 @@ export function placeInHouse(place, plan, floorIndex) {
   return { x, z, y: floorIndex * FLOOR_GAP };
 }
 
+// ---------------------------------------------------------------- finding things
+
+/** The chips that narrow what is shown. More than one is "any of these". */
+export const FILTERS = [
+  { key: "off", label: "Offline", test: d => d.state === "off" },
+  { key: "unk", label: "Not approved", test: d => d.state === "unk" },
+  { key: "odd", label: "Unusual", test: d => !!d.odd },
+  { key: "svc", label: "Service down", test: d => worstService(d.services) === "down" },
+  { key: "watched", label: "Watched", test: d => !!d.watching },
+  { key: "slow", label: "Slow", test: d => (d.strain || 0) >= 0.5 && d.online },
+];
+
+const hay = d => [d.name, d.ip, d.mac, d.vendor, d.kind, d.model, ...(d.tags || [])].filter(Boolean).join(" ").toLowerCase();
+
+/**
+ * Whether a device is shown by a filter: { q: text, on: [chip keys], tag }. Every word of the text must be somewhere in its name, address,
+ * vendor, kind or tags; a tag, if one is picked, must be one of its tags; and if any chips are on it must be one of them.
+ */
+export function matchesFilter(d, f) {
+  if (!f) return true;
+  const words = String(f.q || "").toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length) { const h = hay(d); if (!words.every(w => h.includes(w))) return false; }
+  if (f.tag && !(d.tags || []).some(t => t.toLowerCase() === String(f.tag).toLowerCase())) return false;
+  const on = f.on ? [...f.on] : [];
+  if (on.length && !FILTERS.some(c => on.includes(c.key) && c.test(d))) return false;
+  return true;
+}
+
+/** How well a device answers a search, for choosing the one to fly to: 0 is no match, and a name is worth more than anything else. */
+export function searchRank(d, q) {
+  const text = String(q || "").trim().toLowerCase();
+  if (!text) return 0;
+  const name = String(d.name || "").toLowerCase();
+  if (name === text) return 100;
+  if (d.ip === text) return 95;
+  if (name.startsWith(text)) return 80;
+  if (name.includes(text)) return 60;
+  if (String(d.ip || "").startsWith(text)) return 55;
+  if (matchesFilter(d, { q: text })) return 30;
+  return 0;
+}
+
+// ---------------------------------------------------------------- what needs looking at
+
+/**
+ * What is wrong now, most urgent first, as a list to work through: watched devices that are down, services down, things doing
+ * something unusual, a device scanning the network, unapproved devices online, and devices answering slowly.
+ * `scanning` is the set of device keys the flow watch says are scanning.
+ */
+export function problemsOf(devices, scanning = new Set()) {
+  const out = [];
+  for (const d of devices) {
+    const who = d.name && d.name !== "—" ? d.name : d.ip;
+    if (d.watching && d.state === "off") out.push({ key: d.key, kind: "down", rank: 100, title: `${who} is down`, detail: "A watched device that isn't answering." });
+    if (worstService(d.services) === "down") {
+      const names = d.services.filter(s => s.state === "down").map(s => s.name);
+      out.push({ key: d.key, kind: "service", rank: 90, title: `${names.join(", ")} on ${who} is down`, detail: `${who} itself ${d.online ? "is answering" : "isn't answering"}.` });
+    }
+    if (scanning.has(d.key)) out.push({ key: d.key, kind: "scan", rank: 85, title: `${who} is scanning the network`, detail: "It has reached many addresses or ports inside a minute." });
+    if (d.odd) out.push({ key: d.key, kind: "odd", rank: 80, title: d.odd.title || `${who} is doing something unusual`, detail: d.odd.detail || "" });
+    if (d.state === "unk" && d.online) out.push({ key: d.key, kind: "new", rank: 40, title: `${who} is online and not approved`, detail: "Mark it known if you know what it is." });
+    if ((d.strain || 0) >= 0.75 && d.online && d.ms != null) out.push({ key: d.key, kind: "slow", rank: 30, title: `${who} is answering slowly`, detail: `${Math.round(d.ms)} ms.` });
+  }
+  return out.sort((a, b) => b.rank - a.rank || a.title.localeCompare(b.title));
+}
+
+/** For each device with others plugged into it: how many are behind it, how many of those are offline, and which. */
+export function behindOf(devices) {
+  const kids = new Map();
+  for (const d of devices) if (d.parent) { if (!kids.has(d.parent)) kids.set(d.parent, []); kids.get(d.parent).push(d); }
+  const byKey = new Map(devices.map(d => [d.key, d]));
+  const out = new Map();
+  const walk = (key, seen) => {
+    const keys = [];
+    for (const c of kids.get(key) || []) { if (seen.has(c.key)) continue; seen.add(c.key); keys.push(c.key, ...walk(c.key, seen)); }
+    return keys;
+  };
+  for (const key of kids.keys()) {
+    const keys = walk(key, new Set([key]));
+    out.set(key, { count: keys.length, offline: keys.filter(k => byKey.get(k)?.state === "off").length, keys });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- traffic as it is measured
+
+/** A measured rate in bytes a second as how busy its link is drawn, 1 to 9 on a log scale (1 kB/s is 1, 1 MB/s is 9); 0 when there is none. */
+export function rateScale(bytesPerSec) {
+  if (!(bytesPerSec > 0)) return 0;
+  return Math.max(1, Math.min(9, Math.round(1 + Math.log10(Math.max(1, bytesPerSec / 1000)) * 2.6)));
+}
+
+/** Bytes a second as the bits a line is sold in: "340 kbps", "1.2 Mbps". */
+export function formatRate(bytesPerSec) {
+  const b = (bytesPerSec || 0) * 8;
+  if (b >= 1e9) return (b / 1e9).toFixed(1) + " Gbps";
+  if (b >= 1e6) return (b / 1e6).toFixed(b >= 1e7 ? 0 : 1) + " Mbps";
+  if (b >= 1e3) return Math.round(b / 1e3) + " kbps";
+  return Math.round(b) + " bps";
+}
+
+// ---------------------------------------------------------------- placing a device by clicking the house
+
+/** The other way round from placeInHouse: a point on the floor, in scene units, as the fraction of the plan a placement is saved as. */
+export function placementFromPoint(x, z, plan) {
+  const k = planScale(plan);
+  const fx = (x / k + plan.width / 2) / plan.width, fy = (z / k + plan.height / 2) / plan.height;
+  return { x: Math.min(1, Math.max(0, fx)), y: Math.min(1, Math.max(0, fy)) };
+}

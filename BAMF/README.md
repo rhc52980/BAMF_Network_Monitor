@@ -2480,6 +2480,51 @@ names, each network's gateway, what is unusual and who is using the most traffic
   lost. A click then picks a device and shows its card without taking the camera, and **Fly to it** on the card does. Left unticked, the view orbits
   the middle as before. The keys only act while the pointer is over the view or it has the focus, never while something is being typed into.
 
+### Finding and acting in 3D
+
+These are there whenever the tab is, with nothing to switch on.
+
+- **Find a device.** The box at the top left takes words: every word has to be
+  somewhere in a device's name, address, MAC, vendor, kind or tags, so `living tv`
+  finds `living-room-tv`. What doesn't match dims, its name goes, and the count
+  says how many are shown. **Enter** flies to the best match, a name before an
+  address before anything else; **Esc** clears it. The chips under it narrow to
+  **Offline**, **Not approved**, **Unusual**, **Service down**, **Watched** or
+  **Slow**, any of the ones on, and a tag menu appears once any device has one.
+  Words, chips and tag all have to agree.
+- **Needs attention.** Under the search, a list of what is wrong now, most urgent
+  first: a watched device that is down, a service that is down, a device that is
+  scanning the network, something unusual, a device online that isn't approved,
+  and a device answering slowly. Each is one click: the camera flies to the
+  device. Nothing wrong, no panel.
+- **What a card can do.** Beside **History**: **Open page** where a web port is
+  open (443, 8443, 80, 8080, 8123 or 5000, in that order), **Ping** and **Trace**
+  (the Tools tab, run on that device), **Mark known** or **unknown**, **Watch**
+  or **Stop watching**, **Snooze…**, **Wake** for a device that's off, and
+  **Copy IP**. They are the ones in the device's ⋯ menu on the Devices tab, so
+  they do what they do there, and the ones that change something aren't offered
+  to the view-only password. A device with traffic measured shows its rate in
+  bits, and its tags are listed.
+- **What is plugged into what.** Where you have recorded what a device is plugged
+  into on the Map, and that switch or access point is itself a device on the same
+  network, its line runs to that device instead of to the gateway; a device on a
+  wireless network goes to the access point that broadcasts it. Pick a switch or
+  access point and its card says how many devices are behind it and how many of
+  those are offline, and **Show what's behind** lights them. A loop in what was
+  recorded is ignored rather than followed.
+- **Traffic as measured.** With the traffic monitor on, the pulses on a device's
+  line and its brightness follow the rate it is actually moving (a log scale: 1
+  kB/s is a trickle, 1 MB/s is as busy as it is drawn), where before they followed
+  only its rank among the busiest. Devices it isn't measuring keep the rank.
+- **Place devices from the house.** In **Your house**, **Place devices** opens a
+  list of the devices that aren't on a plan. Pick one, then click where it goes
+  on the floor; click a placed device to move it. It is saved the same way the
+  Floor plan tab saves one.
+- **A link to a device.** Picking a device puts `#3d/12` (its id) in the address,
+  so a bookmark, a reload or a link opens the tab already flown to it.
+  **Show in 3D** is in a device's ⋯ menu, on Unusual findings and on each service
+  in the service watch.
+
 ### More to see in 3D
 
 Beside the platforms, the tab can draw what else BAMF knows. Each of these has its own switch, and **More to see** in the panel holds them. None of them

@@ -870,6 +870,7 @@ function render() {
       }
 
       addHead("Look closer");
+      if (!h.remote) addItem("Show in 3D", () => showView("3d/" + h.id));
       addItem("Identify device", () => identifyHost(h));
       addItem("Scan ports", () => scanPorts(h, more, null));
       addItem("Scan custom ports…", () => {
