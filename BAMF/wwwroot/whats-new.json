@@ -2,6 +2,16 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.19.0",
+      "date": "2026-10-13",
+      "items": [
+        "The 3D tab is easier to work in. A search box at the top left finds a device by words from its name, address, vendor, kind or tags: what doesn't match dims, Enter flies to the best match, and chips narrow to offline, not approved, unusual, service down, watched or slow ones, with a tag menu once any device has a tag. Under it, Needs attention lists what is wrong now, most urgent first, with one click to fly to each.",
+        "A device's card in 3D can now do what the Devices tab's menu does: open its web page, ping or trace it, mark it known, watch it, snooze it, wake it, or copy its address. Picking a device puts its number in the address, so a link or a reload opens the tab flown to it, and Show in 3D is in a device's menu, on unusual findings and on each watched service.",
+        "Where you have recorded on the Map what a device is plugged into, its line in 3D now runs to that switch or access point, and a switch's card says how many devices are behind it and how many are offline, with a button that lights them. With the traffic monitor on, the pulses follow the rate actually measured. In Your house, Place devices lists the devices that aren't on a plan and puts one where you click the floor.",
+        "Devices with no name are labelled with their address in 3D, not a dash."
+      ]
+    },
+    {
       "version": "2.18.0",
       "date": "2026-10-12",
       "items": [
