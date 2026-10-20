@@ -206,10 +206,25 @@ function renderSettingsLog(list) {
 function renderAlertsCard() {
   const body = $("alertsBody");
   const list = alertsCache || [];
+  $("alertsClear").hidden = !list.length || role === "viewer";
   body.innerHTML = list.length ? list.slice(0, 12).map(a =>
     `<div class="alert-item k-${esc(a.kind)}"><div><b>${esc(a.title)}</b><span class="when">${esc(fmtAgo(a.at))}</span></div><div class="det">${esc(a.detail)}</div></div>`).join("")
     : `<div class="watch-note">Nothing yet. Rules, the port watch and the DHCP/DNS watch put their alerts here.</div>`;
 }
+
+$("alertsClear").onclick = async () => {
+  const n = (alertsCache || []).length;
+  if (!confirm(`Clear ${n === 1 ? "the alert" : "all " + n + " alerts"} from the list? They stop counting toward the network score's security alerts this week, and are gone from each device's history. What was sent to your webhook isn't touched.`)) return;
+  try {
+    const r = await fetch("/api/alerts/clear", { method: "POST" });
+    if (!r.ok) throw new Error();
+    alertsCache = [];
+    renderAlertsCard();
+    toast("Alerts cleared");
+    if (typeof loadScore === "function") loadScore();
+    if (typeof loadUnseen === "function") loadUnseen();
+  } catch { toast("Couldn't clear the alerts"); }
+};
 
 // ---- Only on IPv6 ----
 let ipv6Cache = null, ipv6At = 0;

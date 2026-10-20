@@ -22,6 +22,10 @@ internal static class AlertEndpoints
             return Results.Json(mine.Concat(watch).OrderByDescending(a => a.at).Take(50));
         });
 
+        // Empties the Alerts card: every alert BAMF has kept, and the ones the traffic monitor raised. The main password only, like any change.
+        app.MapPost("/api/alerts/clear", (HostStore store, ScannerService scanner) =>
+            Results.Json(new { cleared = store.ClearAlerts() + scanner.Traffic.ClearAlerts() }));
+
         // How much is new on Activity since the dashboard last looked: alerts and problems after `since`. Without `since`
         // it only says what time the server thinks it is, which is what the dashboard stores as "seen", so the two
         // clocks never disagree about what is new.

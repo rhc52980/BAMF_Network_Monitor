@@ -473,6 +473,19 @@ public sealed class TrafficMonitor : IDisposable
 
     public List<Alert> Alerts() { lock (_lock) return _alerts.ToList(); }
 
+    /// <summary>Empties the list of alerts the monitor has raised (a new DHCP or DNS server and the like), and says how many there were. What it has
+    /// already alerted about stays noted, so the same thing isn't raised again at once.</summary>
+    public int ClearAlerts()
+    {
+        lock (_lock)
+        {
+            var n = _alerts.Count;
+            _alerts.Clear();
+            SaveAlerts();
+            return n;
+        }
+    }
+
     /// <summary>Forgets a server so it's treated as new again, or trusts one so it never alerts.</summary>
     public void Trust(string kind, string ip, bool trusted)
     {
