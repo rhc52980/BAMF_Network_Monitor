@@ -509,6 +509,12 @@
           <span class="set-field"><button type="button" class="arp-toggle" id="setIpv6Watch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
         <label class="set-row">
+          <span class="set-label">Router advertisement watch
+            <span class="set-hint">With the traffic monitor on, an alert when a device that wasn't there before announces itself as an IPv6 router. Anything on the network can do that, and every device is then offered it as a way out to the internet, which is how someone ends up in the middle of your traffic. The routers heard are listed under IPv6 routers in the Network services card, where you can trust them. The first ones heard are learned quietly. Sends nothing.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setRaWatch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
           <span class="set-label">Traffic monitor
             <span class="set-hint">Watch the wire through Npcap, receive-only: bytes in and out per device, and every DHCP and DNS server in use, with an alert when a new DHCP server appears or a device starts asking a DNS server it never used before. On a switched network this machine sees its own traffic plus broadcast and multicast; on a mirrored switch port it sees everything.</span>
             <span class="set-hint" id="setTrafficStatus"></span>

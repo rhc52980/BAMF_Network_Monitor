@@ -12,8 +12,10 @@ internal static class SecurityEndpoints
         app.MapPost("/api/traffic/trust", (TrustRequest body, ScannerService scanner) =>
         {
             var kind = (body.Kind ?? "").ToLowerInvariant();
-            if (kind is not ("dhcp" or "dns") || !System.Net.IPAddress.TryParse(body.Ip ?? "", out _))
-                return Results.BadRequest(new { error = "Say which DHCP or DNS server." });
+            // A DHCP or DNS server is told by its address; an IPv6 router by its MAC, which stays the same as its addresses change.
+            var valid = kind == "ra" ? System.Text.RegularExpressions.Regex.IsMatch(body.Ip ?? "", @"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+                : kind is "dhcp" or "dns" && System.Net.IPAddress.TryParse(body.Ip ?? "", out _);
+            if (!valid) return Results.BadRequest(new { error = "Say which DHCP or DNS server, or IPv6 router." });
             scanner.Traffic.Trust(kind, body.Ip!, body.Trusted);
             return Results.Ok();
         });
@@ -36,6 +38,12 @@ internal static class SecurityEndpoints
         app.MapPost("/api/settings/ipv6-watch", (ActiveArpRequest body, HostStore store) =>
         {
             store.SetSetting("ipv6Watch", body.Enabled ? "true" : "false");
+            return Results.Ok();
+        });
+
+        app.MapPost("/api/settings/ra-watch", (ActiveArpRequest body, HostStore store) =>
+        {
+            store.SetSetting("routerAdvertWatch", body.Enabled ? "true" : "false");
             return Results.Ok();
         });
 

@@ -273,6 +273,7 @@ internal static class SettingsEndpoints
                     spikeAlert = store.GetSetting("spikeAlert") != "false",
                     firstWeekReport = store.GetSetting("firstWeekReport") != "false",
                     ipv6Watch = scanner.Ipv6WatchEnabled,
+                    routerAdvertWatch = scanner.Traffic.RouterAdvertWatchEnabled,
                     greynoise = store.GetSetting("greynoise") == "true",
                     wanWatch = wan.Enabled,
                     wanTarget = wan.Target,
