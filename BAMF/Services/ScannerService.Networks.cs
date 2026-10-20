@@ -55,8 +55,11 @@ public partial class ScannerService
         (IPAddress.Parse("100.64.0.0"), 10), (IPAddress.Parse("169.254.0.0"), 16),
     ];
 
-    /// <summary>The biggest network a sweep covers whole; see EnumerateSubnet.</summary>
-    public const int WidestPrefix = 22;
+    /// <summary>The biggest network a sweep covers whole, a /21 of 2,046 addresses; see EnumerateSubnet.</summary>
+    public const int WidestPrefix = 21;
+
+    /// <summary>How many addresses a sweep of the widest network covers.</summary>
+    public static int WidestAddresses => (1 << (32 - WidestPrefix)) - 2;
 
     /// <summary>
     /// Whether a network can be added from Settings: IPv4, written as an
@@ -72,7 +75,7 @@ public partial class ScannerService
             || !int.TryParse(parts[1], out var prefix) || prefix is < 0 or > 32)
             return $"\"{input?.Trim()}\" isn't a network. Write it as an address and a prefix, like 192.168.1.0/24.";
         if (prefix < WidestPrefix)
-            return $"A /{prefix} is bigger than BAMF sweeps: it covers 1,022 addresses at most, a /{WidestPrefix}. Use /{WidestPrefix} or smaller.";
+            return $"A /{prefix} is bigger than BAMF sweeps: it covers {WidestAddresses:N0} addresses at most, a /{WidestPrefix}. Use /{WidestPrefix} or smaller.";
         if (prefix > 30) return "That network has no room for devices. Use /30 or bigger.";
         var network = GetNetworkAddress(ip, prefix);
         if (!PrivateRanges.Any(r => prefix >= r.Prefix && InSubnet(network, r.Network, r.Prefix)))
@@ -158,10 +161,11 @@ public partial class ScannerService
         return (ipU & mask) == netU;
     }
 
-    private static IEnumerable<IPAddress> EnumerateSubnet(IPAddress network, int prefix)
+    internal static IEnumerable<IPAddress> EnumerateSubnet(IPAddress network, int prefix)
     {
-        // Cap at /22 (1022 hosts) to keep sweeps sane.
-        if (prefix < 22) prefix = 22;
+        // Cap at the widest network (a /21, 2,046 addresses) to keep sweeps sane. A wider one listed in appsettings.json is swept from its
+        // first address only, and RunScan says so once.
+        if (prefix < WidestPrefix) prefix = WidestPrefix;
 
         var n = network.GetAddressBytes();
         uint netU = (uint)(n[0] << 24 | n[1] << 16 | n[2] << 8 | n[3]);

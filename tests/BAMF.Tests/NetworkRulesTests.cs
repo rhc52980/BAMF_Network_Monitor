@@ -13,6 +13,8 @@ public class NetworkRulesTests
     [InlineData("192.168.1.0/24", "192.168.1.0/24")]
     [InlineData("192.168.1.77/24", "192.168.1.0/24")]      // tidied to the network's own address
     [InlineData(" 10.0.4.0/22 ", "10.0.4.0/22")]
+    [InlineData("10.0.8.0/21", "10.0.8.0/21")]              // the widest a sweep covers: 2,046 addresses
+    [InlineData("10.0.9.7/21", "10.0.8.0/21")]
     [InlineData("172.16.0.0/24", "172.16.0.0/24")]
     [InlineData("172.31.255.0/24", "172.31.255.0/24")]
     [InlineData("100.64.1.0/24", "100.64.1.0/24")]          // carrier-grade NAT, as Tailscale uses
@@ -40,11 +42,44 @@ public class NetworkRulesTests
     [Theory]
     [InlineData("192.168.0.0/16")]
     [InlineData("10.0.0.0/8")]
-    [InlineData("10.0.0.0/21")]
+    [InlineData("10.0.0.0/20")]
     [InlineData("0.0.0.0/0")]
     public void A_network_bigger_than_a_sweep_is_refused(string input)
     {
         Assert.Contains("bigger than BAMF sweeps", ScannerService.CheckNetwork(input, out _));
+    }
+
+    [Theory]
+    [InlineData("10.0.8.0", 24, 254, "10.0.8.1", "10.0.8.254")]
+    [InlineData("10.0.8.0", 22, 1022, "10.0.8.1", "10.0.11.254")]
+    [InlineData("10.0.8.0", 21, 2046, "10.0.8.1", "10.0.15.254")]          // the whole of a /21 is swept
+    [InlineData("10.0.0.0", 20, 2046, "10.0.0.1", "10.0.7.254")]           // anything wider: its first /21's worth
+    [InlineData("10.0.0.0", 16, 2046, "10.0.0.1", "10.0.7.254")]
+    public void A_sweep_covers_every_address_of_a_network_up_to_a_slash_21_and_no_more(string net, int prefix, int count, string first, string last)
+    {
+        var all = ScannerService.EnumerateSubnet(System.Net.IPAddress.Parse(net), prefix).Select(a => a.ToString()).ToList();
+        Assert.Equal(count, all.Count);
+        Assert.Equal(first, all[0]);
+        Assert.Equal(last, all[^1]);
+        Assert.Equal(all.Count, all.Distinct().Count());
+        Assert.DoesNotContain(net, all);                                                  // never the network address itself
+    }
+
+    [Fact]
+    public void The_neighbour_table_limit_is_a_number_where_it_can_be_read_and_nothing_where_it_cannot()
+    {
+        var limit = ScannerService.NeighbourLimit();
+        if (OperatingSystem.IsLinux()) Assert.True(limit is null or > 0);
+        else Assert.Null(limit);
+    }
+
+    [Fact]
+    public void The_widest_network_is_a_slash_21_and_the_refusal_says_how_many_addresses_that_is()
+    {
+        Assert.Equal(21, ScannerService.WidestPrefix);
+        Assert.Equal(2046, ScannerService.WidestAddresses);
+        Assert.Contains("2,046 addresses", ScannerService.CheckNetwork("10.0.0.0/20", out _));
+        Assert.Contains("Use /21 or smaller", ScannerService.CheckNetwork("10.0.0.0/20", out _));
     }
 
     [Theory]
