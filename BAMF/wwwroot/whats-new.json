@@ -2,6 +2,14 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.20.0",
+      "date": "2026-10-19",
+      "items": [
+        "BAMF now scans a network as wide as a /21, 2,046 addresses, where it stopped at a /22. Settings accepts a /21, and the sweep covers all of it. Before, a /21 listed in appsettings.json was swept only from its first half, and nothing said so; now a network wider than a /21 there is still swept only from its first address on, but the log says so once and suggests listing it as smaller networks.",
+        "A big network can take longer to scan, because after the sweep BAMF looks up the name of every device it finds, one after another, and a device with no name record can take a couple of seconds to give up. On Linux the kernel keeps only 1,024 ARP entries by default, which a sweep of a /21 can overflow; the log now warns once when that is the case and the README has the setting to raise."
+      ]
+    },
+    {
       "version": "2.19.0",
       "date": "2026-10-13",
       "items": [
