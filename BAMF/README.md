@@ -3068,7 +3068,7 @@ worth fixing, each kind capped so one bad category can't zero it on its own:
 | Your DNS giving a wrong answer for a name with a fixed address (DNS watch) | 15 each name, up to 15 |
 | The internet down now | 10 |
 | A disk BAMF writes to running low | 10 |
-| A security alert this week | 8 each, up to 24 |
+| A security alert this week (the ARP watch, a new DHCP or DNS server, a device changing DNS server, a new IPv6 router, a network whose DHCP went quiet) | 8 each, up to 24 |
 | Telnet open on a device | 8 each, up to 16 |
 | The router answering UPnP | 8 |
 | A certificate expired | 6 each, up to 12 |
