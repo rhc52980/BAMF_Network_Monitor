@@ -33,8 +33,9 @@ jobs:
       - name: Tests
         run: dotnet test tests/BAMF.Tests -c Release
 
-      # The raw packet sockets Linux uses in place of libpcap, tried for real: a pair of linked interfaces, an ARP scan on one end that the
-      # kernel on the other answers, and the traffic monitor hearing a DHCP offer sent across. Raw sockets need root, which the runner has.
+      # The raw packet sockets Linux uses in place of libpcap, tried for real. Two pairs of linked interfaces: on one, the traffic monitor
+      # hears a DHCP offer sent across; on the other, whose far end is in a namespace of its own (a machine won't answer an ARP request
+      # from another of its own addresses), an ARP scan finds the kernel there. Raw sockets need root, which the runner has.
       - name: Raw packet sockets
         run: |
           sudo ip link add bamfv0 type veth peer name bamfv1
@@ -42,8 +43,17 @@ jobs:
           sudo ip addr add 10.77.0.1/24 dev bamfv1
           sudo ip link set bamfv0 up
           sudo ip link set bamfv1 up
-          sudo -E env "PATH=$PATH" BAMF_REQUIRE_RAW=1 BAMF_RAW_IF_A=bamfv0 BAMF_RAW_IP_A=10.77.0.2 BAMF_RAW_IF_B=bamfv1 BAMF_RAW_IP_B=10.77.0.1 \
-            dotnet test tests/BAMF.Tests -c Release --no-build --filter "Category=RawSockets"
+          sudo ip netns add bamfns
+          sudo ip link add bamfs0 type veth peer name bamfs1
+          sudo ip link set bamfs1 netns bamfns
+          sudo ip addr add 10.78.0.2/24 dev bamfs0
+          sudo ip link set bamfs0 up
+          sudo ip netns exec bamfns ip addr add 10.78.0.1/24 dev bamfs1
+          sudo ip netns exec bamfns ip link set bamfs1 up
+          sudo ip netns exec bamfns ip link set lo up
+          TARGET_MAC=$(sudo ip netns exec bamfns cat /sys/class/net/bamfs1/address)
+          sleep 2
+          sudo -E env "PATH=$PATH" BAMF_REQUIRE_RAW=1             BAMF_RAW_IF_A=bamfv0 BAMF_RAW_IP_A=10.77.0.2 BAMF_RAW_IF_B=bamfv1 BAMF_RAW_IP_B=10.77.0.1             BAMF_RAW_SCAN_IF=bamfs0 BAMF_RAW_SCAN_IP=10.78.0.2 BAMF_RAW_SCAN_TARGET=10.78.0.1 BAMF_RAW_SCAN_TARGET_MAC="$TARGET_MAC"             dotnet test tests/BAMF.Tests -c Release --no-build --filter "Category=RawSockets"
 
       # The release fails on this; better to know on the pull request.
       - name: Add-on version matches the app

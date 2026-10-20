@@ -152,13 +152,19 @@ public class LinuxPacketTests
     [Trait("Category", "RawSockets")]
     public async Task An_arp_scan_on_one_end_of_a_link_finds_the_kernel_answering_on_the_other()
     {
-        if (Pair() is not { } p || !LinuxPacket.Available) return;
-        var mac = NetworkInterface.GetAllNetworkInterfaces().Single(n => n.Name == p.IfA).GetPhysicalAddress().GetAddressBytes();
-        var macB = string.Join(":", NetworkInterface.GetAllNetworkInterfaces().Single(n => n.Name == p.IfB).GetPhysicalAddress().GetAddressBytes().Select(x => x.ToString("X2")));
-        var targets = Enumerable.Range(1, 20).Select(i => IPAddress.Parse($"10.77.0.{i}")).ToList();       // the other end is .1; the rest are nobody
-        var found = await ArpScanner.ScanRawAsync(targets, p.IpA, mac, 400, CancellationToken.None);
-        Assert.Contains(found, f => f.Ip.Equals(p.IpB) && f.Mac == macB);
-        Assert.DoesNotContain(found, f => f.Ip.Equals(p.IpA));
+        // The answering end is in a network namespace of its own: a machine will not answer an ARP request for its own address that
+        // comes in on another of its own interfaces (it is a martian source), so both ends in one namespace never get an answer.
+        var env = (string k) => Environment.GetEnvironmentVariable(k);
+        if (!OperatingSystem.IsLinux() || !LinuxPacket.Available || env("BAMF_RAW_SCAN_IF") is not { Length: > 0 } nic || env("BAMF_RAW_SCAN_IP") is not { Length: > 0 } self
+            || env("BAMF_RAW_SCAN_TARGET") is not { Length: > 0 } target || env("BAMF_RAW_SCAN_TARGET_MAC") is not { Length: > 0 } targetMac) return;
+        var selfIp = IPAddress.Parse(self);
+        var mac = NetworkInterface.GetAllNetworkInterfaces().Single(n => n.Name == nic).GetPhysicalAddress().GetAddressBytes();
+        var prefix = string.Join('.', target.Split('.')[..3]);
+        var targets = Enumerable.Range(1, 20).Select(i => IPAddress.Parse($"{prefix}.{i}")).ToList();       // the far end is .1; the rest are nobody
+        var found = await ArpScanner.ScanRawAsync(targets, selfIp, mac, 500, CancellationToken.None);
+        Assert.Contains(found, f => f.Ip.ToString() == target && string.Equals(f.Mac, targetMac.Trim().ToUpperInvariant(), StringComparison.Ordinal));
+        Assert.Single(found);                                                                                 // nobody else answered
+        Assert.DoesNotContain(found, f => f.Ip.Equals(selfIp));
     }
 
     private static byte[] DhcpOfferFrame(byte[] srcMac, string server)
