@@ -2,6 +2,13 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.23.0",
+      "date": "2026-10-20",
+      "items": [
+        "The Thanksgiving theme is a harvest dusk now. A big orange moon rises over a farm with a barn, a silo and a house whose windows flicker and whose chimney smokes, a scarecrow and crows in the corn, shocks and hay bales, and maples that shed leaves into a wind that comes and goes. Geese cross the sky in a V and the turkey still struts through. In front of the page there is a garland of leaves and gourds along the top, a cornucopia and a stack of pumpkins in the corners, pie-crust edges on the cards, a hay-rope scrollbar, and a pilgrim hat on each device on the Map. A finished scan startles the crows, and a new device is still a raccoon at the pie."
+      ]
+    },
+    {
       "version": "2.22.1",
       "date": "2026-10-20",
       "items": [
