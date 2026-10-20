@@ -2,6 +2,14 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.21.0",
+      "date": "2026-10-19",
+      "items": [
+        "The DHCP and DNS servers on the Network services card are kept when BAMF restarts. Before, an update or restart emptied them until a device asked for an address again; now they are saved and read back, one not heard from in 90 days is dropped, and a server you trust that hasn't been heard since is still listed as trusted, not heard yet. The first update to this version still starts the card empty, because the old one never saved them.",
+        "A Clear button on the Alerts card on Activity empties the list after you confirm. It also takes them out of each device's history and out of the network score's security alerts this week; what was sent to your webhook isn't touched, and the same thing doesn't come straight back. The card now says how long alerts are kept, the history window, 90 days unless you changed it. The view-only password doesn't get the button."
+      ]
+    },
+    {
       "version": "2.20.0",
       "date": "2026-10-19",
       "items": [
