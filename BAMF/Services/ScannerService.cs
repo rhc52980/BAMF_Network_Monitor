@@ -545,6 +545,29 @@ public partial class ScannerService : BackgroundService
         }
     }
 
+    private readonly HashSet<string> _warnedSize = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Said once per network, not every pass: a network wider than a sweep covers is only swept from its first address, and on Linux a sweep
+    /// of a thousand addresses or more can overflow the kernel's neighbour table, which loses entries before they are read.
+    /// </summary>
+    private void WarnAboutSize(string label, int prefix, int addresses)
+    {
+        if (prefix < WidestPrefix && _warnedSize.Add(label + "|wide"))
+            _log.LogWarning("{Subnet} is wider than a /{Widest}: only its first {Count:N0} addresses are swept. List it as smaller networks to cover the rest.",
+                label, WidestPrefix, WidestAddresses);
+        if (OperatingSystem.IsLinux() && addresses > 900 && NeighbourLimit() is { } limit && limit < addresses + 200 && _warnedSize.Add(label + "|neigh"))
+            _log.LogWarning("Sweeping {Subnet} makes {Count:N0} neighbour table entries and this kernel keeps at most {Limit:N0} (net.ipv4.neigh.default.gc_thresh3), so some " +
+                "devices may be missed. Raise gc_thresh1, gc_thresh2 and gc_thresh3, for example to 4096.", label, addresses, limit);
+    }
+
+    /// <summary>The most entries Linux keeps in its neighbour (ARP) table before it starts to discard them, if it says.</summary>
+    internal static int? NeighbourLimit()
+    {
+        try { return int.TryParse(File.ReadAllText("/proc/sys/net/ipv4/neigh/default/gc_thresh3").Trim(), out var v) ? v : null; }
+        catch { return null; }
+    }
+
     private async Task<string> RunScan(IPAddress network, int prefix, int concurrency,
         bool activeArpWanted, HashSet<string> seenMacs, CancellationToken ct)
     {
@@ -572,6 +595,7 @@ public partial class ScannerService : BackgroundService
         _log.LogInformation("Subnet {Subnet}: scanning from local {Ip}", subnetLabel, local.Value.Ip);
 
         var addresses = EnumerateSubnet(network, prefix).ToList();
+        WarnAboutSize(subnetLabel, prefix, addresses.Count);
 
         List<(IPAddress Ip, string Mac)> arpEntries;
         string mode;

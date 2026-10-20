@@ -1367,10 +1367,26 @@ new network is scanned straight away. The list saved there replaces
 defaults**) hands it back to the file.
 
 Only private networks can be added there (10.x, 172.16-31.x, 192.168.x,
-100.64-127.x and 169.254.x), from /22 to /30. The port scans follow BAMF's
+100.64-127.x and 169.254.x), from /21 to /30. The port scans follow BAMF's
 networks, so this keeps anyone who can open the dashboard from pointing them
-at the internet, and a /22, 1,022 addresses, is as much as a scan covers.
-`appsettings.json` can still list anything.
+at the internet, and a /21, 2,046 addresses, is as much as a scan covers.
+`appsettings.json` can still list anything, but a network wider than a /21 there
+is swept only from its first address on, for 2,046 addresses, and the log says
+so once; list it as several smaller networks to cover the rest.
+
+A big network works like a small one, with a few things to know. A sweep sends
+one small packet to every address, so a /21 is 2,046 of them each pass, which is
+quick, but BAMF then looks up the name of every device it finds, one after
+another, and a device with no name record can take a couple of seconds to give
+up, so a pass over a few hundred such devices can take minutes. On **Linux**
+the kernel keeps only 1,024 neighbour (ARP) entries by default, and a sweep of
+more than that makes more, so devices can be missed; the log says so once when
+that is the case. Raise it, and put the same lines in `/etc/sysctl.d` to keep
+it. Windows has no such limit.
+
+```bash
+sudo sysctl -w net.ipv4.neigh.default.gc_thresh1=1024 net.ipv4.neigh.default.gc_thresh2=2048 net.ipv4.neigh.default.gc_thresh3=4096
+```
 
 Each section has its own address, such as `/#settings/internet`, so a link or a
 bookmark opens that one; plain `/#settings` opens the last one you looked at.
@@ -1808,7 +1824,7 @@ scan, or delete a thing.
 | POST | `/api/destinations/{id}/test` | Send a test to one destination: `main` for the main webhook, or another's `id`. Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/settings/webhookkinds` | Body `{"kinds": ["devices", "status"]}` — which kinds of alert the main webhook gets: `devices`, `status`, `unusual`, `security`, `internet`, `reports`. `GET /api/settings` returns it as `webhookKinds` |
 | POST | `/api/settings/destinations` | Body `{"destinations": [{"id": "…", "name": "Phone", "url": "https://…", "format": "ntfy", "kinds": ["security", "internet"]}]}` — replace the destinations besides the main webhook, up to 8. `id` blank adds one; a saved one sent with `url` empty keeps its URL. `GET /api/settings` returns them as `destinations`, URLs masked. `format` is `auto`, `ntfy`, `gotify`, `slack`, `telegram`, `json` or `discord`, or `email` for a destination whose `url` is `smtp://[user:password@]host[:port]/?to=a@x.com,b@x.com[&from=…][&tls=0]` (encrypted unless `tls=0`) |
-| POST | `/api/settings/networks` | Body `{"networks": ["192.168.1.0/24"]}` — the networks to scan, replacing `Bamf:Subnets`, and scan them now. Private networks from /22 to /30 only; see [Networks](#networks). `GET /api/settings` returns them as `editable.networks`, with where they come from and the ones this machine is on |
+| POST | `/api/settings/networks` | Body `{"networks": ["192.168.1.0/24"]}` — the networks to scan, replacing `Bamf:Subnets`, and scan them now. Private networks from /21 to /30 only; see [Networks](#networks). `GET /api/settings` returns them as `editable.networks`, with where they come from and the ones this machine is on |
 | POST | `/api/settings/networks/reset` | Hand the networks back to `appsettings.json` |
 | POST | `/api/settings/mqtt` | Body `{"server": "10.0.0.2", "port": 1883, "username": "bamf", "password": null, "tls": false, "discovery": true, "topicPrefix": "bamf"}` — the MQTT broker, replacing `Bamf:Mqtt`, and connect now. `server` empty turns MQTT off. `password` null keeps the saved one, but only for the same server and port. `GET /api/settings` returns it as `editable.mqtt`, with `password` only saying whether one is saved |
 | POST | `/api/settings/mqtt/reset` | Hand MQTT back to `appsettings.json` |
