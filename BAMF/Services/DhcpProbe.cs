@@ -295,7 +295,7 @@ public sealed class DhcpProbe : BackgroundService
             if (n.Offers.Count > 0)
             {
                 if (was.Alerted && tell)
-                    _traffic.Notify("dhcp", $"DHCP is answering again on {n.Subnet}",
+                    _traffic.Notify("dhcp-up", $"DHCP is answering again on {n.Subnet}",
                         $"{string.Join(", ", n.Offers.Select(o => o.Server))} answered BAMF's DHCP check on {n.Subnet} after it had gone quiet there.", "back:" + n.Subnet);
                 states[n.Subnet] = new NetState(true, 0, false);
             }

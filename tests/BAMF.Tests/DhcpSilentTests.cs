@@ -51,7 +51,7 @@ public class DhcpSilentTests
         return probe;
     }
 
-    private static List<TrafficMonitor.Alert> Dhcp(BamfApp app) => app.Services.GetRequiredService<TrafficMonitor>().Alerts().Where(a => a.Kind == "dhcp").ToList();
+    private static List<TrafficMonitor.Alert> Dhcp(BamfApp app) => app.Services.GetRequiredService<TrafficMonitor>().Alerts().Where(a => a.Kind is "dhcp" or "dhcp-up").ToList();
 
     [Fact]
     public async Task Two_silent_checks_in_a_row_after_an_answer_alert_once_and_the_next_answer_says_it_is_back()
