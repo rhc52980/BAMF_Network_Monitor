@@ -158,7 +158,7 @@ public partial class HostStore
         }
         var alerts = GetAlerts(500, sinceUtc);
         var counts = alerts.GroupBy(a => a.Kind).ToDictionary(g => g.Key, g => g.Count());
-        var notable = alerts.Where(a => a.Kind is "security" or "cert" or "port" or "dhcp" or "dns").Take(10).ToList();
+        var notable = alerts.Where(a => a.Kind is "security" or "cert" or "port" or "dhcp" or "dns" or "ra").Take(10).ToList();
         return new Changes(arrived, left, moved, opened.OrderByDescending(p => p.At).ToList(),
             closed.OrderByDescending(p => p.At).ToList(), counts, notable);
     }

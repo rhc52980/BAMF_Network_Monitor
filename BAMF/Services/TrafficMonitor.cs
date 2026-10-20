@@ -36,6 +36,7 @@ public sealed class TrafficMonitor : IDisposable
     public sealed record Counter(long RxTotal, long TxTotal, double Rx, double Tx, IReadOnlyList<long> Strip);
     public sealed record DhcpServer(string Ip, string Mac, string LastSeen, long Offers);
     public sealed record DnsServer(string Ip, string LastSeen, int Clients, long Queries);
+    public sealed record RouterAdvert(string Mac, string Ip, string LastSeen, long Adverts, int LifetimeSeconds);
 
     private sealed class Bucket
     {
@@ -48,6 +49,7 @@ public sealed class TrafficMonitor : IDisposable
     }
     private sealed class DnsUse { public long Queries { get; set; } public DateTime Last { get; set; } }
     private sealed class DhcpSeen { public string Mac { get; set; } = ""; public DateTime Last { get; set; } public long Offers { get; set; } }
+    private sealed class RaSeen { public string Ip { get; set; } = ""; public DateTime Last { get; set; } public long Adverts { get; set; } public int Lifetime { get; set; } }
 
     /// <summary>A server not heard from for this long is dropped from the list when BAMF starts; a trusted one stays in the trusted list.</summary>
     private const int ForgetAfterDays = 90;
@@ -65,6 +67,9 @@ public sealed class TrafficMonitor : IDisposable
     private readonly Dictionary<string, DateTime> _alertedAt = new();
     private HashSet<string> _knownDhcp = new();
     private HashSet<string> _knownDns = new();
+    private readonly Dictionary<string, RaSeen> _ra = new(StringComparer.OrdinalIgnoreCase);                  // router MAC -> what it last announced
+    private HashSet<string> _knownRa = new(StringComparer.OrdinalIgnoreCase);                                  // router MACs that don't alert
+    private int _raLoaded;                                                                                      // how many routers were on record at startup
     private Dictionary<string, HashSet<string>> _deviceDns = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<LibPcapLiveDevice> _devices = new();
     private Timer? _tick;
@@ -217,6 +222,9 @@ public sealed class TrafficMonitor : IDisposable
             {
                 if (d.Length >= off + 41 && d[off + 6] == 58 && d[off + 40] is >= 133 and <= 136 && OnNdp is { } ndp)
                     ndp(src, new IPAddress(new ReadOnlySpan<byte>(d, off + 8, 16)).ToString());
+                // A router advertisement: who says it is a router, and for how long it should be the default one (bytes 6 and 7 of the message).
+                if (d.Length >= off + 56 && d[off + 6] == 58 && d[off + 40] == 134)
+                    RouterAdvertHeard(src, new IPAddress(new ReadOnlySpan<byte>(d, off + 8, 16)).ToString(), (d[off + 46] << 8) | d[off + 47]);
                 return;
             }
             if (ethType != 0x0800 || d.Length < off + 20) return;
@@ -355,6 +363,38 @@ public sealed class TrafficMonitor : IDisposable
                 "If you didn't add a router or DHCP server, something on the network is handing out addresses that shouldn't be.", ip);
     }
 
+    /// <summary>Alert when a router advertisement comes from a device not heard announcing itself before. On unless switched off.</summary>
+    public bool RouterAdvertWatchEnabled => _store.GetSetting("routerAdvertWatch") != "false";
+
+    /// <summary>
+    /// An IPv6 router announced itself. Anything on the link can send one, and a device that does is offered to every other as the way out
+    /// to the internet, so one that wasn't there before is worth a look. An advertisement with a lifetime of zero says "don't use me as a
+    /// router" and is no one taking over, so it is ignored. The first routers heard are learned quietly, as are the ones in the monitor's
+    /// first minutes when nothing was ever recorded.
+    /// </summary>
+    internal void RouterAdvertHeard(string mac, string ip, int lifetimeSeconds)
+    {
+        if (lifetimeSeconds == 0 || !RouterAdvertWatchEnabled) return;
+        bool isNew;
+        lock (_lock)
+        {
+            if (!_ra.TryGetValue(mac, out var seen)) _ra[mac] = seen = new RaSeen();
+            seen.Ip = ip; seen.Last = DateTime.UtcNow; seen.Adverts++; seen.Lifetime = lifetimeSeconds;
+            _seenDirty = true;
+            isNew = !_knownRa.Contains(mac);
+            if (isNew)
+            {
+                var learnQuietly = _knownRa.Count == 0 || (DateTime.UtcNow - _startedUtc).TotalMinutes < 5 && _raLoaded == 0;
+                _knownRa.Add(mac);
+                SaveKnown();
+                if (learnQuietly) { _log.LogInformation("IPv6 router on the network: {Ip} ({Mac})", ip, mac); isNew = false; }
+            }
+        }
+        if (isNew)
+            Raise("ra", $"New IPv6 router: {ip}", $"{Describe(mac)} announced itself as an IPv6 router. A device that does this is offered to every other one on the network as " +
+                "the way out to the internet. If you didn't add a router, something is trying to sit in the middle of your traffic.", mac);
+    }
+
     internal void Dns(string clientMac, string serverIp)
     {
         string? newForDevice = null, newForNetwork = null;
@@ -466,6 +506,11 @@ public sealed class TrafficMonitor : IDisposable
                 .OrderBy(s => s.Ip).ToList();
     }
 
+    public List<RouterAdvert> RouterAdverts()
+    {
+        lock (_lock) return _ra.Select(kv => new RouterAdvert(kv.Key, kv.Value.Ip, kv.Value.Last.ToString("o"), kv.Value.Adverts, kv.Value.Lifetime)).OrderBy(r => r.Ip, StringComparer.Ordinal).ToList();
+    }
+
     public List<DnsServer> DnsServers()
     {
         lock (_lock)
@@ -508,13 +553,14 @@ public sealed class TrafficMonitor : IDisposable
     {
         lock (_lock)
         {
-            var set = kind == "dhcp" ? _knownDhcp : _knownDns;
+            var set = kind == "dhcp" ? _knownDhcp : kind == "ra" ? _knownRa : _knownDns;
             if (trusted) set.Add(ip); else set.Remove(ip);
             SaveKnown();
         }
     }
     public IReadOnlyCollection<string> KnownDhcp { get { lock (_lock) return _knownDhcp.ToList(); } }
     public IReadOnlyCollection<string> KnownDns { get { lock (_lock) return _knownDns.ToList(); } }
+    public IReadOnlyCollection<string> KnownRa { get { lock (_lock) return _knownRa.ToList(); } }
 
     // ------------------------------------------------------------ persistence
 
@@ -524,6 +570,7 @@ public sealed class TrafficMonitor : IDisposable
         {
             _knownDhcp = JsonSerializer.Deserialize<HashSet<string>>(_store.GetSetting("knownDhcpServers") ?? "[]") ?? new();
             _knownDns = JsonSerializer.Deserialize<HashSet<string>>(_store.GetSetting("knownDnsServers") ?? "[]") ?? new();
+            _knownRa = new HashSet<string>(JsonSerializer.Deserialize<HashSet<string>>(_store.GetSetting("knownRouterAdverts") ?? "[]") ?? new(), StringComparer.OrdinalIgnoreCase);
             _deviceDns = JsonSerializer.Deserialize<Dictionary<string, HashSet<string>>>(_store.GetSetting("deviceDnsServers") ?? "{}") ?? new();
             _deviceDns = new Dictionary<string, HashSet<string>>(_deviceDns, StringComparer.OrdinalIgnoreCase);
             var alerts = JsonSerializer.Deserialize<List<Alert>>(_store.GetSetting("watchAlerts") ?? "[]") ?? new();
@@ -547,6 +594,9 @@ public sealed class TrafficMonitor : IDisposable
                 var fresh = servers.Where(x => x.Value.Last >= cutoff).ToDictionary(x => x.Key, x => x.Value);
                 if (fresh.Count > 0) _dnsByMac[mac] = fresh;
             }
+            var ra = JsonSerializer.Deserialize<Dictionary<string, RaSeen>>(_store.GetSetting("routerAdvertsSeen") ?? "{}") ?? new();
+            foreach (var (mac, s) in ra) if (s.Last >= cutoff) _ra[mac] = s;
+            _raLoaded = _ra.Count;
         }
         catch { /* the same: a damaged list only means the card fills as things are heard */ }
     }
@@ -554,21 +604,23 @@ public sealed class TrafficMonitor : IDisposable
     /// <summary>Written with the five-minute flush and when the capture stops, only when something changed.</summary>
     private void SaveSeen()
     {
-        string dhcp, dns;
+        string dhcp, dns, ra;
         lock (_lock)
         {
             if (!_seenDirty) return;
             _seenDirty = false;
             dhcp = JsonSerializer.Serialize(_dhcp.ToDictionary(kv => kv.Key, kv => new DhcpSeen { Mac = kv.Value.Mac, Last = kv.Value.Last, Offers = kv.Value.Offers }));
             dns = JsonSerializer.Serialize(_dnsByMac);
+            ra = JsonSerializer.Serialize(_ra);
         }
-        try { _store.SetSetting("dhcpServersSeen", dhcp); _store.SetSetting("dnsServersSeen", dns); }
+        try { _store.SetSetting("dhcpServersSeen", dhcp); _store.SetSetting("dnsServersSeen", dns); _store.SetSetting("routerAdvertsSeen", ra); }
         catch (Exception ex) { _log.LogDebug(ex, "Saving the DHCP and DNS servers heard failed"); }
     }
     private void SaveKnown()
     {
         _store.SetSetting("knownDhcpServers", JsonSerializer.Serialize(_knownDhcp));
         _store.SetSetting("knownDnsServers", JsonSerializer.Serialize(_knownDns));
+        _store.SetSetting("knownRouterAdverts", JsonSerializer.Serialize(_knownRa));
         _store.SetSetting("deviceDnsServers", JsonSerializer.Serialize(_deviceDns));
     }
     private void SaveAlerts() => _store.SetSetting("watchAlerts", JsonSerializer.Serialize(_alerts));

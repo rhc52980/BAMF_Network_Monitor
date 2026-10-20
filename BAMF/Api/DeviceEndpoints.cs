@@ -549,6 +549,7 @@ internal static class DeviceEndpoints
                 sources,
                 top,
                 dhcp = t.DhcpServers().Select(s => new { s.Ip, s.Mac, name = Name(s.Mac), s.LastSeen, s.Offers, trusted = t.KnownDhcp.Contains(s.Ip) }),
+                ra = t.RouterAdverts().Select(r => new { r.Mac, r.Ip, name = Name(r.Mac), r.LastSeen, r.Adverts, r.LifetimeSeconds, trusted = t.KnownRa.Contains(r.Mac) }),
                 dns = t.DnsServers().Select(s => new { s.Ip, s.LastSeen, s.Clients, s.Queries, trusted = t.KnownDns.Contains(s.Ip),
                     name = hosts.Values.FirstOrDefault(h => h.Ip == s.Ip) is { } dh ? (dh.CustomName != "" ? dh.CustomName : dh.Hostname) : "" }),
                 alerts = t.Alerts(),

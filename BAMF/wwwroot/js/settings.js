@@ -173,6 +173,12 @@ function renderIpv6WatchToggle() {
   setToggleState(t, ipv6Watch);
   t.title = ipv6Watch ? "IPv6 addresses are watched - click to stop" : "Click to watch devices' IPv6 addresses";
 }
+function renderRaWatchToggle() {
+  const t = $("setRaWatch");
+  if (!t) return;
+  setToggleState(t, raWatch);
+  t.title = raWatch ? "A new IPv6 router alerts - click to stop" : "Click to be told when a new device announces itself as an IPv6 router";
+}
 function renderCertWatchToggle() {
   const t = $("setCertWatch");
   if (!t) return;
@@ -193,6 +199,8 @@ for (const [id, url, get, set, on, off] of [
     "Certificates will be checked every morning at 4:30", "The certificate watch is off"],
   ["setIpv6Watch", "/api/settings/ipv6-watch", () => ipv6Watch, v => { ipv6Watch = v; renderIpv6WatchToggle(); },
     "IPv6 addresses will be watched", "The IPv6 watch is off"],
+  ["setRaWatch", "/api/settings/ra-watch", () => raWatch, v => { raWatch = v; renderRaWatchToggle(); },
+    "A new IPv6 router will alert", "The router advertisement watch is off"],
   ["setFlowWatch", "/api/settings/flow-watch", () => flowWatch, v => { flowWatch = v; renderFlowToggles(); if (typeof loadFlows === "function") loadFlows(); },
     "Where devices talk is watched, and scans are noticed", "Where devices talk, and scans, are no longer watched"],
   ["setSpikeAlert", "/api/settings/spike-alert", () => spikeAlert, v => { spikeAlert = v; renderFlowToggles(); },
@@ -1628,6 +1636,7 @@ async function loadSettings() {
   if (typeof e.arpWatch === "boolean") arpWatch = e.arpWatch;
   if (typeof e.certWatch === "boolean") certWatch = e.certWatch;
   if (typeof e.ipv6Watch === "boolean") ipv6Watch = e.ipv6Watch;
+  if (typeof e.routerAdvertWatch === "boolean") raWatch = e.routerAdvertWatch;
   if (typeof e.dnsWatch === "boolean") dnsWatch = e.dnsWatch;
   if (typeof e.wanQuality === "boolean") wanQualityAlert = e.wanQuality;
   if (typeof e.latencyAlert === "boolean") latencyAlert = e.latencyAlert;
@@ -1638,6 +1647,7 @@ async function loadSettings() {
   renderArpWatchToggle();
   renderCertWatchToggle();
   renderIpv6WatchToggle();
+  renderRaWatchToggle();
   renderLatencyAlert();
   if (typeof e.addressWatch === "boolean") addressWatch = e.addressWatch;
   if (typeof e.signInAlert === "boolean") signInAlert = e.signInAlert;

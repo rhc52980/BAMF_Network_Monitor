@@ -204,6 +204,8 @@ function renderServices() {
         probeNets.filter(n => !(n.offers || []).length).map(n => `; nothing answered on ${esc(n.subnet)}${n.error ? " (" + esc(n.error) + ")" : ""}`).join("") +
         ` <button type="button" class="toggle" id="dhcpAskNow" style="margin-left:6px">Ask again</button>`);
   html.push(block("DHCP", (dhcpRows.join("") || note(watching ? "No DHCP offer heard yet. One turns up the next time a device asks for an address." : probe && !probe.error ? "" : why)) + probeNote));
+  const raRows = (t.ra || []).map(r =>
+    `<div class="svc-row"><span class="mono">${esc(r.ip)}</span><span class="meta">${esc(r.name && r.name !== r.mac ? r.name + " · " : "")}${esc(r.mac)} · ${r.adverts} advert${r.adverts === 1 ? "" : "s"} · last ${esc(fmtAgo(r.lastSeen))}</span>${trust("ra", r.mac, r.trusted)}</div>`);
   const dnsSeen = new Set((t.dns || []).map(d => d.ip));
   const handed = [];
   for (const n of probeNets) for (const o of n.offers || []) for (const ip of o.dns || []) if (!handed.some(h => h.ip === ip && h.subnet === n.subnet)) handed.push({ ip, subnet: n.subnet, server: o.server });
@@ -214,6 +216,9 @@ function renderServices() {
   html.push(block("DNS", ((t.dns || []).map(d => `<div class="svc-row"><span class="mono">${esc(d.ip)}</span><span class="meta">${esc(d.name ? d.name + " · " : "")}${d.clients} device${d.clients === 1 ? "" : "s"} · ${Number(d.queries).toLocaleString()} queries · last ${esc(fmtAgo(d.lastSeen))}</span>${trust("dns", d.ip, d.trusted)}</div>`).join("")
     + handedRows.filter((_, i) => !dnsSeen.has(handed[i].ip)).join(""))
     || note(watching ? "No DNS query heard yet." : why)));
+
+  // IPv6 routers, from the router advertisements the traffic monitor has heard.
+  html.push(block("IPv6 routers", raRows.join("") || note(watching ? "No IPv6 router has announced itself yet. Routers do it every few minutes." : why)));
 
   // UPnP, from the last health check.
   const up = sec.upnp;

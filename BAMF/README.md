@@ -1923,6 +1923,7 @@ scan, or delete a thing.
 | POST | `/api/settings/cert-watch` | Body `{"enabled": false}` — the certificate watch: HTTPS certificates read every morning, with expiry alerts. On by default |
 | GET | `/api/ipv6` | The IPv6 watch: `enabled`, `lastRead`, `error`, and `onlyIpv6`, MACs seen over IPv6 this week that never answered the IPv4 scan. Devices' own IPv6 addresses are `ipv6` in `/api/hosts` |
 | POST | `/api/settings/ipv6-watch` | Body `{"enabled": false}` — turn the IPv6 watch off or on. On by default |
+| POST | `/api/settings/ra-watch` | Body `{"enabled": false}` — turn the router advertisement watch (an alert for a new IPv6 router) off or on. On by default |
 | GET | `/api/free-ips?days=90` | For each IPv4 network: `size`, `used`, `free`, the longest `runs` of free addresses and a `suggestion`. Used means seen in the last `days` (default 90), plus every device's current address, the gateway and this machine |
 | GET | `/api/router-import` | Router import status: `kind`, `host`, `enabled`, `lastRun`, `count`, `error`, and for UniFi's traffic counts `traffic`, `trafficAt`, `trafficClients`, `trafficError` |
 | POST | `/api/router-import/run` | Read the router's list now; `502` with the status if it failed |
@@ -1953,8 +1954,8 @@ scan, or delete a thing.
 | POST | `/api/settings/report` | Body `{"schedule": "daily", "hour": 8, "day": 1}` — the scheduled report: `off`, `daily`, `weekly` or `monthly`, the hour (0–23, the server's local time) and, for weekly, the day (0 Sunday to 6 Saturday). Monthly goes out on the 1st |
 | POST | `/api/reports/send` | Send the report now, whatever the schedule; returns what was sent |
 | GET | `/api/reports/preview` | The report as it would be sent |
-| GET | `/api/traffic` | The traffic monitor's status, the switches and router counting traffic (`sources`), the top talkers with their strips and `source`, the DHCP and DNS servers seen, and the watch alerts. `GET /api/hosts` carries each host's `traffic` (`rx`, `tx` bytes per second; `rxTotal`, `txTotal`; `source`: `capture`, `switch` or `router`, with `where`) and `dns` (the servers it asks) |
-| POST | `/api/traffic/trust` | Body `{"kind": "dhcp", "ip": "192.168.1.1", "trusted": true}` — trust a DHCP or DNS server so it never alerts, or forget it so it counts as new again |
+| GET | `/api/traffic` | The traffic monitor's status, the switches and router counting traffic (`sources`), the top talkers with their strips and `source`, the DHCP and DNS servers and IPv6 routers (`ra`) seen, and the watch alerts. `GET /api/hosts` carries each host's `traffic` (`rx`, `tx` bytes per second; `rxTotal`, `txTotal`; `source`: `capture`, `switch` or `router`, with `where`) and `dns` (the servers it asks) |
+| POST | `/api/traffic/trust` | Body `{"kind": "dhcp", "ip": "192.168.1.1", "trusted": true}` — trust a DHCP or DNS server so it never alerts, or forget it so it counts as new again. For an IPv6 router, `"kind": "ra"` and its MAC as `ip` |
 | GET | `/api/hosts/{id}/latency` | One host's latency samples over the last 24 hours (`?hours=` for more): `[{"at", "ms"}]`, `ms` null where the echo went unanswered. `GET /api/hosts` carries each host's latest as `latencyMs`, and its uptime over 7 and 30 days as `uptime7` and `uptime30` (percent) |
 | POST | `/api/hosts/{id}/tags` | Body `{"tags": ["kids", "IoT"]}` — replace a device's tags (up to 20, each up to 24 characters, no commas). `GET /api/hosts` lists each host's `tags` |
 | GET | `/api/hosts/{id}/ips` | One host's address history: each main address it has had, with when it began and ended |
@@ -3430,6 +3431,8 @@ the network: it draws together what BAMF already knows.
   address again; one not heard from in 90 days is dropped. A server you trust
   that hasn't been heard since the list was last saved is still listed, marked
   "trusted · not heard yet", until **Forget** removes it.
+- **IPv6 routers**: the devices that have announced themselves as IPv6 routers,
+  with **Trust** and **Forget**; a new one alerts (see below).
 - **UPnP**: a router that answered the last health check's UPnP search, which
   means any device can ask it to open ports to the internet.
 - **mDNS (Bonjour)**: how many devices announce a name or services this way.
@@ -4013,6 +4016,23 @@ Both are classic signs of a device whose settings were changed behind your
 back. **Trust** a server in the card so it never alerts, or **Forget** one so
 it counts as new again. Known servers are remembered across restarts, and each
 alert fires at most once a day per server or device.
+
+**IPv6 routers.** An IPv6 router announces itself every few minutes with a
+router advertisement, and every device on the network that hears one is offered
+it as a way out to the internet. Anything on the network can send one, which
+makes a fake router a quiet way to put a device in the middle of everyone's
+traffic. With the traffic monitor on, the **IPv6 routers** block of the Network
+services card lists each device that has announced itself, with its MAC, how many
+advertisements and when, and a router not heard before **alerts**: in the card,
+in the log and to your webhook. It is told by its MAC, since its addresses change.
+The first routers heard are learned quietly, as are any in the monitor's first
+five minutes when nothing was ever recorded, so a mesh with several nodes
+doesn't alert on a first run; **Trust** one to stop it alerting, **Forget** one to
+make it new again. An advertisement with a lifetime of zero says "don't use me as
+a router" and is ignored. Routers are remembered across restarts, and a router
+not heard for 90 days drops off the list. The switch is **Router advertisement
+watch** under Settings → Security, or `POST /api/settings/ra-watch`; it is on
+unless you switch it off, and sends nothing.
 
 ### The New tab
 
