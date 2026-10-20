@@ -193,6 +193,8 @@ function renderServices() {
   const dhcpRows = (t.dhcp || []).map(d => {
     const offs = offersBy.get(d.ip) || [];
     const detail = offs.map(o => `<div class="watch-note" style="margin:2px 0 0 0">${esc(o.subnet)}: would offer ${esc(o.offered)}${dhcpOfferLine(o) ? " · " + esc(dhcpOfferLine(o)) : ""}</div>`).join("");
+    // A trusted server not heard since the list was last saved: kept, so it doesn't vanish from the card, but there is nothing to say about it yet.
+    if (!d.lastSeen) return `<div class="svc-row"><span class="mono">${esc(d.ip)}</span><span class="meta">${esc(d.name && d.name !== d.mac ? d.name + " · " : "")}trusted · not heard yet</span>${trust("dhcp", d.ip, d.trusted)}</div>${detail}`;
     return `<div class="svc-row"><span class="mono">${esc(d.ip)}</span><span class="meta">${esc(d.name && d.name !== d.mac ? d.name + " · " : "")}${esc(d.mac || "address not learned")} · ${d.offers} offer${d.offers === 1 ? "" : "s"} · last ${esc(fmtAgo(d.lastSeen))}${offs.length ? " · answered BAMF's own check" : ""}</span>${trust("dhcp", d.ip, d.trusted)}</div>${detail}`;
   });
   const probeNote = !dhcpProbeCache ? "" : !dhcpProbeCache.enabled ? note("BAMF's own DHCP check is off. Settings → Scanning switches it on.")
