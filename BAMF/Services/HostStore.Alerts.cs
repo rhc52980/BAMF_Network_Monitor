@@ -63,6 +63,18 @@ public partial class HostStore
         }
     }
 
+    /// <summary>Removes every alert from the list, and says how many there were.</summary>
+    public int ClearAlerts()
+    {
+        lock (_lock)
+        {
+            using var conn = Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "DELETE FROM alerts; SELECT changes();";
+            return Convert.ToInt32(cmd.ExecuteScalar());
+        }
+    }
+
     public List<AlertRow> GetAlerts(int limit = 50, DateTime? sinceUtc = null)
     {
         lock (_lock)

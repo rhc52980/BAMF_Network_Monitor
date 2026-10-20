@@ -1754,6 +1754,13 @@ setting is kept, never what it was set to, so a password, a token or a
 webhook URL never ends up in it. It ages out with the rest of the history
 (`Bamf:HistoryRetentionDays`).
 
+**How long alerts stay, and clearing them.** The **Alerts** card on Activity shows the newest dozen of what BAMF raised, and each is kept for the
+same history window as everything else, 90 days unless you change it under Settings, then deleted. The ones the traffic monitor raises (a new
+DHCP or DNS server and the like) are the newest 50, with no age limit. **Clear** on the card removes them all after you confirm. That also
+takes them out of each device's history and stops them counting toward the network score's "security alerts this week", so the score
+goes up; what was sent to your webhook isn't touched, and what BAMF has already alerted about is still remembered, so the same thing doesn't
+come straight back. The view-only password doesn't get the button.
+
 **What is new since you last looked.** A small number on the **Activity** tab counts the alerts and problems that have appeared
 since this browser last opened Activity, so you can tell at a glance whether anything needs a look. Opening Activity clears it.
 Wake notes (a Wake-on-LAN BAMF sent on a rule) aren't counted. Where you last looked is kept in this browser, so each device counts for
@@ -1900,6 +1907,7 @@ scan, or delete a thing.
 | POST | `/api/dhcp-probe/run` | Ask now, whatever the schedule, and answer as `GET /api/dhcp-probe` does; 429 if asked less than ten seconds ago |
 | POST | `/api/settings/first-week-report` | Body `{"enabled": false}` — switch a new device's first-week report off, or back on |
 | GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
+| POST | `/api/alerts/clear` | Empty the Alerts card: every alert BAMF has kept and the ones the traffic monitor raised. Answers `{"cleared": n}` |
 | GET | `/api/settings/rules` | The alert rules, quiet hours and port watch: `{"rules": [...], "quiet": {"from", "to", "digest", "now", "held"}, "portWatch"}` |
 | POST | `/api/settings/rules` | Body: the whole rule list, each `{"id", "name", "kind": "offline"\|"online"\|"hours", "target": "any"\|"watched"\|"tag:kids"\|"host:12", "minutes", "from", "to", "enabled"}`. `id` empty for a new rule |
 | POST | `/api/alerts/pause` | Body `{"minutes": 60}` — hold every alert for that long (up to 4320, three days) and send what was held as one summary when it ends; `0` ends a pause now. `409` when Pause alerts is switched off. `GET /api/hosts` carries `pauseEnabled` and `alertsPausedUntil` |
