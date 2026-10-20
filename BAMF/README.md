@@ -1376,10 +1376,11 @@ so once; list it as several smaller networks to cover the rest.
 
 A big network works like a small one, with a few things to know. A sweep sends
 one small packet to every address, so a /21 is 2,046 of them each pass, which is
-quick, but BAMF then looks up the name of every device it finds, one after
-another, and a device with no name record can take a couple of seconds to give
-up, so a pass over a few hundred such devices can take minutes. On **Linux**
-the kernel keeps only 1,024 neighbour (ARP) entries by default, and a sweep of
+quick, and BAMF then looks up the name of every device it finds, sixteen at a
+time, so a device with no name record, which can take a couple of seconds to give
+up, holds up its own lookup and not the rest. (Before 2.22.0 they were looked up
+one after another, and a pass over a few hundred such devices could take
+minutes.) On **Linux** the kernel keeps only 1,024 neighbour (ARP) entries by default, and a sweep of
 more than that makes more, so devices can be missed; the log says so once when
 that is the case. Raise it, and put the same lines in `/etc/sysctl.d` to keep
 it. Windows has no such limit.
