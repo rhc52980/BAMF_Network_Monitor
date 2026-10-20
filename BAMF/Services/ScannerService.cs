@@ -647,14 +647,18 @@ public partial class ScannerService : BackgroundService
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) { _log.LogWarning(ex, "ARP watch failed on {Subnet}", subnetLabel); }
 
-        // Resolve + upsert.
+        // Names first, a few at a time: one that has no record takes up to two seconds to give up, which one after another made a big network's
+        // pass last minutes. The rest, which is quick, still goes in address order, so a new device is reported in the same order as before.
+        var names = await ResolveNames(arpEntries.Select(e => e.Ip), NameLookups, (ip, _) => ResolveHostname(ip), ct);
+
+        // Upsert.
         var autoIgnoreRandom = AutoIgnoreRandomEnabled;
         foreach (var (ip, mac) in arpEntries)
         {
             ct.ThrowIfCancellationRequested();
             seenMacs.Add(mac);
 
-            var hostname = await ResolveHostname(ip);
+            var hostname = names.TryGetValue(ip, out var found) ? found : "";
             var vendor = _oui.Lookup(mac);
             var isRandomized = vendor == "(randomized MAC)";
 
@@ -760,6 +764,31 @@ public partial class ScannerService : BackgroundService
         string.Join(":", mac.GetAddressBytes().Select(b => b.ToString("X2")));
 
     // ---------------- helpers ----------------
+
+    /// <summary>How many names are looked up at once after a sweep. Enough to take a /21 in seconds, few enough not to flood a small router's DNS.</summary>
+    internal const int NameLookups = 16;
+
+    /// <summary>
+    /// Looks up the name of each address, at most <paramref name="concurrency"/> at a time. A lookup that fails gives no name rather than
+    /// failing the rest; cancelling stops them all. Each address is looked up once, however often it appears.
+    /// </summary>
+    internal static async Task<Dictionary<IPAddress, string>> ResolveNames(IEnumerable<IPAddress> ips, int concurrency,
+        Func<IPAddress, CancellationToken, Task<string>> resolve, CancellationToken ct)
+    {
+        var names = new Dictionary<IPAddress, string>();
+        var distinct = ips.Distinct().ToList();
+        using var gate = new SemaphoreSlim(Math.Max(1, concurrency));
+        var found = await Task.WhenAll(distinct.Select(async ip =>
+        {
+            await gate.WaitAsync(ct);
+            try { return (ip, name: await resolve(ip, ct)); }
+            catch (OperationCanceledException) { throw; }
+            catch { return (ip, name: ""); }
+            finally { gate.Release(); }
+        }));
+        foreach (var (ip, name) in found) names[ip] = name ?? "";
+        return names;
+    }
 
     private static async Task<string> ResolveHostname(IPAddress ip)
     {
