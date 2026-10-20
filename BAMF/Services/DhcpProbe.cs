@@ -55,6 +55,22 @@ public sealed class DhcpProbe : BackgroundService
     }
 
     public bool Enabled => _store.GetSetting("dhcpProbe") != "false";
+    /// <summary>Alert when a network whose DHCP answered before stops answering. On unless switched off.</summary>
+    public bool AlertOnSilence => _store.GetSetting("dhcpSilentAlert") != "false";
+
+    /// <summary>A network whose DHCP answered before has to be silent this many checks in a row, a few minutes apart, before it's reported.</summary>
+    public const int MissesToAlert = 2;
+    /// <summary>After one silent check the next comes this soon, not at the usual interval, to tell a hiccup from a server that is gone.</summary>
+    public static readonly TimeSpan RecheckAfter = TimeSpan.FromMinutes(10);
+
+    /// <summary>What the checks have found about one network: that a server has answered there, and how many checks in a row have heard nothing.</summary>
+    public sealed record NetState(bool Answered, int Misses, bool Alerted);
+
+    private Dictionary<string, NetState> States()
+    {
+        try { return JsonSerializer.Deserialize<Dictionary<string, NetState>>(_store.GetSetting("dhcpProbeState") ?? "{}") ?? new(); }
+        catch (JsonException) { return new(); }
+    }
     public int Hours => int.TryParse(_store.GetSetting("dhcpProbeHours"), out var h) ? Math.Clamp(h, 1, 168) : 24;
 
     public Result? Last
@@ -71,7 +87,14 @@ public sealed class DhcpProbe : BackgroundService
         if (!Enabled) return null;
         var last = Last;
         if (last is null || !DateTime.TryParse(last.At, null, System.Globalization.DateTimeStyles.RoundtripKind, out var at)) return DateTime.UtcNow;
-        return at.ToUniversalTime().AddHours(Hours);
+        var usual = at.ToUniversalTime().AddHours(Hours);
+        // One silent check on a network that answered before: ask again soon, so the alert is for something that lasts.
+        if (AlertOnSilence && States().Values.Any(s => s.Answered && s.Misses is > 0 and < MissesToAlert))
+        {
+            var soon = at.ToUniversalTime() + RecheckAfter;
+            return soon < usual ? soon : usual;
+        }
+        return usual;
     }
 
     // ------------------------------------------------------------ the packets
@@ -249,9 +272,48 @@ public sealed class DhcpProbe : BackgroundService
             var result = new Result(now.ToString("o"), error, nets);
             _store.SetSetting("dhcpProbeResult", JsonSerializer.Serialize(result));
             foreach (var n in nets) foreach (var of in n.Offers) _traffic.NoteDhcpServer(of.Server, of.Mac, n.Subnet);
+            if (error is null) WatchForSilence(nets);
             return result;
         }
         finally { _busy.Release(); }
+    }
+
+    /// <summary>
+    /// Keeps count, per network, of checks in a row that heard no DHCP server on a network where one has answered before, and says so once the
+    /// count reaches <see cref="MissesToAlert"/>, and again when a server answers. A check that couldn't ask (no address here, a send error, port
+    /// 68 unavailable) says nothing about the server, so it changes nothing.
+    /// </summary>
+    private void WatchForSilence(List<NetworkResult> nets)
+    {
+        var states = States();
+        foreach (var gone in states.Keys.Where(k => nets.All(n => n.Subnet != k)).ToList()) states.Remove(gone);
+        var tell = AlertOnSilence;
+        foreach (var n in nets)
+        {
+            states.TryGetValue(n.Subnet, out var was);
+            was ??= new NetState(false, 0, false);
+            if (n.Offers.Count > 0)
+            {
+                if (was.Alerted && tell)
+                    _traffic.Notify("dhcp-up", $"DHCP is answering again on {n.Subnet}",
+                        $"{string.Join(", ", n.Offers.Select(o => o.Server))} answered BAMF's DHCP check on {n.Subnet} after it had gone quiet there.", "back:" + n.Subnet);
+                states[n.Subnet] = new NetState(true, 0, false);
+            }
+            else if (n.Error is null && was.Answered)
+            {
+                var misses = was.Misses + 1;
+                var alerted = was.Alerted;
+                if (misses >= MissesToAlert && !alerted && tell)
+                {
+                    alerted = true;
+                    _traffic.Notify("dhcp", $"No DHCP server is answering on {n.Subnet}",
+                        $"A DHCP server answered BAMF's check on {n.Subnet} before, but the last {misses} checks heard nothing. If it is down or its pool is full, " +
+                        "devices that need an address there won't get one.", "silent:" + n.Subnet);
+                }
+                states[n.Subnet] = new NetState(true, misses, alerted);
+            }
+        }
+        _store.SetSetting("dhcpProbeState", JsonSerializer.Serialize(states));
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)

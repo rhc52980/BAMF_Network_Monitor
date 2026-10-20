@@ -2,7 +2,7 @@ using LanWatch.Services;
 
 namespace LanWatch.Api;
 
-internal sealed record DhcpProbeRequest(bool? Enabled, int? Hours);
+internal sealed record DhcpProbeRequest(bool? Enabled, int? Hours, bool? AlertOnSilence);
 
 /// <summary>The DHCP probe: what it last found, its schedule, and a button to ask now.</summary>
 internal static class DhcpProbeEndpoints
@@ -11,7 +11,7 @@ internal static class DhcpProbeEndpoints
 
     private static object Json(DhcpProbe p) => new
     {
-        enabled = p.Enabled, hours = p.Hours, last = p.Last, nextDue = p.NextDue()?.ToString("o"),
+        enabled = p.Enabled, hours = p.Hours, alertOnSilence = p.AlertOnSilence, last = p.Last, nextDue = p.NextDue()?.ToString("o"),
         clientMac = string.Join(":", DhcpProbe.ClientMac.Select(b => b.ToString("x2"))),
     };
 
@@ -24,6 +24,7 @@ internal static class DhcpProbeEndpoints
             if (body.Hours is { } h && h is < 1 or > 168) return Results.BadRequest(new { error = "From 1 to 168 hours." });
             if (body.Enabled is { } on) store.SetSetting("dhcpProbe", on ? "true" : "false");
             if (body.Hours is { } hours) store.SetSetting("dhcpProbeHours", hours.ToString());
+            if (body.AlertOnSilence is { } tell) store.SetSetting("dhcpSilentAlert", tell ? "true" : "false");
             return Results.Json(Json(probe));
         });
 

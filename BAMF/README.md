@@ -1902,8 +1902,8 @@ scan, or delete a thing.
 | POST | `/api/service-watch/try` | The same body; checks once without saving and answers `{"ok", "ms", "slow", "error", "url", "summary"}` |
 | DELETE | `/api/service-watch/{id}` | Stop watching a service, and drop its readings |
 | POST | `/api/settings/service-watch` | Body `{"enabled": false}` — switch the service watch off, or back on |
-| GET | `/api/dhcp-probe` | The DHCP check: `{"enabled", "hours", "nextDue", "clientMac", "last": {"at", "error", "networks": [{"subnet", "selfIp", "error", "offers": [{"server", "mac", "offered", "mask", "gateways", "dns", "domain", "leaseSeconds", "ntp"}]}]}}` |
-| POST | `/api/settings/dhcp-probe` | Body `{"enabled": true, "hours": 24}`, either or both — on or off, and how often (1 to 168 hours, 24 by default) |
+| GET | `/api/dhcp-probe` | The DHCP check: `{"enabled", "hours", "alertOnSilence", "nextDue", "clientMac", "last": {"at", "error", "networks": [{"subnet", "selfIp", "error", "offers": [{"server", "mac", "offered", "mask", "gateways", "dns", "domain", "leaseSeconds", "ntp"}]}]}}` |
+| POST | `/api/settings/dhcp-probe` | Body `{"enabled": true, "hours": 24, "alertOnSilence": true}`, any of them — on or off, how often (1 to 168 hours, 24 by default), and whether to alert when a network's DHCP goes quiet |
 | POST | `/api/dhcp-probe/run` | Ask now, whatever the schedule, and answer as `GET /api/dhcp-probe` does; 429 if asked less than ten seconds ago |
 | POST | `/api/settings/first-week-report` | Body `{"enabled": false}` — switch a new device's first-week report off, or back on |
 | GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
@@ -3943,6 +3943,18 @@ five seconds.
   not asked.
 - **Some servers ignore a client they don't know**, or rate-limit; "nothing
   answered" means just that, not that there's no DHCP server.
+
+**When DHCP goes quiet.** A network where a server has answered the check
+before, and then doesn't, means the server is down or its pool is full, and any
+device that needs an address there won't get one. BAMF doesn't take one silent
+check for that, since a server can miss a single question: it asks again ten
+minutes later, and if that is silent too it raises an alert ("No DHCP server is
+answering on 192.168.30.0/24"), once. When a server answers again it says so.
+A network where nothing has ever answered is left alone, as is a check that
+couldn't ask at all (no address on that network, port 68 unavailable): those say
+nothing about the server. The switch is **Alert when DHCP goes quiet** under
+Settings → Scanning → DHCP check, or `"alertOnSilence"` in
+`POST /api/settings/dhcp-probe`, and is on unless you switch it off.
 
 **Ask now** in Settings runs it at once, at most once in ten seconds.
 `GET /api/dhcp-probe` has the last result and the schedule.
