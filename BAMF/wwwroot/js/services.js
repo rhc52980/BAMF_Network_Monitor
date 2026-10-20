@@ -216,7 +216,7 @@ function renderServices() {
         ` <button type="button" class="toggle" id="dhcpAskNow" style="margin-left:6px">Ask again</button>`);
   html.push(block("DHCP", (dhcpRows.join("") || note(watching ? "No DHCP offer heard yet. One turns up the next time a device asks for an address." : probe && !probe.error ? "" : why)) + probeNote));
   const raRows = (t.ra || []).map(r =>
-    `<div class="svc-row"><span class="mono">${esc(r.ip)}</span><span class="meta">${esc(r.name && r.name !== r.mac ? r.name + " · " : "")}${esc(r.mac)} · ${r.adverts} advert${r.adverts === 1 ? "" : "s"} · last ${esc(fmtAgo(r.lastSeen))}</span>${trust("ra", r.mac, r.trusted)}</div>`);
+    `<div class="svc-row"><span class="mono">${esc(r.mac)}</span><span class="meta">${esc(r.name && r.name !== r.mac ? r.name + " · " : "")}${esc(r.ip)} · ${r.adverts} advert${r.adverts === 1 ? "" : "s"} · last ${esc(fmtAgo(r.lastSeen))}</span>${trust("ra", r.mac, r.trusted)}</div>`);
   const dnsSeen = new Set((t.dns || []).map(d => d.ip));
   const handed = [];
   for (const n of probeNets) for (const o of n.offers || []) for (const ip of o.dns || []) if (!handed.some(h => h.ip === ip && h.subnet === n.subnet)) handed.push({ ip, subnet: n.subnet, server: o.server });
