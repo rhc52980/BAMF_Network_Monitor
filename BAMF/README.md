@@ -979,13 +979,22 @@ Some themes have a little life in them:
   off. A new device nobody has marked known is **a gatecrasher** held at the
   velvet rope (see [Intruders](#intruders)); once it's known a volley goes up.
   Reduced motion keeps three bursts hanging over the rooftops.
-- **Thanksgiving**: autumn leaves coming down and tumbling as they go, over
-  warm browns and burnt orange, with pumpkins and gourds set out along the
-  bottom. Every so often a turkey struts across the foot of the screen, tail
-  fanned, dipping his head to peck as he walks; a finished scan blows a gust
-  of leaves through and puffs him up. A new device nobody has marked known is
-  **a raccoon** at the pie (see [Intruders](#intruders)). Reduced motion lays the leaves along the
-  bottom and leaves the turkey out of it.
+- **Thanksgiving**: a harvest dusk. A big orange moon comes up over a farm: a
+  red barn, a silo and a house whose windows flicker and whose chimney smokes,
+  with a scarecrow and two crows in the corn, shocks and hay bales, a fence
+  along the hill and two maples in red and gold that shed leaves into a wind
+  that comes and goes. Geese cross the sky in a V now and then, and every so
+  often a turkey struts across the foot of the screen, tail fanned, dipping his
+  head to peck as he walks. In front of the page: a garland of leaves and gourds
+  along the top, a cornucopia and a stack of pumpkins in the corners, a crimped
+  pie-crust edge on the cards with a sprig of leaves on the bigger ones, pennants
+  under the header, a hay-rope scrollbar, and a title that shifts between the
+  colours of the leaves. On the Map each device wears a pilgrim's hat. A
+  finished scan blows a gust of leaves through, puffs the turkey up and
+  startles the crows off the scarecrow. A new device nobody has marked known is
+  **a raccoon** at the pie (see [Intruders](#intruders)). Reduced motion lays the
+  leaves along the bottom, holds the scene still and leaves the turkey and the
+  geese out of it.
 - **Hotdog Stand**: a tribute to Windows 3.1's loudest colour scheme. It's
   mustard yellow with ketchup-red title bars, in the bold system font, with a
   striped awning under the header. The next-scan bar is a sausage sliding into

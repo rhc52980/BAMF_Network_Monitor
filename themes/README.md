@@ -137,7 +137,7 @@ Seasonal. Holiday Spirit puts these on by date.
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="newyear/preview.webp" alt="The New Year theme"><br><b>New Year</b> <sub><code>newyear</code></sub><br>Fireworks over a midnight skyline. An unknown new device is a gatecrasher, held at the velvet rope.</td>
-<td width="50%" valign="top"><img src="thanksgiving/preview.webp" alt="The Thanksgiving theme"><br><b>Thanksgiving</b> <sub><code>thanksgiving</code></sub><br>Leaves coming down over a harvest table, and a turkey. An unknown new device is a raccoon at the pie.</td>
+<td width="50%" valign="top"><img src="thanksgiving/preview.webp" alt="The Thanksgiving theme"><br><b>Thanksgiving</b> <sub><code>thanksgiving</code></sub><br>A harvest dusk: a big orange moon over a farm with a barn, silo and a house with flickering windows and a smoking chimney, a scarecrow in the corn, shocks and hay bales, and maples that shed leaves into a wind that comes and goes. Geese fly over in a V and a turkey struts through. A garland of leaves and gourds hangs from the header, with a cornucopia and a stack of pumpkins in the corners, a pie-crust edge on the cards and a hay-rope scrollbar. A pilgrim hat on each device on the Map. An unknown new device is a raccoon at the pie, and the whole farm goes GOBBLE GOBBLE GOBBLE.</td>
 </tr>
 </table>
 

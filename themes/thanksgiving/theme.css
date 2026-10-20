@@ -1,5 +1,178 @@
 /* Thanksgiving: a BAMF theme. BAMF loads this file only while the theme is on. */
 
+[data-theme="thanksgiving"] {
+  --bg:#1a0f0a; --panel:rgba(44,25,14,.9); --panel-2:rgba(58,34,18,.92); --line:#6b4224;
+  --text:#f7ead6; --text-dim:#c8a885; --led-on:#a7c04f; --led-warn:#f0b85a;
+  --led-off:#54391f; --danger:#e0503a; --focus:#f0952f; --radius:10px;
+  --tg-orange:#f0952f; --tg-gold:#f0c15a; --tg-red:#d1452f;
+}
+
+[data-theme="thanksgiving"] ::selection { background:#c9701f; color:#fff8ec; }
+
+/* ---------------------------------------------------------------- the page itself ---- */
+
+/* The dusk sits behind the page, so what lies over it is a little see-through, kept dense enough that text never fights the picture. */
+[data-theme="thanksgiving"] header {
+  background:
+    repeating-linear-gradient(90deg, rgba(255,230,190,.035) 0 2px, transparent 2px 15px),
+    linear-gradient(180deg, rgba(48,27,14,.95), rgba(34,19,10,.86));
+  border-bottom:0; box-shadow:0 6px 24px rgba(0,0,0,.5); position:relative; z-index:2;
+}
+
+/* A hay rope along the header's lower edge, and a row of pennants hanging off it. */
+[data-theme="thanksgiving"] header::before {
+  content:""; position:absolute; left:0; right:0; bottom:0; height:4px; pointer-events:none;
+  background:repeating-linear-gradient(-45deg, #c9a35a 0 6px, #8c6428 6px 12px);
+}
+[data-theme="thanksgiving"] header::after {
+  content:""; position:absolute; left:0; right:0; bottom:-18px; height:19px; pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='19' viewBox='0 0 160 19'%3E%3Cpath d='M2 0H26L14 17Z' fill='%23c2492b'/%3E%3Cpath d='M28 0H52L40 17Z' fill='%23e8873d'/%3E%3Cpath d='M54 0H78L66 17Z' fill='%23d9a23f'/%3E%3Cpath d='M80 0H104L92 17Z' fill='%23a7642f'/%3E%3Cpath d='M106 0H130L118 17Z' fill='%23c2492b'/%3E%3Cpath d='M132 0H156L144 17Z' fill='%23e8a33d'/%3E%3Cpath d='M2 0H156' stroke='%23e8d1a0' stroke-opacity='.55' stroke-width='1.4'/%3E%3C/svg%3E") repeat-x left top / 160px 19px;
+}
+
+/* The title takes its colour from the leaves: orange, gold and red in turn. */
+[data-theme="thanksgiving"] .brand h1 {
+  color:#f0952f; text-shadow:0 0 10px rgba(240,149,47,.55); letter-spacing:.02em;
+  animation:tg-title 11s ease-in-out infinite;
+}
+[data-theme="thanksgiving"] .brand h1::after { content:" \1F983"; text-shadow:none; }
+@keyframes tg-title {
+  0%,100% { color:#f0952f; text-shadow:0 0 10px rgba(240,149,47,.6), 0 0 24px rgba(232,120,40,.3); }
+  33% { color:#f0c15a; text-shadow:0 0 10px rgba(240,193,90,.6), 0 0 24px rgba(240,170,60,.3); }
+  66% { color:#e0613f; text-shadow:0 0 10px rgba(224,97,63,.6), 0 0 24px rgba(209,69,47,.3); }
+}
+
+[data-theme="thanksgiving"] .chip, [data-theme="thanksgiving"] .brand .chip { border-color:#6b4a2a; }
+
+/* Cards: warm dark glass with a crimped pie-crust edge along the top, and a sprig of leaves in the corner of the bigger ones. */
+[data-theme="thanksgiving"] .stat, [data-theme="thanksgiving"] .act-card, [data-theme="thanksgiving"] .set-card {
+  position:relative;
+  background:linear-gradient(180deg, rgba(62,36,19,.94), rgba(38,22,12,.94)); border:1px solid #6b4a2a;
+  box-shadow:0 8px 24px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,225,170,.12);
+  transition:border-color .2s, box-shadow .2s;
+}
+[data-theme="thanksgiving"] .stat::before, [data-theme="thanksgiving"] .act-card::before, [data-theme="thanksgiving"] .set-card::before {
+  content:""; position:absolute; left:6px; right:6px; top:-3px; height:7px; pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='7' viewBox='0 0 16 7'%3E%3Cpath d='M0 5Q4 -1 8 3Q12 -1 16 5' stroke='%23d99a4a' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") repeat-x left top / 16px 7px;
+}
+[data-theme="thanksgiving"] .stat:hover, [data-theme="thanksgiving"] .act-card:hover, [data-theme="thanksgiving"] .set-card:hover {
+  border-color:#c9701f; box-shadow:0 8px 28px rgba(0,0,0,.5), 0 0 18px rgba(240,149,47,.18), inset 0 1px 0 rgba(255,225,170,.2);
+}
+[data-theme="thanksgiving"] .act-card::after, [data-theme="thanksgiving"] .set-card::after {
+  content:""; position:absolute; top:6px; right:8px; width:62px; height:40px; pointer-events:none; opacity:.9;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='62' height='40' viewBox='0 0 62 40'%3E%3Cpath d='M6 36Q24 28 56 6' stroke='%236b4a24' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3Cg stroke-linejoin='round'%3E%3Cpath d='M24 28l-3-7 6 1 1-6 4 5 5-4-1 7 6 0-5 4z' fill='%23d1452f' stroke='%238a2a1a' stroke-width='.7' transform='rotate(-24 30 24)'/%3E%3Cpath d='M42 16l-3-7 6 1 1-6 4 5 5-4-1 7 6 0-5 4z' fill='%23e8a33d' stroke='%23a8681a' stroke-width='.7' transform='rotate(-24 48 12)'/%3E%3C/g%3E%3Cellipse cx='12' cy='30' rx='4' ry='5' fill='%23b9843a' stroke='%236b4420' stroke-width='.8'/%3E%3Cpath d='M8 27q4-5 8 0z' fill='%236b4420'/%3E%3C/svg%3E") no-repeat right top / contain;
+}
+[data-theme="thanksgiving"] .stat .num { color:#f0c15a; text-shadow:0 0 10px rgba(240,193,90,.45); }
+[data-theme="thanksgiving"] .stat.alert .num { color:#e8613f; text-shadow:0 0 10px rgba(232,97,63,.65); }
+[data-theme="thanksgiving"] .stat .lbl { text-transform:uppercase; letter-spacing:.1em; font-size:10.5px; color:var(--text-dim); }
+
+[data-theme="thanksgiving"] .act-card h3, [data-theme="thanksgiving"] .set-card-title, [data-theme="thanksgiving"] .set-sec-title, [data-theme="thanksgiving"] .modal-title {
+  color:#f0c15a; letter-spacing:.04em; text-shadow:0 0 8px rgba(240,193,90,.35);
+}
+
+/* The view tabs: the current one is lit like a lantern. */
+[data-theme="thanksgiving"] .view-btn { transition:color .2s, text-shadow .2s; }
+[data-theme="thanksgiving"] .view-btn:hover { color:#ffd28a; text-shadow:0 0 8px rgba(240,180,80,.5); }
+[data-theme="thanksgiving"] .view-btn.active {
+  color:#fff1d6; border-bottom-color:#f0952f; text-shadow:0 0 10px rgba(240,149,47,.7);
+  box-shadow:0 8px 14px -10px #f0952f;
+}
+[data-theme="thanksgiving"] .tab.active { background:#4a2c14; color:#fff1d6; box-shadow:inset 0 -2px 0 #f0952f; }
+[data-theme="thanksgiving"] .tabs { border-color:#6b4a2a; }
+
+[data-theme="thanksgiving"] .export-btn, [data-theme="thanksgiving"] .toggle, [data-theme="thanksgiving"] .chipbar .chip, [data-theme="thanksgiving"] .chip {
+  transition:border-color .2s, box-shadow .2s, background .2s;
+}
+[data-theme="thanksgiving"] .export-btn:hover, [data-theme="thanksgiving"] .toggle:hover {
+  border-color:#f0c15a; box-shadow:0 0 12px rgba(240,193,90,.35); background:rgba(240,193,90,.08);
+}
+
+/* The device table gets its own backing, so the scene never shows through the rows. */
+[data-theme="thanksgiving"] table, [data-theme="thanksgiving"] .feed { background:rgba(30,17,9,.92); }
+[data-theme="thanksgiving"] thead th { color:#f0c15a; letter-spacing:.1em; border-bottom:1px solid #7a5a2c; }
+[data-theme="thanksgiving"] tbody tr { border-bottom:1px dotted rgba(200,168,133,.26); }
+[data-theme="thanksgiving"] tbody tr:hover { background:rgba(240,149,47,.08); }
+[data-theme="thanksgiving"] tbody tr.is-unknown { background:rgba(224,80,58,.09); }
+[data-theme="thanksgiving"] .led.on { background:#a7c04f; box-shadow:0 0 8px #a7c04f, 0 0 16px rgba(167,192,79,.45); }
+[data-theme="thanksgiving"] .badge.known { color:#c8e07a; text-shadow:0 0 6px rgba(167,192,79,.4); }
+
+[data-theme="thanksgiving"] .toast { border:1px solid #c9701f; box-shadow:0 0 22px rgba(240,149,47,.28); }
+[data-theme="thanksgiving"] .modal { border:1px solid #c9701f; box-shadow:0 0 40px rgba(240,149,47,.16), 0 16px 60px rgba(0,0,0,.7); }
+
+/* Text that sits on the page itself, not in a card, gets a backing, so the moon never makes it hard to read. */
+[data-theme="thanksgiving"] .map-note { background:rgba(30,17,9,.8); border-radius:8px; padding:10px 14px; }
+
+/* A scrollbar that is a hay rope. */
+[data-theme="thanksgiving"] { scrollbar-color:#c9701f #1c1009; }
+[data-theme="thanksgiving"] ::-webkit-scrollbar { width:11px; height:11px; }
+[data-theme="thanksgiving"] ::-webkit-scrollbar-track { background:#1c1009; }
+[data-theme="thanksgiving"] ::-webkit-scrollbar-thumb {
+  background:repeating-linear-gradient(-45deg, #c9701f 0 6px, #e8c477 6px 12px); border-radius:6px; border:2px solid #1c1009;
+}
+
+/* ---------------------------------------------------------------- behind the page: the harvest dusk ---- */
+
+.tg-sky { position:absolute; inset:0;
+  background:linear-gradient(180deg, #150a1a 0%, #2a1126 24%, #5b2023 50%, #a8461f 76%, #e08a2e 100%); }
+
+.tg-stars { position:absolute; inset:0; }
+.tg-star { position:absolute; border-radius:50%; background:#ffe9c4; opacity:.8; }
+.tg-star.tw { animation:tg-twinkle var(--d) ease-in-out var(--o) infinite alternate; }
+@keyframes tg-twinkle { from { opacity:.2; } to { opacity:.95; } }
+
+/* The harvest moon: big and orange, low enough to rise behind the farm. */
+.tg-moon { position:absolute; left:68%; top:28vh; width:clamp(110px, 17vw, 240px); transform:translateX(-50%); opacity:.92; }
+.tg-moon svg { display:block; width:100%; height:auto; position:static; overflow:visible;
+  filter:drop-shadow(0 0 22px rgba(255,170,70,.75)) drop-shadow(0 0 70px rgba(255,140,50,.5)); }
+
+.tg-cloud { position:absolute; left:0; width:var(--w); height:calc(var(--w) * .2); opacity:.5; filter:blur(10px);
+  background:radial-gradient(ellipse at 30% 60%, rgba(90,40,50,.95), transparent 62%), radial-gradient(ellipse at 70% 50%, rgba(110,50,45,.85), transparent 60%);
+  animation:tg-cloud var(--d) linear var(--o) infinite; }
+@keyframes tg-cloud { from { transform:translateX(-30vw); } to { transform:translateX(105vw); } }
+
+.tg-land { position:absolute; left:0; bottom:0; width:100%; }
+.tg-land svg { display:block; width:100%; height:auto; max-height:80vh; position:static; }
+
+.tg-tree { animation:tg-sway var(--d, 7s) ease-in-out var(--o, 0s) infinite alternate; }
+@keyframes tg-sway { from { transform:rotate(-1.1deg); } to { transform:rotate(1.1deg); } }
+
+.tg-win { animation:tg-flick 5.5s ease-in-out infinite; }
+.tg-win.b { animation-duration:7s; animation-delay:-2s; }
+.tg-win.c { animation-duration:6.2s; animation-delay:-4s; }
+@keyframes tg-flick { 0%,100% { opacity:1; } 18% { opacity:.82; } 24% { opacity:1; } 61% { opacity:.9; } 66% { opacity:.74; } 72% { opacity:1; } }
+
+.tg-smoke circle { opacity:0; transform-box:fill-box; transform-origin:center; animation:tg-smoke var(--d) ease-out var(--o) infinite; }
+@keyframes tg-smoke { 0% { opacity:0; transform:translate(0, 0) scale(.5); } 15% { opacity:.5; } 100% { opacity:0; transform:translate(34px, -96px) scale(3.2); } }
+
+.tg-crow { transform-box:fill-box; transform-origin:center bottom; }
+.tg-bg.startled .tg-crow { animation:tg-crow-off 2.6s ease-in forwards; }
+.tg-bg.startled .tg-crow.b { animation-delay:.2s; }
+@keyframes tg-crow-off { 0% { transform:translate(0,0); opacity:1; } 100% { transform:translate(-120px, -190px); opacity:0; } }
+
+.tg-leaves { position:absolute; inset:0; width:100%; height:100%; }
+
+/* Geese in a V, crossing the sky behind the farm's chimney smoke. */
+.tg-flockbox { position:absolute; inset:0; overflow:hidden; }
+.tg-geese { position:absolute; left:0; animation:tg-fly linear forwards; opacity:.9; }
+.tg-geese svg { display:block; position:static; overflow:visible; }
+.tg-geese.rtl { animation-name:tg-fly-rtl; }
+.tg-geese.rtl svg { transform:scaleX(-1); }
+.tg-flap { transform-box:fill-box; transform-origin:center; animation:tg-flap .55s ease-in-out var(--o, 0s) infinite alternate; }
+@keyframes tg-flap { from { transform:scaleY(1.1); } to { transform:scaleY(-.5); } }
+@keyframes tg-fly { from { transform:translateX(-260px); } to { transform:translateX(calc(100vw + 60px)); } }
+@keyframes tg-fly-rtl { from { transform:translateX(calc(100vw + 60px)); } to { transform:translateX(-260px); } }
+
+/* ---------------------------------------------------------------- in front: the garland and the corners ---- */
+
+#festive .tg-sway { transform-box:fill-box; transform-origin:50% 0; animation:tg-swing var(--d) ease-in-out var(--o) infinite alternate; }
+@keyframes tg-swing { from { transform:rotate(-7deg); } to { transform:rotate(7deg); } }
+#festive .orn { animation:tg-orn var(--d) ease-in-out infinite alternate; }
+@keyframes tg-orn { from { transform:rotate(-4deg); } to { transform:rotate(4deg); } }
+
+.tg-corner { position:absolute; bottom:2px; filter:drop-shadow(0 3px 6px rgba(20,8,0,.5)); }
+.tg-corner svg { display:block; height:auto; }
+
+/* ---------------------------------------------------------------- the turkey ---- */
+
 /* A turkey struts along the bottom of the screen, in front of the page like
    the Aquarium's crab: the ground is under the table, so behind it he'd
    never be seen. */
@@ -27,24 +200,6 @@
 @keyframes tg-bob-rtl { from { transform: scaleX(-1); } to { transform: scaleX(-1) translateY(3px); } }
 
 @keyframes tg-peck { 0%, 62%, 100% { transform: rotate(0); } 72% { transform: rotate(16deg); } 82% { transform: rotate(2deg); } }
-
-/* ---- Thanksgiving: leaves coming down over a harvest table ---- */
-
-[data-theme="thanksgiving"] {
-  --bg:#1a1008; --panel:rgba(40,24,13,.95); --panel-2:rgba(53,32,17,.96); --line:#5c3a1e;
-  --text:#f7ead6; --text-dim:#c0a081; --led-on:#a7c04f; --led-warn:#e8a33d;
-  --led-off:#4e3721; --danger:#d1452f; --focus:#e8873d; --radius:10px;
-}
-
-[data-theme="thanksgiving"] .brand h1 { color:#e8873d; text-shadow:0 0 10px rgba(232,135,61,.5); }
-
-[data-theme="thanksgiving"] .brand h1::after { content:" 🦃"; text-shadow:none; }
-
-[data-theme="thanksgiving"] header { background:linear-gradient(#47291339, #2a180b); border-bottom:2px solid #7a4a22; }
-
-[data-theme="thanksgiving"] thead th { color:#e8a33d; }
-
-[data-theme="thanksgiving"] table, [data-theme="thanksgiving"] .feed { background:rgba(30,18,9,.96); }
 
 /* An intruder: a raccoon at the pie, a slice in its paws. */
 
@@ -79,6 +234,11 @@
 @keyframes tg-gobble { 0% { transform: translateX(-50%) scale(.4); opacity: 0; } 10% { transform: translateX(-50%) scale(1.08); opacity: 1; }
   16%, 28% { transform: translateX(-50%) rotate(-2deg); } 22% { transform: translateX(-50%) rotate(2deg); } 85% { opacity: 1; } 100% { transform: translateX(-50%); opacity: 0; } }
 
+@media (max-width: 760px) { .tg-moon { width: 84px; } .tg-corner svg { width: 74px; } }
+
 @media (prefers-reduced-motion: reduce) {
-  .tg-coon, .tg-alarm, .tg-gobble { animation: none !important; }
+  .tg-coon, .tg-alarm, .tg-gobble, .tg-star.tw, .tg-cloud, .tg-tree, .tg-win, .tg-smoke circle, .tg-flap,
+  [data-theme="thanksgiving"] .brand h1, #festive .tg-sway, #festive .orn { animation: none !important; }
+  .tg-star.tw { opacity: .8; }
+  .tg-smoke circle { opacity: .25; }
 }
