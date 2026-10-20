@@ -93,7 +93,7 @@ public sealed class HealthScore : BackgroundService
         try { diskLow = _disk.Snapshot(now).Volumes.Any(v => v.Low); } catch (Exception ex) { _log.LogDebug(ex, "Disk snapshot for the score failed"); diskLow = false; }
         return new Inputs(
             UnknownOnline: hosts.Count(h => h.Online && !h.Known),
-            SecurityAlerts: _store.GetAlerts(200, week).Count(a => a.Kind == "security"),
+            SecurityAlerts: _store.GetAlerts(200, week).Count(a => a.Kind == "security") + TrafficAlertsSince(week),
             Telnet: Port(23), Ftp: Port(21), Vnc: Port(5900),
             CertsExpired: certs.Count(c => CertDays(c.NotAfter) < 0),
             CertsExpiring: certs.Count(c => CertDays(c.NotAfter) is >= 0 and <= 14),
@@ -111,6 +111,15 @@ public sealed class HealthScore : BackgroundService
             QualityProblems: _wan.Enabled && _wan.QualityEnabled ? _wan.QualityProblems.Count : 0,
             ServicesDown: _services.Enabled ? _services.Snapshot(now).Count(r => r.State == "down") : 0);
     }
+
+    /// <summary>
+    /// The traffic monitor's alerts since then that are about the network being tampered with: a new DHCP or DNS server, a device that changed its
+    /// DNS server, a new IPv6 router, and a network whose DHCP went quiet. These are kept in memory and a saved list apart from the other alerts,
+    /// so they were never counted. "Answering again" is good news and isn't one.
+    /// </summary>
+    private int TrafficAlertsSince(DateTime sinceUtc) =>
+        _scanner.Traffic.Alerts().Count(a => a.Kind is "dhcp" or "dns" or "ra"
+            && DateTime.TryParse(a.At, null, System.Globalization.DateTimeStyles.RoundtripKind, out var at) && at.ToUniversalTime() >= sinceUtc);
 
     public Score Now() => Compute(Gather());
 
