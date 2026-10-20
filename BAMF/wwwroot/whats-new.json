@@ -2,6 +2,16 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.22.0",
+      "date": "2026-10-20",
+      "items": [
+        "BAMF alerts when a network's DHCP goes quiet. If a DHCP server has answered BAMF's check on a network before and then doesn't, it asks again ten minutes later, and if it is still silent it raises one alert: the server is down or its pool is full, and devices there can't get an address. It says so again when a server answers. A network where nothing ever answered, or a check that couldn't ask, says nothing. Settings, DHCP check, has the switch, on by default.",
+        "BAMF alerts when a new IPv6 router announces itself. With the traffic monitor on, a device not heard announcing itself as a router before raises an alert, since a fake router can put a device in the middle of everyone's traffic. The routers heard are listed in the Network services card under IPv6 routers, with Trust and Forget, and kept across restarts. The first ones are learned quietly. Settings, Security, has the switch, on by default.",
+        "The network score now counts the traffic monitor's alerts among the week's security alerts: a new DHCP or DNS server, a device changing its DNS server, a new IPv6 router and a network whose DHCP went quiet. They were kept apart from the alerts the score read, so a rogue DHCP server couldn't move it. Clear on the Alerts card gives the points back.",
+        "After a sweep, names are looked up sixteen at a time instead of one after another, so a big network's pass no longer takes minutes when many devices have no name record."
+      ]
+    },
+    {
       "version": "2.21.0",
       "date": "2026-10-19",
       "items": [

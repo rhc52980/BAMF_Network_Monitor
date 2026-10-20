@@ -44,4 +44,20 @@ public class ScoreTrafficTests
         traffic.ClearAlerts();
         Assert.Equal(0, score.Gather().SecurityAlerts);
     }
+
+    [Fact]
+    public void A_new_ipv6_router_and_dhcp_going_quiet_count_but_dhcp_answering_again_does_not()
+    {
+        using var app = new BamfApp();
+        var score = app.Services.GetRequiredService<HealthScore>();
+        var traffic = app.Services.GetRequiredService<TrafficMonitor>();
+        traffic.RouterAdvertHeard("AA:BB:CC:00:00:01", "fe80::1", 1800);          // learned quietly
+        traffic.RouterAdvertHeard("AA:BB:CC:00:00:66", "fe80::66", 1800);         // a new one alerts
+        Assert.Equal(1, score.Gather().SecurityAlerts);
+
+        traffic.Notify("dhcp", "No DHCP server is answering on 192.168.30.0/24", "x", "silent:192.168.30.0/24");
+        Assert.Equal(2, score.Gather().SecurityAlerts);
+        traffic.Notify("dhcp-up", "DHCP is answering again on 192.168.30.0/24", "x", "back:192.168.30.0/24");
+        Assert.Equal(2, score.Gather().SecurityAlerts);
+    }
 }
