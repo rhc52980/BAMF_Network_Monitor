@@ -401,6 +401,9 @@ public sealed class TrafficMonitor : IDisposable
         return $"{name} ({h.Ip}, {mac}{(h.Vendor != "" ? ", " + h.Vendor : "")})";
     }
 
+    /// <summary>Raises an alert on another watch's behalf (the DHCP check), listed and delivered like the monitor's own, once a day per key.</summary>
+    public void Notify(string kind, string title, string detail, string key) => Raise(kind, title, detail, key);
+
     private void Raise(string kind, string title, string detail, string key)
     {
         lock (_lock)

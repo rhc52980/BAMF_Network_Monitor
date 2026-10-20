@@ -17,7 +17,7 @@ public partial class HostStore
     public static readonly string[] TransferKeys =
     {
         "activeArpScan", "addressWatch", "alertRetry", "allQuiet", "allQuietHour", "arpWatch", "autoIgnoreRandomizedMacs", "backupHour",
-        "backupKeep", "backupNightly", "bulkSelect", "cascadeAlert", "certWatch", "dhcpProbe", "dhcpProbeHours", "diskAlert", "diskAlertPercent", "dnsWatch",
+        "backupKeep", "backupNightly", "bulkSelect", "cascadeAlert", "certWatch", "dhcpProbe", "dhcpProbeHours", "dhcpSilentAlert", "diskAlert", "diskAlertPercent", "dnsWatch",
         "firstWeekReport", "flapAlert", "flapDrops", "flapHold", "flowWatch", "greynoise", "heartbeatEnabled", "heartbeatMinutes",
         "historyRetentionDays", "holidaySpirit", "ipv6Watch", "latencyAlert", "latencyAlertMs", "latencyProbe", "mdnsListen",
         "networkScore", "networkTools", "newDays", "nightFrom", "nightMode", "nightTheme", "nightTo", "offlineAfterMissedScans",

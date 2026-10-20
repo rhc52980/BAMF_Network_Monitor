@@ -442,6 +442,12 @@
           </span>
           <span class="set-field speed-fields"><select class="modal-input" id="setDhcpProbe" aria-label="How often to ask"><option value="off">Never</option><option value="6">Every 6 hours</option><option value="12">Every 12 hours</option><option value="24">Every day</option><option value="168">Every week</option></select><button type="button" class="export-btn" id="setDhcpProbeRun">Ask now</button></span>
         </label>
+        <label class="set-row">
+          <span class="set-label">Alert when DHCP goes quiet
+            <span class="set-hint">When a network where a DHCP server has answered stops getting an answer, BAMF asks again ten minutes later and, if it is still silent, alerts: the server is down or its pool is full, and devices there can't get an address. It alerts again when a server answers.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setDhcpSilent" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
       </div>
       <div class="set-card">
         <div class="set-card-title">Networks</div>
