@@ -108,11 +108,12 @@ public sealed class TrafficMonitor : IDisposable
 
     private void Start(IReadOnlyCollection<IPAddress> localIps)
     {
-        if (!Available) { LastError = "the Npcap driver isn't installed"; return; }
+        if (!Available) { LastError = ArpScanner.WhyNot; return; }
         var opened = new List<string>();
         try
         {
-            foreach (var shared in LibPcapLiveDeviceList.Instance)
+            if (LinuxPacket.Available) OpenRaw(localIps, opened);
+            else foreach (var shared in LibPcapLiveDeviceList.Instance)
             {
                 var mine = shared.Addresses.Any(a => a.Addr?.ipAddress is { } ip && localIps.Any(l => l.Equals(ip)));
                 if (!mine || shared.Interface is not { } iface) continue;
@@ -166,12 +167,63 @@ public sealed class TrafficMonitor : IDisposable
             try { dev.OnPacketArrival -= OnPacket; dev.StopCapture(); dev.Close(); } catch { }
         }
         _devices.Clear();
+        StopRaw();
         Interfaces = Array.Empty<string>();
         Running = false;
         _log.LogInformation("Traffic monitor stopped");
     }
 
     public void Dispose() { if (Running) Stop(); }
+
+    // ------------------------------------------------------------ raw sockets (Linux)
+
+    private readonly List<(LinuxPacket.Link Link, Thread Reader)> _raw = new();
+    private volatile bool _stopRaw;
+
+    /// <summary>
+    /// The capture on Linux: a promiscuous packet socket on each interface that owns one of the addresses, read by a thread of its own, every
+    /// wanted frame handed to <see cref="Ingest"/>. Receive-only, like the libpcap one.
+    /// </summary>
+    private void OpenRaw(IReadOnlyCollection<IPAddress> localIps, List<string> opened)
+    {
+        _stopRaw = false;
+        var seen = new HashSet<int>();
+        foreach (var ip in localIps)
+        {
+            if (LinuxPacket.IndexOf(ip) is not { } index || !seen.Add(index)) continue;
+            var link = LinuxPacket.Link.Open(index, LinuxPacket.EthAll, true, 200, out var errno);
+            if (link is null) { _log.LogDebug("Traffic monitor: could not open {Ip}: {Why}", ip, LinuxPacket.Reason(errno)); continue; }
+            var reader = new Thread(() => ReadRaw(link)) { IsBackground = true, Name = "bamf-capture-" + ip };
+            reader.Start();
+            _raw.Add((link, reader));
+            opened.Add(ip.ToString());
+        }
+    }
+
+    private void ReadRaw(LinuxPacket.Link link)
+    {
+        var buf = new byte[65536];
+        while (!_stopRaw)
+        {
+            var n = link.Receive(buf);
+            if (n < 0) break;
+            if (n == 0 || !LinuxPacket.WantedFrame(buf, n)) continue;
+            var frame = new byte[n];
+            Buffer.BlockCopy(buf, 0, frame, 0, n);
+            Ingest(frame);
+        }
+    }
+
+    private void StopRaw()
+    {
+        _stopRaw = true;
+        foreach (var (link, reader) in _raw)
+        {
+            try { reader.Join(1500); } catch { }
+            link.Dispose();
+        }
+        _raw.Clear();
+    }
 
     // ------------------------------------------------------------ packets
 

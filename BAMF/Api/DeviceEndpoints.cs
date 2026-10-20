@@ -101,7 +101,7 @@ internal static class DeviceEndpoints
                 buildDate,
                 subnets = scanner.SubnetLabels,
                 scanModes = scanner.SubnetModes,
-                activeArp = new { enabled = scanner.ActiveArpEnabled, npcapAvailable = scanner.NpcapAvailable },
+                activeArp = new { enabled = scanner.ActiveArpEnabled, npcapAvailable = scanner.NpcapAvailable, via = ArpScanner.Via, why = scanner.NpcapAvailable ? null : ArpScanner.WhyNot },
                 autoIgnoreRandom = scanner.AutoIgnoreRandomEnabled,
                 latencyProbe = scanner.LatencyProbeEnabled,
                 // The traffic monitor: bytes per device and DHCP/DNS watching, through Npcap.

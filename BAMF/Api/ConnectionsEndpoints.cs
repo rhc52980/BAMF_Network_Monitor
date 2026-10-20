@@ -57,8 +57,8 @@ internal static class ConnectionsEndpoints
                 r.Ok ? Plural(r.Hosts, "device") : (r.Error ?? "not answering") + (r.FetchedUtc is not null ? ", showing its last answer" : ""), At(r.FetchedUtc), "system"));
 
         var t = scanner.Traffic;
-        if (!scanner.TrafficMonitorEnabled) o.Add(new("traffic", Reads, "Traffic monitor (bandwidth, DHCP and DNS)", "off", "Hears who hands out addresses and answers DNS. Needs Npcap.", null, "scanning"));
-        else if (!TrafficMonitor.Available) o.Add(new("traffic", Reads, "Traffic monitor", "error", "The Npcap driver isn't installed.", null, "scanning"));
+        if (!scanner.TrafficMonitorEnabled) o.Add(new("traffic", Reads, "Traffic monitor (bandwidth, DHCP and DNS)", "off", "Hears who hands out addresses and answers DNS. Needs Npcap on Windows, or raw-socket permission on Linux.", null, "scanning"));
+        else if (!TrafficMonitor.Available) o.Add(new("traffic", Reads, "Traffic monitor", "error", ArpScanner.WhyNot[..1].ToUpperInvariant() + ArpScanner.WhyNot[1..] + ".", null, "scanning"));
         else o.Add(new("traffic", Reads, "Traffic monitor", t.Running ? "ok" : "error",
             t.Running ? $"{t.Frames:N0} frames on {string.Join(", ", t.Interfaces)}" : (t.LastError ?? "Not running."), t.Running ? Iso(t.StartedUtc) : null, "scanning"));
 

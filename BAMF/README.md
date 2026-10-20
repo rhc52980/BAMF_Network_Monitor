@@ -32,7 +32,7 @@ The dashboard at `http://<server>:8840` polls `/api/hosts` every 10 seconds.
 - .NET 10 SDK to build (https://dotnet.microsoft.com/download/dotnet/10.0)
   — the published output can be fully self-contained, so the *server* needs
   nothing installed if you publish that way.
-- Optional, for active ARP scanning: Npcap on Windows, libpcap on Linux.
+- Optional, for active ARP scanning: Npcap on Windows. On Linux nothing needs installing: BAMF opens a raw packet socket itself.
 
 ## Where everything lives
 
@@ -206,7 +206,7 @@ git tag v1.9.0 && git push --tags
 | `Bamf:AutoDownloadOui` | Download the IEEE vendor registry on first run (default true). |
 | `Bamf:UpdateCheck` | Check GitHub daily for a newer release and show a badge (default **false**). Read-only — never downloads or installs. Header toggle overrides this. |
 | `Bamf:UpdateRepo` | Repository the update check reads. Change it if you run a fork. |
-| `Bamf:ActiveArpScan` | Use raw ARP scanning via Npcap/libpcap when available; falls back to ping sweep otherwise. |
+| `Bamf:ActiveArpScan` | Use raw ARP scanning (Npcap on Windows, a raw packet socket on Linux) when available; falls back to ping sweep otherwise. |
 | `Bamf:ScanIntervalSeconds` | Seconds between scans. |
 | `Bamf:AutoIgnoreRandomizedMacs` | Auto-ignore new hosts with randomized MACs (default in shipped config: true). |
 | `Bamf:HookToken` | A token for the inbound webhooks, sent as `X-BAMF-Token` or `?token=`. With a `Password` set, it stands in for the password on those endpoints; without one, they're as open as the dashboard (default empty). One made in **Settings → System** replaces it. |
@@ -230,13 +230,21 @@ git tag v1.9.0 && git push --tags
 
 With `ActiveArpScan` enabled (default in shipped config), BAMF sends raw ARP
 requests to every address instead of relying on ping - catching devices whose
-firewalls drop ICMP. This needs a packet-capture driver:
+firewalls drop ICMP. It needs a way to send and hear raw frames:
 
 - **Windows** — install the free **Npcap** from https://npcap.com (defaults are
   fine), then restart the BAMF service.
-- **Linux** — install `libpcap` (`linux/install.sh` does this for you) and make
-  sure the service can open raw sockets; the shipped systemd unit grants
-  `CAP_NET_RAW`/`CAP_NET_ADMIN`.
+- **Linux** — nothing to install. BAMF opens a raw packet socket (`AF_PACKET`),
+  which is what libpcap does underneath, so there is no library to add; it only
+  needs permission to, which is `CAP_NET_RAW`. The shipped systemd unit grants
+  it (and `CAP_NET_ADMIN`), as does `docker run --cap-add NET_RAW` and the
+  Home Assistant add-on. Run as root it just works; as another user, give the
+  binary the capability with `setcap cap_net_raw+ep`. If it can't open one,
+  the Settings toggle, the Network services card and the log say why, and BAMF
+  falls back to the ping sweep. If libpcap is installed (the Docker image and
+  `linux/install.sh` still add it) it is tried only when a raw socket can't be
+  opened, which needs the same permission, so it rarely helps.
+- **macOS** — libpcap, which the system has.
 
 There's also a toggle in the Settings tab (**Scanning → Active ARP
 scanning**) - flip it anytime and the new mode applies from the next scan
@@ -252,6 +260,10 @@ Windows note: if you chose "Restrict Npcap driver's access to Administrators onl
 during install, the service account needs admin rights - either reinstall Npcap
 without that option, or run the service as LocalSystem (recreate it without the
 `obj=` argument).
+
+The traffic monitor (below) uses the same: Npcap on Windows, a promiscuous raw
+packet socket on each interface on Linux, read receive-only. On Linux it hears
+IPv4, ARP and IPv6's ICMP, the same as libpcap's filter did.
 
 ## Update check (optional, off by default)
 
@@ -1560,7 +1572,7 @@ sc.exe delete BAMF
 
 ## Install as a systemd service (Linux)
 
-`linux/install.sh` does the whole job as root — installs libpcap and the .NET 10
+`linux/install.sh` does the whole job as root — installs libpcap (a fallback; BAMF uses raw sockets) and the .NET 10
 SDK (one-time), builds a self-contained binary to `/opt/bamf`, installs
 `linux/bamf.service`, enables it, and starts it:
 
@@ -3840,10 +3852,10 @@ On Windows it reads `netsh interface ipv6 show neighbors`; on Linux,
 
 ### Traffic, DHCP and DNS
 
-With the Npcap driver installed (the same one active ARP uses), BAMF can watch
-the wire, receive-only, and never sends a packet for it. Switch it under
-**Settings → Scanning** or with `Bamf:TrafficMonitor`; it's on by default and
-does nothing without Npcap.
+With the Npcap driver installed on Windows, or raw-socket permission on Linux
+(the same ones active ARP uses), BAMF can watch the wire, receive-only, and never
+sends a packet for it. Switch it under **Settings → Scanning** or with
+`Bamf:TrafficMonitor`; it's on by default and does nothing without them.
 
 **Bytes per device.** Every frame's source and destination are counted, so
 each device gets bytes in and out. The device list gains a **Traffic** column

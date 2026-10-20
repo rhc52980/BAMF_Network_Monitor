@@ -3,13 +3,14 @@ function renderArpToggle() {
   setToggleState(t, activeArp.enabled);
   t.classList.toggle("nodriver", activeArp.enabled && !activeArp.npcapAvailable);
   const lbl = $("arpToggleLbl");
+  const via = activeArp.via || "Npcap";
   if (lbl) lbl.textContent = activeArp.npcapAvailable
-    ? (activeArp.enabled ? "Driver found — sending raw ARP." : "Driver found.")
-    : (activeArp.enabled ? "Driver not installed — running the ping sweep instead." : "");
+    ? (activeArp.enabled ? `${via === "raw sockets" ? "Raw sockets" : "Driver"} found — sending raw ARP.` : `${via === "raw sockets" ? "Raw sockets" : "Driver"} found.`)
+    : (activeArp.enabled ? "Not available here — running the ping sweep instead." : "");
   t.title = !activeArp.npcapAvailable
     ? (activeArp.enabled
-        ? "Active ARP is on, but the Npcap driver isn't installed - running ping sweep. Install it from npcap.com."
-        : "Turn on active ARP scanning (needs the Npcap driver from npcap.com)")
+        ? `Active ARP is on, but ${activeArp.why || "the Npcap driver isn't installed"} - running ping sweep.`
+        : "Turn on active ARP scanning (needs the Npcap driver from npcap.com on Windows, or raw-socket permission on Linux)")
     : (activeArp.enabled
         ? "Active ARP scanning is on - click to switch to ping sweep"
         : "Click to turn on active ARP scanning");
@@ -85,7 +86,7 @@ function renderTrafficToggle() {
   if (!t) return;
   const st = trafficStatus || {};
   setToggleState(t, !!st.enabled);
-  $("setTrafficStatus").textContent = !st.available ? "The Npcap driver isn't installed, so this does nothing."
+  $("setTrafficStatus").textContent = !st.available ? `${st.why ? st.why[0].toUpperCase() + st.why.slice(1) : "The Npcap driver isn't installed"}, so this does nothing.`
     : !st.enabled ? "Off."
     : st.running ? `Watching ${(st.interfaces || []).join(", ")} since ${fmtAgo(st.since).replace(" ago", "")} ago.`
     : st.error ? "Not running: " + st.error : "Starting with the next scan.";

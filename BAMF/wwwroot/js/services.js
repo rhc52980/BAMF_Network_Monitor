@@ -185,7 +185,7 @@ function renderServices() {
 
   // DHCP and DNS, from the traffic monitor.
   const watching = st.available && st.enabled && st.running;
-  const why = !st.available ? "The traffic monitor needs the Npcap driver, which isn't installed."
+  const why = !st.available ? (st.why ? "The traffic monitor can't run: " + st.why + "." : "The traffic monitor needs the Npcap driver, which isn't installed.")
     : !st.enabled ? "Off. Turn on the traffic monitor in Settings → Scanning and BAMF will hear who hands out addresses and answers DNS."
     : !st.running ? "The traffic monitor isn't running" + (st.error ? ": " + st.error : ".") : "";
   const offersBy = new Map();

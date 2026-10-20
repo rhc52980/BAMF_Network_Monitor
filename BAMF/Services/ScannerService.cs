@@ -346,8 +346,7 @@ public partial class ScannerService : BackgroundService
                     if (activeArpWanted && !ArpScanner.IsAvailable && !_npcapWarned)
                     {
                         _npcapWarned = true;
-                        _log.LogWarning("ActiveArpScan is enabled but the Npcap driver was not found " +
-                                        "(https://npcap.com). Falling back to ping sweep.");
+                        _log.LogWarning("ActiveArpScan is enabled but {Why}. Falling back to ping sweep.", ArpScanner.WhyNot);
                     }
 
                     var seenMacs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

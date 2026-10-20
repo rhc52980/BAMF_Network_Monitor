@@ -436,7 +436,7 @@ function renderTrafficCards() {
   const counting = (t.sources || []).filter(s => s.ok);
   const also = counting.length ? `Counted by ${counting.map(s => s.name + (s.kind === "switch" ? " (switch)" : " (router)")).join(", ")}` : "";
   $("talkersSub").textContent = (counting.length && (!st.available || !st.enabled || !st.running)) ? also + "."
-    : !st.available ? "Needs the Npcap driver, which isn't installed."
+    : !st.available ? (st.why ? st.why[0].toUpperCase() + st.why.slice(1) + "." : "Needs the Npcap driver, which isn't installed.")
     : !st.enabled ? "Off. Turn on the traffic monitor in Settings → Scanning."
     : !st.running ? "Not running" + (st.error ? ": " + st.error : ".")
     : `Since ${fmtAgo(st.since).replace(" ago", "")} ago on ${(st.interfaces || []).join(", ")} · ${Number(st.frames || 0).toLocaleString()} frames` + (also ? " \u00b7 " + also : "");

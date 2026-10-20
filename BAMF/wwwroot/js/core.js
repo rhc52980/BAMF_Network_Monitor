@@ -58,7 +58,7 @@ let declaredGws = [];      // [{ subnet, hostId, ip }]: gateways the user declar
 let mapPositions = {};     // topology Map: subnet -> node key -> [x, y] the user dragged to
 let typeIcons = {};        // guessed type -> icon the user chose for all of them: { "Linux": "server" }
 let switches = [];         // the switch layout the user recorded: [{ id, name, ports, subnet, hostId, uplink, uplinkSwitch, uplinkPort }]
-let activeArp = { enabled: false, npcapAvailable: false };
+let activeArp = { enabled: false, npcapAvailable: false, via: "Npcap", why: null };
 let autoIgnoreRandom = false;
 // Holiday Spirit, from the server. Remembered in this browser too, so the
 // holiday theme is up from the first paint rather than after the first poll.

@@ -38,7 +38,7 @@ optional daily update check you have to switch on, and your own webhook.
 
 **Discovery**
 - ARP-based scanning that finds devices whose firewalls drop ICMP
-- Optional raw ARP mode (Npcap/libpcap) with automatic fallback to a sweep
+- Optional raw ARP mode (Npcap on Windows, raw packet sockets on Linux) with automatic fallback to a sweep
 - Multiple subnets at once, scanning each from the right interface
 - Hostnames via reverse DNS, then NetBIOS — which names most Windows PCs, NAS
   boxes and printers that have no DNS record
@@ -365,8 +365,9 @@ what the evidence suggests and names the evidence, so you can judge it.
 ## Requirements
 
 - **Windows** Server 2022, or Windows 10/11 · **Linux** Debian 12 / Ubuntu 22.04+
-- Optional, for raw ARP scanning: [Npcap](https://npcap.com) on Windows,
-  `libpcap` on Linux — without it BAMF falls back to a sweep
+- Optional, for raw ARP scanning: [Npcap](https://npcap.com) on Windows; on Linux
+  nothing to install, BAMF opens a raw packet socket (`CAP_NET_RAW`) — without it
+  BAMF falls back to a sweep
 - A network interface on each subnet you want to watch
 
 ## Credits

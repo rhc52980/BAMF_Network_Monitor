@@ -33,6 +33,18 @@ jobs:
       - name: Tests
         run: dotnet test tests/BAMF.Tests -c Release
 
+      # The raw packet sockets Linux uses in place of libpcap, tried for real: a pair of linked interfaces, an ARP scan on one end that the
+      # kernel on the other answers, and the traffic monitor hearing a DHCP offer sent across. Raw sockets need root, which the runner has.
+      - name: Raw packet sockets
+        run: |
+          sudo ip link add bamfv0 type veth peer name bamfv1
+          sudo ip addr add 10.77.0.2/24 dev bamfv0
+          sudo ip addr add 10.77.0.1/24 dev bamfv1
+          sudo ip link set bamfv0 up
+          sudo ip link set bamfv1 up
+          sudo -E env "PATH=$PATH" BAMF_REQUIRE_RAW=1 BAMF_RAW_IF_A=bamfv0 BAMF_RAW_IP_A=10.77.0.2 BAMF_RAW_IF_B=bamfv1 BAMF_RAW_IP_B=10.77.0.1 \
+            dotnet test tests/BAMF.Tests -c Release --no-build --filter "Category=RawSockets"
+
       # The release fails on this; better to know on the pull request.
       - name: Add-on version matches the app
         run: |

@@ -472,7 +472,7 @@
         <p class="modal-help">These apply the moment you click them — no Save needed.</p>
         <label class="set-row">
           <span class="set-label">Active ARP scanning
-            <span class="set-hint">Send ARP who-has requests directly instead of a ping sweep. Finds devices whose firewalls drop ICMP. Needs the Npcap driver on Windows or libpcap on Linux; without it BAMF falls back to the sweep and says so here.</span>
+            <span class="set-hint">Send ARP who-has requests directly instead of a ping sweep. Finds devices whose firewalls drop ICMP. Needs the Npcap driver on Windows. On Linux it uses raw sockets, which need permission (root, or CAP_NET_RAW) and no package. Without it BAMF falls back to the sweep and says so here.</span>
             <span class="set-hint" id="arpToggleLbl"></span>
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="setArp" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
@@ -504,7 +504,7 @@
         </label>
         <label class="set-row">
           <span class="set-label">Traffic monitor
-            <span class="set-hint">Watch the wire through Npcap, receive-only: bytes in and out per device, and every DHCP and DNS server in use, with an alert when a new DHCP server appears or a device starts asking a DNS server it never used before. On a switched network this machine sees its own traffic plus broadcast and multicast; on a mirrored switch port it sees everything.</span>
+            <span class="set-hint">Watch the wire through Npcap on Windows or raw sockets on Linux, receive-only: bytes in and out per device, and every DHCP and DNS server in use, with an alert when a new DHCP server appears or a device starts asking a DNS server it never used before. On a switched network this machine sees its own traffic plus broadcast and multicast; on a mirrored switch port it sees everything.</span>
             <span class="set-hint" id="setTrafficStatus"></span>
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="setTraffic" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>

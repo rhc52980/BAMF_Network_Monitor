@@ -120,6 +120,8 @@ internal static class ApiHelpers
     {
         enabled = scanner.TrafficMonitorEnabled,
         available = TrafficMonitor.Available,
+        why = TrafficMonitor.Available ? null : ArpScanner.WhyNot,
+        via = ArpScanner.Via,
         running = scanner.Traffic.Running,
         interfaces = scanner.Traffic.Interfaces,
         error = scanner.Traffic.LastError,

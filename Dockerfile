@@ -23,7 +23,8 @@ COPY themes/ themes/
 RUN dotnet publish BAMF/BAMF.csproj -c Release -o /out --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
-# libpcap for the active ARP scan and the traffic monitor; ca-certificates for
+# libpcap only as a fallback: on Linux BAMF opens raw packet sockets itself for the active ARP scan and the traffic monitor (NET_RAW);
+# ca-certificates for
 # the OUI download and webhooks over HTTPS; curl for the health check; iproute2
 # for the IPv6 neighbour table. The .NET 10 images are Ubuntu 24.04, where
 # libpcap's package is libpcap0.8t64; the old name is tried if that's missing.
