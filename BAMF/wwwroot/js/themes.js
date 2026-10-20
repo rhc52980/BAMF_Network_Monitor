@@ -859,7 +859,7 @@ function revealSecret() {
   $("secretEmoji").textContent = first ? "🎁" : ["🎄", "🎃", "🦇", "⭐", "👻"][Math.floor(Math.random() * 5)];
   $("secretTitle").textContent = first ? "You found the secret!" : "Still a secret 🤫";
   $("secretText").textContent = first
-    ? "BAMF unlocked two holiday themes. They're in the theme menu from now on, under Holidays."
+    ? "The holiday themes aren't hidden any more: Halloween and Christmas are in the theme menu, under Holidays, for everyone. Here they are anyway."
     : "The holiday themes are already yours. Pick one:";
   // Only the holiday themes that are installed.
   const picks = [...document.querySelectorAll("[data-secret]")];
