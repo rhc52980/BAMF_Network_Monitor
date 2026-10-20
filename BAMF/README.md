@@ -3417,7 +3417,11 @@ the network: it draws together what BAMF already knows.
   domain, the mask and the lease), a gateway the offers name that the routing
   table doesn't is added to **Gateway**, and the DNS servers the offers hand out
   are added to **DNS** even before any device has been heard asking them. That
-  part works without Npcap.
+  part works without Npcap. The servers heard are kept in BAMF's database, so
+  a restart or an update doesn't empty the card until a device asks for an
+  address again; one not heard from in 90 days is dropped. A server you trust
+  that hasn't been heard since the list was last saved is still listed, marked
+  "trusted · not heard yet", until **Forget** removes it.
 - **UPnP**: a router that answered the last health check's UPnP search, which
   means any device can ask it to open ports to the internet.
 - **mDNS (Bonjour)**: how many devices announce a name or services this way.

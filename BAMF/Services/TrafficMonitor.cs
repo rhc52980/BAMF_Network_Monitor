@@ -46,7 +46,11 @@ public sealed class TrafficMonitor : IDisposable
         public readonly long[] Strip = new long[30]; // bytes in+out per ten seconds, last five minutes
         public int StripAt;
     }
-    private sealed class DnsUse { public long Queries; public DateTime Last; }
+    private sealed class DnsUse { public long Queries { get; set; } public DateTime Last { get; set; } }
+    private sealed class DhcpSeen { public string Mac { get; set; } = ""; public DateTime Last { get; set; } public long Offers { get; set; } }
+
+    /// <summary>A server not heard from for this long is dropped from the list when BAMF starts; a trusted one stays in the trusted list.</summary>
+    private const int ForgetAfterDays = 90;
 
     private const int WindowSeconds = 10;
     public const int StripLength = 30;
@@ -68,6 +72,7 @@ public sealed class TrafficMonitor : IDisposable
     private long _framesAtCheck;
     private int _quietWindows;
     private int _windowsSinceFlush;
+    private bool _seenDirty;
 
     public bool Running { get; private set; }
     public string? LastError { get; private set; }
@@ -171,7 +176,7 @@ public sealed class TrafficMonitor : IDisposable
         _log.LogInformation("Traffic monitor stopped");
     }
 
-    public void Dispose() { if (Running) Stop(); }
+    public void Dispose() { if (Running) Stop(); else SaveSeen(); }
 
     // ------------------------------------------------------------ packets
 
@@ -281,6 +286,7 @@ public sealed class TrafficMonitor : IDisposable
             }
         }
         try { _store.AddTraffic(rows); } catch (Exception ex) { _log.LogDebug(ex, "Traffic history write failed"); }
+        SaveSeen();
     }
 
     // ------------------------------------------------------------ DHCP and DNS
@@ -308,6 +314,7 @@ public sealed class TrafficMonitor : IDisposable
         lock (_lock)
         {
             _dhcp[ip] = (serverMac, DateTime.UtcNow, (_dhcp.TryGetValue(ip, out var was) ? was.Offers : 0) + 1);
+            _seenDirty = true;
             isNew = !_knownDhcp.Contains(ip);
             if (isNew)
             {
@@ -332,6 +339,7 @@ public sealed class TrafficMonitor : IDisposable
         lock (_lock)
         {
             _dhcp[ip] = (mac ?? (_dhcp.TryGetValue(ip, out var was0) ? was0.Mac : ""), DateTime.UtcNow, (_dhcp.TryGetValue(ip, out var was) ? was.Offers : 0) + 1);
+            _seenDirty = true;
             isNew = !_knownDhcp.Contains(ip);
             if (isNew)
             {
@@ -341,12 +349,13 @@ public sealed class TrafficMonitor : IDisposable
                 if (learnQuietly) { _log.LogInformation("DHCP server on {Subnet}: {Ip}", subnet, ip); isNew = false; }
             }
         }
+        SaveSeen();   // found by the probe, which runs now and then whether or not the capture does, so it isn't left for the capture's flush
         if (isNew)
             Raise("dhcp", $"New DHCP server: {ip}", $"A DHCP server at {ip}{(string.IsNullOrEmpty(mac) ? "" : " (" + Describe(mac) + ")")} answered BAMF's own DHCP check of {subnet}. " +
                 "If you didn't add a router or DHCP server, something on the network is handing out addresses that shouldn't be.", ip);
     }
 
-    private void Dns(string clientMac, string serverIp)
+    internal void Dns(string clientMac, string serverIp)
     {
         string? newForDevice = null, newForNetwork = null;
         lock (_lock)
@@ -354,6 +363,7 @@ public sealed class TrafficMonitor : IDisposable
             if (!_dnsByMac.TryGetValue(clientMac, out var servers)) _dnsByMac[clientMac] = servers = new();
             if (!servers.TryGetValue(serverIp, out var use)) servers[serverIp] = use = new DnsUse();
             use.Queries++; use.Last = DateTime.UtcNow;
+            _seenDirty = true;
 
             if (!_knownDns.Contains(serverIp))
             {
@@ -444,9 +454,16 @@ public sealed class TrafficMonitor : IDisposable
         return map;
     }
 
+    /// <summary>
+    /// Every DHCP server heard or found, kept across restarts. A trusted server not heard since is listed too, with no time and no offers, so it
+    /// isn't missing from the card just because BAMF started again.
+    /// </summary>
     public List<DhcpServer> DhcpServers()
     {
-        lock (_lock) return _dhcp.Select(kv => new DhcpServer(kv.Key, kv.Value.Mac, kv.Value.Last.ToString("o"), kv.Value.Offers)).OrderBy(s => s.Ip).ToList();
+        lock (_lock)
+            return _dhcp.Select(kv => new DhcpServer(kv.Key, kv.Value.Mac, kv.Value.Last.ToString("o"), kv.Value.Offers))
+                .Concat(_knownDhcp.Where(ip => !_dhcp.ContainsKey(ip)).Select(ip => new DhcpServer(ip, "", "", 0)))
+                .OrderBy(s => s.Ip).ToList();
     }
 
     public List<DnsServer> DnsServers()
@@ -500,6 +517,40 @@ public sealed class TrafficMonitor : IDisposable
             _alerts.AddRange(alerts);
         }
         catch { /* a damaged setting is worth less than a working monitor */ }
+        LoadSeen();
+    }
+
+    /// <summary>The DHCP and DNS servers heard before, so the Network services card isn't empty after every restart until something is heard again.</summary>
+    private void LoadSeen()
+    {
+        try
+        {
+            var cutoff = DateTime.UtcNow.AddDays(-ForgetAfterDays);
+            var dhcp = JsonSerializer.Deserialize<Dictionary<string, DhcpSeen>>(_store.GetSetting("dhcpServersSeen") ?? "{}") ?? new();
+            foreach (var (ip, s) in dhcp) if (s.Last >= cutoff) _dhcp[ip] = (s.Mac ?? "", s.Last, s.Offers);
+            var dns = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, DnsUse>>>(_store.GetSetting("dnsServersSeen") ?? "{}") ?? new();
+            foreach (var (mac, servers) in dns)
+            {
+                var fresh = servers.Where(x => x.Value.Last >= cutoff).ToDictionary(x => x.Key, x => x.Value);
+                if (fresh.Count > 0) _dnsByMac[mac] = fresh;
+            }
+        }
+        catch { /* the same: a damaged list only means the card fills as things are heard */ }
+    }
+
+    /// <summary>Written with the five-minute flush and when the capture stops, only when something changed.</summary>
+    private void SaveSeen()
+    {
+        string dhcp, dns;
+        lock (_lock)
+        {
+            if (!_seenDirty) return;
+            _seenDirty = false;
+            dhcp = JsonSerializer.Serialize(_dhcp.ToDictionary(kv => kv.Key, kv => new DhcpSeen { Mac = kv.Value.Mac, Last = kv.Value.Last, Offers = kv.Value.Offers }));
+            dns = JsonSerializer.Serialize(_dnsByMac);
+        }
+        try { _store.SetSetting("dhcpServersSeen", dhcp); _store.SetSetting("dnsServersSeen", dns); }
+        catch (Exception ex) { _log.LogDebug(ex, "Saving the DHCP and DNS servers heard failed"); }
     }
     private void SaveKnown()
     {
