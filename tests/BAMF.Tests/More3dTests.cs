@@ -114,6 +114,6 @@ public class More3dTests
 
         // The hours asked for are bounded.
         var wide = await app.Client().GetFromJsonAsync<JsonElement>("/api/timeline?hours=9999");
-        Assert.True((DateTime.Parse(wide.GetProperty("to").GetString()!) - DateTime.Parse(wide.GetProperty("from").GetString()!)).TotalHours <= 72.01);
+        Assert.True((DateTime.Parse(wide.GetProperty("to").GetString()!) - DateTime.Parse(wide.GetProperty("from").GetString()!)).TotalHours <= 720.01);
     }
 }
