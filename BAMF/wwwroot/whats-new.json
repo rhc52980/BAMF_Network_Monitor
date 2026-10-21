@@ -2,6 +2,19 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.24.0",
+      "date": "2026-10-21",
+      "items": [
+        "The 3D tab can show what would stop if a device died. What if it dies? on a device's card shows, as a picture and in words, who depends on it: a switch or access point takes down what is recorded as plugged into it, the gateway leaves its whole network without the internet, and any other device is only itself. It counts the devices, the watched services that would go down and the watched devices that would alert, and changes nothing.",
+        "A usage skyline (under More to see, off until ticked) stands a tower beside each device as tall as what it moved in about 2 hours, 24 hours or 7 days, cyan for what it took in and magenta for what it sent out, with the biggest five listed.",
+        "An exposure layer (under More to see, off until ticked) rings the devices with Telnet, FTP, VNC or Remote Desktop open, an expired or soon-expiring certificate, or UPnP, with badges saying what, marks the gateway and the DHCP and DNS servers, and dims everything else.",
+        "Today's briefing is a button that flies the camera through what has happened: what is wrong now, devices that went down or joined, internet outages and alerts about the network, worst first, with a caption at each stop.",
+        "The weather over the 3D scene follows the network score: clear at 90 and up, fair, overcast with rain, and a storm with lightning when it is in trouble, with a flash when a new alert arrives. It is on by default and Weather under More to see turns it off.",
+        "The replay can go back 3, 7 or 30 days as well as the last day, and marks along its slider show when each internet outage, unusual finding and new device happened.",
+        "The 3D tab loads the traffic answer itself now. It was only fetched while Activity was open, so measured rates and the DHCP and DNS servers could be missing or stale in 3D."
+      ]
+    },
+    {
       "version": "2.23.1",
       "date": "2026-10-20",
       "items": [
