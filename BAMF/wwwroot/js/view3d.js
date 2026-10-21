@@ -1,11 +1,13 @@
 // The 3D tab. The 3D library and models are only fetched the first time it's opened; after that this keeps
 // it fed from the dashboard's own data: the same devices, kinds, names, gateways and unusual findings the
 // other tabs use, plus the service watch's rows (towers), where devices talk and who is scanning (satellites and
-// beams), the floor plans (the house) and the last day's events (the replay). The drawing is in engine3d/scene.mjs
-// and engine3d/extras.mjs, and what goes where in engine3d/data.mjs.
+// beams), the floor plans (the house), the events of the days replayed, what each device has moved (the usage skyline), what is exposed
+// (the x-ray) and the network score and alerts (the weather). The drawing is in engine3d/scene.mjs, extras.mjs, skyline.mjs, xray.mjs
+// and weather.mjs, and what goes where in engine3d/data.mjs.
 let view3d = null, view3dStarting = null, view3dFailed = null, view3dData = null;
 let view3dServices = [], view3dHouseSig = "", view3dTimeline = null;
 let view3dFocusId = null, view3dFocusTries = 0;      // a device to fly to once the scene has it: from #3d/12, or a Show in 3D
+let view3dUsage = { hours: 0, at: 0 }, view3dSecAt = 0, view3dSkyAt = 0, view3dTrafAt = 0, view3dAlertSeen = null;   // when each of the layers' feeds was last asked
 
 const VIEW3D_CREDITS = `<h3>Model credits</h3>
   <p>All forty-six device models were made for BAMF. The 3D drawing is <a href="https://threejs.org" target="_blank" rel="noopener noreferrer">three.js</a> (MIT licence).</p>`;
@@ -19,13 +21,20 @@ async function start3d() {
       credits: VIEW3D_CREDITS,
       // History lives in the device's row on the Devices tab, so go there with it open.
       onOpenDevice: async d => { const h = hosts.find(x => x.id === d.id); if (!h) return; await openHistory(h); jumpToHost(h.id); },
-      // The last day: fetched when the replay is asked for, then every moment in it is worked out from it.
-      onReplayLoad: async () => {
-        const r = await fetch("/api/timeline?hours=24");
+      // The days asked for: fetched when the replay is asked for, then every moment in it is worked out from it.
+      onReplayLoad: async hours => {
+        const r = await fetch("/api/timeline?hours=" + (hours || 24));
         if (!r.ok) return null;
         view3dTimeline = await r.json();
         return view3dTimeline;
       },
+      // The briefing: the last day's events and the alerts raised in it.
+      onBriefingLoad: async () => {
+        const [t, a] = await Promise.all([fetch("/api/timeline?hours=24"), fetch("/api/alerts")]);
+        return { timeline: t.ok ? await t.json() : null, alerts: a.ok ? await a.json() : [] };
+      },
+      // A layer was switched on, off or changed: ask for what it needs now, not at the next refresh.
+      onWantsChange: () => { view3dUsage.at = 0; view3dSecAt = 0; view3dSkyAt = 0; refresh3d(); },
       replayScene: tMs => {
         if (!view3dTimeline) return null;
         const st = view3dData.stateAt(view3dTimeline, tMs);
@@ -166,6 +175,8 @@ async function refresh3d() {
   }
   // While the day is being replayed the scene is the replay's, not now's.
   if (view3d.replaying) { view3d.setActive(true); return; }
+  // The traffic answer is otherwise only fetched while Activity is open, so the rates, and the DHCP and DNS servers' jobs, would be stale or missing here.
+  if (Date.now() - view3dTrafAt > 8000) { view3dTrafAt = Date.now(); try { trafficCache = await loadTraffic(); } catch { /* keep what it had */ } }
   const top = (trafficCache && trafficCache.top) || [];
   // measured bytes a second where the traffic monitor has them, else how busy it ranks among the busiest
   const trafficOf = h => { const t = top.find(x => x.hostId === h.id); return t ? { rx: t.rx || 0, tx: t.tx || 0 } : null; };
@@ -190,6 +201,24 @@ async function refresh3d() {
       if (open.includes(port)) return { url: `${scheme}://${h.ip}${(scheme === "https" && port === 443) || (scheme === "http" && port === 80) ? "" : ":" + port}/` };
     return null;
   };
+  const wants = view3d.wants;
+  // what is exposed: the certificates and UPnP are read now and then, only while the x-ray is on
+  if (wants.xray && (!securityCache || Date.now() - view3dSecAt > 120000)) { view3dSecAt = Date.now(); await loadSecurity(); }
+  const certDays = new Map();
+  for (const c of (securityCache && securityCache.certs) || []) {
+    if (!c.notAfter) continue;
+    const days = Math.floor((Date.parse(c.notAfter) - Date.now()) / 86400000);
+    if (!certDays.has(c.hostId) || days < certDays.get(c.hostId)) certDays.set(c.hostId, days);
+  }
+  const upnpIds = new Set(((securityCache && securityCache.upnp && securityCache.upnp.devices) || []).map(u => u.hostId));
+  const dhcpIps = new Set([...((trafficCache && trafficCache.dhcp) || []).map(d => d.ip), ...(((dhcpProbeCache && dhcpProbeCache.last && dhcpProbeCache.last.networks) || []).flatMap(n => (n.offers || []).map(o => o.server)))]);
+  const dnsIps = new Set(((trafficCache && trafficCache.dns) || []).map(d => d.ip));
+  const exposureOf = h => {
+    const roles = [], mine = (h.addresses && h.addresses.length ? h.addresses.map(a => a.ip) : [h.ip]);   // a device with a second address is the server at either
+    if (mine.some(ip => dhcpIps.has(ip))) roles.push("DHCP");
+    if (mine.some(ip => dnsIps.has(ip))) roles.push("DNS");
+    return view3dData.exposureOf({ ports: h.openPorts || [], cert: certDays.has(h.id) ? { days: certDays.get(h.id) } : null, upnp: upnpIds.has(h.id), roles });
+  };
   const [items, services, flows] = await Promise.all([unusual3d(), services3d(), flows3d()]);
   if (view !== "3d" || view3d.replaying) return;
   view3dServices = services;
@@ -197,12 +226,31 @@ async function refresh3d() {
   const scene = view3dData.buildScene({
     hosts: hosts.filter(h => inNetwork(h)), kindOf: deviceKind, nameOf: name3d, unusual: items,
     gatewayIp: subnet => (networkPlaces[subnet] || {}).gateway || null, rateOf, servicesOf,
-    tagsOf: h => h.tags || [], parentOf, trafficOf, webOf,
+    tagsOf: h => h.tags || [], parentOf, trafficOf, webOf, exposureOf,
   });
   await house3d();
   view3d.update(scene);
   view3d.setExtras(flows);
   view3d.setActive(true);
+  // what each device has moved, for the usage skyline: once a minute, and at once when the window changes
+  if (wants.usageHours && (view3dUsage.hours !== wants.usageHours || Date.now() - view3dUsage.at > 60000)) {
+    view3dUsage = { hours: wants.usageHours, at: Date.now() };
+    try { const r = await fetch("/api/traffic/usage?hours=" + wants.usageHours); if (r.ok) view3d.setUsage(await r.json()); } catch { /* keep what it had */ }
+  }
+  // the weather: the network score, and a flash for an alert that has come in since the last look, every half minute
+  if (wants.weather && Date.now() - view3dSkyAt > 30000) {
+    view3dSkyAt = Date.now();
+    try {
+      const r = await fetch("/api/score");
+      if (r.ok) { const s = await r.json(); view3d.setWeather(s.enabled === false ? null : s.value); }
+      const a = await fetch("/api/alerts");
+      if (a.ok) {
+        const list = await a.json(), newest = list.length ? Date.parse(list[0].at) || 0 : 0;
+        if (view3dAlertSeen != null && newest > view3dAlertSeen) view3d.flashAlert();
+        view3dAlertSeen = Math.max(view3dAlertSeen ?? 0, newest);
+      }
+    } catch { /* keep the sky it had */ }
+  }
   // flown to once it is there, tried for a few refreshes in case the device list is still arriving
   if (view3dFocusId != null) {
     if (view3d.focus(view3dFocusId) || ++view3dFocusTries > 4) { view3dFocusId = null; view3dFocusTries = 0; }

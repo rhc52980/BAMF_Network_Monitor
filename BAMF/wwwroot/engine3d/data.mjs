@@ -73,10 +73,11 @@ const subnetKey = h => h.subnet || "";
  *  input: { hosts, kindOf(h), nameOf(h), unusual: [{hostId, kind, open, title, detail}], gatewayIp(subnet), rateOf(h),
  *           servicesOf(h) -> [{name, state, uptime, ms}] (the service watch's rows for that device),
  *           tagsOf(h) -> [tag], parentOf(h) -> the id of the device it is plugged into (a switch or access point), or null,
- *           trafficOf(h) -> {rx, tx} in bytes a second where it is measured, webOf(h) -> {url} where it has a web page }
+ *           trafficOf(h) -> {rx, tx} in bytes a second where it is measured, webOf(h) -> {url} where it has a web page,
+ *           exposureOf(h) -> what exposureOf() below says about it (risky ports, a certificate, UPnP, its jobs on the network), or null }
  */
 export function buildScene({ hosts, kindOf, nameOf, unusual = [], gatewayIp = () => null, rateOf = () => 2, servicesOf = () => [],
-  tagsOf = () => [], parentOf = () => null, trafficOf = () => null, webOf = () => null }) {
+  tagsOf = () => [], parentOf = () => null, trafficOf = () => null, webOf = () => null, exposureOf: exposureFn = () => null }) {
   const open = new Map();
   for (const u of unusual) if (u.open && !open.has(u.hostId)) open.set(u.hostId, u);
   const shown = hosts.filter(h => !h.ignored && !h.forgotten);
@@ -97,7 +98,7 @@ export function buildScene({ hosts, kindOf, nameOf, unusual = [], gatewayIp = ()
       services: servicesOf(h).map(x => ({ name: x.name, state: x.state, uptime: x.uptime ?? null, ms: x.ms ?? null })),
       tags: (tagsOf(h) || []).map(String), parent: null, parentId: parentOf(h) ?? null,
       rx: trafficOf(h)?.rx ?? null, tx: trafficOf(h)?.tx ?? null, web: webOf(h) || null,
-      watching: !!h.watched, snoozed: !!h.snoozedUntil, remote: !!h.remote,
+      watching: !!h.watched, snoozed: !!h.snoozedUntil, remote: !!h.remote, exposure: exposureFn(h) || null,
     };
     net.devices.push(d); devices.push(d);
   }
@@ -400,4 +401,216 @@ export function placementFromPoint(x, z, plan) {
   const k = planScale(plan);
   const fx = (x / k + plan.width / 2) / plan.width, fy = (z / k + plan.height / 2) / plan.height;
   return { x: Math.min(1, Math.max(0, fx)), y: Math.min(1, Math.max(0, fy)) };
+}
+
+// ---------------------------------------------------------------- what if it died
+
+/**
+ * What would stop if a device died, from what is drawn: the device itself, and who depends on it. A switch or access point takes with it
+ * everything plugged into it, recorded on the Map (they lose the network); the gateway takes nothing down but leaves every device on its
+ * network without the internet. Any other device is only itself. Returns null for a key that isn't there.
+ *   { key, name, reason: "network" | "internet" | "alone", cut: [keys], internet: bool,
+ *     counts: { cut, cutOnline, services, watched }, serviceNames: [..] }
+ * `cut` is the devices that lose the network (reason "network") or the internet (reason "internet"); services and watched count the device
+ * itself and, for "network", the ones behind it that would go dark: services not already down, and watched devices that are online now.
+ */
+export function outageOf(devices, key) {
+  const byKey = new Map(devices.map(d => [d.key, d]));
+  const t = byKey.get(key);
+  if (!t) return null;
+  const kids = new Map();
+  for (const d of devices) if (d.parent) { if (!kids.has(d.parent)) kids.set(d.parent, []); kids.get(d.parent).push(d.key); }
+  let cut = [], reason = "alone";
+  if (t.gw) { cut = devices.filter(d => d.net === t.net && d.key !== t.key).map(d => d.key); reason = cut.length ? "internet" : "alone"; }
+  else {
+    const seen = new Set([t.key]), walk = k => { for (const c of kids.get(k) || []) if (!seen.has(c)) { seen.add(c); cut.push(c); walk(c); } };
+    walk(t.key);
+    if (cut.length) reason = "network";
+  }
+  const dark = reason === "network" ? [t, ...cut.map(k => byKey.get(k))] : [t];
+  const serviceNames = [];
+  let services = 0, watched = 0;
+  for (const d of dark) {
+    for (const s of d.services || []) if (s.state !== "down") { services++; serviceNames.push(`${s.name} on ${d.name}`); }
+    if (d.watching && d.online) watched++;
+  }
+  return {
+    key: t.key, name: t.name && t.name !== "—" ? t.name : t.ip, reason, cut, internet: !!t.gw, net: t.net,
+    counts: { cut: cut.length, cutOnline: cut.filter(k => byKey.get(k).online).length, services, watched }, serviceNames: serviceNames.slice(0, 3),
+  };
+}
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+/** The outage as sentences: what would stop, in the order it matters. */
+export function outageText(o) {
+  if (!o) return "";
+  const lines = [];
+  if (o.reason === "internet") lines.push(`${plural(o.counts.cut, "device", "devices")} on ${o.net} would lose the internet. They'd still reach each other.`);
+  else if (o.reason === "network") lines.push(`${plural(o.counts.cut, "device", "devices")} would lose the network${o.counts.cutOnline < o.counts.cut ? ` (${o.counts.cutOnline} of them online now)` : ""}.`);
+  else lines.push("Nothing else depends on it.");
+  if (o.counts.services) lines.push(`${plural(o.counts.services, "watched service", "watched services")} would go down${o.serviceNames.length ? `, such as ${o.serviceNames[0]}` : ""}.`);
+  if (o.counts.watched) lines.push(`${plural(o.counts.watched, "watched device", "watched devices")} would show offline and alert.`);
+  return lines.join(" ");
+}
+
+// ---------------------------------------------------------------- usage: how much each device has moved
+
+/** The windows the usage skyline can show. The history is kept by the hour, so two hours is the shortest. */
+export const USAGE_WINDOWS = [
+  { hours: 2, label: "About 2 hours" },
+  { hours: 24, label: "24 hours" },
+  { hours: 168, label: "7 days" },
+];
+
+/** Bytes as people read them: "840 kB", "12.4 GB". */
+export function formatBytes(n) {
+  const b = Math.max(0, Number(n) || 0);
+  if (b >= 1e12) return (b / 1e12).toFixed(1) + " TB";
+  if (b >= 1e9) return (b / 1e9).toFixed(b >= 1e10 ? 0 : 1) + " GB";
+  if (b >= 1e6) return (b / 1e6).toFixed(b >= 1e7 ? 0 : 1) + " MB";
+  if (b >= 1e3) return Math.round(b / 1e3) + " kB";
+  return Math.round(b) + " B";
+}
+
+/** 0 to 1: how tall a tower for this many bytes, against the most any device moved. A square root, so a modest device is still a visible stub. */
+export function towerHeight(bytes, max) {
+  if (!(bytes > 0) || !(max > 0)) return 0;
+  return Math.max(0.05, Math.min(1, Math.sqrt(bytes / max)));
+}
+
+/**
+ * The usage as the scene needs it: for each device (by key) its bytes in and out and its tower height, and the biggest few to list.
+ * `items` is /api/traffic/usage's devices: [{ hostId, rx, tx }].
+ */
+export function usageOf(devices, items, top = 5) {
+  const byId = new Map(devices.map(d => [d.id, d]));
+  const rows = [];
+  for (const it of items || []) {
+    const d = byId.get(it.hostId);
+    if (!d) continue;
+    const rx = it.rx || 0, tx = it.tx || 0;
+    if (rx + tx > 0) rows.push({ key: d.key, name: d.name && d.name !== "—" ? d.name : d.ip, rx, tx, total: rx + tx });
+  }
+  rows.sort((a, b) => b.total - a.total);
+  const max = rows.length ? rows[0].total : 0;
+  const byKey = new Map(rows.map(r => [r.key, { ...r, height: towerHeight(r.total, max), upShare: r.total ? r.tx / r.total : 0 }]));
+  return { byKey, top: rows.slice(0, top), max, total: rows.reduce((s, r) => s + r.total, 0) };
+}
+
+// ---------------------------------------------------------------- exposure: what is open, expiring or serving
+
+/** The ports whose being open is worth a flag on a device: no reason to leave one open on a home network. */
+export const RISKY_PORTS = { 21: "FTP", 23: "Telnet", 3389: "Remote Desktop", 5900: "VNC" };
+
+/**
+ * What to flag on a device. `ports` the ports found open, `cert` { days } for a certificate that has run out (negative) or soon will,
+ * `upnp` whether it answers UPnP, `roles` the jobs it does for the network ("DHCP", "DNS"). Returns
+ * { risks: [{ kind, label, sev: "high"|"med" }], roles, sev: "high"|"med"|"" }, with the worst first.
+ */
+export function exposureOf({ ports = [], cert = null, upnp = false, roles = [] } = {}) {
+  const risks = [];
+  for (const p of [...ports].sort((a, b) => a - b)) if (RISKY_PORTS[p]) risks.push({ kind: "port", label: `${RISKY_PORTS[p]} is open (port ${p})`, sev: "high" });
+  if (cert && Number.isFinite(cert.days)) {
+    if (cert.days < 0) risks.push({ kind: "cert", label: `Its certificate expired ${-cert.days} day${cert.days === -1 ? "" : "s"} ago`, sev: "high" });
+    else if (cert.days <= 14) risks.push({ kind: "cert", label: `Its certificate expires in ${cert.days} day${cert.days === 1 ? "" : "s"}`, sev: "med" });
+  }
+  if (upnp) risks.push({ kind: "upnp", label: "Answers UPnP: any device can ask it to open ports to the internet", sev: "high" });
+  risks.sort((a, b) => (a.sev === b.sev ? 0 : a.sev === "high" ? -1 : 1));
+  return { risks, roles: [...roles], sev: risks.some(r => r.sev === "high") ? "high" : risks.length ? "med" : "" };
+}
+
+// ---------------------------------------------------------------- the briefing: a flight through what happened
+
+/**
+ * The stops of a flight through the day, worst first: { key (a device's key, "internet" or null for the whole scene), title, detail, kind, rank }.
+ *   devices  the scene's devices   problems  problemsOf(...)   timeline  /api/timeline   alerts  /api/alerts (newest first)
+ * New devices, devices that went down (and whether they came back), what is wrong now, alerts that aren't about one device, and internet
+ * outages. At most `max` stops; an empty list when nothing happened.
+ */
+export function briefingOf({ devices, problems = [], timeline = null, alerts = [], nowMs = Date.now(), max = 9 }) {
+  const stops = [], byId = new Map(devices.map(d => [d.id, d])), taken = new Set();
+  const who = d => (d.name && d.name !== "—" ? d.name : d.ip);
+  const clock = ms => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const add = s => { stops.push(s); if (s.key && s.key !== "internet") taken.add(s.key); };
+  for (const p of problems) if (!taken.has(p.key)) add({ key: p.key, title: p.title, detail: p.detail, kind: p.kind, rank: p.rank });
+  if (timeline) {
+    const from = Date.parse(timeline.from) || 0, last = new Map(), downs = new Map();
+    for (const e of timeline.events || []) {
+      const at = Date.parse(e.at);
+      if (e.type === "offline" && !downs.has(e.h)) downs.set(e.h, at);
+      last.set(e.h, { type: e.type, at });
+    }
+    for (const [id, at] of downs) {
+      const d = byId.get(id); if (!d || taken.has(d.key)) continue;
+      const l = last.get(id), back = l.type === "online";
+      add({ key: d.key, kind: "down", rank: 60, title: back ? `${who(d)} dropped off and came back` : `${who(d)} went offline`,
+        detail: back ? `Down from ${clock(at)} to ${clock(l.at)}.` : `Since ${clock(at)}.` });
+    }
+    for (const h of timeline.hosts || []) {
+      const d = byId.get(h.id); if (!d || taken.has(d.key)) continue;
+      if (Date.parse(h.first) > from + 1000) add({ key: d.key, kind: "new", rank: 50, title: `${who(d)} joined the network`, detail: `First seen at ${clock(Date.parse(h.first))}${d.known ? "." : ", and not approved yet."}` });
+    }
+    for (const o of timeline.outages || []) {
+      const s = Date.parse(o.start), e = o.end ? Date.parse(o.end) : nowMs, min = Math.max(1, Math.round((e - s) / 60000));
+      if (e < from) continue;
+      add({ key: "internet", kind: "internet", rank: 70, title: `The internet was down for ${min} minute${min === 1 ? "" : "s"}`, detail: `From ${clock(s)}${o.end ? ` to ${clock(e)}` : ", and it still is"}${o.local ? "" : ". The router was answering."}` });
+    }
+  }
+  const day = nowMs - 24 * 3600 * 1000;
+  for (const a of alerts) {
+    if (!["dhcp", "dns", "ra", "security", "port", "cert"].includes(a.kind)) continue;
+    if (!(Date.parse(a.at) >= day)) continue;
+    add({ key: null, kind: "alert", rank: 65, title: a.title, detail: String(a.detail || "").slice(0, 160) });
+  }
+  stops.sort((a, b) => b.rank - a.rank || a.title.localeCompare(b.title));
+  return stops.slice(0, max);
+}
+
+// ---------------------------------------------------------------- weather: the network's health as a sky
+
+/**
+ * The sky for a network score: 90 and up is clear, 75 fair, 50 overcast with some rain, and under that a storm. Everything is 0 to 1
+ * except `tint`, the colour the sky and the distance are multiplied by. A score that is off (null) is a fair sky.
+ */
+export function weatherOf(score) {
+  if (score == null || !Number.isFinite(Number(score))) score = 80;
+  const s = Math.max(0, Math.min(100, Number(score)));
+  const key = s >= 90 ? "clear" : s >= 75 ? "fair" : s >= 50 ? "overcast" : "storm";
+  const cloud = Math.max(0.04, Math.min(1, (96 - s) / 46));
+  const rain = s >= 75 ? 0 : Math.max(0.15, Math.min(1, (80 - s) / 55 + (s < 50 ? 0.25 : 0)));
+  const storm = s < 50 ? Math.min(1, 0.4 + (50 - s) / 70) : 0;
+  const fog = 0.011 + (1 - s / 100) * 0.012;
+  const k = s / 100;
+  const tint = [0.62 + k * 0.44, 0.66 + k * 0.4, 0.78 + k * 0.3];
+  const label = key === "clear" ? "Clear" : key === "fair" ? "Fair" : key === "overcast" ? "Overcast" : "Stormy";
+  return { key, label, score: s, cloud, rain, storm, fog, tint };
+}
+
+// ---------------------------------------------------------------- replay: longer ranges, and what happened when
+
+/** How far back the replay can go. */
+export const REPLAY_RANGES = [
+  { hours: 24, label: "Last day" },
+  { hours: 72, label: "3 days" },
+  { hours: 168, label: "7 days" },
+  { hours: 720, label: "30 days" },
+];
+
+/** How fast to play a range: the whole of it in this many seconds. */
+export const REPLAY_SECONDS = [{ s: 12, label: "In 12 seconds" }, { s: 60, label: "In a minute" }, { s: 180, label: "In three minutes" }];
+/** Milliseconds of the past to move through for each second of watching. */
+export function replaySpeed(rangeMs, seconds) { return Math.max(1, rangeMs / Math.max(1, seconds)); }
+
+/**
+ * Marks along the replay's slider: where in the range (0 to 1) an internet outage began, something unusual began, or a device first
+ * appeared. Oldest first. Each is { at, kind: "outage" | "unusual" | "arrive", label }.
+ */
+export function markersOf(tl) {
+  const from = Date.parse(tl.from), to = Date.parse(tl.to), span = to - from;
+  if (!(span > 0)) return [];
+  const f = ms => (ms - from) / span, out = [];
+  for (const o of tl.outages || []) { const s = Date.parse(o.start); if (s >= from && s <= to) out.push({ at: f(s), kind: "outage", label: "Internet down" }); }
+  for (const u of tl.unusual || []) { const s = Date.parse(u.at); if (s >= from && s <= to) out.push({ at: f(s), kind: "unusual", label: u.title || "Something unusual" }); }
+  for (const h of tl.hosts || []) { const s = Date.parse(h.first); if (s > from + 1000 && s <= to) out.push({ at: f(s), kind: "arrive", label: "A device arrived" }); }
+  return out.sort((a, b) => a.at - b.at);
 }

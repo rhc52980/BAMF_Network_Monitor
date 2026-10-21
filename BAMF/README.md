@@ -1906,7 +1906,8 @@ scan, or delete a thing.
 | POST | `/api/settings/flow-watch` | Body `{"enabled": false}` — stop watching where devices talk and noticing scans, or start again |
 | POST | `/api/settings/spike-alert` | Body `{"enabled": false}` — switch the bandwidth spike alert off, or back on |
 | GET | `/api/flows/map` | Where devices talk, from the other end, and scans said lately, for the 3D tab: `{"enabled", "destinations": [{"net", "sample", "firstSeen", "lastSeen", "bytes", "isNew", "devices": [hostId]}], "scans": [{"hostId", "what", "count", "target", "at"}]}`, the most recently used first, at most 24 destinations; scans are kept in memory for two hours and listed for thirty minutes |
-| GET | `/api/timeline` | The last day to replay: `?hours=` one to 72, default 24. `{"from", "to", "hosts": [{"id", "first", "online0"}], "events": [{"h", "type", "at"}], "outages": [{"start", "end", "local"}], "unusual": [{"hostId", "at", "resolvedAt", "title"}]}`. `online0` is whether the device was online at `from`; events are oldest first |
+| GET | `/api/traffic/usage` | What each device has moved, for the 3D usage skyline: `?hours=` one to 720, default 24. `{"hours", "since", "devices": [{"hostId", "rx", "tx"}]}` in bytes, biggest first, from the hourly traffic history (a machine's extra cards added to it); devices that moved nothing are left out |
+| GET | `/api/timeline` | The days to replay: `?hours=` one to 720 (30 days), default 24. `{"from", "to", "hosts": [{"id", "first", "online0"}], "events": [{"h", "type", "at"}], "outages": [{"start", "end", "local"}], "unusual": [{"hostId", "at", "resolvedAt", "title"}]}`. `online0` is whether the device was online at `from`; events are oldest first |
 | GET | `/api/service-watch` | The service watch: `{"enabled", "max", "bucketMinutes", "failsToAlert", "services": [{"id", "hostId", "name", "device", "ip", "kind", "port", "path", "https", "slowMs", "state", "strip", "uptime", "ms", "error", "downSince", "lastDown": {"at", "minutes"}, "checks"}], "suggestions": [{"hostId", "device", "ip", "name", "kind", "port", "https", "path"}], "devices": [{"id", "name", "ip"}]}`. `state` is `up`, `slow`, `down`, `off` (its device is off) or `waiting`; `strip` is 48 characters, half an hour each, oldest first: `u` up, `d` down, `s` slow, `o` device off, `n` no readings |
 | POST | `/api/service-watch` | Body `{"hostId", "kind": "web" or "port", "port", "path", "https", "name", "slowMs"}` — watch a service on a device BAMF knows; 409 if it is already watched or thirty are |
 | POST | `/api/service-watch/try` | The same body; checks once without saving and answers `{"ok", "ms", "slow", "error", "url", "summary"}` |
@@ -2555,6 +2556,15 @@ These are there whenever the tab is, with nothing to switch on.
   list of the devices that aren't on a plan. Pick one, then click where it goes
   on the floor; click a placed device to move it. It is saved the same way the
   Floor plan tab saves one.
+- **What if it dies?** On a device's card. It shows what would stop if that device died, as a picture and in words, and changes nothing. A switch or
+  access point takes with it everything recorded as plugged into it (they go dark red and lose their lines); the gateway leaves every device on its
+  network cut off from the internet (they go amber) while still reaching each other; any other device is only itself. The banner counts the devices,
+  the watched services that would go down and the watched devices that would show offline, and **End simulation** (or **Esc**) puts it all back. It
+  follows the cabling you recorded on the Map, and a device with none recorded hangs from its gateway.
+- **Today's briefing.** A button in the panel. The camera flies through what has happened, stop by stop, with a caption at each: what is wrong now,
+  devices that went down in the last day (and whether they came back), devices that joined, internet outages, and alerts about the network such as a new
+  DHCP server. Worst first, nine stops at most, about six seconds each, with a first stop saying how many devices there are and a last one closing it.
+  **Back**, **Pause**, **Next** and **Stop** (or **Esc**) steer it. On a quiet day it says so. Nothing is changed by it.
 - **A link to a device.** Picking a device puts `#3d/12` (its id) in the address,
   so a bookmark, a reload or a link opens the tab already flown to it.
   **Show in 3D** is in a device's ⋯ menu, on Unusual findings and on each service
@@ -2579,9 +2589,27 @@ needs anything set up beyond the watch it reads from.
   reads the [flow watch](#unusual-activity), so it is empty with that off.
 - **Scans.** When the flow watch says a device is scanning the network, the device gets a red ring and fires rays at the others on its platform for as
   long as the scan is recent, twenty minutes at most.
-- **Replay the day.** A bar with a play button, a slider and a speed (a day in a minute, in three minutes or in twelve seconds). The last 24 hours play
-  back from what BAMF recorded: devices arrive and go grey, the internet goes red while it was down, and a purple beacon is there while something was
-  unusual. Drag the slider to any moment; **Back to now** returns. A device is shown from the first time it was seen.
+- **Replay.** A bar with a play button, how far back to go (the last day, 3 days, 7 days or 30 days), a slider and a speed (the whole range in 12 seconds,
+  a minute or three minutes). What it plays back is what BAMF recorded: devices arrive and go grey, the internet goes red while it was down, and a purple
+  beacon is there while something was unusual. Small marks along the slider show when each internet outage (red), unusual finding (purple) and new
+  device (amber) happened, so a day you want is easy to find; hover one for what it was. Drag the slider to any moment; **Back to now** returns. A device
+  is shown from the first time it was seen, and a range over a day and a half is labelled with the weekday as well as the time. Changing the range while
+  it plays starts it again from the beginning of the new range.
+- **Usage skyline.** Off until ticked. A tower beside each device as tall as what it has moved over a window you pick, **about 2 hours**, **24 hours** or
+  **7 days** (kept by the hour, so two hours is the shortest), cyan for what it took in and magenta for what it sent out, with the total at the top of
+  the biggest few. A square root sets the height, so a quiet device is still a stub beside a busy one. A list at the bottom lists the biggest five (click
+  one to fly to it) and the total, and a device's card gives its bytes in and out. It reads the hourly traffic BAMF keeps, from the traffic monitor or
+  from the switches' and router's counters, so it is empty with neither, and says so. A machine's extra network cards count towards it.
+- **Exposure.** Off until ticked. A ring on the platform round each device that has something worth flagging, and under it small badges saying what: red for
+  Telnet, FTP, VNC or Remote Desktop open, a certificate that has expired, or a router that answers UPnP; amber for a certificate that expires within two
+  weeks. The gateway and any DHCP or DNS server get a badge for the job they do, whether or not anything is wrong. Everything with nothing to flag is
+  dimmed back, so what is exposed stands out. A device's card lists each flag in words. It reads what the port watch, the certificate watch and the UPnP
+  search already found, so a device that was never scanned has nothing flagged; **Check now** on Activity runs them.
+- **Weather.** On unless unticked. The sky over the scene follows the [network score](#network-score): clear at 90 and up, fair from 75, overcast with
+  rain from 50, and under that a storm with lightning, the cloud thickening and the light turning colder as it falls. A flash and a bolt of lightning
+  say an alert has come in since the last look, whatever the weather. A line in the key says what it is. It uses the score, so it is a fair sky when the
+  score is switched off; it isn't drawn in the replay; and with reduced motion the sky is tinted and clouded but nothing falls or flashes. Untick it for
+  the plain night sky.
 - **Walk around.** Drops the camera to ground level, at the edge of the house or the biggest platform. **W A S D** or the arrow keys move, a drag looks
   round, **Shift** hurries and **Esc** stops.
 - **Enter VR.** Appears where the browser and a headset offer WebXR. It starts a headset session standing in the middle of the scene, drawn without the
@@ -2591,8 +2619,8 @@ needs anything set up beyond the watch it reads from.
   isn't saved between visits, and the screen saver doesn't use it.
 
 `GET /api/flows/map` has the destinations (`net`, `sample`, `firstSeen`, `lastSeen`, `bytes`, `isNew`, `devices`) and recent scans (`hostId`, `what`,
-`count`, `target`, `at`), and `GET /api/timeline?hours=24` has what the replay plays: `from`, `to`, each device's first-seen and whether it was
-online at the start, every online and offline since, internet outages and unusual findings. Hours are one to 72.
+`count`, `target`, `at`), and `GET /api/timeline?hours=24` (up to 720) has what the replay plays: `from`, `to`, each device's first-seen and whether it was
+online at the start, every online and offline since, internet outages and unusual findings. Hours are one to 720.
 
 Nothing is fetched until the tab is first opened: the 3D library (three.js) and each model come from BAMF itself, so it works offline, and a model is
 only fetched when a device needs it. The tab stops drawing when you leave it or while the screen saver is up. With reduced motion it holds still and the

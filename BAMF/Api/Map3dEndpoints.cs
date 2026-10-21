@@ -2,7 +2,7 @@ using LanWatch.Services;
 
 namespace LanWatch.Api;
 
-/// <summary>What the 3D tab draws beyond the devices: where they talk and who is scanning, and the last day to replay.</summary>
+/// <summary>What the 3D tab draws beyond the devices: where they talk and who is scanning, what each device has moved, and the days to replay.</summary>
 internal static class Map3dEndpoints
 {
     public static void Map(WebApplication app)
@@ -33,11 +33,36 @@ internal static class Map3dEndpoints
             });
         });
 
-        // The last day, for the replay: who existed and was online at its start, every online and offline since, internet outages and
-        // unusual findings. The page works out any moment in it from this.
+        // What each device has moved over the last hours, for the usage skyline: bytes in and out, from the hourly traffic history (the
+        // traffic monitor's, or the switches' and router's counters). A machine's extra network cards count towards it. Hours are one to 720.
+        app.MapGet("/api/traffic/usage", (int? hours, HostStore store) =>
+        {
+            var span = Math.Clamp(hours ?? 24, 1, 720);
+            var since = DateTime.UtcNow.AddHours(-span);
+            var totals = store.TrafficTotals(since);
+            var owners = store.CardOwners();
+            var hosts = store.GetAll().Where(h => !h.Forgotten && !h.Ignored && h.Mac != "").ToDictionary(h => h.Mac, StringComparer.OrdinalIgnoreCase);
+            var sums = new Dictionary<string, (long Rx, long Tx)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (mac, t) in totals)
+            {
+                var owner = owners.TryGetValue(mac, out var o) ? o : mac;
+                if (!hosts.ContainsKey(owner)) continue;
+                (long Rx, long Tx) have = sums.TryGetValue(owner, out var s) ? s : (0L, 0L);
+                sums[owner] = (have.Rx + t.Rx, have.Tx + t.Tx);
+            }
+            return Results.Json(new
+            {
+                hours = span, since = since.ToString("o"),
+                devices = sums.Where(kv => kv.Value.Rx + kv.Value.Tx > 0).OrderByDescending(kv => kv.Value.Rx + kv.Value.Tx)
+                    .Select(kv => new { hostId = hosts[kv.Key].Id, rx = kv.Value.Rx, tx = kv.Value.Tx }).ToList(),
+            });
+        });
+
+        // The last hours, for the replay: who existed and was online at its start, every online and offline since, internet outages and
+        // unusual findings. The page works out any moment in it from this. Up to 30 days.
         app.MapGet("/api/timeline", (int? hours, HostStore store) =>
         {
-            var span = Math.Clamp(hours ?? 24, 1, 72);
+            var span = Math.Clamp(hours ?? 24, 1, 720);
             var to = DateTime.UtcNow;
             var from = to.AddHours(-span);
             var fromIso = from.ToString("o");

@@ -10,10 +10,14 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as BufferGeometryUtils from "three/addons/utils/BufferGeometryUtils.js";
-import { MODELS, slotsFor, placeNetworks, describeScene, worstService, FILTERS, matchesFilter, searchRank, problemsOf, behindOf, formatRate, placementFromPoint, FLOOR_GAP } from "./data.mjs";
+import { MODELS, slotsFor, placeNetworks, describeScene, worstService, FILTERS, matchesFilter, searchRank, problemsOf, behindOf, formatRate, placementFromPoint, FLOOR_GAP,
+  outageOf, outageText, usageOf, formatBytes, USAGE_WINDOWS, briefingOf, weatherOf, markersOf, replaySpeed, REPLAY_RANGES, REPLAY_SECONDS } from "./data.mjs";
 import { createExtras } from "./extras.mjs";
 import { buildHouse } from "./house.mjs";
 import { createSound } from "./sound.mjs";
+import { createWeather } from "./weather.mjs";
+import { createSkyline } from "./skyline.mjs";
+import { createXray } from "./xray.mjs";
 import { T, SKIN, glowTexture, makeSky, makeFloor, makePlatformFx, edgeMaterial, bodyMaterial, padMaterial, makeDust, makeScreenPass } from "./fx.mjs";
 
 const COLORS = { on: 0x3fdb7f, unk: 0xffb454, off: 0x5d6f86, odd: 0xb36cff };
@@ -58,13 +62,15 @@ async function loadModel(loader, base, kind) {
   return g;
 }
 
-export async function createView(container, { base = "/engine3d", onOpenDevice = () => {}, credits = "", onReplayLoad = null, replayScene = null, onReplayEnd = () => {}, actionsFor = () => [], onAction = () => {}, onSelect = () => {}, onPlace = null } = {}) {
+export async function createView(container, { base = "/engine3d", onOpenDevice = () => {}, credits = "", onReplayLoad = null, replayScene = null, onReplayEnd = () => {}, actionsFor = () => [], onAction = () => {}, onSelect = () => {}, onPlace = null, onBriefingLoad = null, onWantsChange = () => {} } = {}) {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const saved = (() => { try { return JSON.parse(localStorage.getItem("bamf-3d") || "{}"); } catch { return {}; } })();
   const prefs = {
     mode: saved.mode === "stack" ? "stack" : saved.mode === "house" ? "house" : "side", spin: saved.spin ?? !reduced, labels: saved.labels ?? true, flow: saved.flow ?? true,
     services: saved.services ?? true, strain: saved.strain ?? true, dests: saved.dests ?? true, scans: saved.scans ?? true, sound: false,
-    free: saved.free ?? false,
+    free: saved.free ?? false, skyline: saved.skyline ?? false, xray: saved.xray ?? false, weather: saved.weather ?? true,
+    usageHours: USAGE_WINDOWS.some(w => w.hours === saved.usageHours) ? saved.usageHours : 24,
+    replayHours: REPLAY_RANGES.some(r => r.hours === saved.replayHours) ? saved.replayHours : 24,
   };
   const savePrefs = () => { try { localStorage.setItem("bamf-3d", JSON.stringify(prefs)); } catch { /* private mode */ } };
 
@@ -85,8 +91,12 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
         <label class="v3d-chk"><input type="checkbox" data-v3d="dests"> Destinations</label>
         <label class="v3d-chk"><input type="checkbox" data-v3d="scans"> Scans</label>
         <label class="v3d-chk"><input type="checkbox" data-v3d="sound"> Sound</label>
+        <label class="v3d-chk" title="A tower beside each device, as tall as what it has moved"><input type="checkbox" data-v3d="skyline"> Usage skyline</label>
+        <label class="v3d-chk" title="Rings and badges on what is exposed, and the rest dimmed"><input type="checkbox" data-v3d="xray"> Exposure</label>
+        <label class="v3d-chk" title="Clouds, rain and lightning from the network score"><input type="checkbox" data-v3d="weather"> Weather</label>
       </details>
-      <button type="button" data-v3d="replay" class="v3d-btn" ${onReplayLoad ? "" : "hidden"}>Replay the day</button>
+      <button type="button" data-v3d="replay" class="v3d-btn" ${onReplayLoad ? "" : "hidden"}>Replay</button>
+      <button type="button" data-v3d="brief" class="v3d-btn" ${onBriefingLoad ? "" : "hidden"}>Today's briefing</button>
       <button type="button" data-v3d="walk" class="v3d-btn" aria-pressed="false">Walk around</button>
       <button type="button" data-v3d="vr" class="v3d-btn" hidden>Enter VR</button>
       <button type="button" data-v3d="reset" class="v3d-btn">Reset view</button>
@@ -94,14 +104,16 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     </div>
     <div class="v3d-panel v3d-replay" hidden>
       <button type="button" data-v3d="rpPlay" class="v3d-btn" aria-label="Pause">❚❚</button>
-      <input type="range" data-v3d="rpScrub" min="0" max="1000" value="0" aria-label="Time in the last day">
+      <select data-v3d="rpRange" aria-label="How far back">${REPLAY_RANGES.map(r => `<option value="${r.hours}">${r.label}</option>`).join("")}</select>
+      <div class="v3d-rpwrap"><input type="range" data-v3d="rpScrub" min="0" max="1000" value="0" aria-label="Time in the range"><div class="v3d-rpmarks" aria-hidden="true"></div></div>
       <span class="v3d-rptime"></span>
-      <select data-v3d="rpSpeed" aria-label="Speed"><option value="1440">A day in a minute</option><option value="480">A day in three minutes</option><option value="7200">A day in twelve seconds</option></select>
+      <select data-v3d="rpSpeed" aria-label="Speed">${REPLAY_SECONDS.map(r => `<option value="${r.s}"${r.s === 60 ? " selected" : ""}>${r.label}</option>`).join("")}</select>
       <button type="button" data-v3d="rpClose" class="v3d-btn">Back to now</button>
     </div>
     <div class="v3d-panel v3d-legend">
       <span><i style="background:#3fdb7f;color:#3fdb7f"></i>Online</span><span><i style="background:#ffb454;color:#ffb454"></i>Not yet approved</span>
       <span><i style="background:#5d6f86;color:#5d6f86"></i>Offline</span><span><i style="background:#9a7ce8;color:#b36cff"></i>Unusual for this device</span>
+      <span class="v3d-wx" hidden></span>
       <button type="button" data-v3d="credits" class="v3d-link">Model credits</button>
     </div>
     <div class="v3d-left">
@@ -117,6 +129,10 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     <div class="v3d-panel v3d-credits" hidden></div>
     <div class="v3d-note"></div>
     <div class="v3d-toast" hidden></div>
+    <div class="v3d-panel v3d-usage" hidden></div>
+    <div class="v3d-panel v3d-outage" hidden></div>
+    <div class="v3d-panel v3d-brief" hidden></div>
+    <div class="v3d-flash"></div>
     <div class="v3d-loading">Loading the 3D view…</div>`;
   const q = s => container.querySelector(s);
   const stage = q(".v3d-stage"), card = q(".v3d-card"), loadingEl = q(".v3d-loading");
@@ -189,6 +205,12 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   const sound = createSound();
   const cue = name => { if (prefs.sound) sound.cue(name); };
   const extras = createExtras({ scene, glow, internet, ents, onCue: cue, reduced });
+  const skyline = createSkyline({ scene, ents, glow, reduced });
+  const xray = createXray({ ents, reduced });
+  const weather = createWeather({ scene, glow, controls, flashEl: q(".v3d-flash"), reduced });
+  let usageData = null, usage = null, wxScore = null, outage = null, brief = null;
+  // a device that is down in the simulation, or cut off from the network by one that is
+  const gone = e => !!(outage && outage.info && (outage.info.key === e.key || (outage.info.reason === "network" && outage.cutSet.has(e.key))));
   let house = null, houseInfo = null, houseSpots = new Map();   // the built house, what it was built from, and each placed device's spot
   const inHouse = () => prefs.mode === "house" && !!house;
   const toastEl = () => q(".v3d-toast");
@@ -339,6 +361,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
       if (selected === e) showCard(e);
     }
     extras.setServices(prefs.services);
+    xray.setOn(prefs.xray); xray.refresh(); refreshUsage(); refreshOutage();
     behind = behindOf(data.devices);
     renderFindTags(); applyFilter(); renderAttention(); renderPlacing();
     // where everything goes
@@ -431,13 +454,16 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     if (d.tags && d.tags.length) rows.push(["Tags", d.tags.join(", ")]);
     const bh = behind.get(d.key);
     if (bh) rows.push(["Behind it", `${bh.count} device${bh.count === 1 ? "" : "s"}${bh.offline ? `, ${bh.offline} offline` : ""}`]);
+    if (d.exposure && d.exposure.risks.length) for (const r of d.exposure.risks) rows.push(["Exposure", r.label]);
+    const ux = usage && usage.byKey.get(d.key);
+    if (ux) rows.push([`Moved (${windowOf(prefs.usageHours).label.toLowerCase()})`, `↓ ${formatBytes(ux.rx)}  ↑ ${formatBytes(ux.tx)}`]);
     const acts = actionsFor(d) || [];
     card.innerHTML = `<button type="button" class="v3d-x" data-v3d="cardX" aria-label="Close">×</button>
       <h2>${esc(d.name === "—" ? "Unnamed device" : d.name)}</h2><div class="v3d-sub">${esc(d.ip)}</div>
       <dl>${rows.map(r => `<dt>${esc(r[0])}</dt><dd>${esc(r[1])}</dd>`).join("")}</dl>
       ${d.services && d.services.length ? `<div class="v3d-svcs">${d.services.map(s => `<div><i class="s-${esc(s.state)}"></i>${esc(s.name)} <b>${esc(s.state === "off" ? "device off" : s.state)}</b>${s.uptime != null ? ` · ${esc(s.uptime)}%` : ""}</div>`).join("")}</div>` : ""}
       ${d.odd ? `<div class="v3d-odd"><b>${esc(d.odd.title)}</b><br>${esc(d.odd.detail)}</div>` : ""}
-      <div class="v3d-row"><button type="button" class="v3d-btn" data-v3d="history">History</button>${prefs.free ? '<button type="button" class="v3d-btn" data-v3d="flyto">Fly to it</button>' : ""}${bh ? '<button type="button" class="v3d-btn" data-v3d="behind">Show what\'s behind</button>' : ""}</div>
+      <div class="v3d-row"><button type="button" class="v3d-btn" data-v3d="history">History</button>${prefs.free ? '<button type="button" class="v3d-btn" data-v3d="flyto">Fly to it</button>' : ""}${bh ? '<button type="button" class="v3d-btn" data-v3d="behind">Show what\'s behind</button>' : ""}<button type="button" class="v3d-btn" data-v3d="whatif">${outage && outage.key === d.key ? "End simulation" : "What if it dies?"}</button></div>
       ${acts.length ? `<div class="v3d-acts">${acts.map(a => `<button type="button" class="v3d-act" data-v3d-act="${esc(a.id)}" title="${esc(a.title || "")}">${esc(a.label)}</button>`).join("")}</div>` : ""}`;
     card.hidden = false;
   }
@@ -450,8 +476,9 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     if (!fly_) return;
     flyTo(e);
   }
-  function flyTo(e) {
-    const to = e.group.position.clone();
+  function flyTo(e) { flyToPos(e.group.position); }
+  function flyToPos(pos) {
+    const to = pos.clone();
     const dir = camera.position.clone().sub(controls.target); dir.y = 0;
     if (dir.lengthSq() < 0.01) dir.set(0, 0, 1);
     dir.normalize().multiplyScalar(houseK < 1 ? 4.2 : 7.5).setY(houseK < 1 ? 2.3 : 3.6);
@@ -478,7 +505,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   });
   const syncUi = () => {
     container.querySelectorAll("[data-v3d=side],[data-v3d=stack],[data-v3d=house]").forEach(b => b.classList.toggle("on", b.dataset.v3d === prefs.mode));
-    for (const k of ["free", "spin", "labels", "flow", "services", "strain", "dests", "scans", "sound"]) q(`input[data-v3d=${k}]`).checked = !!prefs[k];
+    for (const k of ["free", "spin", "labels", "flow", "services", "strain", "dests", "scans", "sound", "skyline", "xray", "weather"]) q(`input[data-v3d=${k}]`).checked = !!prefs[k];
     container.classList.toggle("v3d-nolabels", !prefs.labels);
   };
   container.addEventListener("click", ev => {
@@ -507,6 +534,13 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     else if (a === "replay") startReplay();
     else if (a === "place") togglePlacing();
     else if (a === "behind" && selected) showBehind(selected);
+    else if (a === "whatif" && selected) { if (outage && outage.key === selected.key) endOutage(); else startOutage(selected); }
+    else if (a === "outageEnd") endOutage();
+    else if (a === "brief") startBriefing();
+    else if (a === "briefPause") { if (brief) { brief.paused = !brief.paused; renderBrief(); } }
+    else if (a === "briefNext") nextStop(1);
+    else if (a === "briefBack") nextStop(-1);
+    else if (a === "briefStop") stopBrief();
     else if (a === "rpClose") stopReplay();
     else if (a === "rpPlay") { if (replay) { replay.playing = !replay.playing; syncReplayUi(); } }
     else if (a === "walk") toggleWalk();
@@ -535,7 +569,13 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   const setExtrasKept = x => { lastExtras = x; setExtras(x); };
   container.addEventListener("change", ev => {
     if (ev.target.matches && ev.target.matches("select[data-v3d=tag]")) { filt.tag = ev.target.value; applyFilter(); return; }
-    if (ev.target.matches && ev.target.matches("select[data-v3d=rpSpeed]")) { if (replay) replay.speed = Number(ev.target.value) || 1440; return; }
+    if (ev.target.matches && ev.target.matches("select[data-v3d=rpSpeed]")) { if (replay) replay.speed = replaySpeed(replay.to - replay.from, Number(ev.target.value) || 60); return; }
+    if (ev.target.matches && ev.target.matches("select[data-v3d=rpRange]")) {
+      prefs.replayHours = Number(ev.target.value) || 24; savePrefs();
+      if (replay) { stopReplayQuiet(); startReplay(); }
+      return;
+    }
+    if (ev.target.matches && ev.target.matches("select[data-v3d=usageWin]")) { prefs.usageHours = Number(ev.target.value) || 24; savePrefs(); usageData = null; refreshUsage(); onWantsChange(); return; }
     const t = ev.target.closest("input[data-v3d]"); if (!t) return;
     const k = t.dataset.v3d;
     if (k === "rpScrub") return;
@@ -549,6 +589,9 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     if (k === "services") extras.setServices(prefs.services);
     if (k === "dests" || k === "scans") setExtras(lastExtras);
     if (k === "strain" && current) for (const e of ents.values()) styleLabel(e);
+    if (k === "skyline") { if (!prefs.skyline) usageData = null; refreshUsage(); onWantsChange(); }
+    if (k === "xray") { xray.setOn(prefs.xray); xray.refresh(); onWantsChange(); }
+    if (k === "weather") { applyWeather(); onWantsChange(); }
     syncUi();
   });
   syncUi();
@@ -661,7 +704,14 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
 
   // ---------- replay the day ----------
   let replay = null;
-  const replayClock = ms => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const replayClock = ms => {
+    const long = replay && replay.to - replay.from > 36 * 3600e3;
+    return long ? new Date(ms).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }) : new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  };
+  function renderMarkers() {
+    const box = q(".v3d-rpmarks");
+    box.innerHTML = replay ? markersOf(replay.tl).map(m => `<i class="v3d-mk v3d-mk-${m.kind}" style="left:${(m.at * 100).toFixed(2)}%" title="${esc(m.label)}"></i>`).join("") : "";
+  }
   function syncReplayUi() {
     const bar = q(".v3d-replay");
     bar.hidden = !replay;
@@ -670,6 +720,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     q("[data-v3d=rpPlay]").textContent = replay.playing ? "❚❚" : "▶";
     q("[data-v3d=rpPlay]").setAttribute("aria-label", replay.playing ? "Pause" : "Play");
     q("[data-v3d=rpScrub]").value = String(Math.round(((replay.t - replay.from) / (replay.to - replay.from)) * 1000));
+    q("[data-v3d=rpRange]").value = String(prefs.replayHours);
     q(".v3d-rptime").textContent = replayClock(replay.t) + (replay.down ? "  · internet down" : "");
   }
   function pushReplay(force) {
@@ -689,18 +740,145 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     const btn = q("[data-v3d=replay]");
     btn.disabled = true;
     let tl = null;
-    try { tl = await onReplayLoad(); } catch { tl = null; }
+    try { tl = await onReplayLoad(prefs.replayHours); } catch { tl = null; }
     btn.disabled = false;
     if (!tl || !tl.hosts || !tl.hosts.length) { say("There isn't enough history yet to replay."); return; }
     const from = Date.parse(tl.from), to = Date.parse(tl.to);
-    replay = { tl, from, to, t: from, playing: true, speed: Number(q("[data-v3d=rpSpeed]").value) || 1440, pushed: 0, down: false };
-    select(null);
+    replay = { tl, from, to, t: from, playing: true, speed: replaySpeed(to - from, Number(q("[data-v3d=rpSpeed]").value) || 60), pushed: 0, down: false };
+    select(null); endOutage(); stopBrief(); applyWeather(); renderMarkers();
     pushReplay(true);
   }
   function stopReplay() {
     if (!replay) return;
-    replay = null; syncReplayUi(); onReplayEnd();
+    replay = null; syncReplayUi(); applyWeather(); onReplayEnd();
   }
+  function stopReplayQuiet() { replay = null; }
+
+  // ---------- usage: the skyline's window and its list ----------
+  const usageEl = q(".v3d-usage");
+  const windowOf = h => USAGE_WINDOWS.find(w => w.hours === h) || USAGE_WINDOWS[1];
+  function setUsage(d) { usageData = d; refreshUsage(); }
+  function refreshUsage() {
+    usage = usageData && current ? usageOf(current.devices, usageData.devices || [], 5) : null;
+    skyline.set(usage, prefs.skyline);
+    renderUsage();
+    if (selected) showCard(selected);
+  }
+  function renderUsage() {
+    usageEl.hidden = !prefs.skyline;
+    if (!prefs.skyline) return;
+    const rows = usage ? usage.top : [];
+    const sig = prefs.usageHours + "|" + rows.map(r => r.key + ":" + r.total).join(",") + "|" + (usageData ? 1 : 0);
+    if (usageEl.dataset.sig === sig) return;
+    usageEl.dataset.sig = sig;
+    usageEl.innerHTML = `<h3>Usage skyline</h3>
+      <select data-v3d="usageWin" aria-label="How far back">${USAGE_WINDOWS.map(w => `<option value="${w.hours}"${w.hours === prefs.usageHours ? " selected" : ""}>${w.label}</option>`).join("")}</select>` +
+      (rows.length
+        ? `<ul>${rows.map(r => `<li><button type="button" data-v3d-go="${esc(r.key)}" class="v3d-prob"><i></i>${esc(r.name)} <b>${formatBytes(r.total)}</b></button></li>`).join("")}</ul>
+           <div class="v3d-more-n">${formatBytes(usage.total)} in all. <span class="v3d-key"><i style="background:#26d9ff"></i>in <i style="background:#ff2fd0"></i>out</span></div>`
+        : `<div class="v3d-hint">${usageData ? "Nothing measured in that time. It needs the traffic monitor on, or switch or router counters." : "Loading…"}</div>`);
+  }
+
+  // ---------- what if it died ----------
+  const outageEl = q(".v3d-outage");
+  function startOutage(e) {
+    if (replay || !current) return;
+    endOutage();
+    const info = outageOf(current.devices, e.key);
+    if (!info) return;
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 64), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff4b5c).multiplyScalar(1.8), transparent: true, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = -0.5; e.group.add(ring);
+    outage = { key: e.key, info, cutSet: new Set(info.cut), ring, ent: e };
+    renderOutage();
+    if (selected) showCard(selected);
+  }
+  function endOutage() {
+    if (!outage) return;
+    const r = outage.ring; if (r) { r.parent && r.parent.remove(r); r.geometry.dispose(); r.material.dispose(); }
+    outage = null; renderOutage();
+    if (selected) showCard(selected);
+  }
+  // The devices change under it: work out again who depends on what, or stop if the device has gone.
+  function refreshOutage() {
+    if (!outage) return;
+    const info = current ? outageOf(current.devices, outage.key) : null;
+    if (!info || !ents.get(outage.key)) { endOutage(); return; }
+    outage.info = info; outage.cutSet = new Set(info.cut); renderOutage();
+  }
+  function renderOutage() {
+    outageEl.hidden = !outage;
+    container.classList.toggle("v3d-simulating", !!outage);
+    if (!outage) return;
+    const o = outage.info;
+    outageEl.innerHTML = `<h3>What if ${esc(o.name)} died?</h3><div class="v3d-text">${esc(outageText(o))}</div>
+      <div class="v3d-hint">${o.reason === "internet" ? "Amber is cut off from the internet." : o.reason === "network" ? "Dark red has lost the network." : ""} Nothing is changed: this is only a picture.</div>
+      <button type="button" class="v3d-btn" data-v3d="outageEnd">End simulation</button>`;
+  }
+
+  // ---------- the briefing: a flight through what happened ----------
+  const briefEl = q(".v3d-brief");
+  async function startBriefing() {
+    if (brief || replay || !current) return;
+    if (!current.devices.length) { say("There's nothing to fly through yet."); return; }
+    const btn = q("[data-v3d=brief]");
+    btn.disabled = true;
+    let data = null;
+    try { data = onBriefingLoad ? await onBriefingLoad() : null; } catch { data = null; }
+    btn.disabled = false;
+    if (brief || !current) return;
+    const stops = briefingOf({ devices: current.devices, problems: problemsList, timeline: data && data.timeline, alerts: (data && data.alerts) || [], nowMs: Date.now() });
+    const n = current.devices.length, off = current.devices.filter(d => d.state === "off").length;
+    const list = [{ key: null, kind: "intro", title: "Today on your network", detail: `${n} device${n === 1 ? "" : "s"}${off ? `, ${off} offline` : ""}. ${stops.length ? `${stops.length} thing${stops.length === 1 ? "" : "s"} to look at.` : "Nothing to report: it was a quiet day."}` }, ...stops];
+    if (stops.length) list.push({ key: null, kind: "outro", title: "That's the day", detail: "Nothing else changed." });
+    select(null); endOutage();
+    brief = { list, i: -1, wait: 0, paused: false };
+    nextStop(1);
+  }
+  function nextStop(dir) {
+    if (!brief) return;
+    const i = brief.i + dir;
+    if (i >= brief.list.length || i < 0) { if (dir > 0) stopBrief(); return; }
+    ents.forEach(e => { e.briefHot = false; });
+    brief.i = i;
+    const s = brief.list[i];
+    brief.wait = s.kind === "intro" || s.kind === "outro" ? 4.5 : 6;
+    brief.paused = false;
+    // Where to look: the device itself, the internet for an outage, the gateway for an alert about the network, else the whole scene.
+    const e = s.key && s.key !== "internet" ? ents.get(s.key) : s.kind === "alert" ? [...ents.values()].find(x => x.d.gw && !x.leaving) : null;
+    if (s.key === "internet") flyToPos(internet.position);
+    else if (e) { e.briefHot = true; flyTo(e); }
+    else goHome(false);
+    renderBrief();
+  }
+  function stepBrief(dt) {
+    if (!brief || brief.paused) return;
+    brief.wait -= dt;
+    if (brief.wait <= 0) nextStop(1);
+  }
+  function stopBrief() {
+    if (!brief) return;
+    ents.forEach(e => { e.briefHot = false; });
+    brief = null; renderBrief(); goHome(false);
+  }
+  function renderBrief() {
+    briefEl.hidden = !brief;
+    container.classList.toggle("v3d-briefing", !!brief);
+    if (!brief) return;
+    const s = brief.list[brief.i];
+    briefEl.innerHTML = `<div class="v3d-brief-top"><span class="v3d-kind v3d-k-${esc(s.kind)}">${esc(({ intro: "Today", outro: "Done", down: "Down", service: "Service", scan: "Scan", odd: "Unusual", new: "New", slow: "Slow", alert: "Alert", internet: "Internet" })[s.kind] || "Note")}</span><span class="v3d-step">${brief.i + 1} of ${brief.list.length}</span></div>
+      <h3>${esc(s.title)}</h3><div class="v3d-text">${esc(s.detail || "")}</div>
+      <div class="v3d-row"><button type="button" class="v3d-btn" data-v3d="briefBack">Back</button><button type="button" class="v3d-btn" data-v3d="briefPause">${brief.paused ? "Play" : "Pause"}</button><button type="button" class="v3d-btn" data-v3d="briefNext">Next</button><button type="button" class="v3d-btn" data-v3d="briefStop">Stop</button></div>`;
+  }
+
+  // ---------- the weather over it ----------
+  function applyWeather() {
+    const w = prefs.weather && wxScore != null && !replay ? weatherOf(wxScore) : null;
+    weather.set(w, !!w, lite);
+    const el = q(".v3d-wx");
+    el.hidden = !w;
+    if (w) el.textContent = `Sky: ${w.label} · score ${Math.round(w.score)}`;
+  }
+  function setWeather(score) { wxScore = score == null ? null : Number(score); applyWeather(); }
 
   // ---------- walking around ----------
   // Ground level, a person's height up: W A S D or the arrows to move, drag to look, Shift to hurry, Esc to stop.
@@ -846,7 +1024,8 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   }
   const onFullChange = () => { syncFull(); resize(); if (!selected) goHome(true); };
   const onKey = ev => {
-    if (ev.key === "Escape" && container.classList.contains("v3d-full")) toggleFull();
+    if (ev.key === "Escape" && (brief || outage) && container.contains(document.activeElement)) { if (brief) stopBrief(); else endOutage(); }
+    else if (ev.key === "Escape" && container.classList.contains("v3d-full")) toggleFull();
     else if ((ev.key === "f" || ev.key === "F") && !ev.ctrlKey && !ev.metaKey && !ev.altKey && container.contains(document.activeElement) && document.activeElement.tagName !== "INPUT") toggleFull();
   };
   document.addEventListener("fullscreenchange", onFullChange); document.addEventListener("keydown", onKey);
@@ -895,7 +1074,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     });
     nets.forEach(n => { n.group.visible = !houseMode; n.lbl.visible = !houseMode; });
     internet.position.lerp(internetTarget, k);
-    iAura.material.color.lerp(tc.set(internetDown ? 0xff4b5c : CYAN).multiplyScalar(0.9), 1 - Math.exp(-6 * dt));
+    iAura.material.color.lerp(tc.set(internetDown || (outage && outage.info && outage.info.internet) ? 0xff4b5c : CYAN).multiplyScalar(0.9), 1 - Math.exp(-6 * dt));
     iHalo.rotation.z = time * 0.5; iHalo2.rotation.z = -time * 0.35; iEdges.rotation.y = time * 0.3; iCore.rotation.y = time * 0.3;
     iAura.material.opacity = 0.45 + Math.sin(time * 1.6) * 0.1;
 
@@ -908,19 +1087,23 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
       }
       e.pos.lerp(e.target, 1 - Math.exp(-2.6 * dt));
       const off = e.d.state === "off", still = reduced;
+      const dead = !!(outage && outage.info && outage.info.key === e.key);
+      const cutKind = !dead && outage && outage.info && outage.cutSet.has(e.key) ? outage.info.reason : null, sunk = dead || cutKind === "network";
       // strain: a device working hard to answer rides higher and flickers faster, the more so the slower it is
       const strain = prefs.strain && !off ? e.d.strain || 0 : 0;
       const lift = strain * 0.55 * houseK;
       const bob = off || still ? 0 : Math.sin(time * (1.3 + strain * 5) + e.phase) * (0.07 + strain * 0.09);
-      e.group.position.set(e.pos.x, e.pos.y + bob + lift + (off ? -0.28 : 0), e.pos.z);
-      if (!off && !still) e.group.rotation.y += dt * 0.15;
+      e.group.position.set(e.pos.x, e.pos.y + bob + lift + (off || sunk ? -0.28 : 0), e.pos.z);
+      if (!off && !still && !sunk) e.group.rotation.y += dt * 0.15;
       tc.set(COLORS[e.d.state]).multiplyScalar(STATE_GLOW[e.d.state]);
+      if (dead) tc.set(0xff4b5c).multiplyScalar(2.1); else if (cutKind === "network") tc.set(0x7a2535); else if (cutKind === "internet") tc.set(0xc98a2a).multiplyScalar(0.9);
       e.col.lerp(tc, 1 - Math.exp(-5 * dt));
-      const hot = e === hovered || e === selected || !!e.behindHot;
+      const hot = e === hovered || e === selected || !!e.behindHot || !!e.briefHot;
+      const xd = e.xdim && e !== selected ? 0.3 : 1;
       const dim = !!e.dim && e !== selected;
       const flicker = strain && !still ? 1 + strain * 0.45 * Math.sin(time * (4 + strain * 14) + e.phase) : 1;
-      e.edges.material.uniforms.col.value.copy(e.col); e.edges.material.uniforms.gain.value = (e.dens || 1) * (off ? 0.9 : hot ? 1.05 : 1) * flicker * (dim ? 0.16 : 1);
-      e.body.material.uniforms.col.value.copy(e.col); e.body.material.uniforms.op.value = dim ? 0.05 : off ? 0.22 : 0.42; e.body.material.uniforms.gainRim.value = Math.min(1, (e.dens || 1) * 1.2);
+      e.edges.material.uniforms.col.value.copy(e.col); e.edges.material.uniforms.gain.value = (e.dens || 1) * (off ? 0.9 : hot ? 1.05 : 1) * flicker * (dim ? 0.16 : 1) * xd * (cutKind === "network" ? 0.55 : 1) * (dead ? 1.3 + (reduced ? 0 : 0.3 * Math.sin(time * 6)) : 1);
+      e.body.material.uniforms.col.value.copy(e.col); e.body.material.uniforms.op.value = dim || xd < 1 ? 0.06 : off || sunk ? 0.22 : 0.42; e.body.material.uniforms.gainRim.value = Math.min(1, (e.dens || 1) * 1.2);
       e.pad.material.uniforms.col.value.copy(e.col); e.pad.material.uniforms.off.value = off ? 1 : 0;
       e.pad.material.uniforms.hot.value += ((hot ? 1 : 0) - e.pad.material.uniforms.hot.value) * (1 - Math.exp(-8 * dt));
       if (e.ghosts) {
@@ -953,12 +1136,14 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
       const off = L.e.d.state === "off";
       L.line.material.opacity = L.curved ? 1 : off ? 0.16 : L.e.dim ? 0.05 : 0.38 + Math.min(9, L.e.d.rate || 1) * 0.045;
       L.line.material.color.set(L.curved ? 0x1a8fb8 : L.e.d.state === "odd" ? 0x7a3fc0 : off ? 0x1c2a3a : 0x147a9a);
+      if (gone(L.e) || (outage && outage.info && outage.info.internet && L.curved && L.e.key === outage.key)) L.line.material.opacity = 0.07;
     });
     // traffic
     let n = 0;
     if (prefs.flow) for (const p of parts) {
       const L = p.L, d = L.e.d;
       if (d.state === "off" || L.e.leaving || houseMode || L.e.dim) continue;
+      if (gone(L.e)) continue;
       const speed = (L.curved ? 0.22 : 0.08 + (d.rate || 1) * 0.045) * (reduced ? 0.4 : 1);
       p.t += dt * speed * p.dir; if (p.t > 1) p.t -= 1; if (p.t < 0) p.t += 1;
       pointOn(L, p.t, tmp);
@@ -970,6 +1155,8 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     pGeo.setDrawRange(0, n); pGeo.attributes.position.needsUpdate = true; pGeo.attributes.color.needsUpdate = true;
 
     extras.tick(time, dt, now, prefs);
+    skyline.tick(time, dt, houseK, usage ? usage.top : null); xray.tick(time); weather.tick(time, dt); stepBrief(dt);
+    if (outage && outage.ring) { const t = (time * 0.8) % 1; outage.ring.scale.setScalar(0.8 + t * 3); outage.ring.material.opacity = (1 - t) * 0.9; }
     if (fly && !walk) {
       fly.t = Math.min(1, fly.t + dt / 0.9); const e = ease(fly.t);
       controls.target.lerpVectors(fly.fromT, fly.toT, e); camera.position.lerpVectors(fly.fromP, fly.toP, e);
@@ -999,7 +1186,7 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
   function destroy() {
     setActive(false); ro.disconnect(); document.removeEventListener("visibilitychange", onVisible);
     document.removeEventListener("keydown", walkKey); document.removeEventListener("keyup", walkKey);
-    sound.dispose(); extras.dispose(); if (house) house.dispose();
+    sound.dispose(); extras.dispose(); skyline.dispose(); xray.dispose(); weather.dispose(); if (house) house.dispose();
     document.removeEventListener("fullscreenchange", onFullChange); document.removeEventListener("keydown", onKey);
     container.classList.remove("v3d-full"); document.documentElement.classList.remove("v3d-lock");
     renderer.dispose(); controls.dispose(); container.innerHTML = "";
@@ -1011,6 +1198,12 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
     get problems() { return problemsList; }, _filter: filt, _applyFilter: applyFilter, get placing() { return placing; },
     get satellites() { return extras.satellites; }, get scanners() { return extras.scanners; }, get inHouse() { return inHouse(); }, _setMode: setMode,
     _replay: () => replay, _camera: camera, _controls: controls,
+    // What the page should keep feeding: the usage window while the skyline is on, and whether the weather is wanted.
+    get wants() { return { usageHours: prefs.skyline ? prefs.usageHours : 0, weather: !!prefs.weather, xray: !!prefs.xray }; },
+    setUsage, setWeather, flashAlert: () => weather.flash(),
+    startOutage: key => { const e = ents.get(String(key)); if (e) startOutage(e); return !!outage; }, endOutage, get outage() { return outage ? outage.info : null; },
+    startBriefing, stopBrief, get briefing() { return brief ? { i: brief.i, count: brief.list.length, stop: brief.list[brief.i] } : null; },
+    _skyline: skyline, _xray: xray, _weather: weather, get usage() { return usage; },
   };
   container.__v3d = api;
   return api;
