@@ -2023,7 +2023,7 @@
   .v3d-act { font: inherit; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: #9fdcf0; background: rgba(38, 217, 255, .06); border: 1px solid #14506b; padding: 4px 8px; cursor: pointer; border-radius: 0; }
   .v3d-act:hover { border-color: #26d9ff; color: #e8fbff; }
   /* the usage skyline's list, the exposure badges, the outage banner, the briefing caption, the weather's flash and the replay's marks */
-  .v3d-usage { left: 284px; bottom: 14px; width: 200px; padding: 10px 12px; }
+  .v3d-usage { right: 326px; bottom: 14px; width: 200px; padding: 10px 12px; }
   .v3d-usage[hidden], .v3d-outage[hidden], .v3d-brief[hidden] { display: none; }
   .v3d-usage h3, .v3d-outage h3, .v3d-brief h3 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: #e8fbff; font-weight: 600; }
   .v3d-usage ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }

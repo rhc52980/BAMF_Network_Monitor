@@ -1096,13 +1096,13 @@ export async function createView(container, { base = "/engine3d", onOpenDevice =
       e.group.position.set(e.pos.x, e.pos.y + bob + lift + (off || sunk ? -0.28 : 0), e.pos.z);
       if (!off && !still && !sunk) e.group.rotation.y += dt * 0.15;
       tc.set(COLORS[e.d.state]).multiplyScalar(STATE_GLOW[e.d.state]);
-      if (dead) tc.set(0xff4b5c).multiplyScalar(2.1); else if (cutKind === "network") tc.set(0x7a2535); else if (cutKind === "internet") tc.set(0xc98a2a).multiplyScalar(0.9);
+      if (dead) tc.set(0xff4b5c).multiplyScalar(2.1); else if (cutKind === "network") tc.set(0xd8344d); else if (cutKind === "internet") tc.set(0xc98a2a).multiplyScalar(0.9);
       e.col.lerp(tc, 1 - Math.exp(-5 * dt));
       const hot = e === hovered || e === selected || !!e.behindHot || !!e.briefHot;
       const xd = e.xdim && e !== selected ? 0.3 : 1;
       const dim = !!e.dim && e !== selected;
       const flicker = strain && !still ? 1 + strain * 0.45 * Math.sin(time * (4 + strain * 14) + e.phase) : 1;
-      e.edges.material.uniforms.col.value.copy(e.col); e.edges.material.uniforms.gain.value = (e.dens || 1) * (off ? 0.9 : hot ? 1.05 : 1) * flicker * (dim ? 0.16 : 1) * xd * (cutKind === "network" ? 0.55 : 1) * (dead ? 1.3 + (reduced ? 0 : 0.3 * Math.sin(time * 6)) : 1);
+      e.edges.material.uniforms.col.value.copy(e.col); e.edges.material.uniforms.gain.value = (e.dens || 1) * (off ? 0.9 : hot ? 1.05 : 1) * flicker * (dim ? 0.16 : 1) * xd * (cutKind === "network" ? 0.8 : 1) * (dead ? 1.3 + (reduced ? 0 : 0.3 * Math.sin(time * 6)) : 1);
       e.body.material.uniforms.col.value.copy(e.col); e.body.material.uniforms.op.value = dim || xd < 1 ? 0.06 : off || sunk ? 0.22 : 0.42; e.body.material.uniforms.gainRim.value = Math.min(1, (e.dens || 1) * 1.2);
       e.pad.material.uniforms.col.value.copy(e.col); e.pad.material.uniforms.off.value = off ? 1 : 0;
       e.pad.material.uniforms.hot.value += ((hot ? 1 : 0) - e.pad.material.uniforms.hot.value) * (1 - Math.exp(-8 * dt));
