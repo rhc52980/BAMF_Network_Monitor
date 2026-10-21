@@ -231,7 +231,7 @@ traffic, busier for the devices using the most. Drag to turn it, scroll to zoom,
 **History** button that takes you to its row on the Devices tab. **Stacked** puts the networks on top of each other as floors, and **Full screen**
 gives it the whole display.
 
-![The 3D tab: a night sky over a neon floor grid with a glowing globe for the internet at the top, ringed by small glowing satellites, one of them magenta and marked as new, each joined by faint beams to the devices that talk to it. Two circular platforms below are joined to the globe by curved lines of light with small pulses of traffic, the larger for the main network and the smaller for a guest network. Each device stands on its platform as a model of what it is, with its name floating beside it. One is purple with a beam of light above it and a label marked unusual, and the printer's name says its service is down. At the top left is a search box with chips for Offline, Not approved, Unusual, Service down, Watched and Slow, and under it a Needs attention list that says garage-cam is down, that a printer's service is down, that workshop-pi has been off for 9 hours, and that three devices are online and not approved. A panel in the top right holds Side by side, Stacked, Your house, Move freely, Slow turn, Names, Traffic, More to see, Replay the day, Walk around, Reset view and Full screen](docs/3d.webp)
+![The 3D tab: a night sky over a neon floor grid with a glowing globe for the internet at the top, ringed by small glowing satellites, one of them magenta and marked as new, each joined by faint beams to the devices that talk to it. Two circular platforms below are joined to the globe by curved lines of light with small pulses of traffic, the larger for the main network and the smaller for a guest network. Each device stands on its platform as a model of what it is, with its name floating beside it. One is purple with a beam of light above it and a label marked unusual, and the printer's name says its service is down. At the top left is a search box with chips for Offline, Not approved, Unusual, Service down, Watched and Slow, and under it a Needs attention list that says garage-cam is down, that a printer's service is down, that workshop-pi has been off for 9 hours, and that three devices are online and not approved. A panel in the top right holds Side by side, Stacked, Your house, Move freely, Slow turn, Names, Traffic, More to see, Replay, Today's briefing, Walk around, Reset view and Full screen. Under the key at the bottom left a line says the sky is overcast with the network score, and faint rain falls](docs/3d.webp)
 
 ![One device picked in the 3D tab: the camera has flown in over the main network's platform to a purple Raspberry Pi with a beam above it, and a card at the right gives its address, network, vendor, kind, status Unusual, whether it is approved, a purple note that it has been off for 9 hours when it is almost always on, a History button, and a row of action buttons: Open page, Ping, Trace, Mark unknown, Watch, Snooze, Wake and Copy IP. The search box and the Needs attention list stay at the left](docs/3d-device.webp)
 
@@ -249,9 +249,27 @@ are behind it. **Place devices** in the house puts a device on a plan by clickin
 
 More can be switched on under **More to see**: **Your house** stands the floor plans you drew up as glowing walls with each device in the room you
 placed it in; a tower beside a device for each service the service watch checks on it; devices that are slow to answer riding higher and flickering;
-every outside network devices talk to as a satellite round the internet, magenta when it's new; red rays from a device that is scanning; **Replay the
-day**, which plays the last 24 hours back in a minute; **Walk around** at ground level; a headset mode where the browser offers one; and an optional
-quiet hum and soft blips. Each has its own switch.
+every outside network devices talk to as a satellite round the internet, magenta when it's new; red rays from a device that is scanning; **Replay**, which
+plays the last day, 3, 7 or 30 days back, with marks along its slider for outages and arrivals; **Walk around** at ground level; a headset mode where the
+browser offers one; and an optional quiet hum and soft blips. Each has its own switch.
+
+Five newer things are there as well. A **usage skyline** stands a tower beside each device for what it has moved in about 2 hours, 24 hours or 7 days, cyan
+for what it took in and magenta for what it sent out:
+
+![The usage skyline in the 3D tab: beside each device on the main platform stands a glowing tower, cyan for data taken in and magenta for data sent out, with the total above the biggest ones: 49 GB for the NAS, 25 GB for the gateway, 22 GB for the living room TV and 10 GB for the study desktop. A Usage skyline panel at the bottom right has a menu set to 24 hours, lists those five devices with their totals and says 127 GB in all](docs/3d-usage.webp)
+
+The **exposure** layer rings the devices with something worth a look and says what in a badge: Telnet, FTP, VNC or Remote Desktop open, a certificate that has
+expired or is about to, or a router that answers UPnP. It marks the gateway and the DHCP and DNS servers by their jobs, and dims everything with nothing to flag:
+
+![The exposure layer in the 3D tab with the camera flown in over the main platform to a garage camera, ringed in red with a Telnet open badge under it. Other devices carry badges too: a red Remote Desktop open on the study desktop, a red UPnP and DHCP and DNS badges on the gateway, an amber certificate soon and a red certificate expired. Devices with nothing to flag are dimmed. The sky is stormy, as the line under the key says. A card at the right gives the camera's address, network, vendor and status, and the line Exposure: Telnet is open, port 23, with a What if it dies button](docs/3d-exposure.webp)
+
+**What if it dies?**, on any device's card, shows what would stop if it did, and changes nothing. A switch takes down what is plugged into it, and the gateway
+leaves its whole network without the internet:
+
+![What if it dies in the 3D tab: a banner at the top says that if switch-poe-8 died, 4 devices would lose the network, 4 watched services would go down, such as NAS sign-in on nas, and 2 watched devices would show offline and alert. On the main platform the switch glows bright red and the devices that depend on it are dark red while the rest stay green, and the guest network's platform is untouched. The banner has an End simulation button](docs/3d-outage.webp)
+
+**Today's briefing** flies the camera through what has happened in the last day, worst first, with a caption at each stop. **Weather** lets the sky follow the
+network score, from clear to a storm with lightning and a flash when an alert arrives, and unticking it gives the plain night sky.
 
 The same scene, with the camera on its own, is [the grid screen saver](#the-grid-for-the-wall).
 
