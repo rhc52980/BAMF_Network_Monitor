@@ -2,6 +2,13 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.24.1",
+      "date": "2026-10-21",
+      "items": [
+        "Two small touches to the 3D tab. The usage skyline's list of the biggest devices sits at the bottom, left of a device's card, instead of over the towers. And in What if it dies?, the devices a dead switch cuts off are a brighter red, so they can be seen from a wide view."
+      ]
+    },
+    {
       "version": "2.24.0",
       "date": "2026-10-21",
       "items": [
