@@ -2,6 +2,14 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.23.1",
+      "date": "2026-10-20",
+      "items": [
+        "The IPv6 routers block in the Network services card is easier to read. A router's MAC takes the first column and its address goes with its name, so each one is two short lines instead of three.",
+        "The .NET packages BAMF runs on are updated to 10.0.13: SQLite, the Windows service and Linux systemd hosting, and the test packages."
+      ]
+    },
+    {
       "version": "2.23.0",
       "date": "2026-10-20",
       "items": [
