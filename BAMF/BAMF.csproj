@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.14" />
     <!-- The SQLite engine itself. Microsoft.Data.Sqlite only asks for 2.1.6 or later,
          which ships an SQLite with known security flaws (GHSA-2m69-gcr7-jv3q, fixed
          after 2.1.11), so the fixed build is named here. -->
