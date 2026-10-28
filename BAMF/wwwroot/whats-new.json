@@ -2,6 +2,14 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.25.0",
+      "date": "2026-10-28",
+      "items": [
+        "A Compared with card on Activity sets the last 7 days, or 30 from its menu, beside the same number of days before them: the network score on average, devices known and new, how many times a device went offline, internet outages and the minutes without, slow spells, the data moved, alerts and the security ones among them, unusual findings, and ports that opened. Each row says how far it moved and whether that is the good way, and the subtitle says it in a sentence. The weekly and monthly reports open with the same sentence.",
+        "The quieter changes to a device are written down now: a scan that finds its name changed, finds it on another network, or finds it at an address a different device, still online, was answering at a moment ago, puts a line in the device's timeline and a Changed section in What changed. The last of those is what a cloned or spoofed device looks like from outside, so it alerts, once a day per device and address; an address a device already marked offline left behind, or a phone with a fresh private address taking its old one, isn't one. Settings, Security, Address takeover alert switches the alert off."
+      ]
+    },
+    {
       "version": "2.24.1",
       "date": "2026-10-21",
       "items": [
