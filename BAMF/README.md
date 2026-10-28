@@ -1906,6 +1906,7 @@ scan, or delete a thing.
 | POST | `/api/settings/flow-watch` | Body `{"enabled": false}` — stop watching where devices talk and noticing scans, or start again |
 | POST | `/api/settings/spike-alert` | Body `{"enabled": false}` — switch the bandwidth spike alert off, or back on |
 | GET | `/api/flows/map` | Where devices talk, from the other end, and scans said lately, for the 3D tab: `{"enabled", "destinations": [{"net", "sample", "firstSeen", "lastSeen", "bytes", "isNew", "devices": [hostId]}], "scans": [{"hostId", "what", "count", "target", "at"}]}`, the most recently used first, at most 24 destinations; scans are kept in memory for two hours and listed for thirty minutes |
+| GET | `/api/compare` | The last so many days against the same number before them: `?days=` one to 45, default 7. `{"days", "now": {"from", "to"}, "before": {"from", "to"}, "metrics": [{"key", "label", "now", "before", "unit", "better"}], "summary"}`; `better` is `up`, `down` or null for which way is the good one, `summary` the sentence the report uses |
 | GET | `/api/traffic/usage` | What each device has moved, for the 3D usage skyline: `?hours=` one to 720, default 24. `{"hours", "since", "devices": [{"hostId", "rx", "tx"}]}` in bytes, biggest first, from the hourly traffic history (a machine's extra cards added to it); devices that moved nothing are left out |
 | GET | `/api/timeline` | The days to replay: `?hours=` one to 720 (30 days), default 24. `{"from", "to", "hosts": [{"id", "first", "online0"}], "events": [{"h", "type", "at"}], "outages": [{"start", "end", "local"}], "unusual": [{"hostId", "at", "resolvedAt", "title"}]}`. `online0` is whether the device was online at `from`; events are oldest first |
 | GET | `/api/service-watch` | The service watch: `{"enabled", "max", "bucketMinutes", "failsToAlert", "services": [{"id", "hostId", "name", "device", "ip", "kind", "port", "path", "https", "slowMs", "state", "strip", "uptime", "ms", "error", "downSince", "lastDown": {"at", "minutes"}, "checks"}], "suggestions": [{"hostId", "device", "ip", "name", "kind", "port", "https", "path"}], "devices": [{"id", "name", "ip"}]}`. `state` is `up`, `slow`, `down`, `off` (its device is off) or `waiting`; `strip` is 48 characters, half an hour each, oldest first: `u` up, `d` down, `s` slow, `o` device off, `n` no readings |
@@ -1934,6 +1935,7 @@ scan, or delete a thing.
 | POST | `/api/settings/cert-watch` | Body `{"enabled": false}` — the certificate watch: HTTPS certificates read every morning, with expiry alerts. On by default |
 | GET | `/api/ipv6` | The IPv6 watch: `enabled`, `lastRead`, `error`, and `onlyIpv6`, MACs seen over IPv6 this week that never answered the IPv4 scan. Devices' own IPv6 addresses are `ipv6` in `/api/hosts` |
 | POST | `/api/settings/ipv6-watch` | Body `{"enabled": false}` — turn the IPv6 watch off or on. On by default |
+| POST | `/api/settings/takeover-alert` | Body `{"enabled": false}` — the address takeover alert: a device found at an address another device, still online, was answering at. On by default |
 | POST | `/api/settings/ra-watch` | Body `{"enabled": false}` — turn the router advertisement watch (an alert for a new IPv6 router) off or on. On by default |
 | GET | `/api/free-ips?days=90` | For each IPv4 network: `size`, `used`, `free`, the longest `runs` of free addresses and a `suggestion`. Used means seen in the last `days` (default 90), plus every device's current address, the gateway and this machine |
 | GET | `/api/router-import` | Router import status: `kind`, `host`, `enabled`, `lastRun`, `count`, `error`, and for UniFi's traffic counts `traffic`, `trafficAt`, `trafficClients`, `trafficError` |
@@ -3107,7 +3109,7 @@ worth fixing, each kind capped so one bad category can't zero it on its own:
 | Your DNS giving a wrong answer for a name with a fixed address (DNS watch) | 15 each name, up to 15 |
 | The internet down now | 10 |
 | A disk BAMF writes to running low | 10 |
-| A security alert this week (the ARP watch, a new DHCP or DNS server, a device changing DNS server, a new IPv6 router, a network whose DHCP went quiet) | 8 each, up to 24 |
+| A security alert this week (the ARP watch, a new DHCP or DNS server, a device changing DNS server, a new IPv6 router, a network whose DHCP went quiet, an address taken over) | 8 each, up to 24 |
 | Telnet open on a device | 8 each, up to 16 |
 | The router answering UPnP | 8 |
 | A certificate expired | 6 each, up to 12 |
@@ -3130,6 +3132,25 @@ reading; one reading a day is kept for a month. With the score on, scheduled
 reports open with it, and so does the daily note below. On by default;
 **Settings → Alerts → Score the network** switches it off. `GET /api/score`
 has the number, the reasons and the history.
+
+### Compared with last week
+
+The **Compared with** card on Activity sets the last 7 days (or 30, from its menu)
+beside the same number of days before them: the network score on average, how
+many devices BAMF knew and how many were new, how many times a device went
+offline, internet outages and the minutes without, slow spells, the data moved,
+the alerts raised and the security ones among them, unusual findings, and ports
+that opened. Each row has the number for the recent period and how far it moved,
+green where it moved the good way (fewer drops, a higher score) and red the other
+way; a subtitle says it in one sentence, "2 more internet outages, 1.3 GB less of
+data moved". It reads what BAMF already keeps, so the first week it has only one
+side to show, and anything the history window (90 days by default) has dropped
+is gone from it.
+
+The weekly and monthly scheduled reports open with the same sentence, "Compared
+with the week before: …", or "much the same" when nothing moved. The daily report
+doesn't; a day against the day before says little. `GET /api/compare?days=7` has
+the numbers.
 
 ### The daily all-quiet note
 
@@ -4053,6 +4074,22 @@ appearing is the classic sign of a rogue router or a misconfigured box, so a
 server not seen before is an **alert**: in the card, in the log, and to your
 webhook. The first servers seen while BAMF has none on record are learned
 quietly.
+
+**Changes to a device.** A scan that finds a device's name changed (a real new
+name, not a lookup that failed or a name that is only its MAC), finds it on
+another network, or finds it at an address a different device, still online, was
+answering at a moment ago, writes that down: a line in the device's **History**
+timeline ("Name changed to garage-pc (was study-pc)", "Moved to 192.168.209.0/24",
+"Took over 192.168.30.40 from brother-mfc, which was still online") and a
+**Changed** section in Activity's **What changed**. The last of those is the one
+that can matter: a lease DHCP hands on looks like it only when the old device has
+just gone, but a device that copies another's address to stand in for it looks
+the same from outside, so it **alerts**, once a day per device and address, to
+the destinations that take security alerts, and counts toward the score's
+security alerts. An address a device that was already marked offline left behind
+isn't a takeover, and nor is a phone with a fresh private address taking the one
+its old address had (the two look alike by vendor). **Address takeover alert**
+under Settings → Security switches the alert off; the lines in the story stay.
 
 **DNS servers.** Every DNS query names the server the device asked. The card
 lists every DNS server in use with how many devices ask it, and each device's

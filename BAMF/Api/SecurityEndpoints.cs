@@ -41,6 +41,12 @@ internal static class SecurityEndpoints
             return Results.Ok();
         });
 
+        app.MapPost("/api/settings/takeover-alert", (ActiveArpRequest body, HostStore store) =>
+        {
+            store.SetSetting("takeoverAlert", body.Enabled ? "true" : "false");
+            return Results.Ok();
+        });
+
         app.MapPost("/api/settings/ra-watch", (ActiveArpRequest body, HostStore store) =>
         {
             store.SetSetting("routerAdvertWatch", body.Enabled ? "true" : "false");

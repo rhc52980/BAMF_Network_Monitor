@@ -173,6 +173,7 @@ public partial class HostStore
         InitMapPositions(conn);
         InitDeviceTypes(conn);
         InitAddresses(conn);
+        InitDrift(conn);
         InitSecurity(conn);
         InitHelpers(conn);
         InitIpv6(conn);
@@ -395,7 +396,7 @@ public partial class HostStore
 
             using (var check = conn.CreateCommand())
             {
-                check.CommandText = "SELECT id, hostname, online, ignored, watched, ip FROM hosts WHERE mac = $mac";
+                check.CommandText = "SELECT id, hostname, online, ignored, watched, ip, subnet FROM hosts WHERE mac = $mac";
                 check.Parameters.AddWithValue("$mac", mac);
                 using var r = check.ExecuteReader();
                 if (r.Read())
@@ -406,6 +407,7 @@ public partial class HostStore
                     var isIgnored = r.GetInt64(3) == 1;
                     var isWatched = r.GetInt64(4) == 1;
                     var oldIp = r.GetString(5);
+                    var oldSubnet = r.GetString(6);
                     // Keep an existing hostname if reverse DNS failed this time.
                     // Keep an existing hostname if reverse DNS/NetBIOS failed this
                     // time — UNLESS the stored name is MAC-derived junk (e.g. a
@@ -450,7 +452,19 @@ public partial class HostStore
                     // A different address for a known MAC is the whole point of
                     // the history table; the same address is not worth a row.
                     if (isMain && !string.Equals(oldIp, ip, StringComparison.Ordinal))
+                    {
                         AddIpChange(conn, hostId, ip, now);
+                        // moved onto an address another device, still online, was answering at: the quiet kind of takeover
+                        if (!isIgnored && TakenFrom(conn, mac, vendor, ip) is { } taken) AddDrift(conn, hostId, "takeover", taken.Who, ip, now);
+                    }
+                    // The quieter changes, worth a line in the device's story: another network, another name.
+                    if (isMain && !isIgnored)
+                    {
+                        if (oldSubnet != "" && subnet != "" && !string.Equals(oldSubnet, subnet, StringComparison.Ordinal)) AddDrift(conn, hostId, "network", oldSubnet, subnet, now);
+                        if (newHostname != "" && existingHostname != "" && !LooksMacJunk(existingHostname) && !LooksMacJunk(newHostname)
+                            && !string.Equals(existingHostname, newHostname, StringComparison.OrdinalIgnoreCase))
+                            AddDrift(conn, hostId, "name", existingHostname, newHostname, now);
+                    }
 
                     if (!wasOnline && !isIgnored)
                     {
@@ -487,6 +501,8 @@ public partial class HostStore
             // should not have a hole where its history began.
             AddIpChange(conn, newId, ip, now);
             TouchAddress(conn, newId, ip, subnet, now);
+            // A new device at an address another one, still online, was answering at a moment ago.
+            if (!autoIgnore && TakenFrom(conn, mac, vendor, ip) is { } takenNew) AddDrift(conn, newId, "takeover", takenNew.Who, ip, now);
             if (!autoIgnore) AddEvent(conn, newId, "online", now);
             return (true, autoIgnore);
         }

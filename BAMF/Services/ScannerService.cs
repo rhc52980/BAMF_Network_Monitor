@@ -677,6 +677,11 @@ public partial class ScannerService : BackgroundService
             }
         }
 
+        // This scan's quieter changes: an address taken over from a device that was still online.
+        try { await RaiseDrift(ct); }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { _log.LogWarning(ex, "Takeover alert failed on {Subnet}", subnetLabel); }
+
         return mode;
     }
 
