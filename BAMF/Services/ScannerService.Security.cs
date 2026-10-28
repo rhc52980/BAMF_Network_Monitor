@@ -28,6 +28,24 @@ public partial class ScannerService
     private DateTime _arpWatchReadAt = DateTime.MinValue;
 
     public bool ArpWatchEnabled => _store.GetSetting("arpWatch") != "false";
+    /// <summary>Alert when a device is found at an address another device, still online, was answering at: what a cloned or spoofed device looks like.</summary>
+    public bool TakeoverAlertEnabled => _store.GetSetting("takeoverAlert") != "false";
+
+    /// <summary>The changes the last scan wrote down: a takeover alerts, once a day per device and address; the rest are only in the story.</summary>
+    internal async Task RaiseDrift(CancellationToken ct)
+    {
+        foreach (var d in _store.DrainDrift())
+        {
+            if (d.Kind != "takeover" || !TakeoverAlertEnabled) continue;
+            var h = _store.GetAll().FirstOrDefault(x => x.Id == d.HostId);
+            if (h is null) continue;
+            if (!SecurityDue($"takeover|{d.After}|{h.Mac}", TimeSpan.FromHours(24))) continue;
+            await RaiseSecurity($"{DescribeMac(h.Mac)} took over {d.After}",
+                $"It answered at {d.After}, where {d.Before} was answering a moment ago. A lease handed on by DHCP looks like this when the old device " +
+                "has only just gone, but a device that copies another's address to stand in for it looks the same. Check that the first device is " +
+                "really off, and that the new one is yours.", ct);
+        }
+    }
 
     /// <summary>The same, read from the database at most once a minute: the traffic monitor asks for every ARP frame.</summary>
     private bool ArpWatchCached

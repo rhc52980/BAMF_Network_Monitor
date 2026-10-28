@@ -631,6 +631,7 @@ function render() {
     loadConnections().then(renderServices);
     loadSpeed().then(renderSpeed);
     loadChanges();
+    if (typeof loadCompare === "function") loadCompare();
     loadIpv6();
     renderFeed();
   }

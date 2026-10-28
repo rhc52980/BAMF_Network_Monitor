@@ -132,6 +132,17 @@ public sealed class ReportService : BackgroundService
         }
         fields.Add(("Devices", $"{all.Count} known, {online} online ({(all.Count == 0 ? 0 : 100 * online / all.Count)}%)"));
 
+        // Against the same stretch before: a week against last week, a month against the one before. Only what moved.
+        if (period.TotalDays >= 6)
+        {
+            var days = period.TotalDays >= 28 ? 30 : 7;
+            var compared = HostStore.CompareSentence(_store.Compare(days, now, _score is { Enabled: true } ? _score.History().Select(x => (x.Date, x.Value)) : null,
+                _scanner.Traffic.Alerts().Select(a => (a.Kind, a.At))));
+            var beforeName = days == 30 ? "the 30 days before" : "the week before";
+            sb.AppendLine($"Compared with {beforeName}: {(compared == "" ? "much the same." : compared + ".")}");
+            fields.Add(($"Compared with {beforeName}", compared == "" ? "Much the same." : compared + "."));
+        }
+
         var fresh = all.Where(h => When(h.FirstSeen) >= since).OrderByDescending(h => When(h.FirstSeen)).ToList();
         var freshText = fresh.Count == 0 ? "None." : string.Join("; ", fresh.Take(8).Select(h => $"{Name(h)} ({h.Ip}{(h.Vendor != "" ? ", " + h.Vendor : "")})")) + (fresh.Count > 8 ? $"; and {fresh.Count - 8} more" : "");
         sb.AppendLine($"New devices: {freshText}");

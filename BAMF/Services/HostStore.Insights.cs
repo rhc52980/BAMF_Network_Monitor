@@ -13,7 +13,11 @@ public partial class HostStore
     public sealed record ChangeDevice(long Id, string At, string Detail);
     public sealed record ChangePort(long HostId, int Port, string Service, string At);
     public sealed record Changes(List<ChangeDevice> Arrived, List<ChangeDevice> Left, List<ChangeDevice> Moved,
-        List<ChangePort> Opened, List<ChangePort> Closed, Dictionary<string, int> AlertCounts, List<AlertRow> Notable);
+        List<ChangePort> Opened, List<ChangePort> Closed, Dictionary<string, int> AlertCounts, List<AlertRow> Notable)
+    {
+        /// <summary>Names and networks that changed, and addresses taken over: the quieter changes.</summary>
+        public List<ChangeDevice> Drifted { get; init; } = new();
+    }
 
     private static DateTime? ParseUtc(string s) =>
         DateTime.TryParse(s, null, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var t) ? t : null;
@@ -159,7 +163,8 @@ public partial class HostStore
         var alerts = GetAlerts(500, sinceUtc);
         var counts = alerts.GroupBy(a => a.Kind).ToDictionary(g => g.Key, g => g.Count());
         var notable = alerts.Where(a => a.Kind is "security" or "cert" or "port" or "dhcp" or "dns" or "ra").Take(10).ToList();
+        var drifted = DriftSince(sinceUtc).Where(d => all.ContainsKey(d.HostId)).Select(d => new ChangeDevice(d.HostId, d.At, DriftText(d))).ToList();
         return new Changes(arrived, left, moved, opened.OrderByDescending(p => p.At).ToList(),
-            closed.OrderByDescending(p => p.At).ToList(), counts, notable);
+            closed.OrderByDescending(p => p.At).ToList(), counts, notable) { Drifted = drifted };
     }
 }

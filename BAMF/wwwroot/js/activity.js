@@ -261,6 +261,7 @@ function renderChanges() {
     ["Moved address", c.moved, x => x.detail],
     ["Ports opened", c.opened, port],
     ["Ports closed", c.closed, port],
+    ["Changed", c.drifted || [], x => x.detail],
   ].filter(([, list]) => list.length);
   const kinds = { rule: "rules", port: "port", security: "security", cert: "certificate", dhcp: "DHCP", dns: "DNS", wake: "wake" };
   const alerts = Object.entries(c.alerts || {}).filter(([, n]) => n > 0);
@@ -285,6 +286,33 @@ function renderChanges() {
     alerts.map(([k, n]) => `${n} ${esc(kinds[k] || k)}`).join(" · ")}</span></div></div>`);
 }
 document.getElementById("chgDays").onchange = () => loadChanges(true);
+
+// ---- Compared with last week (or last month) ----
+// The same numbers for this stretch and the one before, with the difference and whether it's the good way.
+let compareCache = null, compareAt = 0;
+function loadCompare(force) {
+  const days = $("cmpDays").value;
+  if (!force && compareCache && Date.now() - compareAt < 60e3 && compareCache.days == days) { renderCompare(); return; }
+  fetch("/api/compare?days=" + days).then(r => r.ok ? r.json() : null)
+    .then(c => { if (c) { compareCache = c; compareAt = Date.now(); } renderCompare(); }).catch(() => {});
+}
+function renderCompare() {
+  const c = compareCache, body = $("cmpBody");
+  if (!c || !body) return;
+  const fmt = m => m.unit === "bytes" ? fmtBytes(m.now) : m.unit === "min" ? `${Math.round(m.now)} min` : m.key === "score" ? m.now.toFixed(1) : String(Math.round(m.now));
+  const fmtDiff = m => { const d = Math.abs(m.now - m.before); return m.unit === "bytes" ? fmtBytes(d) : m.unit === "min" ? `${Math.round(d)} min` : m.key === "score" ? d.toFixed(1) : String(Math.round(d)); };
+  const moved = c.metrics.filter(m => m.now !== m.before);
+  $("cmpSub").textContent = c.summary ? `Over the last ${c.days} days against the ${c.days} before: ${c.summary}.` : `Over the last ${c.days} days against the ${c.days} before: much the same.`;
+  body.innerHTML = c.metrics.map(m => {
+    const same = m.now === m.before, up = m.now > m.before;
+    const good = same ? null : m.better === "up" ? up : m.better === "down" ? !up : null;
+    const cls = same ? "" : good === true ? "cmp-good" : good === false ? "cmp-bad" : "cmp-flat";
+    const arrow = same ? "=" : up ? "▲" : "▼";
+    return `<div class="health-row cmp-row"><span>${esc(m.label)}</span><b>${esc(fmt(m))}</b><span class="cmp-delta ${cls}" title="${esc(fmtDiffTitle(m))}">${arrow}${same ? "" : " " + esc(fmtDiff(m))}</span></div>`;
+  }).join("") + (moved.length ? "" : `<div class="watch-note">Nothing moved between the two.</div>`);
+  function fmtDiffTitle(m) { return m.now === m.before ? "The same as before" : `Was ${m.unit === "bytes" ? fmtBytes(m.before) : m.unit === "min" ? Math.round(m.before) + " min" : m.key === "score" ? m.before.toFixed(1) : Math.round(m.before)}`; }
+}
+$("cmpDays").onchange = () => loadCompare(true);
 
 // ---- Network hygiene ----
 // Findings from what BAMF already knows: the ports found open on each device

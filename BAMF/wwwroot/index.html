@@ -649,6 +649,12 @@
           <span class="set-field"><button type="button" class="arp-toggle" id="setArpWatch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
         <label class="set-row">
+          <span class="set-label">Address takeover alert
+            <span class="set-hint">An alert when a scan finds a device at an address that a different device, still online, was answering at a moment ago. A lease DHCP hands on looks like this only when the old device has just gone; a device copying another's address to stand in for it looks the same. Every change of a device's name or network is written in its timeline and in What changed whether or not this is on.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setTakeoverAlert" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
           <span class="set-label">Certificate watch
             <span class="set-hint">Every morning at 4:30, reads the certificate on each HTTPS port BAMF has found open, and alerts 14 days and 3 days before one expires, and when it has. Only ports a scan already found open are touched.</span>
           </span>
@@ -1366,6 +1372,11 @@
       <h3>What changed <select id="chgDays" class="free-days" aria-label="Period"><option value="1">in 24 hours</option><option value="7" selected>this week</option><option value="30">in 30 days</option></select></h3>
       <div class="sub" id="chgSub"></div>
       <div id="chgBody"></div>
+    </div>
+    <div class="act-card" id="compareCard">
+      <h3>Compared with <select id="cmpDays" class="free-days" aria-label="Period"><option value="7" selected>last week</option><option value="30">last month</option></select></h3>
+      <div class="sub" id="cmpSub"></div>
+      <div id="cmpBody"></div>
     </div>
     <div class="act-card">
       <h3>Top talkers</h3>

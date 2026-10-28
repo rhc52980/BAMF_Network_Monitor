@@ -274,6 +274,7 @@ internal static class SettingsEndpoints
                     firstWeekReport = store.GetSetting("firstWeekReport") != "false",
                     ipv6Watch = scanner.Ipv6WatchEnabled,
                     routerAdvertWatch = scanner.Traffic.RouterAdvertWatchEnabled,
+                    takeoverAlert = scanner.TakeoverAlertEnabled,
                     greynoise = store.GetSetting("greynoise") == "true",
                     wanWatch = wan.Enabled,
                     wanTarget = wan.Target,

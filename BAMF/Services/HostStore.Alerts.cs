@@ -285,6 +285,12 @@ public partial class HostStore
             }
             using (var cmd = conn.CreateCommand())
             {
+                cmd.CommandText = "SELECT host_id, at, kind, before, after FROM host_changes WHERE host_id = $h ORDER BY at DESC LIMIT 50";
+                cmd.Parameters.AddWithValue("$h", hostId);
+                foreach (var d in ReadDrift(cmd)) items.Add((d.At, "change", DriftText(d)));
+            }
+            using (var cmd = conn.CreateCommand())
+            {
                 cmd.CommandText = "SELECT port, service, first_seen, last_seen, open FROM host_ports WHERE host_id = $h";
                 cmd.Parameters.AddWithValue("$h", hostId);
                 using var r = cmd.ExecuteReader();
@@ -309,7 +315,7 @@ public partial class HostStore
 
     private static void PruneAlertsAndTraffic(SqliteConnection conn, string cutoff)
     {
-        foreach (var sql in new[] { "DELETE FROM alerts WHERE at < $cutoff", "DELETE FROM traffic_hourly WHERE hour < $cutoff" })
+        foreach (var sql in new[] { "DELETE FROM alerts WHERE at < $cutoff", "DELETE FROM traffic_hourly WHERE hour < $cutoff", "DELETE FROM host_changes WHERE at < $cutoff" })
         {
             using var prune = conn.CreateCommand();
             prune.CommandText = sql;

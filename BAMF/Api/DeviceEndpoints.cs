@@ -589,13 +589,30 @@ internal static class DeviceEndpoints
             foreach (var a in scanner.Traffic.Alerts().Where(a => DateTime.TryParse(a.At, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var t) && t >= since))
                 counts[a.Kind] = counts.GetValueOrDefault(a.Kind) + 1;
             object Dev(HostStore.ChangeDevice x) => new { hostId = x.Id, name = Name(x.Id), ip = Ip(x.Id), at = x.At, detail = x.Detail };
+            var drifted = c.Drifted.Select(Dev).ToList();
             object Port(HostStore.ChangePort x) => new { hostId = x.HostId, name = Name(x.HostId), ip = Ip(x.HostId), port = x.Port, service = x.Service, at = x.At };
             return Results.Json(new
             {
                 days = d, since = since.ToString("o"),
                 arrived = c.Arrived.Select(Dev), left = c.Left.Select(Dev), moved = c.Moved.Select(Dev),
-                opened = c.Opened.Select(Port), closed = c.Closed.Select(Port),
+                opened = c.Opened.Select(Port), closed = c.Closed.Select(Port), drifted,
                 alerts = counts, notable = c.Notable.Select(a => new { at = a.At, kind = a.Kind, title = a.Title }),
+            });
+        });
+
+        // The last so many days against the same number before them: the week against last week, the month against last month.
+        app.MapGet("/api/compare", (int? days, HostStore store, ScannerService scanner, HealthScore score) =>
+        {
+            var d = Math.Clamp(days ?? 7, 1, 45);
+            var now = DateTime.UtcNow;
+            var metrics = store.Compare(d, now, score.Enabled ? score.History().Select(x => (x.Date, x.Value)) : null, scanner.Traffic.Alerts().Select(a => (a.Kind, a.At)));
+            return Results.Json(new
+            {
+                days = d,
+                now = new { from = now.AddDays(-d).ToString("o"), to = now.ToString("o") },
+                before = new { from = now.AddDays(-2 * d).ToString("o"), to = now.AddDays(-d).ToString("o") },
+                metrics = metrics.Select(m => new { m.Key, m.Label, m.Now, m.Before, m.Unit, m.Better }),
+                summary = HostStore.CompareSentence(metrics),
             });
         });
 

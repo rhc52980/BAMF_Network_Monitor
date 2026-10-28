@@ -179,6 +179,12 @@ function renderRaWatchToggle() {
   setToggleState(t, raWatch);
   t.title = raWatch ? "A new IPv6 router alerts - click to stop" : "Click to be told when a new device announces itself as an IPv6 router";
 }
+function renderTakeoverToggle() {
+  const t = $("setTakeoverAlert");
+  if (!t) return;
+  setToggleState(t, takeoverAlert);
+  t.title = takeoverAlert ? "A device taking over another's address alerts - click to stop" : "Click to be told when a device takes over another's address";
+}
 function renderCertWatchToggle() {
   const t = $("setCertWatch");
   if (!t) return;
@@ -199,6 +205,8 @@ for (const [id, url, get, set, on, off] of [
     "Certificates will be checked every morning at 4:30", "The certificate watch is off"],
   ["setIpv6Watch", "/api/settings/ipv6-watch", () => ipv6Watch, v => { ipv6Watch = v; renderIpv6WatchToggle(); },
     "IPv6 addresses will be watched", "The IPv6 watch is off"],
+  ["setTakeoverAlert", "/api/settings/takeover-alert", () => takeoverAlert, v => { takeoverAlert = v; renderTakeoverToggle(); },
+    "A device taking over another's address will alert", "The address takeover alert is off"],
   ["setRaWatch", "/api/settings/ra-watch", () => raWatch, v => { raWatch = v; renderRaWatchToggle(); },
     "A new IPv6 router will alert", "The router advertisement watch is off"],
   ["setFlowWatch", "/api/settings/flow-watch", () => flowWatch, v => { flowWatch = v; renderFlowToggles(); if (typeof loadFlows === "function") loadFlows(); },
@@ -1637,6 +1645,7 @@ async function loadSettings() {
   if (typeof e.certWatch === "boolean") certWatch = e.certWatch;
   if (typeof e.ipv6Watch === "boolean") ipv6Watch = e.ipv6Watch;
   if (typeof e.routerAdvertWatch === "boolean") raWatch = e.routerAdvertWatch;
+  if (typeof e.takeoverAlert === "boolean") takeoverAlert = e.takeoverAlert;
   if (typeof e.dnsWatch === "boolean") dnsWatch = e.dnsWatch;
   if (typeof e.wanQuality === "boolean") wanQualityAlert = e.wanQuality;
   if (typeof e.latencyAlert === "boolean") latencyAlert = e.latencyAlert;
@@ -1648,6 +1657,7 @@ async function loadSettings() {
   renderCertWatchToggle();
   renderIpv6WatchToggle();
   renderRaWatchToggle();
+  renderTakeoverToggle();
   renderLatencyAlert();
   if (typeof e.addressWatch === "boolean") addressWatch = e.addressWatch;
   if (typeof e.signInAlert === "boolean") signInAlert = e.signInAlert;
