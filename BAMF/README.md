@@ -129,6 +129,7 @@ step:
 | `js/floorplan.js` | Floor plans, and drawing one in BAMF |
 | `js/devices.js` | The device list: drawing it, filters, sorting, network tabs, each device's history, and Who's home |
 | `js/activity.js` | The Activity tab: the feed, alerts, settings changes, top talkers, network hygiene, what changed |
+| `js/cardlayout.js` | Arranging the Activity cards: their order, which are folded and which are hidden, kept in the browser |
 | `js/servicewatch.js` | The service watch card on Activity: what is watched, its last day, the add panel, and its Settings switch |
 | `js/map.js` | The network map, and printing it |
 | `js/dialogs.js` | The device dialogs, the scan panel, Find port and switch counters |
@@ -3096,6 +3097,29 @@ On Discord it's an embed with a field per item; on ntfy, Gotify and generic
 webhooks it's text. **Preview** shows what would go out, and **Send now** sends
 it straight away. The API has `/api/settings/report`, `/api/reports/send` and
 `/api/reports/preview`.
+
+### Arranging the Activity cards
+
+The Activity tab is a lot of cards, and you may only want some of them. Every
+card has a small arrow in front of its heading: click it to **fold** the card to
+just its heading, and again to open it. **Arrange cards**, at the top right of
+the tab, is for the rest:
+
+- **Move.** Each card gets a strip with a **Move** handle: drag it onto another
+  card and it goes before that one if you drop it on the upper left half, after
+  it on the lower right. The **◀** and **▶** buttons move a card one place (and
+  the arrow keys do too, with the handle focused), which is the way on a phone,
+  where dragging isn't offered.
+- **Hide** takes a card off the tab. While you are arranging it stays where it
+  was, dimmed, with **Show** in its place; once you press **Done** the tab says
+  how many are hidden and leaves them out.
+- **Reset layout** puts every card back in its original place, unfolded and shown.
+
+It is kept in this browser, not on the server, so it changes the tab for you and
+nobody else, and a different browser or device has its own. A card an update adds
+turns up straight after the card that comes before it in the default order, so
+nothing you arranged is shuffled. A card the tab only shows sometimes (Sites, Only
+on IPv6) still appears only when it has something to say, wherever you put it.
 
 ### Network score
 

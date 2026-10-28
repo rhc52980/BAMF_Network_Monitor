@@ -551,6 +551,26 @@
     grid-template-columns: repeat(auto-fit, minmax(min(100%, max(340px, (100% - 42px) / 4)), 1fr)); }
   .act-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
   .act-card h3 { margin: 0 0 4px; font-size: 14px; }
+  /* Arranging the cards: a fold button in front of each heading, and while arranging a strip of controls on each card (see js/cardlayout.js) */
+  .act-fold { width: 16px; height: 16px; margin: 0 4px 0 -2px; padding: 0; border: 0; background: none; color: var(--text-dim); cursor: pointer; font: inherit; vertical-align: -2px; }
+  .act-fold::before { content: "\25BE"; display: inline-block; transition: transform .15s; }
+  .act-folded .act-fold::before { transform: rotate(-90deg); }
+  .act-fold:hover, .act-fold:focus-visible { color: var(--text); }
+  .act-card.act-folded { align-self: start; }
+  .act-card.act-folded > :not(h3):not(.act-editbar) { display: none; }
+  .act-card.act-folded > h3 { margin-bottom: 0; }
+  .act-card.act-off { display: none; }
+  .act-bar { grid-column: 1 / -1; display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 0 0 -4px; font-size: 12px; color: var(--text-dim); }
+  .act-bar-note { flex: 1; min-width: 0; }
+  .act-editbar { display: none; align-items: center; gap: 6px; margin: -2px 0 8px; }
+  .act-editing .act-editbar { display: flex; }
+  .act-editing .act-card { outline: 1px dashed var(--line); outline-offset: 2px; }
+  .act-editing .act-card.act-off { display: block; opacity: .45; }
+  .act-handle { font: inherit; font-size: 12px; padding: 3px 9px; color: var(--text); background: transparent; border: 1px solid var(--line); border-radius: 6px; cursor: grab; }
+  .act-handle:hover, .act-handle:focus-visible { border-color: var(--focus); }
+  .act-card.act-dragging { opacity: .4; }
+  .act-card.act-drop-before { box-shadow: inset 5px 0 0 var(--focus); }
+  .act-card.act-drop-after { box-shadow: inset -5px 0 0 var(--focus); }
   .act-card .sub { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
   .talkers { display: flex; flex-direction: column; gap: 6px; }
   .talker { display: grid; grid-template-columns: minmax(90px, 1.3fr) 110px 1fr; gap: 10px; align-items: center; font-size: 12.5px; }
