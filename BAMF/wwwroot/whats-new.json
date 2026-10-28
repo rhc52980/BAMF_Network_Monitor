@@ -2,6 +2,13 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.25.1",
+      "date": "2026-10-28",
+      "items": [
+        "The cards on the Activity tab can be arranged. A small arrow in front of each heading folds the card to just its heading. Arrange cards, at the top right of the tab, gives each card a Move handle to drag it by (and arrow buttons for a phone), and Hide to take it off the tab; Reset layout puts everything back. It is kept in your browser, so it changes the tab for you and for nobody else."
+      ]
+    },
+    {
       "version": "2.25.0",
       "date": "2026-10-28",
       "items": [
