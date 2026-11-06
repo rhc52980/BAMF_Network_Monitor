@@ -4230,7 +4230,7 @@ has run, BAMF doesn't know what yours are and the card says so rather than
 guessing. It is not always a fault, which the card says: a lot of ordinary gear
 does this. With the traffic monitor on a switched network it hears this machine
 and broadcasts only, so the list is what that covers, unless a switch port mirrors
-the rest. **Devices that skip your DNS** under Settings → Security switches the
+the rest. **Devices that skip your DNS** under Settings → Scanning switches the
 card off (on by default); **Alert when a device skips your DNS**, off by default,
 raises one alert (in place of the "new" or "changed DNS server" ones) the first
 time each device asks such a server, to the destinations that take security
@@ -4250,7 +4250,7 @@ doesn't alert on a first run; **Trust** one to stop it alerting, **Forget** one 
 make it new again. An advertisement with a lifetime of zero says "don't use me as
 a router" and is ignored. Routers are remembered across restarts, and a router
 not heard for 90 days drops off the list. The switch is **Router advertisement
-watch** under Settings → Security, or `POST /api/settings/ra-watch`; it is on
+watch** under Settings → Scanning, or `POST /api/settings/ra-watch`; it is on
 unless you switch it off, and sends nothing.
 
 ### The New tab
