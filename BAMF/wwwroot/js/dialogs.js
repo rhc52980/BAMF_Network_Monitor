@@ -179,6 +179,46 @@ $("snoozeEnd").onclick = () => saveSnooze(0);
 $("snoozeCancel").onclick = closeSnoozeDialog;
 $("snoozeModal").onclick = e => { if (e.target.id === "snoozeModal") closeSnoozeDialog(); };
 
+// ---- Off hours ----
+// The hours a device should be off, and an alert if a scan finds it on in them.
+let ohHost = null;
+const OH_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+function openOffHoursDialog(h) {
+  ohHost = h;
+  const w = h.offHours;
+  $("offHoursTitle").textContent = "Off hours \u2014 " + dispName(h);
+  $("offHoursSub").textContent = w ? `Should be off ${w.text}.` : `${h.ip} \u00b7 no hours set`;
+  $("ohFrom").value = w ? w.from : "23:00";
+  $("ohTo").value = w ? w.to : "07:00";
+  const days = w ? w.days : 127;
+  const box = $("ohDays");
+  box.innerHTML = OH_DAYS.map((d, i) => `<label class="oh-day"><input type="checkbox" data-bit="${i}"${days >> i & 1 ? " checked" : ""}> ${d}</label>`).join("");
+  $("ohClear").hidden = !w;
+  showErr("ohErr", "");
+  $("offHoursModal").hidden = false;
+  $("ohFrom").focus();
+}
+function closeOffHoursDialog() { $("offHoursModal").hidden = true; ohHost = null; }
+async function saveOffHours(clear) {
+  const h = ohHost;
+  if (!h) return;
+  let days = 0;
+  $("ohDays").querySelectorAll("input").forEach(c => { if (c.checked) days |= 1 << Number(c.dataset.bit); });
+  const body = clear ? { from: "" } : { from: $("ohFrom").value, to: $("ohTo").value, days };
+  try {
+    const r = await fetch(`/api/hosts/${h.id}/off-hours`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { showErr("ohErr", d.error || "Couldn't save that (HTTP " + r.status + ")."); return; }
+    toast(clear ? `${dispName(h)} has no off hours now` : `${dispName(h)} should be off ${$("ohFrom").value} to ${$("ohTo").value}`);
+    closeOffHoursDialog();
+    await refresh();
+  } catch (e) { console.error(e); showErr("ohErr", "Couldn't reach BAMF."); }
+}
+$("ohSave").onclick = () => saveOffHours(false);
+$("ohClear").onclick = () => saveOffHours(true);
+$("ohCancel").onclick = closeOffHoursDialog;
+$("offHoursModal").onclick = e => { if (e.target.id === "offHoursModal") closeOffHoursDialog(); };
+
 function openNoteDialog(host) {
   noteHost = host;
   $("noteTitle").textContent = (host.note ? "Edit note — " : "Add note — ") + dispName(host);

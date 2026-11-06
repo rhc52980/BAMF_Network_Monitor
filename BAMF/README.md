@@ -129,7 +129,7 @@ step:
 | `js/floorplan.js` | Floor plans, and drawing one in BAMF |
 | `js/devices.js` | The device list: drawing it, filters, sorting, network tabs, each device's history, and Who's home |
 | `js/activity.js` | The Activity tab: the feed, alerts, settings changes, top talkers, network hygiene, what changed |
-| `js/cardlayout.js` | Arranging the Activity cards: their order, which are folded and which are hidden, kept in the browser |
+| `js/cardlayout.js` | Arranging the Activity cards (their order, which are folded and which are hidden) and each Settings section's (order and folded), kept in the browser |
 | `js/servicewatch.js` | The service watch card on Activity: what is watched, its last day, the add panel, and its Settings switch |
 | `js/map.js` | The network map, and printing it |
 | `js/dialogs.js` | The device dialogs, the scan panel, Find port and switch counters |
@@ -306,6 +306,7 @@ Everything BAMF initiates on its own, and how it's protected:
 | Cloudflare, for a change of public address (`speed.cloudflare.com`) | **HTTPS** | Every 15 minutes, only if you switch on **Alert when your public IP address changes**. One request for a file of no bytes. Cloudflare sees your public address, as any website does |
 | Your DNS server, asked about `dns.google`, `one.one.one.one` and `dns.quad9.net` and one name that doesn't exist | **plain DNS (UDP 53)**, to the server this machine is set to use, which is usually your router and passes it on | Every hour, only if you switch on the DNS watch. Nothing about your network is in the question |
 | Your DNS server, asked for `dns.google` | **plain DNS (UDP 53)** | Once a reading, with the internet watch on and **Internet quality alerts** on, to time a lookup |
+| A time server (the one you name, else one your DHCP hands out, else `pool.ntp.org`) | **plain SNTP (UDP 123)**: a 48-byte request, a 48-byte answer | Every six hours, only if you switch on the **Clock check**, and when you press Check now. The server sees this machine's public address, as any server does, and nothing else |
 | Your webhook | **whatever scheme your URL uses** | When a new host appears, a watched host changes state, or an alert fires |
 | Your mail server | **TLS (STARTTLS) unless you chose not encrypted** | When an alert fires, only for an email destination you added. The alert's title and text go in the mail |
 
@@ -1916,7 +1917,14 @@ scan, or delete a thing.
 | DELETE | `/api/service-watch/{id}` | Stop watching a service, and drop its readings |
 | POST | `/api/settings/service-watch` | Body `{"enabled": false}` — switch the service watch off, or back on |
 | GET | `/api/dhcp-probe` | The DHCP check: `{"enabled", "hours", "alertOnSilence", "nextDue", "clientMac", "last": {"at", "error", "networks": [{"subnet", "selfIp", "error", "offers": [{"server", "mac", "offered", "mask", "gateways", "dns", "domain", "leaseSeconds", "ntp"}]}]}}` |
-| POST | `/api/settings/dhcp-probe` | Body `{"enabled": true, "hours": 24, "alertOnSilence": true}`, any of them — on or off, how often (1 to 168 hours, 24 by default), and whether to alert when a network's DHCP goes quiet |
+| POST | `/api/settings/dhcp-probe` | Body `{"enabled": true, "hours": 24, "alertOnSilence": true, "alertOnGateway": true}`, any of them — on or off, how often (1 to 168 hours, 24 by default), whether to alert when a network's DHCP goes quiet, and whether to alert when an offer names a different gateway |
+| GET | `/api/off-hours` | `{"enabled", "devices": [{"hostId", "from", "to", "days", "text"}]}`: every device with hours it should be off. `GET /api/hosts` gives each host's `offHours` (the same, or null) |
+| POST | `/api/hosts/{id}/off-hours` | Body `{"from": "23:00", "to": "07:00", "days": 127}` — the hours a device should be off, in the server's local time; `days` is a bitmask of the days the window starts on, Monday 1 to Sunday 64 (127, every day, if left out). An empty `from` clears them. 400 with `{"error"}` for times that aren't `HH:mm`, the same start and end, no days, or a device that is gone |
+| POST | `/api/settings/off-hours-alert` | Body `{"enabled": false}` — the alert for a device found on in its off hours. On by default |
+| GET | `/api/clock` | The clock check: `{"enabled", "server", "serverSetting", "maxSeconds", "last": {"at", "server", "offsetSeconds", "roundTripMs", "error"}}`. `offsetSeconds` is positive when this machine's clock is behind |
+| POST | `/api/settings/clock-check` | Body `{"enabled": true}` — the clock check on or off; switching on asks at once. Off by default |
+| POST | `/api/settings/clock` | Body `{"server": "time.example.org", "maxSeconds": 30}`, either — the time server (blank for the default; a name or address) and how many seconds out the clock may be (1 to 3600, 30 by default) before it alerts |
+| POST | `/api/clock/run` | Ask now, whatever the schedule; 429 if asked less than ten seconds ago |
 | POST | `/api/dhcp-probe/run` | Ask now, whatever the schedule, and answer as `GET /api/dhcp-probe` does; 429 if asked less than ten seconds ago |
 | POST | `/api/settings/first-week-report` | Body `{"enabled": false}` — switch a new device's first-week report off, or back on |
 | GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
@@ -3127,6 +3135,19 @@ turns up straight after the card that comes before it in the default order, so
 nothing you arranged is shuffled. A card the tab only shows sometimes (Sites, Only
 on IPv6) still appears only when it has something to say, wherever you put it.
 
+### Arranging the Settings cards
+
+Each Settings section is a stack of cards, and the one you use most may be the
+last. The same controls work there: the arrow in front of a card's heading folds
+it, and **Arrange cards**, at the top of the section, gives each card a **Move**
+handle and **◀ ▶** buttons. Two differences, on purpose: there is **no Hide**, since
+a setting you can't find is worse than one in the wrong place, and a folded card
+**opens by itself while you search** with Find a setting, so a match is never
+behind a closed card. The Save and Reset under the networks stay with the
+Networks card wherever it goes. It is kept in this browser, one layout per
+section (`bamf-settings-layout:scanning` and so on), and **Reset layout** puts the
+section back.
+
 ### Network score
 
 One number for the network, **0 to 100**, from what BAMF already knows, with
@@ -3346,6 +3367,31 @@ questions an hour. Switching it on checks straight away, and so does the health
 check while it's on. What it last found is under the switch in Settings and in
 `GET /api/dns`. BAMF builds the DNS packets itself rather than asking the
 operating system, so the answer is the resolver's and not a cached one.
+
+### Clock check: is this machine's clock right?
+
+BAMF puts a time on everything: alerts, timelines, the hours of quiet hours and off
+hours, and it reads HTTPS certificates' dates against it. A machine whose clock
+has drifted, or whose time service has stopped, gets all of that quietly wrong.
+**Clock check**, under **Settings → Security**, asks a time server one SNTP
+question every six hours and reads how far **this machine's** clock is from it
+(the round trip is taken out of the reckoning, as NTP does). If it is out by more
+than you allow (30 seconds unless you change it), it raises an alert, once a day,
+saying how far, which way and what to check. It is off by default, because the
+question leaves the house: one 48-byte UDP packet to port 123, with the answer
+checked to be to that very question and from a server that says it is in step.
+
+- **Which server.** The one you type under **Time server and allowance**; else a
+  time server the network's DHCP hands out (the DHCP check reads those, option 42);
+  else `pool.ntp.org`. Blank goes back to the default.
+- **Check now** asks at once, on or off, so you can try it before switching it on;
+  the status line says what it found, or why it couldn't ask. A server that doesn't
+  answer is shown there and is not an alert.
+- It reads this machine's clock, not other devices'. It sets nothing and never changes the time.
+
+The switch, server and allowance are in the settings export, and the API is
+`GET /api/clock`, `POST /api/settings/clock-check`, `POST /api/settings/clock` and
+`POST /api/clock/run`.
 
 ### Internet watch
 
@@ -3647,6 +3693,29 @@ Before it shipped, it was replayed over two weeks of a real home network's
 history, 40-odd devices: it would have spoken up three times, each a device on
 at an hour it never is. It's on by default; **Settings → Alerts → Unusual
 activity** switches it off.
+
+### Off hours: when a device should be off
+
+The Unusual card notices a device behaving unlike itself. Off hours is the plain
+version, for when you know the rule: the TV should be off between 23:00 and 07:00,
+the kids' tablet on school nights. Open a device's **⋯ menu, Off hours…**, give it
+the hours (and which days they start on) and Save. If a scan finds that device
+**on** inside those hours, BAMF raises one alert for the night ("living-room-tv is
+on in its off hours", with the time it answered and the hours you set), whether one
+scan found it or fifty did, and again the next night if it is still at it.
+
+- **Times are the server's local time.** Hours can cross midnight, and belong to
+  the day they start on: Friday 23:00 to 07:00 runs into Saturday morning, and
+  Friday-only does not cover Saturday night.
+- **It never learns and never guesses.** A device with no hours set is never
+  touched, and one that is offline, ignored, forgotten or snoozed is left alone.
+- **Nothing is turned off.** It tells you; it does not cut the device off.
+- The alert goes to the destinations that take status alerts (the ones a watched device going offline goes to), and is listed on
+  Activity's Alerts as an off-hours alert. **Alert when a device is on in its off
+  hours** under Settings → Alerts switches it off for every device (on by default),
+  or `POST /api/settings/off-hours-alert`. The hours themselves stay.
+- A device with hours shows them in its menu ("Off 23:00–07:00…"), and in
+  `GET /api/hosts` as `offHours`.
 
 ### What devices do: where they talk, scans, spikes and a first week
 
@@ -4047,6 +4116,20 @@ couldn't ask at all (no address on that network, port 68 unavailable): those say
 nothing about the server. The switch is **Alert when DHCP goes quiet** under
 Settings → Scanning → DHCP check, or `"alertOnSilence"` in
 `POST /api/settings/dhcp-probe`, and is on unless you switch it off.
+
+**When an offer names a different gateway.** Every offer says which gateway a
+device should use to get out. BAMF keeps the gateways each network's offers have
+named: the first ones are learned quietly, and one that turns up later (an offer
+naming `192.168.30.99` on a network that always named `192.168.30.1`) is a
+**security** alert, once, saying who offered it and what the network named before.
+It is then learned too, so moving to a new router is one alert and not a standing
+one, and an old gateway coming back is not new either. A device handing out a
+gateway of its own is a quiet way to put itself in the middle of every other
+device's traffic, and it does it in the offer, before anything shows on the wire.
+This is on top of the alert for a DHCP server nobody had heard before: it also
+catches your own server changing its answer. The switch is **Alert when DHCP names
+a different gateway** under Settings → Scanning → DHCP check, or `"alertOnGateway"`
+in `POST /api/settings/dhcp-probe`, and is on unless you switch it off.
 
 **Ask now** in Settings runs it at once, at most once in ten seconds.
 `GET /api/dhcp-probe` has the last result and the schedule.

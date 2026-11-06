@@ -263,7 +263,7 @@ function renderChanges() {
     ["Ports closed", c.closed, port],
     ["Changed", c.drifted || [], x => x.detail],
   ].filter(([, list]) => list.length);
-  const kinds = { rule: "rules", port: "port", security: "security", cert: "certificate", dhcp: "DHCP", dns: "DNS", wake: "wake" };
+  const kinds = { rule: "rules", port: "port", security: "security", cert: "certificate", dhcp: "DHCP", dns: "DNS", wake: "wake", schedule: "off hours", clock: "clock" };
   const alerts = Object.entries(c.alerts || {}).filter(([, n]) => n > 0);
   const total = secs.reduce((n, [, l]) => n + l.length, 0);
   $("chgSub").textContent = !total && !alerts.length ? "Nothing changed." : secs.map(([t, l]) => `${l.length} ${t.toLowerCase()}`).join(" · ");

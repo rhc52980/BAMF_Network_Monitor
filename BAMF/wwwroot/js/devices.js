@@ -889,6 +889,7 @@ function render() {
 
       addHead("Status");
       addItem(h.snoozedUntil ? `Snoozed until ${snoozeClock(h.snoozedUntil)}…` : "Snooze alerts…", () => openSnoozeDialog(h));
+      if (!h.remote) addItem(h.offHours ? `Off ${h.offHours.from}–${h.offHours.to}…` : "Off hours…", () => openOffHoursDialog(h));
       addItem(h.known ? "Mark unknown" : "Mark known", async () => { await setKnown(h, !h.known); await refresh(); });
       addItem(h.ignored ? "Unignore" : "Ignore", async () => { await setIgnored(h, !h.ignored); await refresh(); });
       if (!h.online) {

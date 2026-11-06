@@ -448,6 +448,12 @@
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="setDhcpSilent" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
+        <label class="set-row">
+          <span class="set-label">Alert when DHCP names a different gateway
+            <span class="set-hint">Every offer names the gateway a device should use to get out. The first answer on each network is learned; a gateway that turns up later alerts once, and is then learned too, so moving to a new router is one alert. A device handing out a gateway of its own is how it puts itself in the middle of every other device's traffic. Needs the DHCP check above.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setDhcpGateway" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
       </div>
       <div class="set-card">
         <div class="set-card-title">Networks</div>
@@ -692,6 +698,19 @@
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="setDnsWatch" aria-label="DNS watch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
+        <label class="set-row">
+          <span class="set-label">Clock check
+            <span class="set-hint">Off by default. Every six hours BAMF asks a time server one SNTP question (a 48-byte UDP packet to port 123) and alerts when <b>this machine's</b> clock is out by more than you allow. A wrong clock puts the wrong times on every alert and timeline, makes HTTPS certificates look expired or not yet valid, and shifts quiet hours and off hours. The server is the one you name below, else one your DHCP hands out, else pool.ntp.org.</span>
+            <span class="set-hint" id="setClockStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setClockCheck" aria-label="Clock check" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Time server and allowance
+            <span class="set-hint">Leave the server blank for the default. The allowance is how many seconds out the clock may be before it alerts.</span>
+          </span>
+          <span class="set-field"><input class="modal-input" id="setClockServer" size="20" placeholder="pool.ntp.org" autocomplete="off" aria-label="Time server"><input class="modal-input" id="setClockMax" type="number" min="1" max="3600" style="width:5.5em" aria-label="Seconds allowed"> s <button type="button" class="export-btn" id="setClockSave">Save</button> <button type="button" class="toggle" id="setClockRun">Check now</button></span>
+        </label>
       </div>
       <div class="set-card">
         <div class="set-card-title">What devices do</div>
@@ -874,6 +893,13 @@
             <span class="set-hint">One number from 0 to 100 for the network, from what BAMF already knows, with the reasons it isn't 100: unknown devices online, security alerts this week, Telnet or FTP open, certificates run out, a router answering UPnP, watched devices down, internet outages, a disk running low, nobody set to hear alerts. On the Activity tab, at the top of scheduled reports and in the daily note. One reading a day is kept for a month.</span>
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="setScore" aria-label="Score the network" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <div class="set-card-title" style="margin-top:18px">Off hours</div>
+        <label class="set-row">
+          <span class="set-label">Alert when a device is on in its off hours
+            <span class="set-hint">Give a device the hours it should be off (its ⋯ menu, <b>Off hours…</b>: the TV from 23:00 to 07:00, the kids' tablet on school nights) and BAMF alerts, once a night, if a scan finds it on in them. Plain times on the server's clock, nothing learned. Devices without hours are never touched. A snoozed or ignored device is left alone.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setOffHours" aria-label="Alert when a device is on in its off hours" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
       </div>
       <div class="set-card" id="unusualSetCard">
@@ -1631,6 +1657,29 @@
     <div class="modal-actions">
       <button class="toggle" id="pauseEnd" hidden>Resume now</button>
       <button class="toggle" id="pauseCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+<div class="modal-backdrop" id="offHoursModal" hidden>
+  <div class="modal">
+    <div class="modal-title" id="offHoursTitle">Off hours</div>
+    <div class="modal-note" id="offHoursSub"></div>
+    <div class="modal-row oh-times">
+      <label>Should be off from <input type="time" class="modal-input" id="ohFrom" value="23:00"></label>
+      <label>until <input type="time" class="modal-input" id="ohTo" value="07:00"></label>
+    </div>
+    <div class="snooze-picks" id="ohDays" role="group" aria-label="Days it starts on"></div>
+    <p class="modal-help">
+      If a scan finds this device on during those hours, BAMF alerts once for the night. Times are the
+      server's local time, and hours that cross midnight belong to the day they start: Friday 23:00 to 07:00
+      runs into Saturday morning. A device you snooze or ignore is left alone, and
+      <b>Alert when a device is on in its off hours</b> under Settings, Alerts switches the alerts off for every device.
+    </p>
+    <div class="set-result" id="ohErr"></div>
+    <div class="modal-actions">
+      <button class="toggle" id="ohClear" hidden>Clear hours</button>
+      <button class="toggle" id="ohCancel">Cancel</button>
+      <button class="export-btn" id="ohSave">Save</button>
     </div>
   </div>
 </div>
