@@ -2,6 +2,18 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.26.0",
+      "date": "2026-11-05",
+      "items": [
+        "Devices that skip your DNS: a card on Activity lists each device that has asked a DNS server other than the ones your network hands out, such as a smart TV that always asks 8.8.8.8. It needs one DHCP check first, and an alert, once per device, is there if you want it (off by default).",
+        "Same phone, new address?: records with a made-up MAC address that share a name and are never online together are offered as one device. Nothing is combined until you say so, and Separate undoes it.",
+        "Off hours: give a device the hours it should be off from its menu (the TV from 23:00 to 07:00), and BAMF alerts once a night if it finds it on in them.",
+        "The DHCP check alerts when an offer names a gateway the network never named before, once; a different router is one alert, then learned.",
+        "Clock check, off by default: every six hours it asks a time server one SNTP question and alerts when this machine's clock is out by more than you allow (30 seconds to start with). Check now works whether it is on or not.",
+        "The cards in each Settings section can be arranged like Activity's: move and fold them, with Reset layout. There is no Hide there, and a folded card opens while you search."
+      ]
+    },
+    {
       "version": "2.25.2",
       "date": "2026-10-28",
       "items": [
