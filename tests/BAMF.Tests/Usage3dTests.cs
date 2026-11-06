@@ -80,7 +80,8 @@ public class Usage3dTests
         var store = app.Services.GetRequiredService<HostStore>();
         AddHost(store, 7);
         var month = await app.Client().GetFromJsonAsync<JsonElement>("/api/timeline?hours=720");
-        var span = DateTime.Parse(month.GetProperty("to").GetString()!) - DateTime.Parse(month.GetProperty("from").GetString()!);
+        // as instants: parsed to local times, thirty days that cross a clock change are 29.96 days on the wall
+        var span = DateTimeOffset.Parse(month.GetProperty("to").GetString()!) - DateTimeOffset.Parse(month.GetProperty("from").GetString()!);
         Assert.InRange(span.TotalDays, 29.99, 30.01);
     }
 }

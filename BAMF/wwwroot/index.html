@@ -490,6 +490,12 @@
           <span class="set-field"><button type="button" class="arp-toggle" id="setRand" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
         <label class="set-row">
+          <span class="set-label">Same phone, new address?
+            <span class="set-hint">A phone that makes up a new MAC address now and then turns up as a new device with the name it always had. When two or more records with a made-up address share a name and are never online together, Activity offers them as one device. Nothing is combined until you say so, and Separate in the device's Network cards undoes it.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setSameHints" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
           <span class="set-label">Measure latency
             <span class="set-hint">After each scan, one ping to every online device on the networks it covered, for the Latency column and each device's latency history. One small packet per device per scan.</span>
           </span>
@@ -513,6 +519,18 @@
             <span class="set-hint">With the traffic monitor on, an alert when a device that wasn't there before announces itself as an IPv6 router. Anything on the network can do that, and every device is then offered it as a way out to the internet, which is how someone ends up in the middle of your traffic. The routers heard are listed under IPv6 routers in the Network services card, where you can trust them. The first ones heard are learned quietly. Sends nothing.</span>
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="setRaWatch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Devices that skip your DNS
+            <span class="set-hint">With the traffic monitor on, a card on Activity listing every device that has asked a DNS server other than the ones this network hands out (the DNS servers and gateways the DHCP check heard), such as a smart TV that always asks 8.8.8.8. A server that is itself a device on your network, like a Pi-hole, counts as yours. It needs one DHCP check first, so it knows what yours are. Sends nothing.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setDnsBypassWatch" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Alert when a device skips your DNS
+            <span class="set-hint">One alert, the first time a device asks such a server. Off unless you turn it on: a lot of ordinary gear does this, so it is noisy until you have seen the list.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setDnsBypassAlert" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
         <label class="set-row">
           <span class="set-label">Traffic monitor
@@ -1377,6 +1395,16 @@
       <h3>Compared with <select id="cmpDays" class="free-days" aria-label="Period"><option value="7" selected>last week</option><option value="30">last month</option></select></h3>
       <div class="sub" id="cmpSub"></div>
       <div id="cmpBody"></div>
+    </div>
+    <div class="act-card" id="sameCard" hidden>
+      <h3>Same phone, new address?</h3>
+      <div class="sub" id="sameSub"></div>
+      <div id="sameBody"></div>
+    </div>
+    <div class="act-card" id="bypassCard">
+      <h3>Devices that skip your DNS</h3>
+      <div class="sub" id="bypassSub"></div>
+      <div id="bypassBody"></div>
     </div>
     <div class="act-card" id="talkersCard">
       <h3>Top talkers</h3>

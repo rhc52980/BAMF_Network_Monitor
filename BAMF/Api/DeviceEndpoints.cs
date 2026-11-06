@@ -8,6 +8,26 @@ namespace LanWatch.Api;
 /// <summary>Devices: the list, each one's details and history, scans and port scans.</summary>
 internal static class DeviceEndpoints
 {
+    /// <summary>The devices that skip the network's own DNS, for the card on Activity: each with the servers it asked and how often.</summary>
+    private static object BypassJson(TrafficMonitor t, Dictionary<string, HostRecord> hosts)
+    {
+        var r = t.DnsBypassers();
+        return new
+        {
+            enabled = t.DnsBypassWatchEnabled, alert = t.DnsBypassAlertEnabled, known = r.Known, own = r.Own,
+            devices = t.DnsBypassWatchEnabled ? r.Devices.Select(d =>
+            {
+                hosts.TryGetValue(d.Mac, out var h);
+                return new
+                {
+                    mac = d.Mac, hostId = h?.Id ?? 0,
+                    name = h is null ? d.Mac : h.CustomName != "" ? h.CustomName : h.Hostname != "" ? h.Hostname : h.Ip,
+                    ip = h?.Ip ?? "", servers = d.Servers.Select(s => new { s.Ip, s.Queries, s.LastSeen }).ToList(),
+                };
+            }).ToList() : null,
+        };
+    }
+
     public static void Map(WebApplication app, string version, string buildDate)
     {
 
@@ -553,6 +573,7 @@ internal static class DeviceEndpoints
                 dns = t.DnsServers().Select(s => new { s.Ip, s.LastSeen, s.Clients, s.Queries, trusted = t.KnownDns.Contains(s.Ip),
                     name = hosts.Values.FirstOrDefault(h => h.Ip == s.Ip) is { } dh ? (dh.CustomName != "" ? dh.CustomName : dh.Hostname) : "" }),
                 alerts = t.Alerts(),
+                dnsBypass = BypassJson(t, hosts),
             });
         });
 

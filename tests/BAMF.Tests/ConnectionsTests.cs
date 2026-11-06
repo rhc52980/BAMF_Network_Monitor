@@ -55,7 +55,7 @@ public class ConnectionsTests
     {
         using var app = new BamfApp();
         var store = app.Services.GetRequiredService<HostStore>();
-        var at = new DateTime(2026, 10, 1, 3, 0, 0, DateTimeKind.Utc).ToString("o");
+        var at = DateTime.UtcNow.AddHours(-2).ToString("o");     // recent: an old result reads as stale, not as what it was
         store.SetSetting("backupLast", JsonSerializer.Serialize(new NightlyBackup.Result(at, null, 0, null, "the disk is full")));
         store.SetSetting("speedTest", "daily");
         store.AddSpeedResult(new HostStore.SpeedResult(at, 0, 0, 0, 0, "", 0, false, "Cloudflare answered HTTP 503"));

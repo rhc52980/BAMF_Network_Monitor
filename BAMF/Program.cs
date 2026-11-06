@@ -403,6 +403,7 @@ ScoreEndpoints.Map(app);
 FlowEndpoints.Map(app);
 ServiceWatchEndpoints.Map(app);
 Map3dEndpoints.Map(app);
+SameDeviceEndpoints.Map(app);
 DhcpProbeEndpoints.Map(app);
 MoreAlertsEndpoints.Map(app);
 ToolsEndpoints.Map(app);

@@ -272,6 +272,8 @@ public sealed class DhcpProbe : BackgroundService
             var result = new Result(now.ToString("o"), error, nets);
             _store.SetSetting("dhcpProbeResult", JsonSerializer.Serialize(result));
             foreach (var n in nets) foreach (var of in n.Offers) _traffic.NoteDhcpServer(of.Server, of.Mac, n.Subnet);
+            // What the network hands out for DNS and as a gateway is what a device skipping its DNS is measured against.
+            _traffic.SetOwnDns(nets.SelectMany(n => n.Offers).SelectMany(o => o.Dns.Concat(o.Gateways)));
             if (error is null) WatchForSilence(nets);
             return result;
         }
