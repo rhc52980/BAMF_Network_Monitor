@@ -314,6 +314,59 @@ function renderCompare() {
 }
 $("cmpDays").onchange = () => loadCompare(true);
 
+// ---- Same phone, new address? ----
+// Records with a made-up MAC that share a name and are never online together, offered as one device. Combining is the ordinary Network cards one.
+let sameCache = null;
+function loadSameDevice(force) {
+  if (!force && sameCache) { renderSameDevice(); return; }
+  fetch("/api/same-device").then(r => r.ok ? r.json() : null).then(d => { if (d) sameCache = d; renderSameDevice(); }).catch(() => {});
+}
+function renderSameDevice() {
+  const card = $("sameCard"), body = $("sameBody");
+  if (!card || !body) return;
+  const groups = (sameCache && sameCache.enabled && sameCache.groups) || [];
+  card.hidden = groups.length === 0;
+  if (!groups.length) { body.innerHTML = ""; return; }
+  $("sameSub").textContent = `${groups.length} ${groups.length === 1 ? "name" : "names"} with more than one made-up MAC address, none of them online together. Combine them and it is one device in the list, with its traffic added up.`;
+  body.innerHTML = groups.map(g => `<div class="same-group" data-key="${esc(g.key)}">
+      <div class="same-head"><b>${esc(g.name)}</b><span class="sub">${g.members.length} records</span></div>
+      ${g.members.map(m => `<div class="health-row"><span>${esc(m.mac)}${m.ignored ? " (ignored)" : ""}</span><span>${esc(m.ip)}</span><span class="sub">${m.online ? "online now" : "last seen " + esc(fmtAgo(m.lastSeen))}</span></div>`).join("")}
+      <div class="same-actions"><button type="button" class="toggle" data-same="combine">Combine into one</button> <button type="button" class="toggle" data-same="dismiss">Not the same</button></div>
+    </div>`).join("");
+}
+$("sameBody").addEventListener("click", async ev => {
+  const b = ev.target.closest("[data-same]");
+  if (!b) return;
+  const key = b.closest(".same-group").dataset.key, combine = b.dataset.same === "combine";
+  if (combine && !confirm("Combine these records into one device? You can separate them again from the device's Network cards.")) return;
+  try {
+    const r = await fetch("/api/same-device/" + b.dataset.same, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || "HTTP " + r.status);
+    toast(combine ? `Combined ${d.combined} ${d.combined === 1 ? "record" : "records"} into one device` + (d.error ? ". " + d.error : "") : "Not offered again unless another record joins");
+  } catch (e) { toast(e.message || "Couldn't do that"); }
+  loadSameDevice(true);
+  if (typeof loadHosts === "function") loadHosts();
+});
+
+// ---- Devices that skip your DNS ----
+// Which DNS servers each device has asked, against what the network hands out. Needs the traffic monitor to have heard them.
+function renderBypass() {
+  const card = $("bypassCard"), body = $("bypassBody");
+  if (!card || !body) return;
+  const b = trafficCache && trafficCache.dnsBypass;
+  card.hidden = !b || !b.enabled;
+  if (card.hidden) return;
+  const st = (trafficCache && trafficCache.status) || {};
+  const sub = $("bypassSub");
+  if (!b.known) { sub.textContent = "Waiting for a DHCP check, to learn which DNS servers your network hands out. It runs by itself, or press Check now under Network services."; body.innerHTML = ""; return; }
+  sub.textContent = `Your network hands out ${b.own.join(", ")}.` + (st.running ? "" : " The traffic monitor isn't running, so this is only what it heard before.");
+  body.innerHTML = b.devices.length ? b.devices.map(d => `<div class="health-row bypass-row"${d.hostId ? ` data-host="${d.hostId}" style="cursor:pointer" title="Show this device"` : ""}><span>${esc(d.name)}<small> ${esc(d.ip)}</small></span><span>${d.servers.map(s => `${esc(s.ip)} <small>(${Number(s.queries).toLocaleString()} ${s.queries === 1 ? "lookup" : "lookups"})</small>`).join(", ")}</span></div>`).join("")
+      + `<div class="watch-note">Not always a fault: many TVs, cameras and speakers do this. It means a filter or log on your own DNS never sees what they look up.</div>`
+    : `<div class="watch-note">${st.running ? "Every device the monitor has heard is asking your own DNS." : "Nothing heard yet."} On a switched network it only hears this machine and broadcasts, unless a switch port mirrors the rest.</div>`;
+  body.querySelectorAll("[data-host]").forEach(r => r.onclick = () => jumpToHost(Number(r.dataset.host)));
+}
+
 // ---- Network hygiene ----
 // Findings from what BAMF already knows: the ports found open on each device
 // (by any port scan, the port watch or Check now), the certificates on their
@@ -495,6 +548,7 @@ function renderTrafficCards() {
     talkers.appendChild(row);
   }
   if ((st.running || counting.length) && !top.length) talkers.innerHTML = `<div class="watch-note">Nothing counted yet.</div>`;
+  renderBypass();
   $("talkersNote").textContent = counting.length
     ? "Devices a switch or the router counts show everything they send and get. The rest are what this machine can see: on a switched network, its own traffic plus broadcast."
     : st.running

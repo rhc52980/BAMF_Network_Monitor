@@ -632,6 +632,7 @@ function render() {
     loadSpeed().then(renderSpeed);
     loadChanges();
     if (typeof loadCompare === "function") loadCompare();
+    if (typeof loadSameDevice === "function") loadSameDevice(true);
     loadIpv6();
     renderFeed();
   }

@@ -179,6 +179,13 @@ function renderRaWatchToggle() {
   setToggleState(t, raWatch);
   t.title = raWatch ? "A new IPv6 router alerts - click to stop" : "Click to be told when a new device announces itself as an IPv6 router";
 }
+function renderBypassToggles() {
+  for (const [id, on, yes, no] of [
+    ["setDnsBypassWatch", dnsBypassWatch, "Devices that skip your DNS are listed on Activity - click to stop", "Click to list the devices that ask a DNS server other than your network's"],
+    ["setDnsBypassAlert", dnsBypassAlert, "A device that skips your DNS alerts, once - click to stop", "Click to be told, once per device, when it starts asking a DNS server other than your network's"],
+    ["setSameHints", sameHints, "Records that look like one phone are offered as one - click to stop", "Click to have records that look like one phone offered as one device"],
+  ]) { const t = $(id); if (t) { setToggleState(t, on); t.title = on ? yes : no; } }
+}
 function renderTakeoverToggle() {
   const t = $("setTakeoverAlert");
   if (!t) return;
@@ -209,6 +216,12 @@ for (const [id, url, get, set, on, off] of [
     "A device taking over another's address will alert", "The address takeover alert is off"],
   ["setRaWatch", "/api/settings/ra-watch", () => raWatch, v => { raWatch = v; renderRaWatchToggle(); },
     "A new IPv6 router will alert", "The router advertisement watch is off"],
+  ["setDnsBypassWatch", "/api/settings/dns-bypass-watch", () => dnsBypassWatch, v => { dnsBypassWatch = v; renderBypassToggles(); if (typeof renderBypass === "function") renderBypass(); },
+    "Devices that skip your DNS will be listed on Activity", "The list of devices that skip your DNS is off"],
+  ["setDnsBypassAlert", "/api/settings/dns-bypass-alert", () => dnsBypassAlert, v => { dnsBypassAlert = v; renderBypassToggles(); },
+    "A device that skips your DNS will alert, once", "The alert for a device that skips your DNS is off"],
+  ["setSameHints", "/api/settings/same-device-hints", () => sameHints, v => { sameHints = v; renderBypassToggles(); if (typeof loadSameDevice === "function") loadSameDevice(true); },
+    "Records that look like one phone will be offered as one device", "Same-phone suggestions are off"],
   ["setFlowWatch", "/api/settings/flow-watch", () => flowWatch, v => { flowWatch = v; renderFlowToggles(); if (typeof loadFlows === "function") loadFlows(); },
     "Where devices talk is watched, and scans are noticed", "Where devices talk, and scans, are no longer watched"],
   ["setSpikeAlert", "/api/settings/spike-alert", () => spikeAlert, v => { spikeAlert = v; renderFlowToggles(); },
@@ -1645,6 +1658,9 @@ async function loadSettings() {
   if (typeof e.certWatch === "boolean") certWatch = e.certWatch;
   if (typeof e.ipv6Watch === "boolean") ipv6Watch = e.ipv6Watch;
   if (typeof e.routerAdvertWatch === "boolean") raWatch = e.routerAdvertWatch;
+  if (typeof e.dnsBypassWatch === "boolean") dnsBypassWatch = e.dnsBypassWatch;
+  if (typeof e.dnsBypassAlert === "boolean") dnsBypassAlert = e.dnsBypassAlert;
+  if (typeof e.sameDeviceHints === "boolean") sameHints = e.sameDeviceHints;
   if (typeof e.takeoverAlert === "boolean") takeoverAlert = e.takeoverAlert;
   if (typeof e.dnsWatch === "boolean") dnsWatch = e.dnsWatch;
   if (typeof e.wanQuality === "boolean") wanQualityAlert = e.wanQuality;
@@ -1657,6 +1673,7 @@ async function loadSettings() {
   renderCertWatchToggle();
   renderIpv6WatchToggle();
   renderRaWatchToggle();
+  renderBypassToggles();
   renderTakeoverToggle();
   renderLatencyAlert();
   if (typeof e.addressWatch === "boolean") addressWatch = e.addressWatch;

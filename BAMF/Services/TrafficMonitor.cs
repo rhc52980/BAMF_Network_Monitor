@@ -70,6 +70,8 @@ public sealed class TrafficMonitor : IDisposable
     private readonly Dictionary<string, RaSeen> _ra = new(StringComparer.OrdinalIgnoreCase);                  // router MAC -> what it last announced
     private HashSet<string> _knownRa = new(StringComparer.OrdinalIgnoreCase);                                  // router MACs that don't alert
     private int _raLoaded;                                                                                      // how many routers were on record at startup
+    private HashSet<string> _ownDns = new();                                                                    // the DNS servers and gateways the network's DHCP hands out
+    private int _deviceDnsLoaded;                                                                               // how many devices' DNS servers were on record at startup
     private Dictionary<string, HashSet<string>> _deviceDns = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<LibPcapLiveDevice> _devices = new();
     private Timer? _tick;
@@ -398,6 +400,7 @@ public sealed class TrafficMonitor : IDisposable
     internal void Dns(string clientMac, string serverIp)
     {
         string? newForDevice = null, newForNetwork = null;
+        var firstUse = false;
         lock (_lock)
         {
             if (!_dnsByMac.TryGetValue(clientMac, out var servers)) _dnsByMac[clientMac] = servers = new();
@@ -416,16 +419,87 @@ public sealed class TrafficMonitor : IDisposable
             if (!_deviceDns.TryGetValue(clientMac, out var mine)) _deviceDns[clientMac] = mine = new();
             if (!mine.Contains(serverIp))
             {
+                firstUse = true;
                 if (mine.Count > 0 && newForNetwork is null) newForDevice = serverIp;
                 mine.Add(serverIp);
                 if (mine.Count > 8) mine.Remove(mine.First());
             }
             if (newForNetwork is not null || newForDevice is not null) SaveKnown();
         }
+        // A device asking a DNS server that isn't the network's own is said once, in place of the plainer "new" or "changed" alerts below.
+        if (firstUse && DnsBypassAlertEnabled && !LearningDnsUse && IsOffNetwork(serverIp, OwnDns(), HostIps()))
+        {
+            Raise("dns", $"{Describe(clientMac)} skips this network's DNS",
+                $"It asked {serverIp}, not the DNS server this network hands out ({string.Join(", ", OwnDns().OrderBy(x => x))}). A device that does this goes round any filtering or logging done there, " +
+                "and is how a smart TV or a camera gets its ads and its calls home past a Pi-hole.", "bypass:" + clientMac);
+            return;
+        }
         if (newForNetwork is not null)
             Raise("dns", $"New DNS server in use: {serverIp}", $"{Describe(clientMac)} asked {serverIp}, a DNS server no device on the network had used before.", serverIp);
         else if (newForDevice is not null)
             Raise("dns", $"{Describe(clientMac)} changed DNS server", $"It now asks {serverIp}; before it used {string.Join(", ", DeviceDnsBefore(clientMac, serverIp))}.", clientMac);
+    }
+
+    // ------------------------------------------------------------ devices that skip the network's DNS
+
+    /// <summary>The list of devices asking a DNS server other than the network's own, and the card on Activity that shows it. On unless switched off.</summary>
+    public bool DnsBypassWatchEnabled => _store.GetSetting("dnsBypassWatch") != "false";
+    /// <summary>An alert, once per device, the first time it asks such a server. Off unless switched on: plenty of ordinary gear does this.</summary>
+    public bool DnsBypassAlertEnabled => _store.GetSetting("dnsBypassAlert") == "true";
+
+    /// <summary>The first minutes after a start with no device's DNS servers on record are for learning, not alerting.</summary>
+    private bool LearningDnsUse => _deviceDnsLoaded == 0 && StartedUtc is { } s && (DateTime.UtcNow - s).TotalMinutes < 3;
+
+    public sealed record BypassUse(string Ip, long Queries, string LastSeen);
+    public sealed record BypassDevice(string Mac, List<BypassUse> Servers);
+    public sealed record BypassReport(bool Known, List<string> Own, List<BypassDevice> Devices);
+
+    /// <summary>The DNS servers and gateways the DHCP checks have heard the network hand out, so a device asking one of them isn't skipping anything.</summary>
+    public void SetOwnDns(IEnumerable<string> addresses)
+    {
+        var set = addresses.Where(a => IPAddress.TryParse(a, out _)).ToHashSet();
+        if (set.Count == 0) return;
+        lock (_lock) _ownDns = set;
+        try { _store.SetSetting("ownDnsServers", JsonSerializer.Serialize(set.OrderBy(x => x))); } catch { /* it is learned again at the next check */ }
+    }
+
+    /// <summary>What counts as the network's own DNS: what DHCP hands out, and any gateway that was declared.</summary>
+    private HashSet<string> OwnDns()
+    {
+        HashSet<string> own;
+        lock (_lock) own = new HashSet<string>(_ownDns);
+        if (own.Count > 0) foreach (var g in _store.GetGateways()) own.Add(g.Ip);
+        return own;
+    }
+
+    private HashSet<string> HostIps() => _store.GetAll().Select(h => h.Ip).Where(i => i != "").ToHashSet();
+
+    /// <summary>
+    /// Whether asking this address for DNS is going round the network's own. Not when nothing is known about what the network hands out (the DHCP
+    /// check hasn't heard yet), not for anything that isn't a routable IPv4 address, and not for a device on the network itself (a Pi-hole).
+    /// </summary>
+    internal static bool IsOffNetwork(string ip, HashSet<string> own, HashSet<string> hostIps)
+    {
+        if (own.Count == 0 || !IPAddress.TryParse(ip, out var a) || a.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) return false;
+        var b = a.GetAddressBytes();
+        if (b[0] == 0 || b[0] == 127 || (b[0] == 169 && b[1] == 254) || b[0] >= 224) return false;
+        return !own.Contains(ip) && !hostIps.Contains(ip);
+    }
+
+    /// <summary>Each device that has asked a DNS server which isn't the network's own, with those servers and how often.</summary>
+    public BypassReport DnsBypassers()
+    {
+        var own = OwnDns();
+        var hostIps = HostIps();
+        var list = new List<BypassDevice>();
+        lock (_lock)
+            foreach (var (mac, servers) in _dnsByMac)
+            {
+                var off = servers.Where(s => IsOffNetwork(s.Key, own, hostIps)).OrderByDescending(s => s.Value.Queries)
+                    .Select(s => new BypassUse(s.Key, s.Value.Queries, s.Value.Last.ToString("o"))).ToList();
+                if (off.Count > 0) list.Add(new BypassDevice(mac, off));
+            }
+        return new BypassReport(own.Count > 0, own.OrderBy(x => x).ToList(), list.OrderByDescending(d => d.Servers.Sum(s => s.Queries)).ToList());
     }
 
     private IEnumerable<string> DeviceDnsBefore(string mac, string except)
@@ -576,6 +650,8 @@ public sealed class TrafficMonitor : IDisposable
             _knownRa = new HashSet<string>(JsonSerializer.Deserialize<HashSet<string>>(_store.GetSetting("knownRouterAdverts") ?? "[]") ?? new(), StringComparer.OrdinalIgnoreCase);
             _deviceDns = JsonSerializer.Deserialize<Dictionary<string, HashSet<string>>>(_store.GetSetting("deviceDnsServers") ?? "{}") ?? new();
             _deviceDns = new Dictionary<string, HashSet<string>>(_deviceDns, StringComparer.OrdinalIgnoreCase);
+            _deviceDnsLoaded = _deviceDns.Count;
+            _ownDns = JsonSerializer.Deserialize<HashSet<string>>(_store.GetSetting("ownDnsServers") ?? "[]") ?? new();
             var alerts = JsonSerializer.Deserialize<List<Alert>>(_store.GetSetting("watchAlerts") ?? "[]") ?? new();
             _alerts.AddRange(alerts);
         }

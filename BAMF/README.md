@@ -1938,6 +1938,12 @@ scan, or delete a thing.
 | POST | `/api/settings/ipv6-watch` | Body `{"enabled": false}` — turn the IPv6 watch off or on. On by default |
 | POST | `/api/settings/takeover-alert` | Body `{"enabled": false}` — the address takeover alert: a device found at an address another device, still online, was answering at. On by default |
 | POST | `/api/settings/ra-watch` | Body `{"enabled": false}` — turn the router advertisement watch (an alert for a new IPv6 router) off or on. On by default |
+| POST | `/api/settings/dns-bypass-watch` | Body `{"enabled": false}` — the card on Activity listing devices that ask a DNS server other than the network's own. On by default |
+| POST | `/api/settings/dns-bypass-alert` | Body `{"enabled": true}` — an alert, once per device, the first time it asks such a server. Off by default |
+| POST | `/api/settings/same-device-hints` | Body `{"enabled": false}` — the Same phone, new address? suggestions. On by default |
+| GET | `/api/same-device` | `{"enabled", "groups": [{"key", "name", "keepId", "members": [{"id", "mac", "ip", "subnet", "online", "ignored", "firstSeen", "lastSeen"}]}]}`: records with a made-up MAC that share a name, are never online together and aren't combined already. `groups` is empty with the switch off |
+| POST | `/api/same-device/combine` | Body `{"key": "…"}` (a `key` from the list) — combine the group into one device: the others become network cards of `keepId`, the one seen most recently. `{"combined", "error"}`; 400 for a suggestion that isn't on offer any more |
+| POST | `/api/same-device/dismiss` | Body `{"key": "…"}` — stop offering that group; it is offered afresh if another record joins it |
 | GET | `/api/free-ips?days=90` | For each IPv4 network: `size`, `used`, `free`, the longest `runs` of free addresses and a `suggestion`. Used means seen in the last `days` (default 90), plus every device's current address, the gateway and this machine |
 | GET | `/api/router-import` | Router import status: `kind`, `host`, `enabled`, `lastRun`, `count`, `error`, and for UniFi's traffic counts `traffic`, `trafficAt`, `trafficClients`, `trafficError` |
 | POST | `/api/router-import/run` | Read the router's list now; `502` with the status if it failed |
@@ -1968,7 +1974,7 @@ scan, or delete a thing.
 | POST | `/api/settings/report` | Body `{"schedule": "daily", "hour": 8, "day": 1}` — the scheduled report: `off`, `daily`, `weekly` or `monthly`, the hour (0–23, the server's local time) and, for weekly, the day (0 Sunday to 6 Saturday). Monthly goes out on the 1st |
 | POST | `/api/reports/send` | Send the report now, whatever the schedule; returns what was sent |
 | GET | `/api/reports/preview` | The report as it would be sent |
-| GET | `/api/traffic` | The traffic monitor's status, the switches and router counting traffic (`sources`), the top talkers with their strips and `source`, the DHCP and DNS servers and IPv6 routers (`ra`) seen, and the watch alerts. `GET /api/hosts` carries each host's `traffic` (`rx`, `tx` bytes per second; `rxTotal`, `txTotal`; `source`: `capture`, `switch` or `router`, with `where`) and `dns` (the servers it asks) |
+| GET | `/api/traffic` | The traffic monitor's status, the switches and router counting traffic (`sources`), the top talkers with their strips and `source`, the DHCP and DNS servers and IPv6 routers (`ra`) seen, `dnsBypass` (`enabled`, `alert`, `known`, the network's own DNS in `own`, and the `devices` asking another with each server and its lookups) and the watch alerts. `GET /api/hosts` carries each host's `traffic` (`rx`, `tx` bytes per second; `rxTotal`, `txTotal`; `source`: `capture`, `switch` or `router`, with `where`) and `dns` (the servers it asks) |
 | POST | `/api/traffic/trust` | Body `{"kind": "dhcp", "ip": "192.168.1.1", "trusted": true}` — trust a DHCP or DNS server so it never alerts, or forget it so it counts as new again. For an IPv6 router, `"kind": "ra"` and its MAC as `ip` |
 | GET | `/api/hosts/{id}/latency` | One host's latency samples over the last 24 hours (`?hours=` for more): `[{"at", "ms"}]`, `ms` null where the echo went unanswered. `GET /api/hosts` carries each host's latest as `latencyMs`, and its uptime over 7 and 30 days as `uptime7` and `uptime30` (percent) |
 | POST | `/api/hosts/{id}/tags` | Body `{"tags": ["kids", "IoT"]}` — replace a device's tags (up to 20, each up to 24 characters, no commas). `GET /api/hosts` lists each host's `tags` |
@@ -4128,6 +4134,25 @@ back. **Trust** a server in the card so it never alerts, or **Forget** one so
 it counts as new again. Known servers are remembered across restarts, and each
 alert fires at most once a day per server or device.
 
+**Devices that skip your DNS.** A smart TV or a camera that always asks `8.8.8.8`
+never "changes" its DNS, so neither alert above says anything about it, yet it
+goes round whatever filtering or logging your own DNS does. The **Devices that
+skip your DNS** card on Activity lists each device that has asked a DNS server
+other than the network's own, with that server and how many lookups it made.
+"The network's own" is what the DHCP check heard the network hand out (the DNS
+servers and gateways in its offers) and any gateway you declared; a server that is
+itself a device on your network, such as a Pi-hole, counts as the network's own
+too, and so does anything that isn't a routable IPv4 address. Until one DHCP check
+has run, BAMF doesn't know what yours are and the card says so rather than
+guessing. It is not always a fault, which the card says: a lot of ordinary gear
+does this. With the traffic monitor on a switched network it hears this machine
+and broadcasts only, so the list is what that covers, unless a switch port mirrors
+the rest. **Devices that skip your DNS** under Settings → Security switches the
+card off (on by default); **Alert when a device skips your DNS**, off by default,
+raises one alert (in place of the "new" or "changed DNS server" ones) the first
+time each device asks such a server, to the destinations that take security
+alerts. Neither sends anything.
+
 **IPv6 routers.** An IPv6 router announces itself every few minutes with a
 router advertisement, and every device on the network that hears one is offered
 it as a way out to the internet. Anything on the network can send one, which
@@ -4483,6 +4508,30 @@ cards…** in a device's ⋯ menu combines them into one device:
   be combined into another; combine the other way round.
 - **Separate** in the same dialog makes a card a device of its own again. The
   cards' own records are kept as they were, so nothing is lost.
+
+### Same phone, new address?
+
+A phone that makes up a new MAC address now and then (the "randomised" or "private"
+Wi-Fi address) turns up as a new device each time, with the name it always had, and
+the old record sits there. When two or more records with a made-up MAC share a name
+and none of them are online together, the **Same phone, new address?** card on
+Activity offers them as one:
+
+- **Combine into one** is the ordinary combining above: the older records become
+  network cards of the one seen most recently, so the device list shows one device
+  with its traffic added up, and **Separate** undoes it.
+- **Not the same** stops offering that group. If another record with the name turns
+  up later, the bigger group is offered afresh.
+- **It only suggests.** Nothing is combined until you say so. Names every phone has
+  by default (`iPhone`, `Android`, `Pixel`…) are never matched, a group of more
+  than eight is taken for a generic name, two records online at once are two
+  devices, and a record with a real MAC address is left alone (a machine with a
+  card on each network is the job of Network cards, above).
+- The name is the one you gave the device, else its own, else what it announced,
+  compared without capitals and without `.local`.
+
+It can be switched off with **Same phone, new address?** under Settings → Scanning, beside the randomised-MAC switch
+(on by default), or `POST /api/settings/same-device-hints`.
 
 ## Limitations to be aware of
 

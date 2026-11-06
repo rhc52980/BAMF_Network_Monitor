@@ -53,6 +53,19 @@ internal static class SecurityEndpoints
             return Results.Ok();
         });
 
+        // Devices that ask a DNS server other than the network's own: the list on Activity, and (off unless asked for) an alert once per device.
+        app.MapPost("/api/settings/dns-bypass-watch", (ActiveArpRequest body, HostStore store) =>
+        {
+            store.SetSetting("dnsBypassWatch", body.Enabled ? "true" : "false");
+            return Results.Ok();
+        });
+
+        app.MapPost("/api/settings/dns-bypass-alert", (ActiveArpRequest body, HostStore store) =>
+        {
+            store.SetSetting("dnsBypassAlert", body.Enabled ? "true" : "false");
+            return Results.Ok();
+        });
+
         // GreyNoise: has this network's public address been seen scanning the internet?
         // Off unless switched on; turning it on checks straight away.
         app.MapGet("/api/greynoise", (GreyNoiseCheck greynoise) => Results.Json(new { enabled = greynoise.Enabled, result = greynoise.Last }));

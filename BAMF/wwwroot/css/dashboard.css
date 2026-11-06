@@ -616,6 +616,11 @@
   .health-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 3px 0; font-size: 12.5px; }
   .health-row > span:first-child { flex: 1 1 140px; color: var(--text-dim); }
   .health-row .sub { margin: 0; }
+  .same-group + .same-group { margin-top: 12px; }
+  .same-head { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 2px; }
+  .same-head .sub { margin: 0; }
+  .same-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px; }
+  .bypass-row small { color: var(--text-dim); }
   .health-vol { margin-top: 6px; }
   .health-bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
   .health-bar i { display: block; height: 100%; background: var(--led-on); }
