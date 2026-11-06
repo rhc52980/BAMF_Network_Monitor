@@ -186,6 +186,12 @@ function renderBypassToggles() {
     ["setSameHints", sameHints, "Records that look like one phone are offered as one - click to stop", "Click to have records that look like one phone offered as one device"],
   ]) { const t = $(id); if (t) { setToggleState(t, on); t.title = on ? yes : no; } }
 }
+function renderOffHoursToggle() {
+  const t = $("setOffHours");
+  if (!t) return;
+  setToggleState(t, offHoursAlert);
+  t.title = offHoursAlert ? "A device on in its off hours alerts - click to stop" : "Click to be told when a device is on in the hours it should be off";
+}
 function renderTakeoverToggle() {
   const t = $("setTakeoverAlert");
   if (!t) return;
@@ -216,6 +222,8 @@ for (const [id, url, get, set, on, off] of [
     "A device taking over another's address will alert", "The address takeover alert is off"],
   ["setRaWatch", "/api/settings/ra-watch", () => raWatch, v => { raWatch = v; renderRaWatchToggle(); },
     "A new IPv6 router will alert", "The router advertisement watch is off"],
+  ["setOffHours", "/api/settings/off-hours-alert", () => offHoursAlert, v => { offHoursAlert = v; renderOffHoursToggle(); },
+    "A device found on in its off hours will alert", "The off-hours alert is off"],
   ["setDnsBypassWatch", "/api/settings/dns-bypass-watch", () => dnsBypassWatch, v => { dnsBypassWatch = v; renderBypassToggles(); if (typeof renderBypass === "function") renderBypass(); },
     "Devices that skip your DNS will be listed on Activity", "The list of devices that skip your DNS is off"],
   ["setDnsBypassAlert", "/api/settings/dns-bypass-alert", () => dnsBypassAlert, v => { dnsBypassAlert = v; renderBypassToggles(); },
@@ -1661,6 +1669,9 @@ async function loadSettings() {
   if (typeof e.dnsBypassWatch === "boolean") dnsBypassWatch = e.dnsBypassWatch;
   if (typeof e.dnsBypassAlert === "boolean") dnsBypassAlert = e.dnsBypassAlert;
   if (typeof e.sameDeviceHints === "boolean") sameHints = e.sameDeviceHints;
+  if (typeof e.offHoursAlert === "boolean") offHoursAlert = e.offHoursAlert;
+  clockCache = { enabled: e.clockCheck === true, serverSetting: e.clockServer || "", maxSeconds: e.clockMaxSeconds || 30, last: clockCache && clockCache.last, server: clockCache && clockCache.server };
+  loadClock();
   if (typeof e.takeoverAlert === "boolean") takeoverAlert = e.takeoverAlert;
   if (typeof e.dnsWatch === "boolean") dnsWatch = e.dnsWatch;
   if (typeof e.wanQuality === "boolean") wanQualityAlert = e.wanQuality;
@@ -1674,6 +1685,7 @@ async function loadSettings() {
   renderIpv6WatchToggle();
   renderRaWatchToggle();
   renderBypassToggles();
+  renderOffHoursToggle();
   renderTakeoverToggle();
   renderLatencyAlert();
   if (typeof e.addressWatch === "boolean") addressWatch = e.addressWatch;
@@ -2429,3 +2441,60 @@ document.querySelectorAll("#setNav [data-sec]").forEach(b => b.onclick = () => s
 $("setFind").oninput = e => findSetting(e.target.value);
 $("setFind").onkeydown = e => { if (e.key === "Escape" && e.target.value) { e.stopPropagation(); e.target.value = ""; findSetting(""); } };
 showSetSec(setSec);
+
+// ---- The clock check ----
+// Is this machine's clock right? The switch, the server and allowance, and Check now.
+let clockCache = null;
+async function loadClock() {
+  try { const r = await fetch("/api/clock"); if (r.ok) clockCache = await r.json(); } catch { /* keep what it had */ }
+  renderClock();
+}
+function clockLine() {
+  const c = clockCache;
+  if (!c) return "";
+  const l = c.last, off = c.enabled ? "" : "Off. ";
+  if (!l) return c.enabled ? "On, not asked yet." : "Off.";
+  const when = fmtAgo(l.at);
+  if (l.error) return `${off}Asked ${when}: ${l.error}`;
+  const gap = Math.abs(l.offsetSeconds), word = l.offsetSeconds > 0 ? "behind" : "ahead";
+  const how = gap < 1 ? `${Math.round(gap * 1000)} ms` : gap < 120 ? `${gap.toFixed(1)} s` : `${Math.round(gap / 60)} min`;
+  return `${off}Asked ${l.server} ${when}: this clock is ${how} ${word}${gap > c.maxSeconds ? ", more than the " + c.maxSeconds + " s you allow" : ", within the " + c.maxSeconds + " s you allow"}.`;
+}
+function renderClock() {
+  const t = $("setClockCheck");
+  if (!t || !clockCache) return;
+  setToggleState(t, clockCache.enabled);
+  t.title = clockCache.enabled ? "The clock is checked every six hours - click to stop" : "Click to check this machine's clock every six hours";
+  $("setClockStatus").textContent = clockLine();
+  $("setClockServer").placeholder = clockCache.server && !clockCache.serverSetting ? clockCache.server : "pool.ntp.org";
+  if (document.activeElement !== $("setClockServer")) $("setClockServer").value = clockCache.serverSetting || "";
+  if (document.activeElement !== $("setClockMax")) $("setClockMax").value = clockCache.maxSeconds;
+}
+$("setClockCheck").onclick = async () => {
+  const next = !(clockCache && clockCache.enabled);
+  $("setClockStatus").textContent = next ? "Asking…" : "";
+  try {
+    const r = await fetch("/api/settings/clock-check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: next }) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    clockCache = await r.json(); renderClock();
+    toast(next ? "Clock check on" : "The clock check is off");
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); renderClock(); }
+};
+$("setClockSave").onclick = async () => {
+  try {
+    const r = await fetch("/api/settings/clock", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ server: $("setClockServer").value.trim(), maxSeconds: Math.round(Number($("setClockMax").value)) }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't save that"); return; }
+    clockCache = d; renderClock(); toast("Clock check settings saved");
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); }
+};
+$("setClockRun").onclick = async () => {
+  $("setClockStatus").textContent = "Asking…";
+  try {
+    const r = await fetch("/api/clock/run", { method: "POST" });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't ask"); renderClock(); return; }
+    clockCache = d; renderClock();
+  } catch (e) { console.error(e); toast("Couldn't ask - see the server log"); renderClock(); }
+};

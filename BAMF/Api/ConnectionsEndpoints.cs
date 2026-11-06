@@ -115,6 +115,14 @@ internal static class ConnectionsEndpoints
         else o.Add(new("update", Internet, "Update check", updates.LastCheckedUtc is null ? "waiting" : "ok",
             updates.LastCheckedUtc is null ? "Not checked yet." : updates.UpdateAvailable ? $"{updates.LatestVersion} is out." : "Up to date.", Iso(updates.LastCheckedUtc) is { Length: > 0 } uc ? uc : null, "system"));
 
+        // The clock check is read from what it wrote down, so this list needs nothing more passed to it.
+        ClockCheck.Result? cr = null;
+        try { cr = System.Text.Json.JsonSerializer.Deserialize<ClockCheck.Result>(store.GetSetting("clockResult") ?? "null"); } catch (System.Text.Json.JsonException) { }
+        var allowed = int.TryParse(store.GetSetting("clockMaxSeconds"), out var maxS) ? Math.Clamp(maxS, 1, 3600) : ClockCheck.DefaultMaxSeconds;
+        if (store.GetSetting("clockCheck") != "true") o.Add(new("clock", Internet, "Clock check", "off", "Asks a time server, every six hours, whether this machine's clock is right.", null, "security"));
+        else o.Add(new("clock", Internet, "Clock check", cr is null ? "waiting" : cr.Error is not null ? "warn" : Math.Abs(cr.OffsetSeconds ?? 0) > allowed ? "error" : "ok",
+            cr is null ? "Not asked yet." : cr.Error ?? $"{cr.Server}: this clock is {Math.Abs(cr.OffsetSeconds ?? 0):0.#} s {(cr.OffsetSeconds > 0 ? "behind" : "ahead")}", At(cr?.At), "security"));
+
         var hb = beat.Last;
         if (!beat.Active) o.Add(new("heartbeat", Internet, "Heartbeat", "off", "Visits an address you give it every few minutes, so a monitoring service can tell you when BAMF goes quiet.", null, "system"));
         else o.Add(new("heartbeat", Internet, $"Heartbeat to {Heartbeat.Masked(beat.Url)?.Replace("/…", "")}", hb.Ok is null ? "waiting" : hb.Ok == true ? "ok" : "error",

@@ -101,6 +101,8 @@ function renderDhcpProbeSetting() {
   if (!d || !sel) return;
   sel.value = !d.enabled ? "off" : ["6", "12", "24", "168"].includes(String(d.hours)) ? String(d.hours) : "24";
   $("dhcpClientMac").textContent = d.clientMac || "";
+  const gw = $("setDhcpGateway");
+  if (gw) { setToggleState(gw, d.alertOnGateway !== false); gw.title = d.alertOnGateway !== false ? "BAMF alerts when an offer names a different gateway - click to stop" : "Click to be told when an offer names a different gateway"; }
   const quiet = $("setDhcpSilent");
   if (quiet) { setToggleState(quiet, d.alertOnSilence !== false); quiet.title = d.alertOnSilence !== false ? "BAMF alerts when DHCP goes quiet - click to stop" : "Click to be told when a network's DHCP goes quiet"; }
   const l = d.last;
@@ -115,6 +117,16 @@ function bindDhcpProbe() {
   const sel = document.getElementById("setDhcpProbe"), run = document.getElementById("setDhcpProbeRun"), quiet = document.getElementById("setDhcpSilent");
   if (dhcpProbeBound || !sel || !run) return;
   dhcpProbeBound = true;
+  const gwBtn = document.getElementById("setDhcpGateway");
+  if (gwBtn) gwBtn.onclick = async () => {
+    const next = !(dhcpProbeCache && dhcpProbeCache.alertOnGateway !== false);
+    try {
+      const r = await fetch("/api/settings/dhcp-probe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ alertOnGateway: next }) });
+      if (!r.ok) throw new Error();
+      dhcpProbeCache = await r.json(); renderDhcpProbeSetting();
+      toast(next ? "BAMF will alert when an offer names a different gateway" : "BAMF won't alert on a different gateway");
+    } catch { toast("Couldn't save that"); }
+  };
   if (quiet) quiet.onclick = async () => {
     const next = !(dhcpProbeCache && dhcpProbeCache.alertOnSilence !== false);
     try {

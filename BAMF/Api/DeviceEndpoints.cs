@@ -51,6 +51,7 @@ internal static class DeviceEndpoints
             var routerNames = store.GetRouterNames();
             var ipv6 = store.GetIpv6(DateTime.UtcNow.AddDays(-7));
             var snoozes = store.GetSnoozes();
+            var offHours = store.GetOffHours();
             var hosts = store.GetAll().Select(h => new
             {
                 id = h.Id,
@@ -87,6 +88,8 @@ internal static class DeviceEndpoints
                 typeName = typeNames.TryGetValue(h.Id, out var tn) ? tn : "",
                 // Another network card of this device, combined into it; 0 = its own device.
                 interfaceOf = interfaces.TryGetValue(h.Id, out var io) ? io : 0,
+                // The hours it should be off, if it has any: {from, to, days, text}.
+                offHours = offHours.TryGetValue(h.Id, out var oh) ? new { from = oh.From, to = oh.To, days = oh.Days, text = OffHours.Describe(oh) } : null,
                 // Round-trip time of the last echo, ms; null when it didn't answer or hasn't been probed.
                 latencyMs = latency.TryGetValue(h.Id, out var lat) ? lat : null,
                 // Share of the last 7 and 30 days online, percent, from the event history.

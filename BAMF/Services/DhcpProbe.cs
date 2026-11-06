@@ -57,6 +57,8 @@ public sealed class DhcpProbe : BackgroundService
     public bool Enabled => _store.GetSetting("dhcpProbe") != "false";
     /// <summary>Alert when a network whose DHCP answered before stops answering. On unless switched off.</summary>
     public bool AlertOnSilence => _store.GetSetting("dhcpSilentAlert") != "false";
+    /// <summary>An alert when an offer names a gateway no offer on that network named before. On unless switched off.</summary>
+    public bool AlertOnGateway => _store.GetSetting("dhcpGatewayAlert") != "false";
 
     /// <summary>A network whose DHCP answered before has to be silent this many checks in a row, a few minutes apart, before it's reported.</summary>
     public const int MissesToAlert = 2;
@@ -275,9 +277,39 @@ public sealed class DhcpProbe : BackgroundService
             // What the network hands out for DNS and as a gateway is what a device skipping its DNS is measured against.
             _traffic.SetOwnDns(nets.SelectMany(n => n.Offers).SelectMany(o => o.Dns.Concat(o.Gateways)));
             if (error is null) WatchForSilence(nets);
+            if (error is null) await WatchGateways(nets, ct);
             return result;
         }
         finally { _busy.Release(); }
+    }
+
+    /// <summary>
+    /// The gateways the offers on each network have named. The first network's answer is learned; a gateway that turns up later is said once and
+    /// then learned too, so moving to a new router is one alert, not a standing one. A device handing out a gateway of its own is how traffic gets
+    /// steered through it, and it does it in the offer, before anything shows on the wire.
+    /// </summary>
+    private async Task WatchGateways(List<NetworkResult> nets, CancellationToken ct)
+    {
+        Dictionary<string, List<string>> seen;
+        try { seen = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(_store.GetSetting("dhcpGatewaysSeen") ?? "{}") ?? new(); }
+        catch (JsonException) { seen = new(); }
+        var changed = false;
+        foreach (var n in nets)
+        {
+            var offered = n.Offers.SelectMany(o => o.Gateways.Select(g => (Gateway: g, o.Server))).ToList();
+            if (offered.Count == 0) continue;
+            seen.TryGetValue(n.Subnet, out var known);
+            var fresh = offered.Select(x => x.Gateway).Distinct().Where(g => known is null || !known.Contains(g)).ToList();
+            if (fresh.Count == 0) continue;
+            seen[n.Subnet] = (known ?? new()).Concat(fresh).ToList();
+            changed = true;
+            if (known is null || known.Count == 0 || !AlertOnGateway) continue;
+            var by = offered.Where(x => fresh.Contains(x.Gateway)).Select(x => x.Server).Distinct().ToList();
+            await _scanner.RaiseSecurity($"DHCP on {n.Subnet} names a different gateway: {string.Join(", ", fresh)}",
+                $"{string.Join(" and ", by)} offered {string.Join(" and ", fresh)} as the way out; this network's offers have named {string.Join(" and ", known)} until now. " +
+                "If you changed or added a router, that is this. If not, a device handing out a gateway of its own is a way to put itself in the middle of every device's traffic.", ct);
+        }
+        if (changed) _store.SetSetting("dhcpGatewaysSeen", JsonSerializer.Serialize(seen));
     }
 
     /// <summary>

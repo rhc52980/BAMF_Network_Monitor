@@ -681,6 +681,9 @@ public partial class ScannerService : BackgroundService
         try { await RaiseDrift(ct); }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) { _log.LogWarning(ex, "Takeover alert failed on {Subnet}", subnetLabel); }
+        try { await RaiseOffHours(ct); }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { _log.LogWarning(ex, "Off-hours alert failed on {Subnet}", subnetLabel); }
 
         return mode;
     }
