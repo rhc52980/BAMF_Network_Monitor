@@ -557,6 +557,11 @@
   .act-folded .act-fold::before { transform: rotate(-90deg); }
   .act-fold:hover, .act-fold:focus-visible { color: var(--text); }
   .act-card.act-folded { align-self: start; }
+  .notes-text { width: 100%; min-height: 120px; resize: vertical; box-sizing: border-box; font: inherit; font-size: 13px; line-height: 1.45; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .notes-text:focus { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .notes-foot { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: space-between; margin-top: 6px; min-height: 22px; }
+  .notes-foot .sub { margin: 0; }
+  .notes-bad { color: var(--danger); }
   .act-card.act-folded > :not(h3):not(.act-editbar) { display: none; }
   .act-card.act-folded > h3 { margin-bottom: 0; }
   .act-card.act-off { display: none; }

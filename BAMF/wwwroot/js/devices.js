@@ -633,6 +633,7 @@ function render() {
     loadChanges();
     if (typeof loadCompare === "function") loadCompare();
     if (typeof loadSameDevice === "function") loadSameDevice(true);
+    if (typeof loadNotes === "function") loadNotes();
     loadIpv6();
     renderFeed();
   }
