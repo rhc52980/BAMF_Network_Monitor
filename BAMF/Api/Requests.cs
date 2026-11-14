@@ -10,6 +10,7 @@ record GatewayRequest(string? Ip, bool Enabled);
 record CombineRequest(long ParentId);
 record KindsRequest(List<string>? Kinds);
 record DestinationsRequest(List<ScannerService.DestinationInput>? Destinations);
+record RouteRequest(List<string>? Tags, List<string>? NotTags);
 record SnmpRequest(bool Enabled, string? Address, string? Community);
 record TagsRequest(List<string>? Tags);
 record TrustRequest(string? Kind, string? Ip, bool Trusted);

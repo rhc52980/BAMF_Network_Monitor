@@ -306,6 +306,8 @@ Everything BAMF initiates on its own, and how it's protected:
 | Cloudflare, for a change of public address (`speed.cloudflare.com`) | **HTTPS** | Every 15 minutes, only if you switch on **Alert when your public IP address changes**. One request for a file of no bytes. Cloudflare sees your public address, as any website does |
 | Your DNS server, asked about `dns.google`, `one.one.one.one` and `dns.quad9.net` and one name that doesn't exist | **plain DNS (UDP 53)**, to the server this machine is set to use, which is usually your router and passes it on | Every hour, only if you switch on the DNS watch. Nothing about your network is in the question |
 | Your DNS server, asked for `dns.google` | **plain DNS (UDP 53)** | Once a reading, with the internet watch on and **Internet quality alerts** on, to time a lookup |
+| Your Pi-hole or AdGuard Home (the address you typed, on your own network) | **HTTP or HTTPS**, as you typed it | Every five minutes, only if you switch on **Read a Pi-hole or AdGuard Home**: a login (Pi-hole) and three small read-only requests for its totals and busiest clients. Nothing leaves your network |
+| Cloudflare, then your own update URL (`speed.cloudflare.com`, then whatever you saved) | **HTTPS** (or HTTP, if that is what you typed) | Every 15 minutes, only if you switch on **Dynamic DNS update**: one request to Cloudflare for a file of no bytes, to learn this network's public address, and, when it isn't the one last updated, one request to the URL you saved, with the address filled in. Your provider sees this network's public address and the name you update |
 | A time server (the one you name, else one your DHCP hands out, else `pool.ntp.org`) | **plain SNTP (UDP 123)**: a 48-byte request, a 48-byte answer | Every six hours, only if you switch on the **Clock check**, and when you press Check now. The server sees this machine's public address, as any server does, and nothing else |
 | Your webhook | **whatever scheme your URL uses** | When a new host appears, a watched host changes state, or an alert fires |
 | Your mail server | **TLS (STARTTLS) unless you chose not encrypted** | When an alert fires, only for an email destination you added. The alert's title and text go in the mail |
@@ -1842,7 +1844,8 @@ scan, or delete a thing.
 | POST | `/api/webhook/test` | Send a test notification to `Bamf:WebhookUrl` (**Test** under Settings → Alerts). Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/destinations/{id}/test` | Send a test to one destination: `main` for the main webhook, or another's `id`. Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/settings/webhookkinds` | Body `{"kinds": ["devices", "status"]}` — which kinds of alert the main webhook gets: `devices`, `status`, `unusual`, `security`, `internet`, `reports`. `GET /api/settings` returns it as `webhookKinds` |
-| POST | `/api/settings/destinations` | Body `{"destinations": [{"id": "…", "name": "Phone", "url": "https://…", "format": "ntfy", "kinds": ["security", "internet"]}]}` — replace the destinations besides the main webhook, up to 8. `id` blank adds one; a saved one sent with `url` empty keeps its URL. `GET /api/settings` returns them as `destinations`, URLs masked. `format` is `auto`, `ntfy`, `gotify`, `slack`, `telegram`, `json` or `discord`, or `email` for a destination whose `url` is `smtp://[user:password@]host[:port]/?to=a@x.com,b@x.com[&from=…][&tls=0]` (encrypted unless `tls=0`) |
+| POST | `/api/settings/destinations` | Body `{"destinations": [{"id": "…", "name": "Phone", "url": "https://…", "format": "ntfy", "kinds": ["security", "internet"], "tags": ["kids"], "notTags": []}]}` — replace the destinations besides the main webhook, up to 8. `id` blank adds one; a saved one sent with `url` empty keeps its URL. `GET /api/settings` returns them as `destinations`, URLs masked. `format` is `auto`, `ntfy`, `gotify`, `slack`, `telegram`, `json` or `discord`, or `email` for a destination whose `url` is `smtp://[user:password@]host[:port]/?to=a@x.com,b@x.com[&from=…][&tls=0]` (encrypted unless `tls=0`). `tags` and `notTags` (lists, any case) route by the tags on the device an alert is about: only those, never those; left out they are kept, an empty list clears them |
+| POST | `/api/settings/webhookroute` | Body `{"tags": ["kids"], "notTags": []}`, either — the same routing for the main webhook. `GET /api/settings` has it as `webhookTags` and `webhookNotTags` |
 | POST | `/api/settings/networks` | Body `{"networks": ["192.168.1.0/24"]}` — the networks to scan, replacing `Bamf:Subnets`, and scan them now. Private networks from /21 to /30 only; see [Networks](#networks). `GET /api/settings` returns them as `editable.networks`, with where they come from and the ones this machine is on |
 | POST | `/api/settings/networks/reset` | Hand the networks back to `appsettings.json` |
 | POST | `/api/settings/mqtt` | Body `{"server": "10.0.0.2", "port": 1883, "username": "bamf", "password": null, "tls": false, "discovery": true, "topicPrefix": "bamf"}` — the MQTT broker, replacing `Bamf:Mqtt`, and connect now. `server` empty turns MQTT off. `password` null keeps the saved one, but only for the same server and port. `GET /api/settings` returns it as `editable.mqtt`, with `password` only saying whether one is saved |
@@ -1925,9 +1928,15 @@ scan, or delete a thing.
 | POST | `/api/settings/clock-check` | Body `{"enabled": true}` — the clock check on or off; switching on asks at once. Off by default |
 | POST | `/api/settings/clock` | Body `{"server": "time.example.org", "maxSeconds": 30}`, either — the time server (blank for the default; a name or address) and how many seconds out the clock may be (1 to 3600, 30 by default) before it alerts |
 | POST | `/api/clock/run` | Ask now, whatever the schedule; 429 if asked less than ten seconds ago |
+| GET | `/api/ddns` | The dynamic DNS hook: `{"enabled", "hasUrl", "url", "updated", "last": {"at", "ip", "ok", "status", "reply", "error"}, "externalIp"}`. `url` is only where it goes (`https://www.duckdns.org/…`), never the token or password in it; `updated` is the address last accepted |
+| POST | `/api/settings/ddns` | Body `{"enabled": true, "url": "https://…?ip={ip}"}`, either — the switch and the update URL (400 if it isn't an http or https URL, or if switched on without one). An empty `url` forgets it and switches the hook off. Switching on updates at once |
+| POST | `/api/ddns/run` | Update now, whatever the address and the schedule; 409 without a URL, 429 if updated less than ten seconds ago |
 | POST | `/api/dhcp-probe/run` | Ask now, whatever the schedule, and answer as `GET /api/dhcp-probe` does; 429 if asked less than ten seconds ago |
 | POST | `/api/settings/first-week-report` | Body `{"enabled": false}` — switch a new device's first-week report off, or back on |
-| GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
+| GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail", "key", "acked", "escalated"}`. `key` names the alert for `/api/alerts/ack`; `acked` and `escalated` are when it was acknowledged and when it was sent on, or null |
+| POST | `/api/alerts/ack` | Body `{"key": "a:12"}` for one alert (a `key` from the list), or `{"all": true}` for every alert showing — acknowledge them, so they are never escalated. `{"acknowledged": n}` |
+| GET | `/api/escalation` | Escalating unacknowledged alerts: `{"enabled", "minutes", "to", "toName", "kinds", "groups", "waiting"}`. `waiting` is how many watched alerts raised since it was switched on are not acknowledged or sent on yet |
+| POST | `/api/settings/escalation` | Body `{"enabled": true, "minutes": 15, "to": "<destination id>", "kinds": ["security"]}`, any of them. `to` is `main` or an id from the destinations; `kinds` are `security` and `status`; 1 to 1440 minutes. 400 for anything else, or for switching on without a destination or a kind. Only alerts raised after it is switched on count |
 | POST | `/api/alerts/clear` | Empty the Alerts card: every alert BAMF has kept and the ones the traffic monitor raised. Answers `{"cleared": n}` |
 | GET | `/api/settings/rules` | The alert rules, quiet hours and port watch: `{"rules": [...], "quiet": {"from", "to", "digest", "now", "held"}, "portWatch"}` |
 | POST | `/api/settings/rules` | Body: the whole rule list, each `{"id", "name", "kind": "offline"\|"online"\|"hours", "target": "any"\|"watched"\|"tag:kids"\|"host:12", "minutes", "from", "to", "enabled"}`. `id` empty for a new rule |
@@ -1949,6 +1958,9 @@ scan, or delete a thing.
 | POST | `/api/settings/dns-bypass-watch` | Body `{"enabled": false}` — the card on Activity listing devices that ask a DNS server other than the network's own. On by default |
 | POST | `/api/settings/dns-bypass-alert` | Body `{"enabled": true}` — an alert, once per device, the first time it asks such a server. Off by default |
 | POST | `/api/settings/same-device-hints` | Body `{"enabled": false}` — the Same phone, new address? suggestions. On by default |
+| GET | `/api/dns-filter` | The Pi-hole or AdGuard Home reader: `{"enabled", "provider", "url", "user", "hasSecret", "insecure", "last": {"at", "provider", "total", "blocked", "percent", "error", "clients": [{"ip", "name", "hostId", "queries", "blocked"}]}}`. `last` is null until it has read. The password is never returned; `hostId` is the device BAMF knows at that address, or null |
+| POST | `/api/settings/dns-filter` | Body `{"enabled": true, "provider": "pihole", "url": "http://192.168.2.5", "user": "", "secret": "…", "insecure": false}`, any of them. `provider` is `pihole` or `adguard`; a trailing `/admin` is dropped; 400 for an address that isn't http or https or carries a login, or for switching on without one. An empty `url` forgets the address and switches it off; an empty `secret` forgets the password. Switching on reads at once |
+| POST | `/api/dns-filter/run` | Read now, whatever the schedule and even with the switch off; 409 without an address, 429 if read less than ten seconds ago |
 | GET | `/api/same-device` | `{"enabled", "groups": [{"key", "name", "keepId", "members": [{"id", "mac", "ip", "subnet", "online", "ignored", "firstSeen", "lastSeen"}]}]}`: records with a made-up MAC that share a name, are never online together and aren't combined already. `groups` is empty with the switch off |
 | POST | `/api/same-device/combine` | Body `{"key": "…"}` (a `key` from the list) — combine the group into one device: the others become network cards of `keepId`, the one seen most recently. `{"combined", "error"}`; 400 for a suggestion that isn't on offer any more |
 | POST | `/api/same-device/dismiss` | Body `{"key": "…"}` — stop offering that group; it is offered afresh if another record joins it |
@@ -2869,6 +2881,32 @@ they end goes to each destination with just the held alerts of its own kinds:
 a phone that only takes Internet gets "the internet is back", and not the
 devices that came and went overnight.
 
+**Which devices.** Kinds say *what* a destination gets; **Devices** under them says
+*whose*. Give a device a tag (its ⋯ menu, **Details → Tags…**: "kids", "servers", or
+one for a single device) and a destination can be set to take **only tagged**
+devices, or **not tagged** ones. Say your phone is set to *only tagged `kids`* and
+the main webhook to *not tagged `kids`*: the kids' tablet going offline or running
+slow alerts the phone alone, and everything else alerts the main webhook alone. Leave
+both empty, the default, and a destination gets every device.
+
+- It applies to an alert about **one device**: it going offline or back, an alert
+  rule, a newly open port, a certificate, an off-hours alert, a slow device, a
+  device that keeps dropping, a device that took over an address, and a device that
+  talks somewhere new or moves far more data than usual.
+- **An alert that isn't about one device**, such as the internet being down, a new
+  DHCP server, or a new device appearing (it has no tags yet), is never held back by
+  *not tagged*, and is not taken by a destination that is *only tagged*. So the kids'
+  phone isn't woken by the internet going down unless you also give it a rule for that
+  elsewhere, and the main webhook still hears about everything network-wide.
+- A tag is matched whatever its case, and **when the alert is sent**: retag a device
+  and its next alert goes to the new place. A held quiet-hours alert goes in the
+  summary of the destinations it would have gone to.
+- **Test** and an escalated alert go to the destination you picked whatever its tags.
+
+The main webhook's is the **Devices** row under its **Sends** tickboxes; an extra
+destination's is in its form. `POST /api/settings/webhookroute` and the `tags` and
+`notTags` of each destination in `POST /api/settings/destinations` are the API.
+
 ### Alerts by email
 
 A destination can be an **email address**: under **More destinations**, pick
@@ -2990,6 +3028,29 @@ does a single device behind a dead switch that isn't watched itself. A snoozed d
 saying so, "kitchen plug keeps dropping: 6 times in the last hour", once an hour at most. A weak Wi-Fi signal, a bad cable or a failing power supply do
 this, and each drop used to alert. **Hold back a flapping device's own alerts** (off unless you choose) goes further: while it flaps its offline and
 back-online alerts are held, and if it is still offline 15 minutes later BAMF says so after all, so holding them back can never hide a device that stayed down.
+
+### Acknowledging alerts, and sending on the ones nobody does
+
+An alert sent to a channel nobody is watching is an alert nobody got. **Settings → Alerts → Escalate alerts nobody
+acknowledges** is the second chance. **Off by default**, and it needs a destination first.
+
+With it on, each alert in the **Alerts** card on Activity has an **Acknowledge** button (and the card an **Acknowledge
+all**), and says how many are waiting and where an unacknowledged one will go. An alert still waiting after the time you set
+(15 minutes to start with, 1 to 1,440) is sent, **once**, to the destination you pick, titled "Not acknowledged after 15 min:
+…", whatever kinds that destination was set to take. Say a Discord channel gets everything, and your phone gets only what
+nobody answered.
+
+- **Only what you ask it to watch.** **Security** (new DHCP or DNS servers, ARP, newly open ports, certificates) is ticked to
+  start with; **Rules and checks** adds alert rules, off hours, the clock check, backups and the dynamic DNS update. A wake is BAMF
+  doing something, not a warning, and is never sent on.
+- **Only what is new.** Alerts raised before you switched it on are not sent, so turning it on doesn't send yesterday's.
+- **Quiet when told to be.** During quiet hours or a pause nothing is sent on, and one that has waited more than six hours is
+  too old to be worth sending. An alert that was never sent in the first place (one for a snoozed device) is not sent on either.
+- **Calm.** Ten at most go out at a time, each at most once, and an acknowledged one never does. Clearing the list forgets
+  what was acknowledged.
+- A view-only password can see what is waiting but can't acknowledge anything.
+
+The API is `POST /api/alerts/ack`, `GET /api/escalation` and `POST /api/settings/escalation`.
 
 ### Port history and change alerts
 
@@ -3479,6 +3540,23 @@ What you get for it:
   address, such as a port forward, a VPN back home or a dynamic DNS name. A
   change the speed test or the GreyNoise check notices is announced too, and
   switching the watch on takes today's address as the starting point.
+
+- **Dynamic DNS update**, under **Settings → Internet**, goes with it. If a name
+  at DuckDNS, No-IP, Dynu or Cloudflare points at this network, give it the update
+  URL your provider hands you (`https://www.duckdns.org/update?domains=home&token=…&ip={ip}`,
+  with `{ip}` where the address goes) and BAMF calls it whenever the address
+  isn't the one it last updated. It is **off by default**, and needs a URL before
+  it can be switched on. Every 15 minutes it asks Cloudflare which address this
+  network is at, the same one-request question as above; it doesn't need the alert
+  switched on. It goes by what was last **accepted**, not by what changed: a refused
+  or unreachable update is tried again 15 minutes later, a 200 answer whose body says
+  `badauth`, `nohost`, `abuse` or `KO` counts as a refusal, and switching it on
+  updates once even if nothing has moved. Three failures in a row raise one
+  alert. The URL is kept like a password: once saved it is never shown again (the
+  box says where it goes, and **Forget** removes it), it isn't in the settings export,
+  and a `user:password@` in it is sent as a Basic login rather than left in the address.
+  **Update now** updates whatever the address; the provider's own words are shown
+  beside the result.
 
 **How often** it checks is **Settings → Internet → Check the internet every**,
 from 20 seconds to an hour, a minute by default (`Bamf:WanIntervalSeconds`
@@ -4617,6 +4695,47 @@ cards…** in a device's ⋯ menu combines them into one device:
   be combined into another; combine the other way round.
 - **Separate** in the same dialog makes a card a device of its own again. The
   cards' own records are kept as they were, so nothing is lost.
+
+### Reading a Pi-hole or AdGuard Home
+
+If you run a DNS filter, it knows what BAMF can't learn on a switched network:
+every device that uses it, how often each asks, and how much of that it blocked.
+**Settings → Scanning → Read a Pi-hole or AdGuard Home** lets BAMF ask it, and a
+**DNS filter** card on Activity shows the answer beside the devices BAMF already
+knows. **It is off by default**, for people who run one, and the card isn't
+there until you switch it on.
+
+Give it the address of its web page (`http://192.168.2.5`; for AdGuard Home with
+its port, `http://192.168.2.5:3000`) and the login: for a **Pi-hole 6 or newer**, an
+app password (Settings → Web interface / API in the Pi-hole) and no user name; for
+**AdGuard Home**, its user name and password. **Check now** tries it before you
+switch it on, and the status line says what it found or why not. Tick
+**self-signed HTTPS** if the address starts `https://` and its certificate is one
+you made yourself.
+
+- **What it shows.** The filter's totals for the last day (lookups, blocked, the
+  share blocked) and its busiest clients: each with its lookups and how many were
+  blocked, under the name BAMF gives the device, and a click goes to that device.
+  A client BAMF has never seen is shown by its address.
+- **How often.** Every five minutes, one login (Pi-hole) and three small requests
+  to the address you gave, and nowhere else. It only reads: it never changes a
+  setting, a list or a block on the filter. A Pi-hole login is closed again after
+  each read, so BAMF never holds one of Pi-hole's few login seats.
+- **What it can't see.** A device that doesn't use the filter isn't in it, which is
+  what [Devices that skip your DNS](#traffic-dhcp-and-dns) is for. And a filter's own
+  history is its own: BAMF shows the last read, not a record of its own.
+- **AdGuard Home blocks** are counted from the most recent thousand blocked lookups
+  in its query log, because its statistics don't split blocks by device, so on a busy
+  network a device's blocked count is of the recent ones.
+- **The password** is kept like a webhook's: never shown again (the box says
+  *saved*), not in the settings export, and **Forget** removes the address and it.
+  It sits in BAMF's database in the clear, as the webhook does, so give BAMF a
+  Pi-hole app password rather than your admin one.
+- If a read fails, the card says why (a refused password, an older Pi-hole, a wrong
+  port) and keeps what it read before.
+
+The API is `GET /api/dns-filter`, `POST /api/settings/dns-filter` and
+`POST /api/dns-filter/run`.
 
 ### Same phone, new address?
 

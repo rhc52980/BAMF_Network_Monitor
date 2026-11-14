@@ -25,7 +25,7 @@ public partial class ScannerService
                          "Set or clear a device's off hours from its menu (⋯), under Off hours.";
             _log.LogWarning("Off hours: {Title}. {Detail}", title, detail);
             _store.AddAlert("schedule", title, detail);
-            await SendGenericAlert(title, detail, "status", ct);
+            await SendGenericAlert(title, detail, "status", ct, hostId: id);
         }
     }
 }

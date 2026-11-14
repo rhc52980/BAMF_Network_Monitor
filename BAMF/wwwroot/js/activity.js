@@ -207,10 +207,32 @@ function renderAlertsCard() {
   const body = $("alertsBody");
   const list = alertsCache || [];
   $("alertsClear").hidden = !list.length || role === "viewer";
-  body.innerHTML = list.length ? list.slice(0, 12).map(a =>
-    `<div class="alert-item k-${esc(a.kind)}"><div><b>${esc(a.title)}</b><span class="when">${esc(fmtAgo(a.at))}</span></div><div class="det">${esc(a.detail)}</div></div>`).join("")
+  // With escalation on, each alert can be acknowledged, and the card says what is waiting and where it goes.
+  const esc_ = typeof escCache !== "undefined" && escCache && escCache.enabled ? escCache : null;
+  const shown = list.slice(0, 12);
+  const waiting = a => esc_ && !a.acked && !a.escalated && a.key;
+  $("alertsAckAll").hidden = !esc_ || role === "viewer" || !shown.some(waiting);
+  const note = $("alertsEscNote");
+  note.hidden = !esc_;
+  if (esc_) note.textContent = `${esc_.waiting ? `${esc_.waiting} waiting to be acknowledged. ` : ""}An alert nobody acknowledges in ${esc_.minutes} min goes to ${esc_.toName || "your chosen destination"}.`;
+  body.innerHTML = list.length ? shown.map(a => {
+    const state = a.acked ? `<span class="when">acknowledged ${esc(fmtAgo(a.acked))}</span>` : a.escalated ? `<span class="when">sent on ${esc(fmtAgo(a.escalated))}</span>`
+      : waiting(a) && role !== "viewer" ? `<button type="button" class="toggle ack-btn" data-ack="${esc(a.key)}">Acknowledge</button>` : "";
+    return `<div class="alert-item k-${esc(a.kind)}"><div><b>${esc(a.title)}</b><span class="when">${esc(fmtAgo(a.at))}</span>${state}</div><div class="det">${esc(a.detail)}</div></div>`;
+  }).join("")
     : `<div class="watch-note">Nothing yet. Rules, the port watch and the DHCP/DNS watch put their alerts here.</div>`;
 }
+async function ackAlerts(body) {
+  try {
+    const r = await fetch("/api/alerts/ack", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error();
+    const a = await (await fetch("/api/alerts")).json();
+    alertsCache = a; renderAlertsCard();
+    if (typeof loadEscalation === "function") loadEscalation();
+  } catch { toast("Couldn't acknowledge that"); }
+}
+$("alertsBody").addEventListener("click", ev => { const b = ev.target.closest("[data-ack]"); if (b) ackAlerts({ key: b.dataset.ack }); });
+$("alertsAckAll").onclick = () => ackAlerts({ all: true });
 
 $("alertsClear").onclick = async () => {
   const n = (alertsCache || []).length;
@@ -397,6 +419,26 @@ if ($("notesText")) {
   // Their version replaces the box; mine is saved over theirs by taking the stamp the server just held.
   $("notesTheirs").onclick = () => { const c = notesConflict; if (!c) return; $("notesText").value = c.text || ""; notesStamp = c.updatedAt || ""; notesDirty = false; notesResolved(); notesSay("Showing the saved version. " + notesCount()); };
   $("notesMine").onclick = () => { const c = notesConflict; if (!c) return; notesStamp = c.updatedAt || ""; notesResolved(); saveNotes(); };
+}
+
+// ---- DNS filter (Pi-hole or AdGuard Home) ----
+// What the filter says each device asked and had blocked over the last day. Only there when the reader is switched on.
+function renderDnsFilterCard() {
+  const card = $("dnsFilterCard"), body = $("dnsFilterBody"), d = dnsFilterCache;
+  if (!card || !body) return;
+  card.hidden = !d || !d.enabled;
+  if (card.hidden) return;
+  const l = d.last, name = d.provider === "adguard" ? "AdGuard Home" : "Pi-hole";
+  $("dnsFilterSub").textContent = !l ? `Waiting for the first read from ${name}.`
+    : `${name}: ${l.total.toLocaleString()} lookups in the last day, ${l.blocked.toLocaleString()} blocked (${l.percent}%). Read ${fmtAgo(l.at)}.` + (l.error ? ` The last try failed: ${l.error}` : "");
+  const clients = (l && l.clients) || [];
+  const shown = clients.slice(0, 12);
+  body.innerHTML = shown.length ? shown.map(c => {
+    const pct = c.queries ? Math.round(100 * c.blocked / c.queries) : 0;
+    return `<div class="health-row bypass-row"${c.hostId ? ` data-host="${c.hostId}" style="cursor:pointer" title="Show this device"` : ""}><span>${esc(c.name || c.ip)}${c.name ? `<small> ${esc(c.ip)}</small>` : ""}</span><span>${Number(c.queries).toLocaleString()} lookups · ${Number(c.blocked).toLocaleString()} blocked${c.queries ? ` (${pct}%)` : ""}</span></div>`;
+  }).join("") + (clients.length > shown.length ? `<div class="watch-note">And ${clients.length - shown.length} more.</div>` : "")
+    : `<div class="watch-note">${l ? "It hasn't answered any lookups yet." : ""}</div>`;
+  body.querySelectorAll("[data-host]").forEach(r => r.onclick = () => jumpToHost(Number(r.dataset.host)));
 }
 
 // ---- Devices that skip your DNS ----

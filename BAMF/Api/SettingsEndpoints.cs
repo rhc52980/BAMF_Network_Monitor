@@ -298,6 +298,8 @@ internal static class SettingsEndpoints
                     webhookMasked = MaskWebhook(scanner.WebhookUrl),
                 webhookFormat = scanner.WebhookFormat,
                     webhookKinds = scanner.MainKinds,
+                    webhookTags = scanner.MainRoute.Tags,
+                    webhookNotTags = scanner.MainRoute.NotTags,
                     destinations = DestinationsJson(scanner),
                     networks = NetworksJson(scanner),
                     mqtt = MqttJson(mqtt),

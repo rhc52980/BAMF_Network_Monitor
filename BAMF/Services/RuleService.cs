@@ -267,7 +267,7 @@ public sealed class RuleService : BackgroundService
         // A snoozed device's alert is kept on Activity but not sent.
         if (_store.IsSnoozed(h.Id)) { _store.AddAlert("rule", title, detail + " Not sent: it's snoozed."); return; }
         _store.AddAlert("rule", title, detail);
-        await _scanner.SendGenericAlert(title, detail, "rule", ct);
+        await _scanner.SendGenericAlert(title, detail, "rule", ct, hostId: h.Id);
     }
 
     /// <summary>Scans every online known device's common ports, a few at a time, and alerts on new open ones.</summary>
@@ -307,7 +307,7 @@ public sealed class RuleService : BackgroundService
             (closed.Count > 0 ? $" Closed since then: {string.Join(", ", closed)}." : "");
         if (_store.IsSnoozed(h.Id)) { _store.AddAlert("port", title, detail + " Not sent: it's snoozed."); return newly.Count; }
         _store.AddAlert("port", title, detail);
-        await _scanner.SendGenericAlert(title, detail, "port", ct);
+        await _scanner.SendGenericAlert(title, detail, "port", ct, hostId: h.Id);
         return newly.Count;
     }
 

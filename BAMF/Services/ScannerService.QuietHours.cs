@@ -59,7 +59,7 @@ public partial class ScannerService
     // Kind is which kind of alert it was, so the digest goes to each destination
     // with just its own kinds. Alerts held before destinations had kinds have
     // none, and go to every destination.
-    private sealed record HeldAlert(string At, string Title, string Text, string? Kind = null);
+    private sealed record HeldAlert(string At, string Title, string Text, string? Kind = null, long? HostId = null);
     private List<HeldAlert> Held
     {
         get
@@ -75,11 +75,11 @@ public partial class ScannerService
     public int HeldCount { get { lock (_heldLock) return Held.Count; } }
 
     /// <summary>Keeps an alert for the digest at the end of quiet hours.</summary>
-    private void Hold(string kind, string title, string text)
+    private void Hold(string kind, string title, string text, long? hostId = null)
     {
         lock (_heldLock)
         {
-            Held.Add(new HeldAlert(DateTime.UtcNow.ToString("o"), title, text, kind));
+            Held.Add(new HeldAlert(DateTime.UtcNow.ToString("o"), title, text, kind, hostId));
             if (Held.Count > 100) Held.RemoveAt(0);
             _store.SetSetting("heldAlerts", JsonSerializer.Serialize(Held));
         }
@@ -102,7 +102,7 @@ public partial class ScannerService
         if (items.Count == 0 || !QuietDigest) return items.Count;
         foreach (var d in Destinations())
         {
-            var mine = items.Where(i => i.Kind is null || d.Kinds.Contains(i.Kind)).ToList();
+            var mine = items.Where(i => (i.Kind is null || d.Kinds.Contains(i.Kind)) && Routes(d, i.HostId is not null, i.HostId is { } hid ? _store.TagsOf(hid) : null)).ToList();
             if (mine.Count == 0) continue;
             var fields = mine.Take(15).Select(i => (TimeZoneInfo.ConvertTimeFromUtc(DateTime.Parse(i.At, null, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal), TimeZoneInfo.Local).ToString("HH:mm") + " " + i.Title, i.Text)).ToList();
             if (mine.Count > 15) fields.Add(("And more", $"{mine.Count - 15} more alert(s) were held."));
@@ -137,7 +137,7 @@ public partial class ScannerService
     };
 
     /// <summary>A rule, port, security, certificate or internet alert: title and detail, through the quiet-hours gate.</summary>
-    public async Task SendGenericAlert(string title, string detail, string kind, CancellationToken ct)
+    public async Task SendGenericAlert(string title, string detail, string kind, CancellationToken ct, string? only = null, long? hostId = null)
     {
         var style = AlertStyle(kind);
         var text = $"BAMF: {title}. {detail}";
@@ -153,7 +153,7 @@ public partial class ScannerService
             return BuildAlertRequest(url, format, title: title, message: detail, priority: style.Priority, tags: style.Tag,
                 discordPayload: payload, genericPayload: generic);
         }
-        try { await Deliver(KindOf(kind), title, text, Build, ct); }
+        try { await Deliver(KindOf(kind), title, text, Build, ct, only: only, hostId: hostId); }
         catch (Exception ex) when (ex is not OperationCanceledException) { _log.LogWarning(ex, "Alert failed"); }
     }
 

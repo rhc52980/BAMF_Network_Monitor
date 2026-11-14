@@ -98,7 +98,7 @@ internal static class ApiHelpers
 
     // The destinations besides the main webhook, each URL masked like the main one's.
     internal static object DestinationsJson(ScannerService scanner) =>
-        scanner.ExtraDestinations.Select(d => new { id = d.Id, name = d.Name, masked = MaskWebhook(d.Url), format = d.Format, kinds = d.Kinds }).ToList();
+        scanner.ExtraDestinations.Select(d => new { id = d.Id, name = d.Name, masked = MaskWebhook(d.Url), format = d.Format, kinds = d.Kinds, tags = d.OnlyTags ?? new List<string>(), notTags = d.NotTags ?? new List<string>() }).ToList();
 
     // Enough of the URL to recognise which webhook is saved, never enough to use it.
     // A Discord URL ends /webhooks/<id>/<token>; the token is the secret.

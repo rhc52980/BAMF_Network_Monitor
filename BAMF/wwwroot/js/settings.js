@@ -587,6 +587,10 @@ function kindBoxes(box, selected, onChange) {
 }
 const checkedKinds = box => [...box.querySelectorAll("input:checked")].map(i => i.value);
 let destEditing = null;   // the destination being edited, or {} for a new one
+// Which devices a destination is for, as typed: tags separated by commas.
+const splitTags = v => v.split(/[,;]+/).map(t => t.trim()).filter(Boolean);
+const destEntry = x => ({ id: x.id, name: x.name, format: x.format, kinds: x.kinds, tags: x.tags || [], notTags: x.notTags || [] });
+const routeText = d => [(d.tags || []).length ? "only devices tagged " + d.tags.join(", ") : "", (d.notTags || []).length ? "not devices tagged " + d.notTags.join(", ") : ""].filter(Boolean).join("; ");
 function destData() { return (settingsData && settingsData.editable && settingsData.editable.destinations) || []; }
 function renderDestinations() {
   const e = settingsData && settingsData.editable;
@@ -602,6 +606,9 @@ function renderDestinations() {
       toast(d.kinds.length ? "The main webhook gets: " + d.kinds.map(kindLabel).join(", ") : "The main webhook gets nothing now");
     } catch { toast("Couldn't save that - see the server log"); }
   });
+  $("mainRouteRow").hidden = !webhookConfigured;
+  if (document.activeElement !== $("mainTags")) $("mainTags").value = (e.webhookTags || []).join(", ");
+  if (document.activeElement !== $("mainNotTags")) $("mainNotTags").value = (e.webhookNotTags || []).join(", ");
   const list = $("destList");
   list.innerHTML = "";
   for (const d of destData()) {
@@ -616,11 +623,13 @@ function renderDestinations() {
     if (d.kinds.length) k.textContent = d.kinds.map(kindLabel).join(", ");
     else { k.textContent = "gets nothing: tick something under Edit"; k.className = "none"; }
     sm.appendChild(k);
+    const route = routeText(d);
+    if (route) { const rt = document.createElement("span"); rt.textContent = " · " + route; sm.appendChild(rt); }
     row.querySelector('[data-a="test"]').onclick = () => testDestination(d.id, d.name);
     row.querySelector('[data-a="edit"]').onclick = () => openDestForm(d);
     row.querySelector('[data-a="del"]').onclick = async () => {
       if (!confirm(`Stop sending alerts to ${d.name}?`)) return;
-      await saveDestinations(destData().filter(x => x.id !== d.id).map(x => ({ id: x.id, name: x.name, format: x.format, kinds: x.kinds })));
+      await saveDestinations(destData().filter(x => x.id !== d.id).map(x => (destEntry(x))));
       toast(`${esc(d.name)} removed`);
     };
     list.appendChild(row);
@@ -638,6 +647,8 @@ function openDestForm(d) {
   $("destSmtpPort").value = "587"; $("destSmtpTls").value = "1";
   syncDestFormat();
   kindBoxes($("destKinds"), d ? d.kinds : ALERT_KINDS.map(k => k[0]));
+  $("destTags").value = d && d.tags ? d.tags.join(", ") : "";
+  $("destNotTags").value = d && d.notTags ? d.notTags.join(", ") : "";
   $("destForm").hidden = false;
   $("destAdd").hidden = true;
   $("destResult").innerHTML = "";
@@ -685,7 +696,7 @@ $("destAdd").onclick = () => openDestForm(null);
 $("destCancel").onclick = closeDestForm;
 $("destSave").onclick = async () => {
   const d = destEditing || {};
-  const entry = { id: d.id || "", name: $("destName").value.trim(), url: $("destUrl").value.trim(), format: $("destFormat").value, kinds: checkedKinds($("destKinds")) };
+  const entry = { id: d.id || "", name: $("destName").value.trim(), url: $("destUrl").value.trim(), format: $("destFormat").value, kinds: checkedKinds($("destKinds")), tags: splitTags($("destTags").value), notTags: splitTags($("destNotTags").value) };
   if (entry.format === "email") {
     const m = emailDestUrl();
     if (m.error) { destSay(m.error, true); return; }
@@ -694,8 +705,8 @@ $("destSave").onclick = async () => {
   }
   else if (!d.id && !entry.url) { destSay("Paste the URL alerts should go to.", true); return; }
   const before = new Set(destData().map(x => x.id));
-  const others = destData().filter(x => x.id !== d.id).map(x => ({ id: x.id, name: x.name, format: x.format, kinds: x.kinds }));
-  const list = d.id ? destData().map(x => x.id === d.id ? entry : { id: x.id, name: x.name, format: x.format, kinds: x.kinds }) : [...others, entry];
+  const others = destData().filter(x => x.id !== d.id).map(x => (destEntry(x)));
+  const list = d.id ? destData().map(x => x.id === d.id ? entry : destEntry(x)) : [...others, entry];
   try {
     const saved = await saveDestinations(list);
     closeDestForm();
@@ -1672,6 +1683,9 @@ async function loadSettings() {
   if (typeof e.offHoursAlert === "boolean") offHoursAlert = e.offHoursAlert;
   clockCache = { enabled: e.clockCheck === true, serverSetting: e.clockServer || "", maxSeconds: e.clockMaxSeconds || 30, last: clockCache && clockCache.last, server: clockCache && clockCache.server };
   loadClock();
+  loadDdns();
+  loadEscalation();
+  loadDnsFilter();
   if (typeof e.takeoverAlert === "boolean") takeoverAlert = e.takeoverAlert;
   if (typeof e.dnsWatch === "boolean") dnsWatch = e.dnsWatch;
   if (typeof e.wanQuality === "boolean") wanQualityAlert = e.wanQuality;
@@ -2497,4 +2511,177 @@ $("setClockRun").onclick = async () => {
     if (!r.ok) { toast(d.error || "Couldn't ask"); renderClock(); return; }
     clockCache = d; renderClock();
   } catch (e) { console.error(e); toast("Couldn't ask - see the server log"); renderClock(); }
+};
+
+// ---- The dynamic DNS hook ----
+// Calls the update URL when the public address changes. The URL is never shown again once saved.
+let ddnsCache = null;
+async function loadDdns() {
+  try { const r = await fetch("/api/ddns"); if (r.ok) ddnsCache = await r.json(); } catch { /* keep what it had */ }
+  renderDdns();
+}
+function ddnsLine() {
+  const d = ddnsCache;
+  if (!d) return "";
+  const l = d.last, off = d.enabled ? "" : "Off. ";
+  if (!d.hasUrl) return "Off. No update URL saved.";
+  if (!l) return d.enabled ? "On, not updated yet." : `Off. Saved: ${d.url}`;
+  const when = fmtAgo(l.at);
+  if (l.ok) return `${off}Updated ${when} to ${l.ip}${l.reply ? ` (the provider said: ${l.reply})` : ""}.`;
+  return `${off}Last tried ${when}: ${l.error || "it failed"}`;
+}
+function renderDdns() {
+  const t = $("setDdns");
+  if (!t || !ddnsCache) return;
+  setToggleState(t, ddnsCache.enabled);
+  t.title = ddnsCache.enabled ? "The update URL is called when the address changes - click to stop" : "Click to keep a name pointing at this network";
+  $("setDdnsStatus").textContent = ddnsLine();
+  $("setDdnsUrl").placeholder = ddnsCache.hasUrl ? `${ddnsCache.url} (saved; type a new one to replace it)` : "https://\u2026";
+  $("setDdnsForget").hidden = !ddnsCache.hasUrl;
+  $("setDdnsRun").hidden = !ddnsCache.hasUrl;
+}
+async function postDdns(path, body, busy) {
+  $("setDdnsStatus").textContent = busy;
+  try {
+    const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't do that"); renderDdns(); return false; }
+    ddnsCache = d; renderDdns(); return true;
+  } catch (e) { console.error(e); toast("Couldn't do that - see the server log"); renderDdns(); return false; }
+}
+$("setDdns").onclick = async () => {
+  const next = !(ddnsCache && ddnsCache.enabled);
+  if (await postDdns("/api/settings/ddns", { enabled: next }, next ? "Updating\u2026" : "")) toast(next ? "Dynamic DNS update on" : "Dynamic DNS update off");
+};
+$("setDdnsSave").onclick = async () => {
+  const url = $("setDdnsUrl").value.trim();
+  if (!url) { toast("Type the update URL first"); return; }
+  if (await postDdns("/api/settings/ddns", { url }, "Saving\u2026")) { $("setDdnsUrl").value = ""; toast("Update URL saved"); }
+};
+$("setDdnsRun").onclick = () => postDdns("/api/ddns/run", null, "Updating\u2026");
+$("setDdnsForget").onclick = async () => {
+  if (!confirm("Forget the saved update URL? The update is switched off too.")) return;
+  if (await postDdns("/api/settings/ddns", { url: "" }, "")) toast("Update URL forgotten");
+};
+
+// ---- Escalating alerts nobody acknowledges ----
+// The switch, how long to wait, where it goes and which alerts it watches. The Alerts card on Activity reads the same state.
+let escCache = null;
+const ESC_LABELS = { security: "Security", status: "Rules and checks" };
+async function loadEscalation() {
+  try { const r = await fetch("/api/escalation"); if (r.ok) escCache = await r.json(); } catch { /* keep what it had */ }
+  renderEscalation();
+  if (typeof renderAlertsCard === "function" && typeof alertsCache !== "undefined") renderAlertsCard();
+}
+function escDestinations() {
+  const list = [];
+  if (typeof webhookConfigured !== "undefined" && webhookConfigured) list.push({ id: "main", name: "Main webhook" });
+  for (const d of destData()) list.push({ id: d.id, name: d.name });
+  return list;
+}
+function renderEscalation() {
+  const t = $("setEsc");
+  if (!t || !escCache) return;
+  setToggleState(t, escCache.enabled);
+  t.title = escCache.enabled ? "Unacknowledged alerts are sent on - click to stop" : "Click to send on alerts nobody acknowledges";
+  $("setEscStatus").textContent = escCache.enabled ? `On. ${escCache.waiting ? escCache.waiting + " waiting now." : "Nothing waiting."}` : "Off.";
+  if (document.activeElement !== $("setEscMin")) $("setEscMin").value = escCache.minutes;
+  const sel = $("setEscTo");
+  if (document.activeElement !== sel) {
+    sel.innerHTML = `<option value="">(choose a destination)</option>` + escDestinations().map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("");
+    sel.value = escCache.to || "";
+  }
+  const box = $("setEscKinds");
+  if (!box.contains(document.activeElement)) {
+    box.innerHTML = "";
+    for (const g of escCache.groups) {
+      const l = document.createElement("label");
+      l.innerHTML = `<input type="checkbox" value="${g}"${escCache.kinds.includes(g) ? " checked" : ""}> <span></span>`;
+      l.querySelector("span").textContent = ESC_LABELS[g] || g;
+      box.appendChild(l);
+    }
+  }
+}
+async function postEscalation(body, ok) {
+  try {
+    const r = await fetch("/api/settings/escalation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't save that"); renderEscalation(); return false; }
+    escCache = d; renderEscalation();
+    if (typeof renderAlertsCard === "function") renderAlertsCard();
+    if (ok) toast(ok);
+    return true;
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); renderEscalation(); return false; }
+}
+$("setEsc").onclick = () => {
+  const next = !(escCache && escCache.enabled);
+  postEscalation({ enabled: next }, next ? "Escalation on" : "Escalation off");
+};
+$("setEscSave").onclick = () => postEscalation({
+  minutes: Math.round(Number($("setEscMin").value)), to: $("setEscTo").value, kinds: [...$("setEscKinds").querySelectorAll("input:checked")].map(i => i.value),
+}, "Escalation settings saved");
+
+// The main webhook's devices: only those with a tag, never those with another.
+$("mainRouteSave").onclick = async () => {
+  try {
+    const r = await fetch("/api/settings/webhookroute", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tags: splitTags($("mainTags").value), notTags: splitTags($("mainNotTags").value) }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error();
+    settingsData.editable.webhookTags = d.tags; settingsData.editable.webhookNotTags = d.notTags;
+    renderDestinations();
+    toast(d.tags.length || d.notTags.length ? "The main webhook's devices saved" : "The main webhook is for every device");
+  } catch { toast("Couldn't save that - see the server log"); }
+};
+
+// ---- The Pi-hole / AdGuard Home reader ----
+// Off by default. The switch, where it is and the login (never shown again); its card on Activity reads the same state.
+async function loadDnsFilter() {
+  try { const r = await fetch("/api/dns-filter"); if (r.ok) dnsFilterCache = await r.json(); } catch { /* keep what it had */ }
+  renderDnsFilter();
+  if (typeof renderDnsFilterCard === "function") renderDnsFilterCard();
+}
+function dnsFilterName() { return dnsFilterCache && dnsFilterCache.provider === "adguard" ? "AdGuard Home" : "Pi-hole"; }
+function renderDnsFilter() {
+  const t = $("setDnsFilter"), d = dnsFilterCache;
+  if (!t || !d) return;
+  setToggleState(t, d.enabled);
+  t.title = d.enabled ? "The filter is read every five minutes - click to stop" : "Click to read your Pi-hole or AdGuard Home";
+  const l = d.last;
+  $("setDnsFilterStatus").textContent = !d.url ? "Off. No address saved." : l && l.error ? `${d.enabled ? "" : "Off. "}Tried ${fmtAgo(l.at)}: ${l.error}`
+    : l ? `${d.enabled ? "On" : "Off"}. ${dnsFilterName()} at ${d.url}: ${l.total.toLocaleString()} lookups in the last day, ${l.blocked.toLocaleString()} blocked, read ${fmtAgo(l.at)}.`
+    : d.enabled ? "On, not read yet." : `Off. Saved: ${dnsFilterName()} at ${d.url}.`;
+  if (document.activeElement !== $("setDnsFilterKind")) $("setDnsFilterKind").value = d.provider;
+  if (document.activeElement !== $("setDnsFilterUrl")) $("setDnsFilterUrl").value = d.url || "";
+  if (document.activeElement !== $("setDnsFilterUser")) $("setDnsFilterUser").value = d.user || "";
+  $("setDnsFilterSecret").placeholder = d.hasSecret ? "saved (type to replace)" : "password";
+  $("setDnsFilterInsecure").checked = !!d.insecure;
+  $("setDnsFilterUser").hidden = d.provider !== "adguard";
+  $("setDnsFilterRun").hidden = !d.url; $("setDnsFilterForget").hidden = !d.url;
+}
+async function postDnsFilter(path, body, busy, ok) {
+  $("setDnsFilterStatus").textContent = busy;
+  try {
+    const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't do that"); renderDnsFilter(); return false; }
+    dnsFilterCache = d; renderDnsFilter(); if (typeof renderDnsFilterCard === "function") renderDnsFilterCard();
+    if (ok) toast(ok);
+    return true;
+  } catch (e) { console.error(e); toast("Couldn't do that - see the server log"); renderDnsFilter(); return false; }
+}
+$("setDnsFilter").onclick = () => {
+  const next = !(dnsFilterCache && dnsFilterCache.enabled);
+  postDnsFilter("/api/settings/dns-filter", { enabled: next }, next ? "Reading\u2026" : "", next ? "Reading your DNS filter" : "The DNS filter is no longer read");
+};
+$("setDnsFilterKind").onchange = () => { if (dnsFilterCache) { dnsFilterCache.provider = $("setDnsFilterKind").value; renderDnsFilter(); } };
+$("setDnsFilterSave").onclick = async () => {
+  const body = { provider: $("setDnsFilterKind").value, url: $("setDnsFilterUrl").value.trim(), user: $("setDnsFilterUser").value.trim(), insecure: $("setDnsFilterInsecure").checked };
+  if ($("setDnsFilterSecret").value !== "") body.secret = $("setDnsFilterSecret").value;
+  if (!body.url) { toast("Type the address of its web page first"); return; }
+  if (await postDnsFilter("/api/settings/dns-filter", body, "Saving\u2026", "Saved")) $("setDnsFilterSecret").value = "";
+};
+$("setDnsFilterRun").onclick = () => postDnsFilter("/api/dns-filter/run", null, "Reading\u2026");
+$("setDnsFilterForget").onclick = async () => {
+  if (!confirm("Forget the address and the password? Reading is switched off too.")) return;
+  if (await postDnsFilter("/api/settings/dns-filter", { url: "", secret: "", user: "", enabled: false }, "", "Forgotten")) $("setDnsFilterSecret").value = "";
 };

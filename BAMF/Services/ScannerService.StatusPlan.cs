@@ -77,7 +77,7 @@ public partial class ScannerService
                     await SendGenericAlert($"{NameOf(h)} keeps dropping: {n} times in the last hour",
                         $"{NameOf(h)} ({h.Ip}) has gone offline {n} times in the last hour, so it is flapping: a weak signal, a bad cable or a failing power supply do this. " +
                         (FlapHold ? $"Its own offline and back-online alerts are held back while it does, and BAMF will say if it is still offline after {FlapStillDown.TotalMinutes:0} minutes."
-                                  : "Each drop still alerts."), "status", ct);
+                                  : "Each drop still alerts."), "status", ct, hostId: h.Id);
                 if (!FlapHold) keep.Add(h);
             }
             else
@@ -107,7 +107,7 @@ public partial class ScannerService
         var all = _store.GetAll().ToDictionary(h => h.Id);
         foreach (var id in due)
             if (all.TryGetValue(id, out var h) && !h.Online && !_store.IsSnoozed(id))
-                await SendGenericAlert($"{NameOf(h)} is still offline", $"{NameOf(h)} ({h.Ip}) was flapping and has now been offline for at least {FlapStillDown.TotalMinutes:0} minutes, so this is not a blip.", "status", ct);
+                await SendGenericAlert($"{NameOf(h)} is still offline", $"{NameOf(h)} ({h.Ip}) was flapping and has now been offline for at least {FlapStillDown.TotalMinutes:0} minutes, so this is not a blip.", "status", ct, hostId: h.Id);
     }
 
     /// <summary>Whether a device's alerts are being held back for flapping right now (for the tests).</summary>

@@ -539,6 +539,19 @@
           <span class="set-field"><button type="button" class="arp-toggle" id="setDnsBypassAlert" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
         <label class="set-row">
+          <span class="set-label">Read a Pi-hole or AdGuard Home
+            <span class="set-hint">Off by default, for people who run one. Every five minutes BAMF asks your Pi-hole (version 6 or newer) or AdGuard Home for its totals and its busiest clients over the last day, and a card on Activity shows how many lookups and blocks each device made. It only reads: it changes nothing on the filter, and it can't see a device that doesn't use it. This is how you see each device's DNS without a mirror port.</span>
+            <span class="set-hint" id="setDnsFilterStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setDnsFilter" aria-label="Read a Pi-hole or AdGuard Home" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row set-stack">
+          <span class="set-label">Where it is, and the login
+            <span class="set-hint">The address of its web page, such as <code>http://192.168.2.5</code> (for AdGuard Home, with its port, such as <code>http://192.168.2.5:3000</code>). For a Pi-hole use an app password (Settings, Web interface / API) and leave the user name empty; for AdGuard Home, its user name and password. The password is kept like a webhook's: never shown again, and not in the settings export.</span>
+          </span>
+          <span class="set-field"><select class="modal-input" id="setDnsFilterKind" aria-label="Which filter"><option value="pihole">Pi-hole</option><option value="adguard">AdGuard Home</option></select> <input class="modal-input" id="setDnsFilterUrl" size="26" placeholder="http://192.168.2.5" autocomplete="off" spellcheck="false" aria-label="Address of its web page"> <input class="modal-input" id="setDnsFilterUser" size="12" placeholder="user name" autocomplete="off" spellcheck="false" aria-label="User name (AdGuard Home)"> <input class="modal-input" id="setDnsFilterSecret" type="password" size="16" autocomplete="new-password" aria-label="Password or app password"> <label class="inline-check"><input type="checkbox" id="setDnsFilterInsecure"> self-signed HTTPS</label> <button type="button" class="export-btn" id="setDnsFilterSave">Save</button> <button type="button" class="toggle" id="setDnsFilterRun">Check now</button> <button type="button" class="toggle" id="setDnsFilterForget">Forget</button></span>
+        </label>
+        <label class="set-row">
           <span class="set-label">Traffic monitor
             <span class="set-hint">Watch the wire through Npcap, receive-only: bytes in and out per device, and every DHCP and DNS server in use, with an alert when a new DHCP server appears or a device starts asking a DNS server it never used before. On a switched network this machine sees its own traffic plus broadcast and multicast; on a mirrored switch port it sees everything.</span>
             <span class="set-hint" id="setTrafficStatus"></span>
@@ -597,6 +610,19 @@
             <span class="set-hint" id="setAddressWatchStatus"></span>
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="setAddressWatch" aria-label="Alert when your public IP address changes" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Dynamic DNS update
+            <span class="set-hint">Off by default. When the address the internet sees this network at changes, BAMF calls the update URL below, with the new address where you wrote <code>{ip}</code>, so a name at DuckDNS, No-IP, Dynu or Cloudflare keeps pointing home. Every 15 minutes it asks Cloudflare which address this network is at (one request for a file of no bytes) and calls your URL if that isn't the address it last updated successfully; a refused update is tried again, and three failures in a row raise one alert. Switching it on updates once.</span>
+            <span class="set-hint" id="setDdnsStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setDdns" aria-label="Dynamic DNS update" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row set-stack">
+          <span class="set-label">Update URL
+            <span class="set-hint">The address your provider gives you, such as <code>https://www.duckdns.org/update?domains=home&amp;token=…&amp;ip={ip}</code>. It often holds a token or password, so once saved it is never shown again; a <code>user:password@</code> in it is sent as a login, not left in the address. Leave out <code>{ip}</code> if your provider works the address out itself.</span>
+          </span>
+          <span class="set-field"><input class="modal-input" id="setDdnsUrl" size="34" placeholder="https://…" autocomplete="off" spellcheck="false" aria-label="Dynamic DNS update URL"> <button type="button" class="export-btn" id="setDdnsSave">Save</button> <button type="button" class="toggle" id="setDdnsRun">Update now</button> <button type="button" class="toggle" id="setDdnsForget">Forget</button></span>
         </label>
         <label class="set-row">
           <span class="set-label">Test the internet speed
@@ -795,6 +821,12 @@
         </div>
         <div class="modal-result" id="notifyResult"></div>
         <div class="dest-kinds" id="mainKindsRow" hidden><span class="dest-kinds-lbl">Sends</span><span class="dest-kinds" id="mainKinds" style="margin:0"></span></div>
+        <div class="dest-kinds dest-route" id="mainRouteRow" hidden title="Route by tag: a tag is something you give a device under its ⋯ menu, Details, Tags">
+          <span class="dest-kinds-lbl">Devices</span>
+          <label>only tagged <input id="mainTags" class="modal-input" size="14" placeholder="any" autocomplete="off" spellcheck="false" aria-label="Only for devices tagged"></label>
+          <label>not tagged <input id="mainNotTags" class="modal-input" size="14" placeholder="none" autocomplete="off" spellcheck="false" aria-label="Not for devices tagged"></label>
+          <button type="button" class="toggle" id="mainRouteSave">Save</button>
+        </div>
         <div class="set-card-title" style="margin-top:18px">More destinations</div>
         <p class="modal-help">
           Send alerts to more than one place: your phone and Discord both, or security alerts to one
@@ -842,6 +874,11 @@
             </label>
           </div>
           <div class="dest-kinds"><span class="dest-kinds-lbl">Sends</span><span class="dest-kinds" id="destKinds" style="margin:0"></span></div>
+          <div class="dest-kinds dest-route" title="Route by tag: a tag is something you give a device under its ⋯ menu, Details, Tags">
+            <span class="dest-kinds-lbl">Devices</span>
+            <label>only tagged <input id="destTags" class="modal-input" size="14" placeholder="any" autocomplete="off" spellcheck="false" aria-label="Only for devices tagged"></label>
+            <label>not tagged <input id="destNotTags" class="modal-input" size="14" placeholder="none" autocomplete="off" spellcheck="false" aria-label="Not for devices tagged"></label>
+          </div>
           <div class="modal-actions">
             <button class="toggle" id="destCancel">Cancel</button>
             <button class="export-btn" id="destSave">Save &amp; test</button>
@@ -1000,6 +1037,28 @@
           <input type="checkbox" id="behFlapHold">
         </label>
         <div class="modal-note" id="quietStatus"></div>
+      </div>
+      <div class="set-card">
+        <div class="set-card-title">Escalate alerts nobody acknowledges</div>
+        <label class="set-row">
+          <span class="set-label">Send on an alert nobody acknowledged
+            <span class="set-hint">Off by default. With this on, each alert in the Alerts card on Activity gets an <b>Acknowledge</b> button. One that is still waiting after the time below is sent, once, to the destination you pick, say your phone when the first went to a channel nobody was watching. Only alerts raised after you switch it on count, it stays quiet during quiet hours and a pause, and an acknowledged alert is never sent on.</span>
+            <span class="set-hint" id="setEscStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setEsc" aria-label="Escalate alerts nobody acknowledges" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row set-stack">
+          <span class="set-label">After, and to where
+            <span class="set-hint">The destination is one of the webhook and the extra destinations above. It takes escalated alerts whatever kinds it was set to take.</span>
+          </span>
+          <span class="set-field"><input class="modal-input" id="setEscMin" type="number" min="1" max="1440" style="width:5.5em" aria-label="Minutes to wait"> min, to <select class="modal-input" id="setEscTo" aria-label="Destination for escalated alerts"></select> <button type="button" class="export-btn" id="setEscSave">Save</button></span>
+        </label>
+        <div class="set-row set-stack">
+          <span class="set-label">Which alerts
+            <span class="set-hint">Security: new DHCP or DNS servers, open ports, certificates, ARP. Rules and checks: alert rules, off hours, the clock check, backups and the dynamic DNS update.</span>
+          </span>
+          <span class="set-field"><span class="dest-kinds" id="setEscKinds" style="margin:0"></span></span>
+        </div>
       </div>
     </section>
     <section class="set-sec" data-sec="network" aria-label="Your network">
@@ -1432,6 +1491,11 @@
       <div class="sub" id="bypassSub"></div>
       <div id="bypassBody"></div>
     </div>
+    <div class="act-card" id="dnsFilterCard" hidden>
+      <h3>DNS filter</h3>
+      <div class="sub" id="dnsFilterSub"></div>
+      <div id="dnsFilterBody"></div>
+    </div>
     <div class="act-card" id="notesCard">
       <h3>Notes</h3>
       <div class="sub">Anything you want to keep with this network. Saved as you type and the same in every browser. Anyone who can open the dashboard can read it, so keep passwords out.</div>
@@ -1448,8 +1512,9 @@
       <div class="watch-note" id="talkersNote"></div>
     </div>
     <div class="act-card" id="alertsCard">
-      <h3>Alerts <button type="button" class="toggle" id="alertsClear" hidden>Clear</button></h3>
+      <h3>Alerts <button type="button" class="toggle" id="alertsAckAll" hidden>Acknowledge all</button> <button type="button" class="toggle" id="alertsClear" hidden>Clear</button></h3>
       <div class="sub">What BAMF raised: rules, ports, DHCP and DNS, the ARP watch and certificates. Kept for the history window, 90 days unless you changed it.</div>
+      <div class="watch-note" id="alertsEscNote" hidden></div>
       <div id="alertsBody"></div>
     </div>
     <div class="act-card" id="wanCard">

@@ -15,10 +15,14 @@ internal static class AlertEndpoints
     public static void Map(WebApplication app)
     {
         // Alerts BAMF raised: rules, ports, DHCP and DNS, newest first.
+        // `key` names an alert for /api/alerts/ack; `acked` and `escalated` are when someone acknowledged it and when it was sent on, or null.
         app.MapGet("/api/alerts", (HostStore store, ScannerService scanner) =>
         {
-            var mine = store.GetAlerts(50).Select(a => new { at = a.At, kind = a.Kind, title = a.Title, detail = a.Detail });
-            var watch = scanner.Traffic.Alerts().Select(a => new { at = a.At, kind = a.Kind, title = a.Title, detail = a.Detail });
+            var marks = store.AlertMarks();
+            string? Ack(string key) => marks.TryGetValue(key, out var m) ? m.AckedAt : null;
+            string? Esc(string key) => marks.TryGetValue(key, out var m) ? m.EscalatedAt : null;
+            var mine = store.GetAlerts(50).Select(a => new { at = a.At, kind = a.Kind, title = a.Title, detail = a.Detail, key = AlertEscalation.KeyOf(a.Id), acked = Ack(AlertEscalation.KeyOf(a.Id)), escalated = Esc(AlertEscalation.KeyOf(a.Id)) });
+            var watch = scanner.Traffic.Alerts().Select(a => new { at = a.At, kind = a.Kind, title = a.Title, detail = a.Detail, key = AlertEscalation.KeyOf(a), acked = Ack(AlertEscalation.KeyOf(a)), escalated = Esc(AlertEscalation.KeyOf(a)) });
             return Results.Json(mine.Concat(watch).OrderByDescending(a => a.at).Take(50));
         });
 
@@ -227,6 +231,13 @@ internal static class AlertEndpoints
         {
             scanner.SetMainKinds(body.Kinds ?? new());
             return Results.Json(new { kinds = scanner.MainKinds });
+        });
+
+        // Which devices the main webhook is for: only those with one of these tags, and never those with one of these. Either can be left out.
+        app.MapPost("/api/settings/webhookroute", (RouteRequest body, ScannerService scanner) =>
+        {
+            scanner.SetMainRoute(body.Tags, body.NotTags);
+            return Results.Json(new { tags = scanner.MainRoute.Tags, notTags = scanner.MainRoute.NotTags });
         });
 
         // The destinations besides the main webhook, replaced as a list. A saved one

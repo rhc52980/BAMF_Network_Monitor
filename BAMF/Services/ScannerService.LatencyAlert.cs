@@ -32,10 +32,10 @@ public partial class ScannerService
             var name = h.CustomName != "" ? h.CustomName : h.Hostname is { Length: > 0 } and not "—" ? h.Hostname : h.Ip;
             if (what == "high")
                 await SendGenericAlert($"{name} is slow to answer: {ms} ms",
-                    $"{name} ({h.Ip}) has taken {limit} ms or more to answer the last {LatencyEpisodes.HighProbes} pings, {ms} ms this time. It's up, but anything that talks to it will feel it: a weak Wi-Fi signal, a busy device, or a struggling switch between here and there. BAMF will say when it's back under {limit} ms.", "status", ct);
+                    $"{name} ({h.Ip}) has taken {limit} ms or more to answer the last {LatencyEpisodes.HighProbes} pings, {ms} ms this time. It's up, but anything that talks to it will feel it: a weak Wi-Fi signal, a busy device, or a struggling switch between here and there. BAMF will say when it's back under {limit} ms.", "status", ct, hostId: id);
             else
                 await SendGenericAlert($"{name} is answering normally again: {ms} ms",
-                    $"{name} ({h.Ip}) has answered the last {LatencyEpisodes.BackProbes} pings in under {limit} ms, after a slow spell that reached {_latencyEpisodes.Worst(id)} ms.", "status-up", ct);
+                    $"{name} ({h.Ip}) has answered the last {LatencyEpisodes.BackProbes} pings in under {limit} ms, after a slow spell that reached {_latencyEpisodes.Worst(id)} ms.", "status-up", ct, hostId: id);
         }
     }
 }

@@ -271,7 +271,7 @@ public sealed class FlowWatch : BackgroundService
                 var more = group.Count() > 1 ? $" and {group.Count() - 1} other new place{(group.Count() > 2 ? "s" : "")}" : "";
                 await _scanner.RaiseSecurity($"{NameOf(mac)} started talking to somewhere new",
                     $"{NameOf(mac)} has talked to {known - group.Count()} outside networks in {(int)(now - first).TotalDays} days of watching, and today reached {first1.Sample}{(name is null ? "" : $" ({name})")}{more}. " +
-                    "A device with a fixed set of servers doesn't usually gain one: a firmware update can explain it, and so can something that has taken it over. If it's a camera, a plug or a thermostat, that's worth a look.", ct);
+                    "A device with a fixed set of servers doesn't usually gain one: a firmware update can explain it, and so can something that has taken it over. If it's a camera, a plug or a thermostat, that's worth a look.", ct, hostId: _store.HostIdOfMac(mac));
                 sent++;
             }
         }
@@ -321,7 +321,7 @@ public sealed class FlowWatch : BackgroundService
             var median = prior.OrderBy(x => x).ElementAt(prior.Count / 2);
             await _scanner.RaiseSecurity($"{NameOf(mac)} moved {Gb(lastDay)} in a day, far more than usual",
                 $"{NameOf(mac)} moved {Gb(lastDay)} in the last 24 hours against a usual day of about {Gb(median)} (the median of the last {prior.Count} days). " +
-                "A backup or an update can do this once; a camera that has started uploading constantly, or something sending your data out, does it every day. The Traffic card on Activity shows where it went.", ct);
+                "A backup or an update can do this once; a camera that has started uploading constantly, or something sending your data out, does it every day. The Traffic card on Activity shows where it went.", ct, hostId: _store.HostIdOfMac(mac));
             sent++;
         }
         return sent;

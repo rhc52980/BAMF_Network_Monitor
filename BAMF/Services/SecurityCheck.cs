@@ -177,7 +177,7 @@ public sealed class SecurityCheck
             : ($"Certificate on {name}:{port} expires in {Math.Max(1, (int)Math.Ceiling(days))} days",
                $"The HTTPS certificate on {name} ({h.Ip}) port {port}{what} expires on {date}. Renew it before then.");
         _store.AddAlert("cert", title, detail);
-        await _scanner.SendGenericAlert(title, detail, "cert", ct);
+        await _scanner.SendGenericAlert(title, detail, "cert", ct, hostId: h.Id);
     }
 
     private static string CommonName(string dn)

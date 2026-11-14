@@ -26,6 +26,11 @@ public partial class HostStore
                 title  TEXT NOT NULL,
                 detail TEXT NOT NULL DEFAULT ''
             );
+            CREATE TABLE IF NOT EXISTS alert_state (
+                key          TEXT PRIMARY KEY,
+                acked_at     TEXT,
+                escalated_at TEXT
+            );
             CREATE TABLE IF NOT EXISTS host_ports (
                 host_id    INTEGER NOT NULL,
                 port       INTEGER NOT NULL,
@@ -70,7 +75,7 @@ public partial class HostStore
         {
             using var conn = Open();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "DELETE FROM alerts; SELECT changes();";
+            cmd.CommandText = "DELETE FROM alert_state; DELETE FROM alerts; SELECT changes();";
             return Convert.ToInt32(cmd.ExecuteScalar());
         }
     }
@@ -315,7 +320,7 @@ public partial class HostStore
 
     private static void PruneAlertsAndTraffic(SqliteConnection conn, string cutoff)
     {
-        foreach (var sql in new[] { "DELETE FROM alerts WHERE at < $cutoff", "DELETE FROM traffic_hourly WHERE hour < $cutoff", "DELETE FROM host_changes WHERE at < $cutoff" })
+        foreach (var sql in new[] { "DELETE FROM alerts WHERE at < $cutoff", "DELETE FROM alert_state WHERE COALESCE(acked_at, escalated_at, '') < $cutoff", "DELETE FROM traffic_hourly WHERE hour < $cutoff", "DELETE FROM host_changes WHERE at < $cutoff" })
         {
             using var prune = conn.CreateCommand();
             prune.CommandText = sql;

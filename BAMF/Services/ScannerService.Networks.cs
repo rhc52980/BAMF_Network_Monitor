@@ -282,7 +282,7 @@ public partial class ScannerService
                 discordPayload: payload, genericPayload: generic);
         }
 
-        try { await Deliver("status", title, text, Build, ct); }
+        try { await Deliver("status", title, text, Build, ct, hostId: host.Id); }
         catch (Exception ex) when (ex is not OperationCanceledException) { _log.LogWarning(ex, "Watch alert failed for {Name}", name); }
     }
 }
