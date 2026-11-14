@@ -89,7 +89,7 @@ public sealed class UnusualWatch : BackgroundService
                 if (open.ContainsKey(f.Key)) { _store.UpdateUnusual(f.Key, f.Title, f.Detail); continue; }
                 if (!_store.AddUnusual(f)) continue;   // already noted
                 fresh.Add(f);
-                await _scanner.SendGenericAlert(f.Title, f.Detail, "unusual", ct);
+                await _scanner.SendGenericAlert(f.Title, f.Detail, "unusual", ct, hostId: f.HostId);
             }
 
             // What's over: a device back on, or back to its usual speed, or now

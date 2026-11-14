@@ -233,6 +233,13 @@ internal static class AlertEndpoints
             return Results.Json(new { kinds = scanner.MainKinds });
         });
 
+        // Which devices the main webhook is for: only those with one of these tags, and never those with one of these. Either can be left out.
+        app.MapPost("/api/settings/webhookroute", (RouteRequest body, ScannerService scanner) =>
+        {
+            scanner.SetMainRoute(body.Tags, body.NotTags);
+            return Results.Json(new { tags = scanner.MainRoute.Tags, notTags = scanner.MainRoute.NotTags });
+        });
+
         // The destinations besides the main webhook, replaced as a list. A saved one
         // sent back with a blank URL keeps the URL it has.
         app.MapPost("/api/settings/destinations", (DestinationsRequest body, ScannerService scanner) =>

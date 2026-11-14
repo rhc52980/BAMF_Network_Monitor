@@ -42,6 +42,7 @@ public static class SettingsLog
         ["clock"] = "Clock check settings",
         ["ddns"] = "Dynamic DNS settings",
         ["escalation"] = "Alert escalation settings",
+        ["webhookroute"] = "Which devices the main webhook is for",
         ["wan-quality"] = "Internet quality alerts",
         ["latency-alert"] = "Slow watched device alert",
         ["flow-watch"] = "Where devices talk, and scans",

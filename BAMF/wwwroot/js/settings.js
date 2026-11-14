@@ -587,6 +587,10 @@ function kindBoxes(box, selected, onChange) {
 }
 const checkedKinds = box => [...box.querySelectorAll("input:checked")].map(i => i.value);
 let destEditing = null;   // the destination being edited, or {} for a new one
+// Which devices a destination is for, as typed: tags separated by commas.
+const splitTags = v => v.split(/[,;]+/).map(t => t.trim()).filter(Boolean);
+const destEntry = x => ({ id: x.id, name: x.name, format: x.format, kinds: x.kinds, tags: x.tags || [], notTags: x.notTags || [] });
+const routeText = d => [(d.tags || []).length ? "only devices tagged " + d.tags.join(", ") : "", (d.notTags || []).length ? "not devices tagged " + d.notTags.join(", ") : ""].filter(Boolean).join("; ");
 function destData() { return (settingsData && settingsData.editable && settingsData.editable.destinations) || []; }
 function renderDestinations() {
   const e = settingsData && settingsData.editable;
@@ -602,6 +606,9 @@ function renderDestinations() {
       toast(d.kinds.length ? "The main webhook gets: " + d.kinds.map(kindLabel).join(", ") : "The main webhook gets nothing now");
     } catch { toast("Couldn't save that - see the server log"); }
   });
+  $("mainRouteRow").hidden = !webhookConfigured;
+  if (document.activeElement !== $("mainTags")) $("mainTags").value = (e.webhookTags || []).join(", ");
+  if (document.activeElement !== $("mainNotTags")) $("mainNotTags").value = (e.webhookNotTags || []).join(", ");
   const list = $("destList");
   list.innerHTML = "";
   for (const d of destData()) {
@@ -616,11 +623,13 @@ function renderDestinations() {
     if (d.kinds.length) k.textContent = d.kinds.map(kindLabel).join(", ");
     else { k.textContent = "gets nothing: tick something under Edit"; k.className = "none"; }
     sm.appendChild(k);
+    const route = routeText(d);
+    if (route) { const rt = document.createElement("span"); rt.textContent = " · " + route; sm.appendChild(rt); }
     row.querySelector('[data-a="test"]').onclick = () => testDestination(d.id, d.name);
     row.querySelector('[data-a="edit"]').onclick = () => openDestForm(d);
     row.querySelector('[data-a="del"]').onclick = async () => {
       if (!confirm(`Stop sending alerts to ${d.name}?`)) return;
-      await saveDestinations(destData().filter(x => x.id !== d.id).map(x => ({ id: x.id, name: x.name, format: x.format, kinds: x.kinds })));
+      await saveDestinations(destData().filter(x => x.id !== d.id).map(x => (destEntry(x))));
       toast(`${esc(d.name)} removed`);
     };
     list.appendChild(row);
@@ -638,6 +647,8 @@ function openDestForm(d) {
   $("destSmtpPort").value = "587"; $("destSmtpTls").value = "1";
   syncDestFormat();
   kindBoxes($("destKinds"), d ? d.kinds : ALERT_KINDS.map(k => k[0]));
+  $("destTags").value = d && d.tags ? d.tags.join(", ") : "";
+  $("destNotTags").value = d && d.notTags ? d.notTags.join(", ") : "";
   $("destForm").hidden = false;
   $("destAdd").hidden = true;
   $("destResult").innerHTML = "";
@@ -685,7 +696,7 @@ $("destAdd").onclick = () => openDestForm(null);
 $("destCancel").onclick = closeDestForm;
 $("destSave").onclick = async () => {
   const d = destEditing || {};
-  const entry = { id: d.id || "", name: $("destName").value.trim(), url: $("destUrl").value.trim(), format: $("destFormat").value, kinds: checkedKinds($("destKinds")) };
+  const entry = { id: d.id || "", name: $("destName").value.trim(), url: $("destUrl").value.trim(), format: $("destFormat").value, kinds: checkedKinds($("destKinds")), tags: splitTags($("destTags").value), notTags: splitTags($("destNotTags").value) };
   if (entry.format === "email") {
     const m = emailDestUrl();
     if (m.error) { destSay(m.error, true); return; }
@@ -694,8 +705,8 @@ $("destSave").onclick = async () => {
   }
   else if (!d.id && !entry.url) { destSay("Paste the URL alerts should go to.", true); return; }
   const before = new Set(destData().map(x => x.id));
-  const others = destData().filter(x => x.id !== d.id).map(x => ({ id: x.id, name: x.name, format: x.format, kinds: x.kinds }));
-  const list = d.id ? destData().map(x => x.id === d.id ? entry : { id: x.id, name: x.name, format: x.format, kinds: x.kinds }) : [...others, entry];
+  const others = destData().filter(x => x.id !== d.id).map(x => (destEntry(x)));
+  const list = d.id ? destData().map(x => x.id === d.id ? entry : destEntry(x)) : [...others, entry];
   try {
     const saved = await saveDestinations(list);
     closeDestForm();
@@ -2608,3 +2619,15 @@ $("setEsc").onclick = () => {
 $("setEscSave").onclick = () => postEscalation({
   minutes: Math.round(Number($("setEscMin").value)), to: $("setEscTo").value, kinds: [...$("setEscKinds").querySelectorAll("input:checked")].map(i => i.value),
 }, "Escalation settings saved");
+
+// The main webhook's devices: only those with a tag, never those with another.
+$("mainRouteSave").onclick = async () => {
+  try {
+    const r = await fetch("/api/settings/webhookroute", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tags: splitTags($("mainTags").value), notTags: splitTags($("mainNotTags").value) }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error();
+    settingsData.editable.webhookTags = d.tags; settingsData.editable.webhookNotTags = d.notTags;
+    renderDestinations();
+    toast(d.tags.length || d.notTags.length ? "The main webhook's devices saved" : "The main webhook is for every device");
+  } catch { toast("Couldn't save that - see the server log"); }
+};

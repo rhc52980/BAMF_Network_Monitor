@@ -808,6 +808,12 @@
         </div>
         <div class="modal-result" id="notifyResult"></div>
         <div class="dest-kinds" id="mainKindsRow" hidden><span class="dest-kinds-lbl">Sends</span><span class="dest-kinds" id="mainKinds" style="margin:0"></span></div>
+        <div class="dest-kinds dest-route" id="mainRouteRow" hidden title="Route by tag: a tag is something you give a device under its ⋯ menu, Details, Tags">
+          <span class="dest-kinds-lbl">Devices</span>
+          <label>only tagged <input id="mainTags" class="modal-input" size="14" placeholder="any" autocomplete="off" spellcheck="false" aria-label="Only for devices tagged"></label>
+          <label>not tagged <input id="mainNotTags" class="modal-input" size="14" placeholder="none" autocomplete="off" spellcheck="false" aria-label="Not for devices tagged"></label>
+          <button type="button" class="toggle" id="mainRouteSave">Save</button>
+        </div>
         <div class="set-card-title" style="margin-top:18px">More destinations</div>
         <p class="modal-help">
           Send alerts to more than one place: your phone and Discord both, or security alerts to one
@@ -855,6 +861,11 @@
             </label>
           </div>
           <div class="dest-kinds"><span class="dest-kinds-lbl">Sends</span><span class="dest-kinds" id="destKinds" style="margin:0"></span></div>
+          <div class="dest-kinds dest-route" title="Route by tag: a tag is something you give a device under its ⋯ menu, Details, Tags">
+            <span class="dest-kinds-lbl">Devices</span>
+            <label>only tagged <input id="destTags" class="modal-input" size="14" placeholder="any" autocomplete="off" spellcheck="false" aria-label="Only for devices tagged"></label>
+            <label>not tagged <input id="destNotTags" class="modal-input" size="14" placeholder="none" autocomplete="off" spellcheck="false" aria-label="Not for devices tagged"></label>
+          </div>
           <div class="modal-actions">
             <button class="toggle" id="destCancel">Cancel</button>
             <button class="export-btn" id="destSave">Save &amp; test</button>

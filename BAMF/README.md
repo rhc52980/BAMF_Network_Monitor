@@ -1843,7 +1843,8 @@ scan, or delete a thing.
 | POST | `/api/webhook/test` | Send a test notification to `Bamf:WebhookUrl` (**Test** under Settings → Alerts). Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/destinations/{id}/test` | Send a test to one destination: `main` for the main webhook, or another's `id`. Returns `{ok:true}` or `{ok:false,error:"…"}` |
 | POST | `/api/settings/webhookkinds` | Body `{"kinds": ["devices", "status"]}` — which kinds of alert the main webhook gets: `devices`, `status`, `unusual`, `security`, `internet`, `reports`. `GET /api/settings` returns it as `webhookKinds` |
-| POST | `/api/settings/destinations` | Body `{"destinations": [{"id": "…", "name": "Phone", "url": "https://…", "format": "ntfy", "kinds": ["security", "internet"]}]}` — replace the destinations besides the main webhook, up to 8. `id` blank adds one; a saved one sent with `url` empty keeps its URL. `GET /api/settings` returns them as `destinations`, URLs masked. `format` is `auto`, `ntfy`, `gotify`, `slack`, `telegram`, `json` or `discord`, or `email` for a destination whose `url` is `smtp://[user:password@]host[:port]/?to=a@x.com,b@x.com[&from=…][&tls=0]` (encrypted unless `tls=0`) |
+| POST | `/api/settings/destinations` | Body `{"destinations": [{"id": "…", "name": "Phone", "url": "https://…", "format": "ntfy", "kinds": ["security", "internet"], "tags": ["kids"], "notTags": []}]}` — replace the destinations besides the main webhook, up to 8. `id` blank adds one; a saved one sent with `url` empty keeps its URL. `GET /api/settings` returns them as `destinations`, URLs masked. `format` is `auto`, `ntfy`, `gotify`, `slack`, `telegram`, `json` or `discord`, or `email` for a destination whose `url` is `smtp://[user:password@]host[:port]/?to=a@x.com,b@x.com[&from=…][&tls=0]` (encrypted unless `tls=0`). `tags` and `notTags` (lists, any case) route by the tags on the device an alert is about: only those, never those; left out they are kept, an empty list clears them |
+| POST | `/api/settings/webhookroute` | Body `{"tags": ["kids"], "notTags": []}`, either — the same routing for the main webhook. `GET /api/settings` has it as `webhookTags` and `webhookNotTags` |
 | POST | `/api/settings/networks` | Body `{"networks": ["192.168.1.0/24"]}` — the networks to scan, replacing `Bamf:Subnets`, and scan them now. Private networks from /21 to /30 only; see [Networks](#networks). `GET /api/settings` returns them as `editable.networks`, with where they come from and the ones this machine is on |
 | POST | `/api/settings/networks/reset` | Hand the networks back to `appsettings.json` |
 | POST | `/api/settings/mqtt` | Body `{"server": "10.0.0.2", "port": 1883, "username": "bamf", "password": null, "tls": false, "discovery": true, "topicPrefix": "bamf"}` — the MQTT broker, replacing `Bamf:Mqtt`, and connect now. `server` empty turns MQTT off. `password` null keeps the saved one, but only for the same server and port. `GET /api/settings` returns it as `editable.mqtt`, with `password` only saying whether one is saved |
@@ -2875,6 +2876,32 @@ Quiet hours hold an alert once, not once per destination, and the summary when
 they end goes to each destination with just the held alerts of its own kinds:
 a phone that only takes Internet gets "the internet is back", and not the
 devices that came and went overnight.
+
+**Which devices.** Kinds say *what* a destination gets; **Devices** under them says
+*whose*. Give a device a tag (its ⋯ menu, **Details → Tags…**: "kids", "servers", or
+one for a single device) and a destination can be set to take **only tagged**
+devices, or **not tagged** ones. Say your phone is set to *only tagged `kids`* and
+the main webhook to *not tagged `kids`*: the kids' tablet going offline or running
+slow alerts the phone alone, and everything else alerts the main webhook alone. Leave
+both empty, the default, and a destination gets every device.
+
+- It applies to an alert about **one device**: it going offline or back, an alert
+  rule, a newly open port, a certificate, an off-hours alert, a slow device, a
+  device that keeps dropping, a device that took over an address, and a device that
+  talks somewhere new or moves far more data than usual.
+- **An alert that isn't about one device**, such as the internet being down, a new
+  DHCP server, or a new device appearing (it has no tags yet), is never held back by
+  *not tagged*, and is not taken by a destination that is *only tagged*. So the kids'
+  phone isn't woken by the internet going down unless you also give it a rule for that
+  elsewhere, and the main webhook still hears about everything network-wide.
+- A tag is matched whatever its case, and **when the alert is sent**: retag a device
+  and its next alert goes to the new place. A held quiet-hours alert goes in the
+  summary of the destinations it would have gone to.
+- **Test** and an escalated alert go to the destination you picked whatever its tags.
+
+The main webhook's is the **Devices** row under its **Sends** tickboxes; an extra
+destination's is in its form. `POST /api/settings/webhookroute` and the `tags` and
+`notTags` of each destination in `POST /api/settings/destinations` are the API.
 
 ### Alerts by email
 

@@ -43,7 +43,7 @@ public partial class ScannerService
             await RaiseSecurity($"{DescribeMac(h.Mac)} took over {d.After}",
                 $"It answered at {d.After}, where {d.Before} was answering a moment ago. A lease handed on by DHCP looks like this when the old device " +
                 "has only just gone, but a device that copies another's address to stand in for it looks the same. Check that the first device is " +
-                "really off, and that the new one is yours.", ct);
+                "really off, and that the new one is yours.", ct, hostId: h.Id);
         }
     }
 
@@ -112,13 +112,13 @@ public partial class ScannerService
         }
     }
 
-    public async Task RaiseSecurity(string title, string detail, CancellationToken ct, string style = "security")
+    public async Task RaiseSecurity(string title, string detail, CancellationToken ct, string style = "security", long? hostId = null)
     {
         _log.LogWarning("Security: {Title}. {Detail}", title, detail);
         _store.AddAlert("security", title, detail);
         // The internet watch's alerts are listed with the security ones on
         // Activity, but go to the destinations that take internet alerts.
-        await SendGenericAlert(title, detail, style, ct);
+        await SendGenericAlert(title, detail, style, ct, hostId: hostId);
     }
 
     /// <summary>Looks over one network's scan for two devices on one address, and for the gateway's MAC changing.</summary>
