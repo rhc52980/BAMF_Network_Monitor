@@ -41,6 +41,7 @@ public static class SettingsLog
         ["clock-check"] = "Clock check",
         ["clock"] = "Clock check settings",
         ["ddns"] = "Dynamic DNS settings",
+        ["escalation"] = "Alert escalation settings",
         ["wan-quality"] = "Internet quality alerts",
         ["latency-alert"] = "Slow watched device alert",
         ["flow-watch"] = "Where devices talk, and scans",

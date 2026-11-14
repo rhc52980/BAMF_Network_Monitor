@@ -137,7 +137,7 @@ public partial class ScannerService
     };
 
     /// <summary>A rule, port, security, certificate or internet alert: title and detail, through the quiet-hours gate.</summary>
-    public async Task SendGenericAlert(string title, string detail, string kind, CancellationToken ct)
+    public async Task SendGenericAlert(string title, string detail, string kind, CancellationToken ct, string? only = null)
     {
         var style = AlertStyle(kind);
         var text = $"BAMF: {title}. {detail}";
@@ -153,7 +153,7 @@ public partial class ScannerService
             return BuildAlertRequest(url, format, title: title, message: detail, priority: style.Priority, tags: style.Tag,
                 discordPayload: payload, genericPayload: generic);
         }
-        try { await Deliver(KindOf(kind), title, text, Build, ct); }
+        try { await Deliver(KindOf(kind), title, text, Build, ct, only: only); }
         catch (Exception ex) when (ex is not OperationCanceledException) { _log.LogWarning(ex, "Alert failed"); }
     }
 

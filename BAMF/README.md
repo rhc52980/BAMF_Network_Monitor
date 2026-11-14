@@ -1931,7 +1931,10 @@ scan, or delete a thing.
 | POST | `/api/ddns/run` | Update now, whatever the address and the schedule; 409 without a URL, 429 if updated less than ten seconds ago |
 | POST | `/api/dhcp-probe/run` | Ask now, whatever the schedule, and answer as `GET /api/dhcp-probe` does; 429 if asked less than ten seconds ago |
 | POST | `/api/settings/first-week-report` | Body `{"enabled": false}` — switch a new device's first-week report off, or back on |
-| GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
+| GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail", "key", "acked", "escalated"}`. `key` names the alert for `/api/alerts/ack`; `acked` and `escalated` are when it was acknowledged and when it was sent on, or null |
+| POST | `/api/alerts/ack` | Body `{"key": "a:12"}` for one alert (a `key` from the list), or `{"all": true}` for every alert showing — acknowledge them, so they are never escalated. `{"acknowledged": n}` |
+| GET | `/api/escalation` | Escalating unacknowledged alerts: `{"enabled", "minutes", "to", "toName", "kinds", "groups", "waiting"}`. `waiting` is how many watched alerts raised since it was switched on are not acknowledged or sent on yet |
+| POST | `/api/settings/escalation` | Body `{"enabled": true, "minutes": 15, "to": "<destination id>", "kinds": ["security"]}`, any of them. `to` is `main` or an id from the destinations; `kinds` are `security` and `status`; 1 to 1440 minutes. 400 for anything else, or for switching on without a destination or a kind. Only alerts raised after it is switched on count |
 | POST | `/api/alerts/clear` | Empty the Alerts card: every alert BAMF has kept and the ones the traffic monitor raised. Answers `{"cleared": n}` |
 | GET | `/api/settings/rules` | The alert rules, quiet hours and port watch: `{"rules": [...], "quiet": {"from", "to", "digest", "now", "held"}, "portWatch"}` |
 | POST | `/api/settings/rules` | Body: the whole rule list, each `{"id", "name", "kind": "offline"\|"online"\|"hours", "target": "any"\|"watched"\|"tag:kids"\|"host:12", "minutes", "from", "to", "enabled"}`. `id` empty for a new rule |
@@ -2994,6 +2997,29 @@ does a single device behind a dead switch that isn't watched itself. A snoozed d
 saying so, "kitchen plug keeps dropping: 6 times in the last hour", once an hour at most. A weak Wi-Fi signal, a bad cable or a failing power supply do
 this, and each drop used to alert. **Hold back a flapping device's own alerts** (off unless you choose) goes further: while it flaps its offline and
 back-online alerts are held, and if it is still offline 15 minutes later BAMF says so after all, so holding them back can never hide a device that stayed down.
+
+### Acknowledging alerts, and sending on the ones nobody does
+
+An alert sent to a channel nobody is watching is an alert nobody got. **Settings → Alerts → Escalate alerts nobody
+acknowledges** is the second chance. **Off by default**, and it needs a destination first.
+
+With it on, each alert in the **Alerts** card on Activity has an **Acknowledge** button (and the card an **Acknowledge
+all**), and says how many are waiting and where an unacknowledged one will go. An alert still waiting after the time you set
+(15 minutes to start with, 1 to 1,440) is sent, **once**, to the destination you pick, titled "Not acknowledged after 15 min:
+…", whatever kinds that destination was set to take. Say a Discord channel gets everything, and your phone gets only what
+nobody answered.
+
+- **Only what you ask it to watch.** **Security** (new DHCP or DNS servers, ARP, newly open ports, certificates) is ticked to
+  start with; **Rules and checks** adds alert rules, off hours, the clock check, backups and the dynamic DNS update. A wake is BAMF
+  doing something, not a warning, and is never sent on.
+- **Only what is new.** Alerts raised before you switched it on are not sent, so turning it on doesn't send yesterday's.
+- **Quiet when told to be.** During quiet hours or a pause nothing is sent on, and one that has waited more than six hours is
+  too old to be worth sending. An alert that was never sent in the first place (one for a snoozed device) is not sent on either.
+- **Calm.** Ten at most go out at a time, each at most once, and an acknowledged one never does. Clearing the list forgets
+  what was acknowledged.
+- A view-only password can see what is waiting but can't acknowledge anything.
+
+The API is `POST /api/alerts/ack`, `GET /api/escalation` and `POST /api/settings/escalation`.
 
 ### Port history and change alerts
 

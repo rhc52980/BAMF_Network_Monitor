@@ -207,10 +207,32 @@ function renderAlertsCard() {
   const body = $("alertsBody");
   const list = alertsCache || [];
   $("alertsClear").hidden = !list.length || role === "viewer";
-  body.innerHTML = list.length ? list.slice(0, 12).map(a =>
-    `<div class="alert-item k-${esc(a.kind)}"><div><b>${esc(a.title)}</b><span class="when">${esc(fmtAgo(a.at))}</span></div><div class="det">${esc(a.detail)}</div></div>`).join("")
+  // With escalation on, each alert can be acknowledged, and the card says what is waiting and where it goes.
+  const esc_ = typeof escCache !== "undefined" && escCache && escCache.enabled ? escCache : null;
+  const shown = list.slice(0, 12);
+  const waiting = a => esc_ && !a.acked && !a.escalated && a.key;
+  $("alertsAckAll").hidden = !esc_ || role === "viewer" || !shown.some(waiting);
+  const note = $("alertsEscNote");
+  note.hidden = !esc_;
+  if (esc_) note.textContent = `${esc_.waiting ? `${esc_.waiting} waiting to be acknowledged. ` : ""}An alert nobody acknowledges in ${esc_.minutes} min goes to ${esc_.toName || "your chosen destination"}.`;
+  body.innerHTML = list.length ? shown.map(a => {
+    const state = a.acked ? `<span class="when">acknowledged ${esc(fmtAgo(a.acked))}</span>` : a.escalated ? `<span class="when">sent on ${esc(fmtAgo(a.escalated))}</span>`
+      : waiting(a) && role !== "viewer" ? `<button type="button" class="toggle ack-btn" data-ack="${esc(a.key)}">Acknowledge</button>` : "";
+    return `<div class="alert-item k-${esc(a.kind)}"><div><b>${esc(a.title)}</b><span class="when">${esc(fmtAgo(a.at))}</span>${state}</div><div class="det">${esc(a.detail)}</div></div>`;
+  }).join("")
     : `<div class="watch-note">Nothing yet. Rules, the port watch and the DHCP/DNS watch put their alerts here.</div>`;
 }
+async function ackAlerts(body) {
+  try {
+    const r = await fetch("/api/alerts/ack", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error();
+    const a = await (await fetch("/api/alerts")).json();
+    alertsCache = a; renderAlertsCard();
+    if (typeof loadEscalation === "function") loadEscalation();
+  } catch { toast("Couldn't acknowledge that"); }
+}
+$("alertsBody").addEventListener("click", ev => { const b = ev.target.closest("[data-ack]"); if (b) ackAlerts({ key: b.dataset.ack }); });
+$("alertsAckAll").onclick = () => ackAlerts({ all: true });
 
 $("alertsClear").onclick = async () => {
   const n = (alertsCache || []).length;

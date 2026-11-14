@@ -1673,6 +1673,7 @@ async function loadSettings() {
   clockCache = { enabled: e.clockCheck === true, serverSetting: e.clockServer || "", maxSeconds: e.clockMaxSeconds || 30, last: clockCache && clockCache.last, server: clockCache && clockCache.server };
   loadClock();
   loadDdns();
+  loadEscalation();
   if (typeof e.takeoverAlert === "boolean") takeoverAlert = e.takeoverAlert;
   if (typeof e.dnsWatch === "boolean") dnsWatch = e.dnsWatch;
   if (typeof e.wanQuality === "boolean") wanQualityAlert = e.wanQuality;
@@ -2550,3 +2551,60 @@ $("setDdnsForget").onclick = async () => {
   if (!confirm("Forget the saved update URL? The update is switched off too.")) return;
   if (await postDdns("/api/settings/ddns", { url: "" }, "")) toast("Update URL forgotten");
 };
+
+// ---- Escalating alerts nobody acknowledges ----
+// The switch, how long to wait, where it goes and which alerts it watches. The Alerts card on Activity reads the same state.
+let escCache = null;
+const ESC_LABELS = { security: "Security", status: "Rules and checks" };
+async function loadEscalation() {
+  try { const r = await fetch("/api/escalation"); if (r.ok) escCache = await r.json(); } catch { /* keep what it had */ }
+  renderEscalation();
+  if (typeof renderAlertsCard === "function" && typeof alertsCache !== "undefined") renderAlertsCard();
+}
+function escDestinations() {
+  const list = [];
+  if (typeof webhookConfigured !== "undefined" && webhookConfigured) list.push({ id: "main", name: "Main webhook" });
+  for (const d of destData()) list.push({ id: d.id, name: d.name });
+  return list;
+}
+function renderEscalation() {
+  const t = $("setEsc");
+  if (!t || !escCache) return;
+  setToggleState(t, escCache.enabled);
+  t.title = escCache.enabled ? "Unacknowledged alerts are sent on - click to stop" : "Click to send on alerts nobody acknowledges";
+  $("setEscStatus").textContent = escCache.enabled ? `On. ${escCache.waiting ? escCache.waiting + " waiting now." : "Nothing waiting."}` : "Off.";
+  if (document.activeElement !== $("setEscMin")) $("setEscMin").value = escCache.minutes;
+  const sel = $("setEscTo");
+  if (document.activeElement !== sel) {
+    sel.innerHTML = `<option value="">(choose a destination)</option>` + escDestinations().map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("");
+    sel.value = escCache.to || "";
+  }
+  const box = $("setEscKinds");
+  if (!box.contains(document.activeElement)) {
+    box.innerHTML = "";
+    for (const g of escCache.groups) {
+      const l = document.createElement("label");
+      l.innerHTML = `<input type="checkbox" value="${g}"${escCache.kinds.includes(g) ? " checked" : ""}> <span></span>`;
+      l.querySelector("span").textContent = ESC_LABELS[g] || g;
+      box.appendChild(l);
+    }
+  }
+}
+async function postEscalation(body, ok) {
+  try {
+    const r = await fetch("/api/settings/escalation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't save that"); renderEscalation(); return false; }
+    escCache = d; renderEscalation();
+    if (typeof renderAlertsCard === "function") renderAlertsCard();
+    if (ok) toast(ok);
+    return true;
+  } catch (e) { console.error(e); toast("Couldn't save that - see the server log"); renderEscalation(); return false; }
+}
+$("setEsc").onclick = () => {
+  const next = !(escCache && escCache.enabled);
+  postEscalation({ enabled: next }, next ? "Escalation on" : "Escalation off");
+};
+$("setEscSave").onclick = () => postEscalation({
+  minutes: Math.round(Number($("setEscMin").value)), to: $("setEscTo").value, kinds: [...$("setEscKinds").querySelectorAll("input:checked")].map(i => i.value),
+}, "Escalation settings saved");

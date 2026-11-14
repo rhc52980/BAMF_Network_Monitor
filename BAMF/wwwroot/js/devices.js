@@ -617,6 +617,7 @@ function render() {
     // The cards want the traffic answer; fetch it with each refresh while the tab is open.
     loadTraffic().then(t => { trafficCache = t; renderTrafficCards(); }).catch(() => {});
     fetch("/api/alerts").then(r => r.json()).then(a => { alertsCache = a; renderAlertsCard(); renderHygiene(); }).catch(() => {});
+    if (typeof loadEscalation === "function") loadEscalation();
     loadSettingsLog();
     loadProblems();
     loadHealth();
