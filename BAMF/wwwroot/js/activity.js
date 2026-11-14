@@ -349,6 +349,56 @@ $("sameBody").addEventListener("click", async ev => {
   if (typeof loadHosts === "function") loadHosts();
 });
 
+// ---- Notes ----
+// One block of free text kept on the server and saved as you type. `notesStamp` is the version this page last saw: a save that finds the
+// server holding a newer one is refused, and the person picks which to keep. The refresh that runs while Activity is open never touches the
+// box while it is being typed in.
+let notesStamp = "", notesTimer = null, notesDirty = false, notesSending = false, notesLoaded = false, notesConflict = null;
+function notesSay(text, bad) { const s = $("notesStatus"); if (!s) return; s.textContent = text; s.classList.toggle("notes-bad", !!bad); }
+function notesCount() { const ta = $("notesText"); return ta && ta.value.length ? `${ta.value.length.toLocaleString()} characters` : ""; }
+async function loadNotes() {
+  const ta = $("notesText");
+  if (!ta || notesDirty || notesSending || notesConflict || document.activeElement === ta) return;
+  try {
+    const r = await fetch("/api/notes");
+    if (!r.ok) return;
+    const d = await r.json();
+    ta.readOnly = role === "viewer";
+    if (!notesLoaded || d.updatedAt !== notesStamp) { ta.value = d.text || ""; notesStamp = d.updatedAt || ""; notesLoaded = true; }
+    if (!notesDirty) notesSay(role === "viewer" ? "View only." : notesCount());
+  } catch { /* the next refresh asks again */ }
+}
+async function saveNotes(keepalive) {
+  const ta = $("notesText");
+  if (!ta || !notesDirty || notesSending || notesConflict || role === "viewer") return;
+  clearTimeout(notesTimer); notesTimer = null;
+  const sent = ta.value;
+  notesSending = true; notesSay("Saving…");
+  try {
+    const r = await fetch("/api/notes", { method: "POST", headers: { "Content-Type": "application/json" }, keepalive: !!keepalive, body: JSON.stringify({ text: sent, based: notesStamp }) });
+    const d = await r.json().catch(() => ({}));
+    if (r.status === 409) { notesConflict = d; notesSay("These notes were saved from somewhere else since you opened them.", true); $("notesConflict").hidden = false; return; }
+    if (!r.ok) throw new Error(d.error || "HTTP " + r.status);
+    notesStamp = d.updatedAt || "";
+    if (ta.value === sent) { notesDirty = false; notesSay("Saved. " + notesCount()); }
+    else notesTimer = setTimeout(() => saveNotes(), 300);    // typed more while it was saving
+  } catch (e) { notesSay((e.message || "Couldn't save") + ". Will try again.", true); notesTimer = setTimeout(() => saveNotes(), 5000); }
+  finally { notesSending = false; }
+}
+function notesResolved() { notesConflict = null; $("notesConflict").hidden = true; }
+if ($("notesText")) {
+  $("notesText").addEventListener("input", () => {
+    notesDirty = true; notesSay("Unsaved…");
+    clearTimeout(notesTimer); notesTimer = setTimeout(() => saveNotes(), 800);
+  });
+  $("notesText").addEventListener("blur", () => saveNotes());
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") saveNotes(true); });
+  window.addEventListener("pagehide", () => saveNotes(true));
+  // Their version replaces the box; mine is saved over theirs by taking the stamp the server just held.
+  $("notesTheirs").onclick = () => { const c = notesConflict; if (!c) return; $("notesText").value = c.text || ""; notesStamp = c.updatedAt || ""; notesDirty = false; notesResolved(); notesSay("Showing the saved version. " + notesCount()); };
+  $("notesMine").onclick = () => { const c = notesConflict; if (!c) return; notesStamp = c.updatedAt || ""; notesResolved(); saveNotes(); };
+}
+
 // ---- Devices that skip your DNS ----
 // Which DNS servers each device has asked, against what the network hands out. Needs the traffic monitor to have heard them.
 function renderBypass() {

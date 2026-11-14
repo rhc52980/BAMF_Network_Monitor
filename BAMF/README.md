@@ -1952,6 +1952,8 @@ scan, or delete a thing.
 | GET | `/api/same-device` | `{"enabled", "groups": [{"key", "name", "keepId", "members": [{"id", "mac", "ip", "subnet", "online", "ignored", "firstSeen", "lastSeen"}]}]}`: records with a made-up MAC that share a name, are never online together and aren't combined already. `groups` is empty with the switch off |
 | POST | `/api/same-device/combine` | Body `{"key": "…"}` (a `key` from the list) — combine the group into one device: the others become network cards of `keepId`, the one seen most recently. `{"combined", "error"}`; 400 for a suggestion that isn't on offer any more |
 | POST | `/api/same-device/dismiss` | Body `{"key": "…"}` — stop offering that group; it is offered afresh if another record joins it |
+| GET | `/api/notes` | The Notes card on Activity: `{"text", "updatedAt", "max"}`. `updatedAt` is empty until something has been saved |
+| POST | `/api/notes` | Body `{"text": "…", "based": "<updatedAt>"}` — save the notes (20,000 characters at most; 400 over that). With `based`, a save is refused with 409 and `{"error", "text", "updatedAt"}` if the notes were saved since that stamp; leave `based` out to write regardless |
 | GET | `/api/free-ips?days=90` | For each IPv4 network: `size`, `used`, `free`, the longest `runs` of free addresses and a `suggestion`. Used means seen in the last `days` (default 90), plus every device's current address, the gateway and this machine |
 | GET | `/api/router-import` | Router import status: `kind`, `host`, `enabled`, `lastRun`, `count`, `error`, and for UniFi's traffic counts `traffic`, `trafficAt`, `trafficClients`, `trafficError` |
 | POST | `/api/router-import/run` | Read the router's list now; `502` with the status if it failed |
@@ -3111,6 +3113,30 @@ On Discord it's an embed with a field per item; on ntfy, Gotify and generic
 webhooks it's text. **Preview** shows what would go out, and **Send now** sends
 it straight away. The API has `/api/settings/report`, `/api/reports/send` and
 `/api/reports/preview`.
+
+### Notes: a free-form card
+
+The **Notes** card on Activity is a plain text box for whatever you want to keep
+with this network: what you meant to do about that camera, why a switch is wired
+the way it is, which phone is the unknown one. There is nothing to press: it
+**saves as you type** (a moment after you stop, and when you click away or leave the
+page), and the line under it says "Saved" and how long the notes are. Up to
+20,000 characters.
+
+- **It lives on the server**, in BAMF's database, so every browser and phone sees
+  the same notes, and they are in a backup of BAMF. They are not in the settings
+  export, which is for things that mean the same at another site.
+- **Two browsers can't quietly overwrite each other.** Each save says which version
+  it was made from. If the notes were saved from somewhere else in the meantime, the
+  save is refused, nothing is lost, and the card offers **Use the saved version**
+  (take theirs) or **Keep mine** (save yours over it).
+- **The refresh that runs while Activity is open never touches the box while you are
+  in it.** A change made elsewhere shows up the next time it is idle.
+- **Anyone who can open the dashboard can read them**, the view-only password
+  included, so keep passwords and keys out. The view-only password sees the notes
+  but can't change them.
+- It is a card like the others: fold it, move it, or **Hide** it from **Arrange cards**
+  (below) if you don't want it. The API is `GET` and `POST /api/notes`.
 
 ### Arranging the Activity cards
 

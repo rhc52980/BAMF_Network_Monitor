@@ -1432,6 +1432,15 @@
       <div class="sub" id="bypassSub"></div>
       <div id="bypassBody"></div>
     </div>
+    <div class="act-card" id="notesCard">
+      <h3>Notes</h3>
+      <div class="sub">Anything you want to keep with this network. Saved as you type and the same in every browser. Anyone who can open the dashboard can read it, so keep passwords out.</div>
+      <textarea id="notesText" class="notes-text" rows="8" maxlength="20000" spellcheck="true" placeholder="Type anything…" aria-label="Notes"></textarea>
+      <div class="notes-foot">
+        <span class="sub" id="notesStatus"></span>
+        <span id="notesConflict" hidden><button type="button" class="toggle" id="notesTheirs">Use the saved version</button> <button type="button" class="toggle" id="notesMine">Keep mine</button></span>
+      </div>
+    </div>
     <div class="act-card" id="talkersCard">
       <h3>Top talkers</h3>
       <div class="sub" id="talkersSub"></div>

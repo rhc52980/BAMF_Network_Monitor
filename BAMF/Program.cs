@@ -406,6 +406,7 @@ FlowEndpoints.Map(app);
 ServiceWatchEndpoints.Map(app);
 Map3dEndpoints.Map(app);
 SameDeviceEndpoints.Map(app);
+NotesEndpoints.Map(app);
 ScheduleEndpoints.Map(app);
 ClockEndpoints.Map(app);
 DhcpProbeEndpoints.Map(app);
