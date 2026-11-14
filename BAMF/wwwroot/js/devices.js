@@ -589,6 +589,7 @@ function render() {
   // menu — it looked like the menu closed itself on a timer. Remember which
   // row's menu is open and reopen it after the rebuild.
   const openMenuRow = document.querySelector(".row-menu.show:not(.addr-menu)")?.closest("tr")?.dataset.id ?? null;
+  const openMenuGroup = document.querySelector(".row-menu.show:not(.addr-menu) .rm-g[aria-expanded=true]")?.dataset.g ?? null;
   const openAddrRow = document.querySelector(".addr-menu.show")?.closest("tr")?.dataset.id ?? null;
   renderNetTabs();
   renderBulk();
@@ -817,95 +818,169 @@ function render() {
     const menu = document.createElement("div");
     menu.className = "row-menu";
 
+    // The menu: who it is, the four things done most (note, snooze, known, ignore) as buttons, then the rest folded into
+    // groups that open in place. The state of each thing shows on it, so nothing needs opening to be read.
+    menu.classList.add("rm-device");
+    menu.setAttribute("role", "group");
+    menu.setAttribute("aria-label", "Actions for " + dispName(h));
+    let target = menu;
+    const hint = (el, text) => { if (text) { const s = document.createElement("small"); s.textContent = text; el.appendChild(s); } };
+    const run = fn => async (e) => { e.stopPropagation(); menu.classList.remove("show"); await fn(); };
     const addItem = (label, fn, opts = {}) => {
       const b = document.createElement("button");
+      b.type = "button";
       b.textContent = label;
-      if (opts.danger) b.className = "danger";
-      b.onclick = async (e) => { e.stopPropagation(); menu.classList.remove("show"); await fn(); };
-      menu.appendChild(b);
+      hint(b, opts.hint);
+      if (opts.danger) b.classList.add("danger");
+      b.onclick = run(fn);
+      (opts.into || target).appendChild(b);
       return b;
     };
+    const head = document.createElement("div");
+    head.className = "rm-head";
+    const dot = document.createElement("span");
+    dot.className = "rm-dot" + (h.online ? " on" : "");
+    const who = document.createElement("div");
+    const nm = document.createElement("b");
+    nm.textContent = dispName(h);
+    const sm = document.createElement("small");
+    sm.textContent = [h.ip, h.forgotten ? "forgotten" : h.online ? "online" : "offline"].filter(Boolean).join(" · ");
+    who.append(nm, sm);
+    head.append(dot, who);
+    menu.appendChild(head);
 
     if (h.forgotten) {
-      addItem("Unforget", async () => { await forgetHost(h, false); await refresh(); });
+      const rest = document.createElement("div");
+      rest.className = "rm-foot";
+      menu.appendChild(rest);
+      addItem("Unforget", async () => { await forgetHost(h, false); await refresh(); }, { into: rest });
       addItem("Delete permanently", async () => {
         if (confirm(`Permanently delete ${dispName(h)} and its history? This cannot be undone.`)) {
           await deleteHostPermanent(h); await refresh();
         }
-      }, { danger: true });
+      }, { danger: true, into: rest });
     } else {
-      // Grouped, so the item you want is found by its heading rather than by
-      // reading down twenty lines: what the device is, how it's wired, looking
-      // closer at it, and what BAMF does about it.
-      const addHead = text => {
-        const d = document.createElement("div");
-        d.className = "rm-h";
-        d.textContent = text;
-        menu.appendChild(d);
+      const quick = document.createElement("div");
+      quick.className = "rm-q";
+      menu.appendChild(quick);
+      const addQuick = (label, fn, o = {}) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        hint(b, o.sub);
+        if (o.title) b.title = o.title;
+        if (o.on !== undefined) { b.setAttribute("aria-pressed", String(!!o.on)); if (o.on) b.classList.add("on"); }
+        b.onclick = run(fn);
+        quick.appendChild(b);
       };
-      addHead("About this device");
-      addItem(h.note ? "Edit note…" : "Add note…", () => openNoteDialog(h));
-      addItem((h.tags || []).length ? `Tags (${h.tags.length})…` : "Tags…", () => openTagsDialog(h));
-      addItem(h.typeName ? `Device type: ${h.typeName}…` : "Device type…", () => openKindDialog(h));
-      addItem("Map icon…", () => openTypeDialog(h));
-      addItem(h.link ? "Change link…" : "Set link…", () => setHostLink(h));
-
-      const ownSwitch = switches.find(s => s.hostId === h.id);
-      if (ownSwitch) {
-        // A device recorded as a switch, router, access point or hypervisor
-        // gets its own group for that, where "Plugged into" would be.
-        addHead("This " + kindNoun(ownSwitch.kind));
-        if (ownSwitch.kind === "ap") addItem("Add a wireless SSID…", () => openSwitchDialog(null, null, null, { kind: "ssid", runsOn: ownSwitch.id }));
-        else addItem(ownSwitch.kind === "virtual" ? "VMs…" : ownSwitch.kind === "vpn" ? "Clients…" : "Ports…", () => openPortsDialog(ownSwitch));
-        if (ownSwitch.kind === "switch" || ownSwitch.kind === "router") addItem("Traffic counters…", () => openSnmpDialog(ownSwitch));
-        addItem(`Edit ${kindNoun(ownSwitch.kind)}…`, () => openSwitchDialog(ownSwitch));
-      }
-      addHead("Wiring");
-      if (!ownSwitch) {
-        addItem(h.switchId ? "Change plugged into…" : "Plugged into…", () => openPlugDialog(h));
-        addItem("Find port…", () => { openPlugDialog(h); startBlink(h, "plugBlink"); });
-      }
-      addItem(h.interfaces ? `Network cards (${h.interfaces.length + 1})…` : "Network cards…", () => openCardsDialog(h));
-      if (!vpnOfHost(h)) addItem(gwNetsOf(h).length ? "Gateway ✓…" : "Gateway…", () => openGatewayDialog(h));
-      if (!ownSwitch) {
-        addItem(isGatewayHost(h) ? "Make this a router…" : "Make this a switch or router…", () => openSwitchDialog(null, h));
-        if (!vmPlatform(h.mac)) addItem("Add a virtual switch on this…", () => openSwitchDialog(null, null, null, { kind: "virtual", runsOn: h.id }));
-      }
-
-      addHead("Look closer");
-      if (!h.remote) addItem("Show in 3D", () => showView("3d/" + h.id));
-      addItem("Identify device", () => identifyHost(h));
-      addItem("Scan ports", () => scanPorts(h, more, null));
-      addItem("Scan custom ports…", () => {
-        const spec = prompt("Ports to scan on " + dispName(h) + " (e.g. 22,80,443,8000-8100):", "");
-        if (spec) scanPorts(h, more, spec);
-      });
-      if (networkToolsEnabled && !h.remote && role !== "viewer") {
-        addItem("Ping…", () => openTools(h, "ping"));
-        addItem("Trace route…", () => openTools(h, "trace"));
-        addItem("Path ping…", () => openTools(h, "path"));
-        addItem("DNS lookup…", () => openTools(h, "dns"));
-        addItem("HTTP check…", () => openTools(h, "http"));
-      }
-
-      addHead("Status");
-      addItem(h.snoozedUntil ? `Snoozed until ${snoozeClock(h.snoozedUntil)}…` : "Snooze alerts…", () => openSnoozeDialog(h));
-      if (!h.remote) addItem(h.offHours ? `Off ${h.offHours.from}–${h.offHours.to}…` : "Off hours…", () => openOffHoursDialog(h));
-      addItem(h.known ? "Mark unknown" : "Mark known", async () => { await setKnown(h, !h.known); await refresh(); });
-      addItem(h.ignored ? "Unignore" : "Ignore", async () => { await setIgnored(h, !h.ignored); await refresh(); });
+      addQuick(h.note ? "Edit note" : "Add note", () => openNoteDialog(h), { on: !!h.note, title: h.note ? h.note.slice(0, 200) : "Add a note to this device" });
+      addQuick("Snooze", () => openSnoozeDialog(h), { on: !!h.snoozedUntil, sub: h.snoozedUntil ? "until " + snoozeClock(h.snoozedUntil) : "", title: "Hold back this device's alerts for a while" });
+      addQuick("Known", async () => { await setKnown(h, !h.known); await refresh(); }, { on: !!h.known, title: h.known ? "Known. Click to mark unknown" : "Mark known" });
+      addQuick("Ignore", async () => { await setIgnored(h, !h.ignored); await refresh(); }, { on: !!h.ignored, title: h.ignored ? "Ignored. Click to stop ignoring" : "Ignore this device" });
       if (!h.online) {
-        addItem("Wake (WoL)", async () => {
+        addQuick("Wake", async () => {
           try {
             const r = await fetch(`/api/hosts/${h.id}/wake`, { method: "POST" });
             const data = await r.json();
             toast(data.ok ? `Magic packet sent to ${esc(dispName(h))}` : "Wake failed: " + esc(data.error || "unknown"));
           } catch { toast("Wake failed — see server logs"); }
+        }, { title: "Send a Wake-on-LAN packet" });
+      }
+
+      // A group is a line with its hint, and its items open under it. One is open at a time.
+      let groupNo = 0;
+      const addGroup = (title, hintText, fill) => {
+        const g = document.createElement("button");
+        g.type = "button";
+        g.className = "rm-g";
+        g.dataset.g = String(groupNo++);
+        g.setAttribute("aria-expanded", "false");
+        const label = document.createElement("span");
+        label.textContent = title;
+        hint(label, hintText);
+        const chev = document.createElement("span");
+        chev.className = "rm-chev";
+        chev.setAttribute("aria-hidden", "true");
+        chev.textContent = "›";
+        g.append(label, chev);
+        const sub = document.createElement("div");
+        sub.className = "rm-sub";
+        sub.hidden = true;
+        const outer = target;
+        target = sub;
+        fill();
+        target = outer;
+        g.onclick = (e) => {
+          e.stopPropagation();
+          const open = g.getAttribute("aria-expanded") !== "true";
+          menu.querySelectorAll(".rm-g").forEach(x => { x.setAttribute("aria-expanded", "false"); x.nextElementSibling.hidden = true; });
+          g.setAttribute("aria-expanded", String(open));
+          sub.hidden = !open;
+          placeRowMenu(menu, more);
+          // what just opened may be below the fold of the menu's own scroll
+          if (open) { const bottom = sub.offsetTop + sub.offsetHeight; if (bottom > menu.scrollTop + menu.clientHeight) menu.scrollTop = bottom - menu.clientHeight + 8; }
+        };
+        menu.append(g, sub);
+      };
+
+      const ownSwitch = switches.find(s => s.hostId === h.id);
+      addGroup("Details", [(h.tags || []).length ? `${h.tags.length} ${h.tags.length === 1 ? "tag" : "tags"}` : "", h.typeName || ""].filter(Boolean).join(", ") || "tags, type, icon, link", () => {
+        addItem("Tags…", () => openTagsDialog(h), { hint: (h.tags || []).length ? String(h.tags.length) : "" });
+        addItem("Device type…", () => openKindDialog(h), { hint: h.typeName || "" });
+        addItem("Map icon…", () => openTypeDialog(h));
+        addItem(h.link ? "Change link…" : "Set link…", () => setHostLink(h));
+      });
+      if (ownSwitch) {
+        // A device recorded as a switch, router, access point or hypervisor
+        // gets its own group for that.
+        addGroup("This " + kindNoun(ownSwitch.kind), ownSwitch.kind === "ap" ? "wireless SSIDs" : "ports, counters", () => {
+          if (ownSwitch.kind === "ap") addItem("Add a wireless SSID…", () => openSwitchDialog(null, null, null, { kind: "ssid", runsOn: ownSwitch.id }));
+          else addItem(ownSwitch.kind === "virtual" ? "VMs…" : ownSwitch.kind === "vpn" ? "Clients…" : "Ports…", () => openPortsDialog(ownSwitch));
+          if (ownSwitch.kind === "switch" || ownSwitch.kind === "router") addItem("Traffic counters…", () => openSnmpDialog(ownSwitch));
+          addItem(`Edit ${kindNoun(ownSwitch.kind)}…`, () => openSwitchDialog(ownSwitch));
         });
-        addItem("Forget", async () => {
+      }
+      addGroup("Wiring", h.switchId ? "plugged in" : "port, cards, gateway", () => {
+        if (!ownSwitch) {
+          addItem(h.switchId ? "Change plugged into…" : "Plugged into…", () => openPlugDialog(h));
+          addItem("Find port…", () => { openPlugDialog(h); startBlink(h, "plugBlink"); });
+        }
+        addItem("Network cards…", () => openCardsDialog(h), { hint: h.interfaces ? String(h.interfaces.length + 1) : "" });
+        if (!vpnOfHost(h)) addItem("Gateway…", () => openGatewayDialog(h), { hint: gwNetsOf(h).length ? "✓" : "" });
+        if (!ownSwitch) {
+          addItem(isGatewayHost(h) ? "Make this a router…" : "Make this a switch or router…", () => openSwitchDialog(null, h));
+          if (!vmPlatform(h.mac)) addItem("Add a virtual switch on this…", () => openSwitchDialog(null, null, null, { kind: "virtual", runsOn: h.id }));
+        }
+      });
+      addGroup("Tools", "identify, scan, ping, 3D", () => {
+        if (!h.remote) addItem("Show in 3D", () => showView("3d/" + h.id));
+        addItem("Identify device", () => identifyHost(h));
+        addItem("Scan ports", () => scanPorts(h, more, null));
+        addItem("Scan custom ports…", () => {
+          const spec = prompt("Ports to scan on " + dispName(h) + " (e.g. 22,80,443,8000-8100):", "");
+          if (spec) scanPorts(h, more, spec);
+        });
+        if (networkToolsEnabled && !h.remote && role !== "viewer") {
+          addItem("Ping…", () => openTools(h, "ping"));
+          addItem("Trace route…", () => openTools(h, "trace"));
+          addItem("Path ping…", () => openTools(h, "path"));
+          addItem("DNS lookup…", () => openTools(h, "dns"));
+          addItem("HTTP check…", () => openTools(h, "http"));
+        }
+      });
+      if (!h.remote) {
+        const row = addItem("Off hours…", () => openOffHoursDialog(h), { hint: h.offHours ? `${h.offHours.from}–${h.offHours.to}` : "" });
+        row.classList.add("rm-row");
+      }
+      if (!h.online) {
+        const foot = document.createElement("div");
+        foot.className = "rm-foot";
+        menu.appendChild(foot);
+        addItem("Forget this device", async () => {
           if (confirm(`Move ${dispName(h)} to the Forgotten view? (reversible)`)) {
             await forgetHost(h, true); await refresh();
           }
-        }, { danger: true });
+        }, { danger: true, into: foot });
       }
     }
 
@@ -919,6 +994,8 @@ function render() {
     cell.appendChild(moreWrap);
     if (openMenuRow !== null && String(h.id) === openMenuRow) {
       menu.classList.add("show");
+      const g = openMenuGroup !== null ? menu.querySelector(`.rm-g[data-g="${openMenuGroup}"]`) : null;
+      if (g) { g.setAttribute("aria-expanded", "true"); g.nextElementSibling.hidden = false; }
       requestAnimationFrame(() => placeRowMenu(menu, more));
     }
     const ipMore = tr.querySelector(".ip-more");

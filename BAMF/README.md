@@ -451,13 +451,22 @@ it opens straight on that tab — see [Linking to a tab](#linking-to-a-tab).
 
 ## Notes
 
-Everything else you can do with a device is in its **⋯** menu, in groups:
-**About this device** (note, tags, type, map icon, link), **Wiring** (what it's
-plugged into, finding its port, its network cards, gateway, making it a switch
-or router), **Look closer** (identify it, scan its ports) and **Status** (snooze,
-known or unknown, ignore, and for an offline one, wake and forget). A device
-recorded as a switch, router, access point or hypervisor also gets a group of
-its own, such as **This switch**, with its ports, traffic counters and settings.
+Everything else you can do with a device is in its **⋯** menu. It opens with the
+device's name and address, then four buttons for what is done most: **Note**,
+**Snooze**, **Known** and **Ignore** (and **Wake** for one that is offline). Each
+shows its state, so you can read it without opening anything: a lit button means
+it is on, a note's button says Edit note, and Snooze says until when. Under them
+the rest is folded into groups that open in place, one at a time:
+**Details** (tags, type, map icon, link), **Wiring** (what it's plugged into,
+finding its port, its network cards, gateway, making it a switch or router) and
+**Tools** (identify it, scan its ports, ping, trace, show it in 3D). **Off hours**
+is a line of its own, with its hours beside it, and **Forget this device**
+sits apart at the bottom of an offline one's menu. A device recorded as a switch,
+router, access point or hypervisor also gets a group of its own, such as
+**This switch**, with its ports, traffic counters and settings.
+
+On a phone the same menu is a sheet from the bottom of the screen, with bigger
+buttons. Escape, or a tap outside it, closes it.
 
 Each device row has a **History** button opening a panel with its online/offline
 session timeline. If the device has ever changed address, the panel also lists
@@ -4324,7 +4333,7 @@ its history, and one that turns up on the network again is no longer forgotten b
 When something is flaky, the question is "can BAMF reach it, and by what path?". The **Tools** tab, beside Activity, answers it without a terminal.
 Everything runs from the machine BAMF is on. Pick a device from the box (or type its name or address), then press a tool; the quick buttons under the
 box fill it in with this machine's router, its DNS server, the internet watch's address and the targets you used last. The same tools are in a
-device's **⋯ menu → Look closer**, which opens the tab on that device.
+device's **⋯ menu → Tools**, which opens the tab on that device.
 
 - **Ping** runs live: one echo a second, with the last, average, fastest and slowest time, the share lost and the jitter, and a line of the last
   minute with a red tick where one was lost. **Pause** stops it; it stops by itself after ten minutes, or when you leave the tab.
