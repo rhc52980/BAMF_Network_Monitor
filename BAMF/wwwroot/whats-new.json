@@ -2,6 +2,13 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.29.0",
+      "date": "2026-11-14",
+      "items": [
+        "A tidier menu on each device: the ⋯ at the end of a row now opens a menu with the device's name and status on top, the everyday actions (pin, mute, track) as buttons you can see at a glance, and the rest folded into Details, Wiring and Tools sections that open one at a time. On a phone it comes up as a sheet from the bottom."
+      ]
+    },
+    {
       "version": "2.28.0",
       "date": "2026-11-14",
       "items": [
