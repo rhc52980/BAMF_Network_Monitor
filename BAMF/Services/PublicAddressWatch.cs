@@ -52,7 +52,7 @@ public sealed class PublicAddressWatch : BackgroundService
         var now = _store.GetExternalIp();
         if (now?.ChangedAt is not { Length: > 0 } changedAt || changedAt == _store.GetSetting("addressAlertedAt")) return;
         _store.SetSetting("addressAlertedAt", changedAt);
-        var via = now.Source switch { "speedtest" => "the speed test", "greynoise" => "the GreyNoise check", "lookup" => "a lookup", _ => "this watch" };
+        var via = now.Source switch { "speedtest" => "the speed test", "greynoise" => "the GreyNoise check", "lookup" => "a lookup", "ddns" => "the dynamic DNS update", _ => "this watch" };
         await _scanner.RaiseSecurity("Your public IP address changed",
             $"The internet now sees this network at {now.Ip}; it was {now.Previous}. Usually the modem restarted or your provider moved you (found by {via}). " +
             "Anything that reaches this network by its address, such as a port forward, a VPN back home or a dynamic DNS name, needs the new one.", ct, "internet");

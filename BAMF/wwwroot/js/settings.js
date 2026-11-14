@@ -1672,6 +1672,7 @@ async function loadSettings() {
   if (typeof e.offHoursAlert === "boolean") offHoursAlert = e.offHoursAlert;
   clockCache = { enabled: e.clockCheck === true, serverSetting: e.clockServer || "", maxSeconds: e.clockMaxSeconds || 30, last: clockCache && clockCache.last, server: clockCache && clockCache.server };
   loadClock();
+  loadDdns();
   if (typeof e.takeoverAlert === "boolean") takeoverAlert = e.takeoverAlert;
   if (typeof e.dnsWatch === "boolean") dnsWatch = e.dnsWatch;
   if (typeof e.wanQuality === "boolean") wanQualityAlert = e.wanQuality;
@@ -2497,4 +2498,55 @@ $("setClockRun").onclick = async () => {
     if (!r.ok) { toast(d.error || "Couldn't ask"); renderClock(); return; }
     clockCache = d; renderClock();
   } catch (e) { console.error(e); toast("Couldn't ask - see the server log"); renderClock(); }
+};
+
+// ---- The dynamic DNS hook ----
+// Calls the update URL when the public address changes. The URL is never shown again once saved.
+let ddnsCache = null;
+async function loadDdns() {
+  try { const r = await fetch("/api/ddns"); if (r.ok) ddnsCache = await r.json(); } catch { /* keep what it had */ }
+  renderDdns();
+}
+function ddnsLine() {
+  const d = ddnsCache;
+  if (!d) return "";
+  const l = d.last, off = d.enabled ? "" : "Off. ";
+  if (!d.hasUrl) return "Off. No update URL saved.";
+  if (!l) return d.enabled ? "On, not updated yet." : `Off. Saved: ${d.url}`;
+  const when = fmtAgo(l.at);
+  if (l.ok) return `${off}Updated ${when} to ${l.ip}${l.reply ? ` (the provider said: ${l.reply})` : ""}.`;
+  return `${off}Last tried ${when}: ${l.error || "it failed"}`;
+}
+function renderDdns() {
+  const t = $("setDdns");
+  if (!t || !ddnsCache) return;
+  setToggleState(t, ddnsCache.enabled);
+  t.title = ddnsCache.enabled ? "The update URL is called when the address changes - click to stop" : "Click to keep a name pointing at this network";
+  $("setDdnsStatus").textContent = ddnsLine();
+  $("setDdnsUrl").placeholder = ddnsCache.hasUrl ? `${ddnsCache.url} (saved; type a new one to replace it)` : "https://\u2026";
+  $("setDdnsForget").hidden = !ddnsCache.hasUrl;
+  $("setDdnsRun").hidden = !ddnsCache.hasUrl;
+}
+async function postDdns(path, body, busy) {
+  $("setDdnsStatus").textContent = busy;
+  try {
+    const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't do that"); renderDdns(); return false; }
+    ddnsCache = d; renderDdns(); return true;
+  } catch (e) { console.error(e); toast("Couldn't do that - see the server log"); renderDdns(); return false; }
+}
+$("setDdns").onclick = async () => {
+  const next = !(ddnsCache && ddnsCache.enabled);
+  if (await postDdns("/api/settings/ddns", { enabled: next }, next ? "Updating\u2026" : "")) toast(next ? "Dynamic DNS update on" : "Dynamic DNS update off");
+};
+$("setDdnsSave").onclick = async () => {
+  const url = $("setDdnsUrl").value.trim();
+  if (!url) { toast("Type the update URL first"); return; }
+  if (await postDdns("/api/settings/ddns", { url }, "Saving\u2026")) { $("setDdnsUrl").value = ""; toast("Update URL saved"); }
+};
+$("setDdnsRun").onclick = () => postDdns("/api/ddns/run", null, "Updating\u2026");
+$("setDdnsForget").onclick = async () => {
+  if (!confirm("Forget the saved update URL? The update is switched off too.")) return;
+  if (await postDdns("/api/settings/ddns", { url: "" }, "")) toast("Update URL forgotten");
 };

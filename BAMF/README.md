@@ -306,6 +306,7 @@ Everything BAMF initiates on its own, and how it's protected:
 | Cloudflare, for a change of public address (`speed.cloudflare.com`) | **HTTPS** | Every 15 minutes, only if you switch on **Alert when your public IP address changes**. One request for a file of no bytes. Cloudflare sees your public address, as any website does |
 | Your DNS server, asked about `dns.google`, `one.one.one.one` and `dns.quad9.net` and one name that doesn't exist | **plain DNS (UDP 53)**, to the server this machine is set to use, which is usually your router and passes it on | Every hour, only if you switch on the DNS watch. Nothing about your network is in the question |
 | Your DNS server, asked for `dns.google` | **plain DNS (UDP 53)** | Once a reading, with the internet watch on and **Internet quality alerts** on, to time a lookup |
+| Cloudflare, then your own update URL (`speed.cloudflare.com`, then whatever you saved) | **HTTPS** (or HTTP, if that is what you typed) | Every 15 minutes, only if you switch on **Dynamic DNS update**: one request to Cloudflare for a file of no bytes, to learn this network's public address, and, when it isn't the one last updated, one request to the URL you saved, with the address filled in. Your provider sees this network's public address and the name you update |
 | A time server (the one you name, else one your DHCP hands out, else `pool.ntp.org`) | **plain SNTP (UDP 123)**: a 48-byte request, a 48-byte answer | Every six hours, only if you switch on the **Clock check**, and when you press Check now. The server sees this machine's public address, as any server does, and nothing else |
 | Your webhook | **whatever scheme your URL uses** | When a new host appears, a watched host changes state, or an alert fires |
 | Your mail server | **TLS (STARTTLS) unless you chose not encrypted** | When an alert fires, only for an email destination you added. The alert's title and text go in the mail |
@@ -1925,6 +1926,9 @@ scan, or delete a thing.
 | POST | `/api/settings/clock-check` | Body `{"enabled": true}` — the clock check on or off; switching on asks at once. Off by default |
 | POST | `/api/settings/clock` | Body `{"server": "time.example.org", "maxSeconds": 30}`, either — the time server (blank for the default; a name or address) and how many seconds out the clock may be (1 to 3600, 30 by default) before it alerts |
 | POST | `/api/clock/run` | Ask now, whatever the schedule; 429 if asked less than ten seconds ago |
+| GET | `/api/ddns` | The dynamic DNS hook: `{"enabled", "hasUrl", "url", "updated", "last": {"at", "ip", "ok", "status", "reply", "error"}, "externalIp"}`. `url` is only where it goes (`https://www.duckdns.org/…`), never the token or password in it; `updated` is the address last accepted |
+| POST | `/api/settings/ddns` | Body `{"enabled": true, "url": "https://…?ip={ip}"}`, either — the switch and the update URL (400 if it isn't an http or https URL, or if switched on without one). An empty `url` forgets it and switches the hook off. Switching on updates at once |
+| POST | `/api/ddns/run` | Update now, whatever the address and the schedule; 409 without a URL, 429 if updated less than ten seconds ago |
 | POST | `/api/dhcp-probe/run` | Ask now, whatever the schedule, and answer as `GET /api/dhcp-probe` does; 429 if asked less than ten seconds ago |
 | POST | `/api/settings/first-week-report` | Body `{"enabled": false}` — switch a new device's first-week report off, or back on |
 | GET | `/api/alerts` | Alerts BAMF raised, newest first: rules, ports, DHCP and DNS, each `{"at", "kind", "title", "detail"}` |
@@ -3479,6 +3483,23 @@ What you get for it:
   address, such as a port forward, a VPN back home or a dynamic DNS name. A
   change the speed test or the GreyNoise check notices is announced too, and
   switching the watch on takes today's address as the starting point.
+
+- **Dynamic DNS update**, under **Settings → Internet**, goes with it. If a name
+  at DuckDNS, No-IP, Dynu or Cloudflare points at this network, give it the update
+  URL your provider hands you (`https://www.duckdns.org/update?domains=home&token=…&ip={ip}`,
+  with `{ip}` where the address goes) and BAMF calls it whenever the address
+  isn't the one it last updated. It is **off by default**, and needs a URL before
+  it can be switched on. Every 15 minutes it asks Cloudflare which address this
+  network is at, the same one-request question as above; it doesn't need the alert
+  switched on. It goes by what was last **accepted**, not by what changed: a refused
+  or unreachable update is tried again 15 minutes later, a 200 answer whose body says
+  `badauth`, `nohost`, `abuse` or `KO` counts as a refusal, and switching it on
+  updates once even if nothing has moved. Three failures in a row raise one
+  alert. The URL is kept like a password: once saved it is never shown again (the
+  box says where it goes, and **Forget** removes it), it isn't in the settings export,
+  and a `user:password@` in it is sent as a Basic login rather than left in the address.
+  **Update now** updates whatever the address; the provider's own words are shown
+  beside the result.
 
 **How often** it checks is **Settings → Internet → Check the internet every**,
 from 20 seconds to an hour, a minute by default (`Bamf:WanIntervalSeconds`

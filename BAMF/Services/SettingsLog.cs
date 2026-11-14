@@ -40,6 +40,7 @@ public static class SettingsLog
         ["dhcp-gateway-alert"] = "Alert when DHCP names a different gateway",
         ["clock-check"] = "Clock check",
         ["clock"] = "Clock check settings",
+        ["ddns"] = "Dynamic DNS settings",
         ["wan-quality"] = "Internet quality alerts",
         ["latency-alert"] = "Slow watched device alert",
         ["flow-watch"] = "Where devices talk, and scans",
