@@ -123,6 +123,15 @@ internal static class ConnectionsEndpoints
         else o.Add(new("clock", Internet, "Clock check", cr is null ? "waiting" : cr.Error is not null ? "warn" : Math.Abs(cr.OffsetSeconds ?? 0) > allowed ? "error" : "ok",
             cr is null ? "Not asked yet." : cr.Error ?? $"{cr.Server}: this clock is {Math.Abs(cr.OffsetSeconds ?? 0):0.#} s {(cr.OffsetSeconds > 0 ? "behind" : "ahead")}", At(cr?.At), "security"));
 
+        // The Pi-hole or AdGuard Home reader, the same way.
+        DnsFilterReader.Snapshot? fs = null;
+        try { fs = System.Text.Json.JsonSerializer.Deserialize<DnsFilterReader.Snapshot>(store.GetSetting("dnsFilterSnapshot") ?? "null"); } catch (System.Text.Json.JsonException) { }
+        var filterName = store.GetSetting("dnsFilter") == "adguard" ? "AdGuard Home" : "Pi-hole";
+        if (store.GetSetting("dnsFilterOn") != "true" || (store.GetSetting("dnsFilterUrl") ?? "").Trim() == "")
+            o.Add(new("dnsfilter", Reads, "Pi-hole or AdGuard Home", "off", "Reads each device's DNS lookups and blocks from your DNS filter.", null, "scanning"));
+        else o.Add(new("dnsfilter", Reads, $"{filterName} at {new Uri(store.GetSetting("dnsFilterUrl")!).Host}", fs is null ? "waiting" : fs.Error is not null ? "error" : "ok",
+            fs is null ? "Not read yet." : fs.Error ?? $"{fs.Total:N0} lookups in a day, {fs.Blocked:N0} blocked", At(fs?.At), "scanning"));
+
         // The dynamic DNS hook, the same way: read from what it wrote down.
         DdnsUpdater.Result? dr = null;
         try { dr = System.Text.Json.JsonSerializer.Deserialize<DdnsUpdater.Result>(store.GetSetting("ddnsResult") ?? "null"); } catch (System.Text.Json.JsonException) { }

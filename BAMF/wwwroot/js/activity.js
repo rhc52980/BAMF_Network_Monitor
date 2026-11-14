@@ -421,6 +421,26 @@ if ($("notesText")) {
   $("notesMine").onclick = () => { const c = notesConflict; if (!c) return; notesStamp = c.updatedAt || ""; notesResolved(); saveNotes(); };
 }
 
+// ---- DNS filter (Pi-hole or AdGuard Home) ----
+// What the filter says each device asked and had blocked over the last day. Only there when the reader is switched on.
+function renderDnsFilterCard() {
+  const card = $("dnsFilterCard"), body = $("dnsFilterBody"), d = dnsFilterCache;
+  if (!card || !body) return;
+  card.hidden = !d || !d.enabled;
+  if (card.hidden) return;
+  const l = d.last, name = d.provider === "adguard" ? "AdGuard Home" : "Pi-hole";
+  $("dnsFilterSub").textContent = !l ? `Waiting for the first read from ${name}.`
+    : `${name}: ${l.total.toLocaleString()} lookups in the last day, ${l.blocked.toLocaleString()} blocked (${l.percent}%). Read ${fmtAgo(l.at)}.` + (l.error ? ` The last try failed: ${l.error}` : "");
+  const clients = (l && l.clients) || [];
+  const shown = clients.slice(0, 12);
+  body.innerHTML = shown.length ? shown.map(c => {
+    const pct = c.queries ? Math.round(100 * c.blocked / c.queries) : 0;
+    return `<div class="health-row bypass-row"${c.hostId ? ` data-host="${c.hostId}" style="cursor:pointer" title="Show this device"` : ""}><span>${esc(c.name || c.ip)}${c.name ? `<small> ${esc(c.ip)}</small>` : ""}</span><span>${Number(c.queries).toLocaleString()} lookups · ${Number(c.blocked).toLocaleString()} blocked${c.queries ? ` (${pct}%)` : ""}</span></div>`;
+  }).join("") + (clients.length > shown.length ? `<div class="watch-note">And ${clients.length - shown.length} more.</div>` : "")
+    : `<div class="watch-note">${l ? "It hasn't answered any lookups yet." : ""}</div>`;
+  body.querySelectorAll("[data-host]").forEach(r => r.onclick = () => jumpToHost(Number(r.dataset.host)));
+}
+
 // ---- Devices that skip your DNS ----
 // Which DNS servers each device has asked, against what the network hands out. Needs the traffic monitor to have heard them.
 function renderBypass() {

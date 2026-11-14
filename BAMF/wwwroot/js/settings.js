@@ -1685,6 +1685,7 @@ async function loadSettings() {
   loadClock();
   loadDdns();
   loadEscalation();
+  loadDnsFilter();
   if (typeof e.takeoverAlert === "boolean") takeoverAlert = e.takeoverAlert;
   if (typeof e.dnsWatch === "boolean") dnsWatch = e.dnsWatch;
   if (typeof e.wanQuality === "boolean") wanQualityAlert = e.wanQuality;
@@ -2630,4 +2631,57 @@ $("mainRouteSave").onclick = async () => {
     renderDestinations();
     toast(d.tags.length || d.notTags.length ? "The main webhook's devices saved" : "The main webhook is for every device");
   } catch { toast("Couldn't save that - see the server log"); }
+};
+
+// ---- The Pi-hole / AdGuard Home reader ----
+// Off by default. The switch, where it is and the login (never shown again); its card on Activity reads the same state.
+async function loadDnsFilter() {
+  try { const r = await fetch("/api/dns-filter"); if (r.ok) dnsFilterCache = await r.json(); } catch { /* keep what it had */ }
+  renderDnsFilter();
+  if (typeof renderDnsFilterCard === "function") renderDnsFilterCard();
+}
+function dnsFilterName() { return dnsFilterCache && dnsFilterCache.provider === "adguard" ? "AdGuard Home" : "Pi-hole"; }
+function renderDnsFilter() {
+  const t = $("setDnsFilter"), d = dnsFilterCache;
+  if (!t || !d) return;
+  setToggleState(t, d.enabled);
+  t.title = d.enabled ? "The filter is read every five minutes - click to stop" : "Click to read your Pi-hole or AdGuard Home";
+  const l = d.last;
+  $("setDnsFilterStatus").textContent = !d.url ? "Off. No address saved." : l && l.error ? `${d.enabled ? "" : "Off. "}Tried ${fmtAgo(l.at)}: ${l.error}`
+    : l ? `${d.enabled ? "On" : "Off"}. ${dnsFilterName()} at ${d.url}: ${l.total.toLocaleString()} lookups in the last day, ${l.blocked.toLocaleString()} blocked, read ${fmtAgo(l.at)}.`
+    : d.enabled ? "On, not read yet." : `Off. Saved: ${dnsFilterName()} at ${d.url}.`;
+  if (document.activeElement !== $("setDnsFilterKind")) $("setDnsFilterKind").value = d.provider;
+  if (document.activeElement !== $("setDnsFilterUrl")) $("setDnsFilterUrl").value = d.url || "";
+  if (document.activeElement !== $("setDnsFilterUser")) $("setDnsFilterUser").value = d.user || "";
+  $("setDnsFilterSecret").placeholder = d.hasSecret ? "saved (type to replace)" : "password";
+  $("setDnsFilterInsecure").checked = !!d.insecure;
+  $("setDnsFilterUser").hidden = d.provider !== "adguard";
+  $("setDnsFilterRun").hidden = !d.url; $("setDnsFilterForget").hidden = !d.url;
+}
+async function postDnsFilter(path, body, busy, ok) {
+  $("setDnsFilterStatus").textContent = busy;
+  try {
+    const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't do that"); renderDnsFilter(); return false; }
+    dnsFilterCache = d; renderDnsFilter(); if (typeof renderDnsFilterCard === "function") renderDnsFilterCard();
+    if (ok) toast(ok);
+    return true;
+  } catch (e) { console.error(e); toast("Couldn't do that - see the server log"); renderDnsFilter(); return false; }
+}
+$("setDnsFilter").onclick = () => {
+  const next = !(dnsFilterCache && dnsFilterCache.enabled);
+  postDnsFilter("/api/settings/dns-filter", { enabled: next }, next ? "Reading\u2026" : "", next ? "Reading your DNS filter" : "The DNS filter is no longer read");
+};
+$("setDnsFilterKind").onchange = () => { if (dnsFilterCache) { dnsFilterCache.provider = $("setDnsFilterKind").value; renderDnsFilter(); } };
+$("setDnsFilterSave").onclick = async () => {
+  const body = { provider: $("setDnsFilterKind").value, url: $("setDnsFilterUrl").value.trim(), user: $("setDnsFilterUser").value.trim(), insecure: $("setDnsFilterInsecure").checked };
+  if ($("setDnsFilterSecret").value !== "") body.secret = $("setDnsFilterSecret").value;
+  if (!body.url) { toast("Type the address of its web page first"); return; }
+  if (await postDnsFilter("/api/settings/dns-filter", body, "Saving\u2026", "Saved")) $("setDnsFilterSecret").value = "";
+};
+$("setDnsFilterRun").onclick = () => postDnsFilter("/api/dns-filter/run", null, "Reading\u2026");
+$("setDnsFilterForget").onclick = async () => {
+  if (!confirm("Forget the address and the password? Reading is switched off too.")) return;
+  if (await postDnsFilter("/api/settings/dns-filter", { url: "", secret: "", user: "", enabled: false }, "", "Forgotten")) $("setDnsFilterSecret").value = "";
 };

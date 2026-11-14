@@ -539,6 +539,19 @@
           <span class="set-field"><button type="button" class="arp-toggle" id="setDnsBypassAlert" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
         <label class="set-row">
+          <span class="set-label">Read a Pi-hole or AdGuard Home
+            <span class="set-hint">Off by default, for people who run one. Every five minutes BAMF asks your Pi-hole (version 6 or newer) or AdGuard Home for its totals and its busiest clients over the last day, and a card on Activity shows how many lookups and blocks each device made. It only reads: it changes nothing on the filter, and it can't see a device that doesn't use it. This is how you see each device's DNS without a mirror port.</span>
+            <span class="set-hint" id="setDnsFilterStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setDnsFilter" aria-label="Read a Pi-hole or AdGuard Home" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row set-stack">
+          <span class="set-label">Where it is, and the login
+            <span class="set-hint">The address of its web page, such as <code>http://192.168.2.5</code> (for AdGuard Home, with its port, such as <code>http://192.168.2.5:3000</code>). For a Pi-hole use an app password (Settings, Web interface / API) and leave the user name empty; for AdGuard Home, its user name and password. The password is kept like a webhook's: never shown again, and not in the settings export.</span>
+          </span>
+          <span class="set-field"><select class="modal-input" id="setDnsFilterKind" aria-label="Which filter"><option value="pihole">Pi-hole</option><option value="adguard">AdGuard Home</option></select> <input class="modal-input" id="setDnsFilterUrl" size="26" placeholder="http://192.168.2.5" autocomplete="off" spellcheck="false" aria-label="Address of its web page"> <input class="modal-input" id="setDnsFilterUser" size="12" placeholder="user name" autocomplete="off" spellcheck="false" aria-label="User name (AdGuard Home)"> <input class="modal-input" id="setDnsFilterSecret" type="password" size="16" autocomplete="new-password" aria-label="Password or app password"> <label class="inline-check"><input type="checkbox" id="setDnsFilterInsecure"> self-signed HTTPS</label> <button type="button" class="export-btn" id="setDnsFilterSave">Save</button> <button type="button" class="toggle" id="setDnsFilterRun">Check now</button> <button type="button" class="toggle" id="setDnsFilterForget">Forget</button></span>
+        </label>
+        <label class="set-row">
           <span class="set-label">Traffic monitor
             <span class="set-hint">Watch the wire through Npcap, receive-only: bytes in and out per device, and every DHCP and DNS server in use, with an alert when a new DHCP server appears or a device starts asking a DNS server it never used before. On a switched network this machine sees its own traffic plus broadcast and multicast; on a mirrored switch port it sees everything.</span>
             <span class="set-hint" id="setTrafficStatus"></span>
@@ -605,7 +618,7 @@
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="setDdns" aria-label="Dynamic DNS update" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
-        <label class="set-row">
+        <label class="set-row set-stack">
           <span class="set-label">Update URL
             <span class="set-hint">The address your provider gives you, such as <code>https://www.duckdns.org/update?domains=home&amp;token=…&amp;ip={ip}</code>. It often holds a token or password, so once saved it is never shown again; a <code>user:password@</code> in it is sent as a login, not left in the address. Leave out <code>{ip}</code> if your provider works the address out itself.</span>
           </span>
@@ -1034,17 +1047,17 @@
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="setEsc" aria-label="Escalate alerts nobody acknowledges" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
-        <label class="set-row">
+        <label class="set-row set-stack">
           <span class="set-label">After, and to where
             <span class="set-hint">The destination is one of the webhook and the extra destinations above. It takes escalated alerts whatever kinds it was set to take.</span>
           </span>
           <span class="set-field"><input class="modal-input" id="setEscMin" type="number" min="1" max="1440" style="width:5.5em" aria-label="Minutes to wait"> min, to <select class="modal-input" id="setEscTo" aria-label="Destination for escalated alerts"></select> <button type="button" class="export-btn" id="setEscSave">Save</button></span>
         </label>
-        <div class="set-row">
+        <div class="set-row set-stack">
           <span class="set-label">Which alerts
             <span class="set-hint">Security: new DHCP or DNS servers, open ports, certificates, ARP. Rules and checks: alert rules, off hours, the clock check, backups and the dynamic DNS update.</span>
           </span>
-          <span class="set-field kind-boxes" id="setEscKinds"></span>
+          <span class="set-field"><span class="dest-kinds" id="setEscKinds" style="margin:0"></span></span>
         </div>
       </div>
     </section>
@@ -1477,6 +1490,11 @@
       <h3>Devices that skip your DNS</h3>
       <div class="sub" id="bypassSub"></div>
       <div id="bypassBody"></div>
+    </div>
+    <div class="act-card" id="dnsFilterCard" hidden>
+      <h3>DNS filter</h3>
+      <div class="sub" id="dnsFilterSub"></div>
+      <div id="dnsFilterBody"></div>
     </div>
     <div class="act-card" id="notesCard">
       <h3>Notes</h3>
