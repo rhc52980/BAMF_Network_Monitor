@@ -1666,6 +1666,29 @@
   .row-menu .rm-h { padding: 7px 10px 2px; font: 600 10.5px "IBM Plex Mono", monospace; letter-spacing: .06em;
     text-transform: uppercase; color: var(--text-dim); white-space: nowrap; }
   .row-menu .rm-h:not(:first-child) { margin-top: 4px; border-top: 1px solid var(--line); padding-top: 9px; }
+  /* A device's menu: its name, four buttons for what is done most, then groups that open in place. */
+  .row-menu.rm-device { width: 290px; padding: 6px; }
+  .rm-device .rm-head { display: flex; align-items: center; gap: 9px; padding: 6px 8px 10px; border-bottom: 1px solid var(--line); }
+  .rm-device .rm-head b { display: block; font-weight: 600; max-width: 215px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rm-device .rm-head small { display: block; color: var(--text-dim); font-size: 12px; }
+  .rm-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--led-off); flex: none; }
+  .rm-dot.on { background: var(--led-on); }
+  .rm-device .rm-q { display: flex; gap: 6px; padding: 10px 2px; }
+  .rm-device .rm-q button { flex: 1 1 0; width: auto; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1px; text-align: center; padding: 8px 4px; border: 1px solid var(--line); font-size: 12px; white-space: normal; }
+  .rm-device .rm-q button small { font-size: 10.5px; color: var(--text-dim); }
+  .rm-device .rm-q button.on { border-color: var(--focus); color: var(--focus); }
+  .rm-device .rm-q button.on small { color: inherit; }
+  .rm-device .rm-g, .rm-device .rm-row, .rm-device .rm-sub button { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .rm-device .rm-g, .rm-device .rm-row { border-top: 1px solid var(--line); border-radius: 0; padding: 9px 8px; }
+  .rm-device .rm-g small, .rm-device .rm-row small, .rm-device .rm-sub small { color: var(--text-dim); font-size: 12px; font-weight: 400; }
+  .rm-device .rm-g > span:first-child small { margin-left: 8px; }
+  .rm-chev { color: var(--text-dim); transition: transform .12s; }
+  .rm-g[aria-expanded="true"] .rm-chev { transform: rotate(90deg); }
+  .rm-device .rm-sub { padding: 0 0 6px 10px; }
+  .rm-device .rm-sub[hidden] { display: none; }
+  .rm-device .rm-foot { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
+  .rm-device > .rm-foot:last-child { margin-top: 0; }
   /* The "+N" beside a device's IP: its other addresses. */
   .ip-more {
     margin-left: 6px; padding: 0 6px; font: inherit; font-size: 11px; line-height: 1.6;
@@ -1747,6 +1770,11 @@
       background: var(--line); margin: 0 auto 8px;
     }
     .row-menu button { padding: 12px 14px; font-size: 15px; white-space: normal; }
+    .row-menu.rm-device.show { width: auto; }
+    .rm-device .rm-head b { max-width: none; font-size: 16px; }
+    .rm-device .rm-q button { min-height: 60px; font-size: 13px; }
+    .rm-device .rm-g, .rm-device .rm-row { padding: 14px 10px; }
+    .rm-device .rm-sub button { padding: 13px 14px; }
     .addr-menu { min-width: 0; }
     .addr-note { max-width: none; }
     body:has(.row-menu.show)::before {
