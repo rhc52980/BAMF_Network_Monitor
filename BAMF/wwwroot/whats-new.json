@@ -2,6 +2,13 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.27.0",
+      "date": "2026-11-13",
+      "items": [
+        "A Notes card on Activity: a free-form text box for anything you want to keep with the network. It saves as you type and is kept on the server, so every browser and phone sees the same notes. If two browsers edit at once, the second is told and can take the saved version or keep its own, so nothing is overwritten quietly. Fold, move or hide it like any Activity card; anyone who can open the dashboard can read it, so keep passwords out."
+      ]
+    },
+    {
       "version": "2.26.0",
       "date": "2026-11-05",
       "items": [
