@@ -1794,14 +1794,22 @@ async function loadSettings() {
 
       const tdRm = document.createElement("td");
       tdRm.className = "set-net-rm-cell";
+      const ed = document.createElement("button");
+      ed.type = "button";
+      ed.className = "set-net-edit";
+      ed.textContent = "\u270e";
+      ed.title = `Change ${net} to another range. Its devices move with it.`;
+      ed.setAttribute("aria-label", `Change ${net}`);
+      ed.onclick = () => editNetworkDialog(net);
+      tdRm.appendChild(ed);
       if (nets.length > 1) {
         const rm = document.createElement("button");
         rm.type = "button";
         rm.className = "set-net-rm";
         rm.textContent = "\u00d7";
-        rm.title = `Stop scanning ${net} and take it off the list. Its devices stay, with their history.`;
+        rm.title = `Stop scanning ${net} and take it off the list. You choose what happens to its devices.`;
         rm.setAttribute("aria-label", `Remove ${net}`);
-        rm.onclick = () => saveNetworks(nets.filter(n => n !== net), `Removed ${net}.`);
+        rm.onclick = () => removeNetworkDialog(net);
         tdRm.appendChild(rm);
       }
       tr.appendChild(tdRm);
@@ -2056,6 +2064,98 @@ async function addNetwork() {
   if (!v) { netMsg("Type a network first, like 192.168.1.0/24.", "err"); box.focus(); return; }
   const list = (settingsData?.editable?.networks?.list) || [];
   if (await saveNetworks([...list, v], `Added ${v}.`)) box.value = "";
+}
+// ---- Settings → Scanning → Networks: changing one, and removing one with a say in its devices ----
+// A network's devices are filed under its name, so a new range has to carry them
+// along, and taking one away has to say what becomes of them.
+function closeNetAction() { const b = $("setNetAction"); b.hidden = true; b.innerHTML = ""; }
+async function netUsage(net, to) {
+  try {
+    const r = await fetch("/api/settings/networks/usage?network=" + encodeURIComponent(net) + (to ? "&to=" + encodeURIComponent(to) : ""));
+    const d = await r.json().catch(() => ({}));
+    return r.ok ? d : { error: d.error || "Couldn't check (HTTP " + r.status + ")" };
+  } catch (e) { return { error: "Couldn't check: " + e.message }; }
+}
+const devs = n => n + " device" + (n === 1 ? "" : "s");
+async function postNetAction(url, body, note) {
+  note.className = "sna-note"; note.textContent = "Saving…";
+  try {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { note.className = "sna-note err"; note.textContent = d.error || "Couldn't save (HTTP " + r.status + ")"; return null; }
+    return d;
+  } catch (e) { note.className = "sna-note err"; note.textContent = "Couldn't save: " + e.message; return null; }
+}
+function doneNetAction(text) {
+  closeNetAction();
+  loadSettings();
+  refresh();
+  netMsg(text + " Scanning now.", "ok");
+}
+async function editNetworkDialog(net) {
+  const box = $("setNetAction");
+  box.hidden = false;
+  box.innerHTML = `<div class="sna-title">Change <span class="mono">${esc(net)}</span> to</div>
+    <input class="modal-input" id="snaTo" value="${esc(net)}" aria-label="The network it should become" autocomplete="off" spellcheck="false">
+    <div class="sna-note" id="snaNote">Checking…</div>
+    <label class="sna-opt" id="snaForgetRow" hidden><input type="checkbox" id="snaForget"><span id="snaForgetText"></span></label>
+    <div class="sna-btns"><button type="button" class="export-btn" id="snaSave">Save</button><button type="button" class="export-btn" id="snaCancel">Cancel</button></div>`;
+  const to = $("snaTo"), note = $("snaNote"), row = $("snaForgetRow");
+  let seq = 0, timer = null;
+  const check = async () => {
+    const mine = ++seq, v = to.value.trim();
+    const d = await netUsage(net, v);
+    if (mine !== seq) return;
+    row.hidden = true;
+    if (d.error) { note.className = "sna-note err"; note.textContent = d.error; return; }
+    note.className = "sna-note";
+    if (!d.devices) { note.textContent = "No devices are filed under it, so nothing has to move."; return; }
+    const stay = d.devices - d.fitsNew;
+    note.textContent = `${devs(d.devices)} ${d.devices === 1 ? "is" : "are"} filed under it. ${d.fitsNew ? `${d.fitsNew} fit${d.fitsNew === 1 ? "s" : ""} the new range and move${d.fitsNew === 1 ? "s" : ""} with it, with their history.` : "None of them are in the new range."}`
+      + (stay ? ` The other ${stay} stay under ${net}, which then stays in the network tabs until they're gone.` : "");
+    if (stay) { row.hidden = false; $("snaForgetText").textContent = `Forget the ${stay} that don't fit (hidden, and brought back from the Forgotten tab)`; }
+  };
+  to.oninput = () => { clearTimeout(timer); timer = setTimeout(check, 300); };
+  to.onkeydown = e => { if (e.key === "Enter") $("snaSave").click(); if (e.key === "Escape") { e.stopPropagation(); closeNetAction(); } };
+  $("snaCancel").onclick = closeNetAction;
+  $("snaSave").onclick = async () => {
+    const v = to.value.trim();
+    if (!v) { note.className = "sna-note err"; note.textContent = "Type the network it should become."; return; }
+    const d = await postNetAction("/api/settings/networks/edit", { from: net, to: v, forgetLeft: $("snaForget").checked && !row.hidden }, note);
+    if (!d) return;
+    doneNetAction(`Changed ${net} to ${d.network}` + (d.moved ? `, and moved ${devs(d.moved)} with it.` : ".") + (d.forgotten ? ` Forgot ${d.forgotten}.` : ""));
+  };
+  to.focus();
+  to.select();
+  check();
+}
+async function removeNetworkDialog(net) {
+  const u = await netUsage(net);
+  if (u.error) { netMsg(u.error, "err"); return; }
+  // Nothing under it: no choice to make.
+  if (!u.devices) {
+    const d = await postNetAction("/api/settings/networks/remove", { network: net, devices: "keep" }, $("setNetResult"));
+    if (d) doneNetAction(`Removed ${net}.`);
+    return;
+  }
+  const box = $("setNetAction");
+  box.hidden = false;
+  const moves = u.moveTo || [];
+  const it = u.devices === 1 ? "it" : "them";
+  box.innerHTML = `<div class="sna-title">Stop scanning <span class="mono">${esc(net)}</span></div>
+    <div class="sna-note">${devs(u.devices)} ${u.devices === 1 ? "is" : "are"} filed under it${u.online ? ` (${u.online} online)` : ""}. What should happen to ${it}?</div>
+    <label class="sna-opt"><input type="radio" name="snaDev" value="keep" checked><span>Keep ${it} as ${u.devices === 1 ? "it is" : "they are"}<small>Stays in the list with its history. ${esc(net)} stays among the network tabs until nothing is under it.</small></span></label>
+    ${moves.length ? `<label class="sna-opt"><input type="radio" name="snaDev" value="move"><span>Move the ones another network holds into<select id="snaMoveTo" aria-label="The network to move them to">${moves.map(m => `<option value="${esc(m.network)}">${esc(m.network)} (${m.count})</option>`).join("")}</select><small>With their history. Any it doesn't hold stay under ${esc(net)}.</small></span></label>` : ""}
+    <label class="sna-opt"><input type="radio" name="snaDev" value="forget"><span>Forget ${it}<small>Hidden from the lists, not deleted: bring ${it} back from the Forgotten tab.</small></span></label>
+    <div class="sna-note" id="snaNote"></div>
+    <div class="sna-btns"><button type="button" class="export-btn" id="snaGo">Remove ${esc(net)}</button><button type="button" class="export-btn" id="snaCancel">Cancel</button></div>`;
+  $("snaCancel").onclick = closeNetAction;
+  $("snaGo").onclick = async () => {
+    const devices = box.querySelector("input[name=snaDev]:checked").value;
+    const d = await postNetAction("/api/settings/networks/remove", { network: net, devices, moveTo: devices === "move" ? $("snaMoveTo").value : undefined }, $("snaNote"));
+    if (!d) return;
+    doneNetAction(`Removed ${net}.` + (d.moved ? ` Moved ${devs(d.moved)}.` : "") + (d.forgotten ? ` Forgot ${devs(d.forgotten)}.` : ""));
+  };
 }
 // ---- Settings → Security → HTTPS ----
 // A certificate BAMF makes itself; HTTPS starts with it at the next restart.

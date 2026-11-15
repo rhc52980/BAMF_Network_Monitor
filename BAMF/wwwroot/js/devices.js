@@ -495,7 +495,9 @@ function renderNetTabs() {
     // pack octets into a sortable number, then prefix as tiebreaker
     return octets.reduce((a, o) => a * 256 + (o || 0), 0) * 100 + (Number(pfx) || 0);
   };
-  const all = [...new Set([...subnets, ...hosts.map(h => h.subnet).filter(Boolean)])]
+  // A forgotten device is out of every list but the Forgotten one, so it doesn't keep a network's tab alive anywhere else:
+  // forgetting what is left under a network that was taken off the list is how its tab goes.
+  const all = [...new Set([...subnets, ...hosts.filter(h => view === "forgotten" || !h.forgotten).map(h => h.subnet).filter(Boolean)])]
     .sort((a, b) => cidrKey(a) - cidrKey(b));
   if (network !== "all" && !all.includes(network)) network = "all";
 
@@ -585,6 +587,10 @@ function applySort(rows) {
 }
 
 function render() {
+  // A rename box is a live input inside a row this rebuilds. refresh() checks for it when it starts, but then waits on the network, and
+  // opening a History panel waits on several requests; a box opened in that gap was torn out from under the typing, which blurred it and
+  // saved whatever was in it, so the window seemed to close by itself. Hold off here instead: finishing the rename redraws everything.
+  if (document.querySelector(".name-input")) return;
   // The 10s auto-refresh rebuilds the table, which used to destroy any open ⋯
   // menu — it looked like the menu closed itself on a timer. Remember which
   // row's menu is open and reopen it after the rebuild.
@@ -755,7 +761,7 @@ function render() {
         done = true;
         const value = input.value;
         input.remove(); // so the refresh guard doesn't block the redraw
-        if (save) await setName(h, value); // empty clears back to DNS name
+        if (save && value !== (h.customName || "")) await setName(h, value); // empty clears back to DNS name; untouched, nothing to send
         await refresh();
       };
       input.onkeydown = e => {

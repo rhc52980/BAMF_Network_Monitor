@@ -1013,6 +1013,20 @@
   .set-net-rm { font: inherit; font-size: 15px; line-height: 1; cursor: pointer; color: var(--text-dim); background: none;
     border: 1px solid transparent; border-radius: 6px; padding: 2px 7px; }
   .set-net-rm:hover { color: var(--danger); border-color: var(--line); }
+  .set-net-edit { font: inherit; font-size: 13px; line-height: 1; cursor: pointer; color: var(--text-dim); background: none;
+    border: 1px solid transparent; border-radius: 6px; padding: 3px 7px; }
+  .set-net-edit:hover { color: var(--text); border-color: var(--line); }
+  .set-net-rm-cell { white-space: nowrap; }
+  .set-net-action { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); font-size: 13px; }
+  .set-net-action[hidden] { display: none; }
+  .set-net-action .sna-title { font-weight: 600; margin-bottom: 8px; }
+  .set-net-action .sna-note { margin: 8px 0; color: var(--text-dim); line-height: 1.5; }
+  .set-net-action .sna-note.err { color: var(--danger); }
+  .set-net-action .sna-opt { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0; line-height: 1.45; cursor: pointer; }
+  .set-net-action .sna-opt input { margin-top: 3px; }
+  .set-net-action .sna-opt small { display: block; color: var(--text-dim); }
+  .set-net-action select { font: inherit; font-size: 12px; margin-left: 6px; max-width: 100%; }
+  .set-net-action .sna-btns { display: flex; gap: 8px; margin-top: 10px; }
   .set-net-source { margin-top: 10px; font-size: 12px; color: var(--text-dim); }
   /* On a phone the table stacks, so the remove button sits in each network's corner. */
   @media (max-width: 700px) {
