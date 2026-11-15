@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.30.0",
+      "date": "2026-11-15",
+      "items": [
+        "Change a network in place: the pencil on each network in Settings, Scanning turns a /22 into a /21 (or any other range) without removing it and adding the new one. The devices in the new range move with it, with their history, and so do its pause and its scan interval. It tells you how many will move before you save.",
+        "Removing a network now asks what to do with its devices: keep them as before, move the ones another network holds, or forget them (hidden, not deleted; the Forgotten tab brings them back). Forgotten devices no longer keep a network's tab on the list, so forgetting what's left clears a leftover tab.",
+        "Fixed the device name box sometimes closing while you were typing. A refresh that finished at the wrong moment redrew the table under it and saved whatever was in the box."
+      ]
+    },
+    {
       "version": "2.29.0",
       "date": "2026-11-14",
       "items": [
