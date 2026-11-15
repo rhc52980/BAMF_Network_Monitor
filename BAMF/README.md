@@ -1392,6 +1392,25 @@ Only private networks can be added there (10.x, 172.16-31.x, 192.168.x,
 100.64-127.x and 169.254.x), from /21 to /30. The port scans follow BAMF's
 networks, so this keeps anyone who can open the dashboard from pointing them
 at the internet, and a /21, 2,046 addresses, is as much as a scan covers.
+
+A network's devices are filed under its name, and taking a network off the list
+used to leave them there, with a tab for it. So there are two more buttons on
+each row:
+
+- **✎ Change it** turns a network into another range in place: a /22 into a
+  /21, say, without removing it and adding the new one. The devices in the new
+  range move with it, history and all, and so do the network's pause and its own
+  scan interval. The box tells you how many will move before you save, and if some
+  aren't in the new range it offers to forget them; otherwise they stay under the
+  old name.
+- **× Remove it** asks what to do with the devices under it: **keep** them as
+  they are (as before; the network keeps its tab until nothing is under it),
+  **move** the ones another network you scan holds into that network, or
+  **forget** them, which hides them without deleting anything, and the Forgotten
+  tab brings them back. A network with no devices just goes.
+
+A forgotten device no longer keeps a network's tab on the list, so forgetting
+what's left is also how to clear a tab left behind by an older removal.
 `appsettings.json` can still list anything, but a network wider than a /21 there
 is swept only from its first address on, for 2,046 addresses, and the log says
 so once; list it as several smaller networks to cover the rest.
@@ -1857,6 +1876,9 @@ scan, or delete a thing.
 | POST | `/api/settings/webhookroute` | Body `{"tags": ["kids"], "notTags": []}`, either — the same routing for the main webhook. `GET /api/settings` has it as `webhookTags` and `webhookNotTags` |
 | POST | `/api/settings/networks` | Body `{"networks": ["192.168.1.0/24"]}` — the networks to scan, replacing `Bamf:Subnets`, and scan them now. Private networks from /21 to /30 only; see [Networks](#networks). `GET /api/settings` returns them as `editable.networks`, with where they come from and the ones this machine is on |
 | POST | `/api/settings/networks/reset` | Hand the networks back to `appsettings.json` |
+| GET | `/api/settings/networks/usage?network=192.168.0.0/22&to=192.168.0.0/21` | What is filed under a network: `devices` (not forgotten), `online`, `forgotten`, the other networks scanned that hold some of them (`moveTo`), and, when `to` is given, how many the new range holds (`fitsNew`) |
+| POST | `/api/settings/networks/edit` | Body `{"from": "192.168.0.0/22", "to": "192.168.0.0/21", "forgetLeft": false}` — change a network in place, keeping its place in the list, its pause and its interval, and moving the devices the new range holds. `forgetLeft` forgets the ones it doesn't. Replies with `moved`, `forgotten` and `left` |
+| POST | `/api/settings/networks/remove` | Body `{"network": "192.168.0.0/22", "devices": "keep", "moveTo": null, "forgetLeft": false}` — `devices` is `keep`, `move` (into `moveTo`, one of the networks that stay) or `forget`. The last network can't be removed |
 | POST | `/api/settings/mqtt` | Body `{"server": "10.0.0.2", "port": 1883, "username": "bamf", "password": null, "tls": false, "discovery": true, "topicPrefix": "bamf"}` — the MQTT broker, replacing `Bamf:Mqtt`, and connect now. `server` empty turns MQTT off. `password` null keeps the saved one, but only for the same server and port. `GET /api/settings` returns it as `editable.mqtt`, with `password` only saying whether one is saved |
 | POST | `/api/settings/mqtt/reset` | Hand MQTT back to `appsettings.json` |
 | POST | `/api/settings/remotes` | Body `{"remotes": [{"name": "Cabin", "url": "http://10.0.0.5:8840", "password": null}]}` — the other BAMF servers, replacing `Bamf:Remotes`, up to 8, and read them now. `password` null keeps a saved one while the name and URL stay the same. `GET /api/settings` returns them as `editable.remotes` |

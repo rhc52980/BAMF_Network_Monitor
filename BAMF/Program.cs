@@ -416,6 +416,7 @@ NotesEndpoints.Map(app);
 ScheduleEndpoints.Map(app);
 ClockEndpoints.Map(app);
 DdnsEndpoints.Map(app);
+NetworkEditEndpoints.Map(app);
 EscalationEndpoints.Map(app);
 DnsFilterEndpoints.Map(app);
 DhcpProbeEndpoints.Map(app);

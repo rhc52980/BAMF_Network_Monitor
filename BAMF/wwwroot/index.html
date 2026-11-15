@@ -462,7 +462,8 @@
           last known state and never get a false down-alert. Give a network its own
           interval to watch it more or less closely than the default above; blank
           means the default. A device is only judged offline by a scan that actually
-          covered its network. Adding or removing a network applies at once.
+          covered its network. Adding, changing or removing a network applies at once; changing one
+          moves its devices to the new range, and removing one asks what to do with them.
         </p>
         <table class="set-table" id="setNetTable"></table>
         <div class="modal-note" id="setNetNote"></div>
@@ -471,6 +472,7 @@
           <button type="button" class="export-btn" id="setNetAdd">Add a network</button>
           <span class="set-result" id="setNetResult"></span>
         </div>
+        <div class="set-net-action" id="setNetAction" hidden></div>
         <div class="set-net-found" id="setNetFound" hidden></div>
         <div class="set-net-source" id="setNetSource"></div>
       </div>

@@ -151,6 +151,15 @@ public partial class ScannerService
         return new IPAddress(new[] { (byte)(net >> 24), (byte)(net >> 16), (byte)(net >> 8), (byte)net });
     }
 
+    /// <summary>Whether an address is inside a network written as 192.168.0.0/21; false for anything that isn't an IPv4 address.</summary>
+    public static bool NetworkContains(string cidr, string ip)
+    {
+        var parts = (cidr ?? "").Split('/');
+        if (parts.Length != 2 || !IPAddress.TryParse(parts[0], out var net) || !int.TryParse(parts[1], out var prefix)) return false;
+        return IPAddress.TryParse(ip, out var addr) && addr.AddressFamily == AddressFamily.InterNetwork && net.AddressFamily == AddressFamily.InterNetwork
+            && InSubnet(addr, net, prefix);
+    }
+
     private static bool InSubnet(IPAddress ip, IPAddress network, int prefix)
     {
         var a = ip.GetAddressBytes();
