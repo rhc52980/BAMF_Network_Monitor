@@ -2040,6 +2040,14 @@ scan, or delete a thing.
 | POST | `/api/switches` | Body `{"kind": "switch", "name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch, router or access point to the recorded layout. `kind` is `switch` (the default), `router`, `ap`, `virtual`, `ssid` or `vpn`; a virtual switch takes `runsOn` (the id of the machine it runs on) instead of a device, uplink or port count, and a wireless SSID takes `runsOn` as the id of its access point (a switch record of kind `ap`), with an optional `subnet` for its own network. Devices on a virtual switch, SSID or VPN are recorded with port 0. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
 | POST | `/api/switches/{id}` | Same body — update a switch. Refuses loops and ports that would strand recorded devices |
 | DELETE | `/api/switches/{id}` | Delete a switch. Devices recorded on it go back to unrecorded; switches plugged into it lose that uplink |
+| GET | `/api/cutover` | The snapshots kept (`id`, `name`, `at`, `devices`, `online`) and how many are kept |
+| POST | `/api/cutover` | Body `{"name": "Before the new gateway"}` (optional): take a snapshot of every device now. 400 if BAMF knows none yet |
+| GET | `/api/cutover/{id}/compare` | The snapshot against now: `wasOnline`, `wasOffline`, and the lists `back`, `moved`, `missing`, `added` and `sameName` (a missing device and a new one of the same name) |
+| DELETE | `/api/cutover/{id}` | Delete a snapshot |
+| GET | `/api/segmentation` | `enabled`, `alert`, `rules`, the `networks` a rule can name, and the `findings`: the devices that break a rule, with `why` each matched |
+| POST | `/api/settings/segmentation` | Body, any of `{"enabled": true, "alert": true, "rules": [{"label": "Cameras", "words": ["cam"], "tag": "", "type": "", "where": "on", "network": "192.168.20.0/24"}]}`. `rules` replaces them all; `where` is `on` (belong on) or `off` (never on) |
+| GET | `/api/pools` | `enabled`, `alert`, `percent`, the `pools` with `size`, `used` and `percent`, the ones you entered as `manual`, and whether the `controller` could be read |
+| POST | `/api/settings/pools` | Body, any of `{"enabled": true, "alert": true, "percent": 85, "pools": [{"network": "192.168.1.0/24", "name": "Main", "start": "192.168.1.100", "end": "192.168.1.250"}]}`. `pools` replaces the ones you entered |
 | GET | `/api/gear` | Network gear: `features` (`map`, `wifi`, `health`), `unifi` (`configured`, `fromRouterImport`, `url`, `user`, `hasSecret`, `site`, `verify`; never the password), `sources` (what each last said), `drawn`, `gear` (each piece with `issues`), `wifi` (each Wi-Fi device, weakest first) |
 | POST | `/api/settings/gear` | Body, any of `{"map": true, "wifi": true, "health": true, "unifiUrl": "https://192.168.1.1", "unifiUser": "…", "unifiSecret": "…", "unifiSite": "", "unifiVerify": false}`. Switching one on reads at once; switching it off takes back what it made. An empty `unifiUrl` forgets the controller and what it gave |
 | POST | `/api/settings/gear` (more) | Also `{"vlans": true, "vlanNetworks": ["192.168.10.0/24"], "events": true, "eventWan": true, "eventThreats": true}`. `vlanNetworks` replaces the list; one taken off has its devices hidden |
@@ -4418,6 +4426,58 @@ and the last few alerts told); `GET /api/hosts` lists a network read from the ga
 `scanModes` as `gateway`. `GET /api/hosts` gives each device `switchAuto` (`unifi`, `snmp` or empty
 for one you recorded) and `wifi` when there's a reading.
 
+### Checks on your network: before and after a change, segmentation, address pools
+
+Three checks on how your network is laid out, under **Settings → Your network → Checks
+on your network**. The snapshot is a button; the other two are **off until you switch them
+on**, and an alert for each is a second switch, also off. None of them changes anything on
+your network.
+
+**Before you change your network (the cutover check).** About to swap the router or move to
+VLANs? **Take a snapshot** first: every device BAMF knows, with its address and network.
+After the change, **Compare with now** says how it went, matched by MAC address:
+
+- **Not back**: devices that were on and still aren't, with when each was last seen.
+- **Probably the same device, new hardware address**: a device that hasn't returned with a
+  new one of the same name beside it. A phone with a private Wi-Fi address on a new network
+  is a new MAC to BAMF.
+- **Back at a new address or network**: the device is on, but not where it was.
+- **New since the snapshot**, and **Back, unchanged** (a count you can open).
+
+Devices that were already off when the snapshot was taken aren't expected back, and
+devices you ignore are left out. BAMF keeps the five newest snapshots; **×** deletes one.
+
+**Segmentation check.** Rules that say which devices belong on which network, or never on
+one: cameras belong on the IoT network, smart plugs are never on the main one. A rule has a
+name, a way to pick devices, **belong on** or **never on**, and a network. It picks devices by
+any of: **words** in the device's name, vendor or BAMF's guess (whole words, so `cam` picks
+`garage-cam` and not `camera-less`), a **tag** you gave it, or the **device type** or Map icon
+you set. **Add a rule** offers starting points (cameras, TVs and streamers, printers, smart
+speakers, smart home, game consoles) that you can change. Devices that break a rule are listed
+under the rules, and each opens the device. Tick **Alert me when a device newly breaks a rule**
+for a security alert: one per device, or one summary when more than three turn up at once.
+Switching the alert on says nothing about what already breaks a rule (that is in the list),
+a device put right and then wrong again is news again, and ignored or hidden devices are
+skipped.
+
+**Address pool pressure.** A network that runs out of addresses to hand out stops giving
+them, and the next device to join gets none, which looks like the Wi-Fi being broken. A pool
+is the range of addresses a router hands out; BAMF counts the devices it has seen at an
+address in the range over the last day (a lease outlasts the device being on, so one that has
+just gone still holds its address) and shows how full that is. The ranges come from a **UniFi
+controller**, which knows them, or you **enter them** from the router's DHCP settings, so it
+works with any router; a range you enter replaces the controller's for the same network.
+Tick **Alert me when a pool is more than _n_ % used** (50 to 99, 85 by default) for one alert on
+crossing the limit, and again only after it has eased five points below it; as with the
+segmentation alert, a pool that is already over the limit when you switch it on is not
+announced. It counts devices BAMF can see, so a pool shared with devices on another network,
+or leases held by devices BAMF doesn't know about, make it an estimate that errs low.
+
+The API is `GET /api/cutover`, `POST /api/cutover`, `GET /api/cutover/{id}/compare` and
+`DELETE /api/cutover/{id}`; `GET /api/segmentation` and `POST /api/settings/segmentation`
+(`enabled`, `alert`, `rules`); and `GET /api/pools` and `POST /api/settings/pools` (`enabled`,
+`alert`, `percent`, `pools`).
+
 ### Traffic from your switches
 
 A managed switch counts every byte in and out of every port, and will tell
@@ -4943,10 +5003,12 @@ It can be switched off with **Same phone, new address?** under Settings → Scan
 
 ## Limitations to be aware of
 
-- ARP only sees the L2 segment the server sits on. Hosts on other VLANs are
-  invisible unless the server has an interface on that segment and it's listed
-  in `Subnets`. The dashboard's network switcher shows each configured network
-  separately.
+- ARP only sees the L2 segment the server sits on, so scanning a VLAN needs an
+  interface on it, listed in `Subnets`. A network the server isn't on can be read
+  from the gateway instead, which lists the devices it holds there: see
+  [Network gear](#network-gear-the-map-wi-fi-quality-and-health-from-the-gear-itself),
+  *Devices on other networks*. The dashboard's network switcher shows each
+  configured network separately.
 - Hostnames come from reverse DNS first, then a NetBIOS query (UDP 137) as a
   fallback - this names many Windows PCs, NAS boxes, and printers that have no
   DNS record. Devices that answer neither may still name themselves over mDNS

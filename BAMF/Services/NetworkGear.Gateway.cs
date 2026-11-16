@@ -55,7 +55,7 @@ public sealed partial class NetworkGear
         return _store.GearVlanNetworkList().Select(n => (n, hosts.Count(h => h.Subnet == n), hosts.Count(h => h.Subnet == n && h.Online))).ToList();
     }
 
-    private async Task GatewayPass(GearSnapshot? snap, List<HostStore.SnmpConfig> snmpConfigs, bool vlans, bool threatsOn, bool wanOn, bool force, CancellationToken ct)
+    private async Task GatewayPass(GearSnapshot? snap, List<HostStore.SnmpConfig> snmpConfigs, bool vlans, bool threatsOn, bool wanOn, CancellationToken ct)
     {
         var listed = new List<GearHost>();
         var gateways = new List<GearDevice>();
@@ -130,7 +130,6 @@ public sealed partial class NetworkGear
         if (vlans) await ApplyVlanHosts(listed, hostSources.Count > 0 || arpOk, ct);
         if (wanOn) await ApplyWan(gateways, wanSources, ct);
         if (threatsOn) await ApplyThreats(threats, threatSources, ct);
-        _ = force;
     }
 
     private static string Why(Exception ex) => ex is InvalidOperationException or TimeoutException ? ex.Message : ex.GetBaseException().Message;
@@ -217,12 +216,12 @@ public sealed partial class NetworkGear
             if (string.IsNullOrEmpty(mark))
             {
                 // The first read only sets where it starts from: what the gateway logged before is history, not news.
-                _store.SetSetting(key, mine.Count > 0 ? mine.Max(t => t.At) : DateTime.UtcNow.ToString("o"));
+                _store.SetSetting(key, mine.Count > 0 ? mine.Max(t => t.At)! : DateTime.UtcNow.ToString("o"));
                 continue;
             }
             var fresh = mine.Where(t => string.CompareOrdinal(t.At, mark) > 0).ToList();
             if (fresh.Count == 0) continue;
-            _store.SetSetting(key, fresh.Max(t => t.At));
+            _store.SetSetting(key, fresh.Max(t => t.At)!);
             _pendingThreats.AddRange(fresh);
         }
         if (_pendingThreats.Count == 0) return;

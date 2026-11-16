@@ -1687,6 +1687,7 @@ async function loadSettings() {
   loadEscalation();
   loadDnsFilter();
   loadGear();
+  loadChecks();
   if (typeof e.takeoverAlert === "boolean") takeoverAlert = e.takeoverAlert;
   if (typeof e.dnsWatch === "boolean") dnsWatch = e.dnsWatch;
   if (typeof e.wanQuality === "boolean") wanQualityAlert = e.wanQuality;
@@ -2903,3 +2904,152 @@ $("setGearVlanAdd").onclick = async () => {
   if (await postGear("/api/settings/gear", { vlanNetworks: [...gearCache.vlans.networks.map(x => x.network), v] }, "", "Added")) $("setGearVlanNet").value = "";
 };
 $("setGearVlanNet").onkeydown = e => { if (e.key === "Enter") $("setGearVlanAdd").click(); };
+
+// ---- Settings → Your network → Checks on your network ----
+// The cutover snapshot (a button), the segmentation rules and the DHCP pools (each off until switched on).
+let cutCache = null, segCache = null, poolCache = null, segDraft = null, poolDraft = null;
+const SEG_PRESETS = [
+  ["Cameras", ["camera", "cam", "doorbell", "nvr"]],
+  ["TVs and streamers", ["tv", "roku", "chromecast", "firetv", "apple tv"]],
+  ["Printers", ["printer", "mfc"]],
+  ["Smart speakers", ["sonos", "echo", "homepod", "speaker"]],
+  ["Smart home", ["iot", "thermostat", "plug", "bulb", "hue"]],
+  ["Game consoles", ["xbox", "playstation", "nintendo"]],
+  ["Something else (your own words)", []],
+];
+async function loadChecks() {
+  try { const r = await fetch("/api/cutover"); if (r.ok) cutCache = await r.json(); } catch { /* keep */ }
+  try { const r = await fetch("/api/segmentation"); if (r.ok) segCache = await r.json(); } catch { /* keep */ }
+  try { const r = await fetch("/api/pools"); if (r.ok) poolCache = await r.json(); } catch { /* keep */ }
+  segDraft = null; poolDraft = null;
+  renderChecks();
+}
+function renderChecks() {
+  if (!$("checksCard")) return;
+  renderCutover(); renderSeg(); renderPools();
+}
+async function postChecks(path, body, ok) {
+  try {
+    const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't do that"); return null; }
+    if (ok) toast(ok);
+    return d;
+  } catch (e) { console.error(e); toast("Couldn't do that - see the server log"); return null; }
+}
+
+// -- the cutover check
+function cutItem(i, extra) { return `<div class="item"><b>${esc(i.name)}</b> ${esc(i.ip)}${i.network ? " · " + esc(i.network) : ""}${extra || ""}</div>`; }
+function renderCutover() {
+  const c = cutCache;
+  if (!c) return;
+  $("cutList").innerHTML = c.snapshots.length ? c.snapshots.map(s => `<div class="gear-net"><span><strong>${esc(s.name)}</strong> <span class="why">· ${esc(fmtExact(s.at))} · ${s.devices} devices, ${s.online} online</span></span><button type="button" class="toggle" data-cmp="${s.id}">Compare with now</button><button type="button" class="rm" data-del="${s.id}" title="Delete this snapshot" aria-label="Delete ${esc(s.name)}">\u00d7</button></div>`).join("") : `<div class="why">No snapshot yet.</div>`;
+  $("cutList").querySelectorAll("[data-cmp]").forEach(b => b.onclick = () => compareCutover(+b.dataset.cmp));
+  $("cutList").querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
+    if (!confirm("Delete this snapshot?")) return;
+    const r = await fetch("/api/cutover/" + b.dataset.del, { method: "DELETE" });
+    if (r.ok) { $("cutResult").innerHTML = ""; loadChecks(); }
+  });
+}
+async function compareCutover(id) {
+  const box = $("cutResult");
+  box.innerHTML = `<div class="why">Comparing\u2026</div>`;
+  const r = await fetch(`/api/cutover/${id}/compare`);
+  if (!r.ok) { box.innerHTML = ""; toast("Couldn't compare"); return; }
+  const d = await r.json();
+  const n = x => x.length;
+  const part = (title, list, render, open) => list.length ? `<details${open ? " open" : ""}><summary>${esc(title)} (${list.length})</summary>${list.map(render).join("")}</details>` : "";
+  box.innerHTML = `<div class="chk-cut"><div class="sum">${esc(d.snapshot.name)}: ${n(d.back) + n(d.moved)} of ${d.wasOnline} devices that were on are back${n(d.moved) ? ` (${n(d.moved)} at a new address)` : ""}, ${n(d.missing) + n(d.sameName)} haven't returned, ${n(d.added)} ${n(d.added) === 1 ? "is" : "are"} new.</div>` +
+    part("Not back", d.missing, i => cutItem(i, i.lastSeen ? ` · last seen ${esc(fmtAgo(i.lastSeen))}` : ""), true) +
+    part("Probably the same device, new hardware address", d.sameName, p => `<div class="item"><b>${esc(p.was.name)}</b> ${esc(p.was.mac)} \u2192 ${esc(p.now.mac)} · now ${esc(p.now.ip)}</div>`, true) +
+    part("Back at a new address or network", d.moved, i => cutItem(i, ` · was ${esc(i.wasIp)}${i.wasNetwork && i.wasNetwork !== i.network ? " on " + esc(i.wasNetwork) : ""}`), true) +
+    part("New since the snapshot", d.added, i => cutItem(i), false) +
+    part("Back, unchanged", d.back, i => cutItem(i), false) +
+    (d.wasOffline ? `<div class="item">${d.wasOffline} more were already off when the snapshot was taken, so aren't expected back.</div>` : "") + `</div>`;
+}
+$("cutTake").onclick = async () => {
+  const d = await postChecks("/api/cutover", { name: $("cutName").value.trim() }, "Snapshot taken");
+  if (d) { $("cutName").value = ""; cutCache = d; renderCutover(); }
+};
+
+// -- the segmentation check
+function renderSeg() {
+  const s = segCache;
+  if (!s) return;
+  setToggleState($("setSeg"), s.enabled);
+  $("segBox").hidden = !s.enabled && !s.rules.length && !segDraft;
+  const f = s.findings;
+  $("setSegStatus").textContent = !s.enabled ? (s.rules.length ? `Off. ${s.rules.length} rule${s.rules.length === 1 ? "" : "s"} saved.` : "Off.") : !s.rules.length ? "On. Add a rule below." : f.length ? `On. ${f.length} device${f.length === 1 ? "" : "s"} break a rule.` : "On. Every device is where the rules say.";
+  $("setSegAlert").checked = !!s.alert;
+  const rules = segDraft || s.rules.map(r => ({ ...r, words: [...r.words] }));
+  const nets = s.networks;
+  $("segRules").innerHTML = rules.map((r, i) => `<div class="chk-row" data-i="${i}">
+    <input class="modal-input" data-f="label" value="${esc(r.label)}" placeholder="Name, like Cameras" aria-label="Rule name">
+    <input class="modal-input" data-f="words" value="${esc(r.words.join(", "))}" placeholder="words in the name, separated by commas" aria-label="Words">
+    <input class="modal-input" data-f="tag" value="${esc(r.tag)}" placeholder="or a tag" size="10" aria-label="Tag">
+    <select class="modal-input" data-f="where" aria-label="Belong on or never on"><option value="on"${r.where === "on" ? " selected" : ""}>belong on</option><option value="off"${r.where === "off" ? " selected" : ""}>never on</option></select>
+    <select class="modal-input" data-f="network" aria-label="Network">${[...new Set([...(r.network ? [r.network] : []), ...nets])].map(n => `<option${n === r.network ? " selected" : ""}>${esc(n)}</option>`).join("")}</select>
+    <button type="button" class="rm" data-rm="${i}" title="Remove this rule" aria-label="Remove ${esc(r.label)}">\u00d7</button></div>`).join("");
+  $("segRules").querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { segDraft = readSegRules(); segDraft.splice(+b.dataset.rm, 1); renderSeg(); });
+  $("segPreset").innerHTML = SEG_PRESETS.map(([name], i) => `<option value="${i}">${esc(name)}</option>`).join("");
+  $("segFindings").innerHTML = s.enabled && f.length ? `<div class="set-sub">Devices that break a rule</div>` + f.map(x => `<div class="chk-find" data-host="${x.hostId}" title="Show this device"><span><strong>${esc(x.name)}</strong> ${esc(x.ip)}</span><span class="why">on ${esc(x.network)}; ${esc(x.rule)} ${x.where === "on" ? "belong on " + esc(x.expected) : "should never be there"} (${esc(x.why)})</span></div>`).join("") : "";
+  $("segFindings").querySelectorAll("[data-host]").forEach(r => r.onclick = () => jumpToHost(+r.dataset.host));
+}
+function readSegRules() {
+  return [...$("segRules").querySelectorAll(".chk-row")].map((row, i) => {
+    const v = f => row.querySelector(`[data-f=${f}]`).value;
+    const old = (segDraft || (segCache && segCache.rules) || [])[i];
+    return { id: old ? old.id : "", label: v("label").trim(), words: v("words").split(",").map(w => w.trim()).filter(Boolean), tag: v("tag").trim(), type: old ? old.type || "" : "", where: v("where"), network: v("network") };
+  });
+}
+$("setSeg").onclick = async () => {
+  const on = !(segCache && segCache.enabled);
+  const d = await postChecks("/api/settings/segmentation", { enabled: on }, on ? "Checking where devices are" : "The segmentation check is off");
+  if (d) { segCache = d; renderSeg(); }
+};
+$("setSegAlert").onchange = async () => { const d = await postChecks("/api/settings/segmentation", { alert: $("setSegAlert").checked }, $("setSegAlert").checked ? "You'll hear about a device that newly breaks a rule" : "No alerts for rules"); if (d) { segCache = d; renderSeg(); } };
+$("segAdd").onclick = () => {
+  segDraft = readSegRules();
+  const [name, words] = SEG_PRESETS[+$("segPreset").value];
+  segDraft.push({ id: "", label: words.length ? name : "", words: [...words], tag: "", type: "", where: "on", network: (segCache.networks[0] || "") });
+  renderSeg();
+};
+$("segSave").onclick = async () => {
+  const d = await postChecks("/api/settings/segmentation", { rules: readSegRules() }, "Rules saved");
+  if (d) { segCache = d; segDraft = null; renderSeg(); }
+};
+
+// -- address pool pressure
+function renderPools() {
+  const p = poolCache;
+  if (!p) return;
+  setToggleState($("setPool"), p.enabled);
+  $("poolBox").hidden = !p.enabled && !p.manual.length;
+  const hot = p.pools.filter(x => x.percent >= p.percent).length;
+  $("setPoolStatus").textContent = !p.enabled ? "Off." : !p.pools.length ? (p.controller.error ? `On. The controller said: ${p.controller.error}` : "On. No pool yet: connect a UniFi controller above, or add one below.") : hot ? `On. ${hot} pool${hot === 1 ? " is" : "s are"} over ${p.percent}%.` : `On. ${p.pools.length} pool${p.pools.length === 1 ? "" : "s"}, none over ${p.percent}%.`;
+  $("setPoolAlert").checked = !!p.alert;
+  if (document.activeElement !== $("setPoolPercent")) $("setPoolPercent").value = p.percent;
+  $("poolUsage").innerHTML = p.pools.map(x => `<div class="chk-pool"><strong>${esc(x.name || x.network)}</strong> <span class="why">${esc(x.network)} · ${esc(x.start)} to ${esc(x.end)} · from ${x.source === "unifi" ? "your UniFi controller" : "you"}</span><div class="chk-bar ${x.percent >= 95 ? "full" : x.percent >= p.percent ? "warn" : ""}"><i style="width:${Math.min(100, x.percent)}%"></i></div><span class="why">${x.used} of ${x.size} addresses held · ${x.percent}%</span></div>`).join("");
+  const nets = (segCache && segCache.networks) || [];
+  const rows = poolDraft || p.manual.map(m => ({ ...m }));
+  $("poolManual").innerHTML = rows.length ? rows.map((r, i) => `<div class="chk-row" data-i="${i}">
+    <input class="modal-input" data-f="name" value="${esc(r.name)}" placeholder="Name" size="10" aria-label="Pool name">
+    <select class="modal-input" data-f="network" aria-label="Network">${[...new Set([...(r.network ? [r.network] : []), ...nets])].map(n => `<option${n === r.network ? " selected" : ""}>${esc(n)}</option>`).join("")}</select>
+    <input class="modal-input" data-f="start" value="${esc(r.start)}" placeholder="first address" size="14" aria-label="First address handed out">
+    <input class="modal-input" data-f="end" value="${esc(r.end)}" placeholder="last address" size="14" aria-label="Last address handed out">
+    <button type="button" class="rm" data-rm="${i}" title="Remove this pool" aria-label="Remove pool">\u00d7</button></div>`).join("") : `<div class="why">None. A UniFi controller's ranges are read by themselves.</div>`;
+  $("poolManual").querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { poolDraft = readPools(); poolDraft.splice(+b.dataset.rm, 1); renderPools(); });
+}
+function readPools() {
+  return [...$("poolManual").querySelectorAll(".chk-row")].map(row => { const v = f => row.querySelector(`[data-f=${f}]`).value.trim(); return { name: v("name"), network: v("network"), start: v("start"), end: v("end") }; });
+}
+async function postPools(body, ok) {
+  const d = await postChecks("/api/settings/pools", body, ok);
+  if (d) { poolCache = d; poolDraft = null; renderPools(); }
+  return d;
+}
+$("setPool").onclick = () => postPools({ enabled: !(poolCache && poolCache.enabled) }, poolCache && poolCache.enabled ? "Address pools are no longer watched" : "Watching address pools");
+$("setPoolAlert").onchange = () => postPools({ alert: $("setPoolAlert").checked }, $("setPoolAlert").checked ? "You'll hear when a pool is nearly full" : "No alerts for pools");
+$("setPoolPercent").onchange = () => postPools({ percent: +$("setPoolPercent").value }, "Saved");
+$("poolAdd").onclick = () => { poolDraft = readPools(); poolDraft.push({ name: "", network: (segCache && segCache.networks[0]) || "", start: "", end: "" }); renderPools(); };
+$("poolSave").onclick = () => postPools({ pools: readPools() }, "Pools saved");
