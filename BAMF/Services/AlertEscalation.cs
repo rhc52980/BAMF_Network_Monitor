@@ -58,7 +58,7 @@ public sealed class AlertEscalation : BackgroundService
     public static string? GroupOf(string kind) => kind switch
     {
         "security" or "port" or "cert" or "dhcp" or "dns" or "ra" => "security",
-        "rule" or "schedule" or "clock" or "backup" or "ddns" or "internet" => "status",
+        "rule" or "schedule" or "clock" or "backup" or "ddns" or "internet" or "pool" => "status",
         _ => null,
     };
 

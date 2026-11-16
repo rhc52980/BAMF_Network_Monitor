@@ -1165,6 +1165,53 @@
           <table class="set-table gear-table" id="gearWifiTable"></table>
         </div>
       </div>
+      <div class="set-card" id="checksCard">
+        <div class="set-card-title">Checks on your network</div>
+        <p class="modal-help">
+          Three checks on how your network is laid out. The snapshot is a button; the other two are off until you
+          switch them on, and an alert for each is a second switch, also off. They only look: none of them changes
+          anything on your network.
+        </p>
+        <div class="set-sub">Before you change your network</div>
+        <p class="modal-help">
+          About to swap the router or move to VLANs? Take a snapshot first. After the change, compare: which devices
+          came back, which came back at another address or network, which haven't, and which turned up that weren't
+          there. A device that has gone with a new one of the same name beside it is shown as very likely the same
+          device (a phone with a private Wi-Fi address on the new network is a new MAC). BAMF keeps the five newest.
+        </p>
+        <div class="set-field gear-add"><input class="modal-input" id="cutName" size="28" placeholder="Before the new gateway" autocomplete="off" aria-label="A name for the snapshot"> <button type="button" class="export-btn" id="cutTake">Take a snapshot</button></div>
+        <div class="gear-nets" id="cutList"></div>
+        <div id="cutResult"></div>
+
+        <label class="set-row">
+          <span class="set-label">Segmentation check
+            <span class="set-hint">Say which devices belong on which network, or never on one: cameras on the IoT network, smart plugs never on the main one. BAMF lists the devices that break a rule. A rule picks devices by a tag you gave them, by the device type you set, or by words in their name, vendor or BAMF's guess.</span>
+            <span class="set-hint" id="setSegStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setSeg" aria-label="Check segmentation" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <div id="segBox" hidden>
+          <label class="inline-check gear-kind"><input type="checkbox" id="setSegAlert"> Alert me when a device newly breaks a rule (as a security alert; what already breaks one is only listed)</label>
+          <div id="segRules"></div>
+          <div class="set-field gear-add"><select class="modal-input" id="segPreset" aria-label="Add a rule for"></select> <button type="button" class="toggle" id="segAdd">Add a rule</button> <button type="button" class="export-btn" id="segSave">Save rules</button></div>
+          <div id="segFindings"></div>
+        </div>
+
+        <label class="set-row">
+          <span class="set-label">Address pool pressure
+            <span class="set-hint">When a network runs out of addresses to hand out, the next device to join gets none, which looks like the Wi-Fi being broken. BAMF counts the devices it has seen in each pool's range over the last day and says how full it is. A UniFi controller gives the ranges; for any other router, enter the range from its DHCP settings.</span>
+            <span class="set-hint" id="setPoolStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setPool" aria-label="Watch address pools" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <div id="poolBox" hidden>
+          <label class="inline-check gear-kind"><input type="checkbox" id="setPoolAlert"> Alert me when a pool is more than <input class="modal-input" id="setPoolPercent" type="number" min="50" max="99" style="width:64px"> % used (once, and again after it has eased)</label>
+          <div id="poolUsage"></div>
+          <div class="set-sub">Pools you enter yourself</div>
+          <div id="poolManual"></div>
+          <div class="set-field gear-add"><button type="button" class="toggle" id="poolAdd">Add a pool</button> <button type="button" class="export-btn" id="poolSave">Save pools</button></div>
+        </div>
+      </div>
       <div class="set-card" id="typeIconCard">
         <div class="set-card-title">Map icons</div>
         <p class="modal-help">

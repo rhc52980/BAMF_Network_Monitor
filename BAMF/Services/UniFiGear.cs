@@ -75,7 +75,7 @@ public sealed class UniFiGear : IDisposable
                 await EnsureSession(s, ct);
                 var site = s.Site == "" ? "default" : Uri.EscapeDataString(s.Site);
                 var (st, devices) = await Get($"{s.Url}{_prefix}/api/s/{site}/stat/device", ct);
-                if (st is 401 or 403 && attempt == 0) { _http.Dispose(); _http = null; continue; }   // the session ran out: log in again, once
+                if (st is 401 or 403 && attempt == 0) { _http!.Dispose(); _http = null; continue; }   // the session ran out: log in again, once
                 var (st2, clients) = st == 200 ? await Get($"{s.Url}{_prefix}/api/s/{site}/stat/sta", ct) : (st, null);
                 if (st is 401 or 403 || st2 is 401 or 403)
                     throw new InvalidOperationException("The UniFi controller won't let that account read its devices. Give it the View Only role on the Network application.");
@@ -104,6 +104,25 @@ public sealed class UniFiGear : IDisposable
                 if (st is 404) return new();
                 if (st != 200) throw new InvalidOperationException($"The UniFi controller answered HTTP {st} when asked for its alarms.");
                 return ParseThreats(body);
+            }
+        }
+        catch (Exception) { _http?.Dispose(); _http = null; throw; }
+    }
+
+    /// <summary>The address ranges the controller's networks hand out (DHCP), for the address pool check.</summary>
+    public async Task<List<PoolWatch.Pool>> ReadNetworks(Settings s, CancellationToken ct)
+    {
+        try
+        {
+            for (var attempt = 0; ; attempt++)
+            {
+                await EnsureSession(s, ct);
+                var site = s.Site == "" ? "default" : Uri.EscapeDataString(s.Site);
+                var (st, body) = await Get($"{s.Url}{_prefix}/api/s/{site}/rest/networkconf", ct);
+                if (st is 401 or 403 && attempt == 0) { _http!.Dispose(); _http = null; continue; }
+                if (st is 401 or 403) throw new InvalidOperationException("The UniFi controller won't let that account read its networks. Give it the View Only role on the Network application.");
+                if (st != 200) throw new InvalidOperationException($"The UniFi controller answered HTTP {st} when asked for its networks.");
+                return PoolWatch.ParseNetworks(body);
             }
         }
         catch (Exception) { _http?.Dispose(); _http = null; throw; }

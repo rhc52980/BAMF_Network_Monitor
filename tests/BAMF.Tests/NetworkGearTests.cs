@@ -738,7 +738,7 @@ public class NetworkGearTests
         var d = await Gear(http);
         var s = d.GetProperty("vlans").GetProperty("suggestions").EnumerateArray().Single();
         Assert.Equal((Guest, 3), (s.GetProperty("network").GetString(), s.GetProperty("devices").GetInt32()));
-        Assert.Empty(store.GetAll().Where(h => h.Subnet == Guest));                // suggesting adds nothing
+        Assert.DoesNotContain(store.GetAll(), h => h.Subnet == Guest);             // suggesting adds nothing
     }
 
     [Fact]

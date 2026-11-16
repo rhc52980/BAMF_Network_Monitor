@@ -227,7 +227,7 @@ public sealed partial class NetworkGear : BackgroundService
             }
             if (wifi && snap is not null) ApplyWifi(snap, hosts);
             if (health) ApplyHealth(snap, snmpReads.Values.ToList(), hosts, read, now);
-            if (gateway) await GatewayPass(snap, snmpConfigs, vlans, threatsOn, wanOn, force, ct);
+            if (gateway) await GatewayPass(snap, snmpConfigs, vlans, threatsOn, wanOn, ct);
             return true;
         }
         finally { _busy.Release(); }
