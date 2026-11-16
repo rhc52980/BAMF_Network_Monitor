@@ -2,6 +2,16 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.31.0",
+      "date": "2026-11-15",
+      "items": [
+        "Network gear, in Settings under Your network: your own switches, access points and router can draw the Map for you, show how well each Wi-Fi device hears its access point (signal, speed, channel, and when it moves), and report their own health (firmware, uptime and restarts, PoE, slow ports). It reads from a UniFi controller, or from any managed switch over SNMP. Each of the three is off until you switch it on, and anything you recorded by hand is never replaced.",
+        "Devices on VLANs and guest networks BAMF can't scan from where it runs: add the network and BAMF asks your gateway (a UniFi controller, an OPNsense firewall, or any router that answers SNMP) which devices it holds there. They get a tab of their own and are online while the gateway lists them. Off until you add a network, and switching it off hides the devices rather than deleting them.",
+        "Gateway events: an internet connection going down, coming back or failing over to a backup, and what the gateway's intrusion detection blocked, as alerts through your usual destinations, quiet hours and digest. Each kind is off until you tick it, and threats arrive as at most one alert every ten minutes.",
+        "These were written from the makers' documentation and tried against stand-ins, not real gear. If a controller or switch says something BAMF reads differently, the Network services card shows what went wrong and keeps what it drew before."
+      ]
+    },
+    {
       "version": "2.30.0",
       "date": "2026-11-15",
       "items": [
