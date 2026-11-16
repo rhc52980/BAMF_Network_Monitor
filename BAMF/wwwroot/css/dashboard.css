@@ -1013,6 +1013,22 @@
   .set-net-rm { font: inherit; font-size: 15px; line-height: 1; cursor: pointer; color: var(--text-dim); background: none;
     border: 1px solid transparent; border-radius: 6px; padding: 2px 7px; }
   .set-net-rm:hover { color: var(--danger); border-color: var(--line); }
+  .set-sub { font-size: 12px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; margin: 16px 0 6px; }
+  .gear-sources { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 4px; font-size: 12px; }
+  .gear-src { display: flex; gap: 8px; align-items: baseline; }
+  .gear-src .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); flex: none; align-self: center; }
+  .gear-src.ok .dot { background: var(--led-on); }
+  .gear-src.error .dot { background: var(--danger); }
+  .gear-src.waiting .dot { background: var(--warn, #d9a441); }
+  .gear-src .why { color: var(--text-dim); }
+  .gear-table td, .gear-table th { vertical-align: top; text-align: left; padding: 6px 14px 6px 0; }
+  .gear-table th { font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: .03em; }
+  .gear-table a { color: var(--text); text-decoration: underline dotted; text-underline-offset: 3px; }
+  .gear-table .issue { display: block; font-size: 12px; color: var(--text-dim); }
+  .gear-table .issue.warn { color: var(--warn, #d9a441); }
+  .gear-table .sig.weak, .gear-table .sig.fair { color: var(--warn, #d9a441); }
+  .gear-table .sig.excellent, .gear-table .sig.good { color: var(--led-on); }
+  .wifi-line.weak b, .wifi-line.fair b { color: var(--warn, #d9a441); }
   .set-net-edit { font: inherit; font-size: 13px; line-height: 1; cursor: pointer; color: var(--text-dim); background: none;
     border: 1px solid transparent; border-radius: 6px; padding: 3px 7px; }
   .set-net-edit:hover { color: var(--text); border-color: var(--line); }

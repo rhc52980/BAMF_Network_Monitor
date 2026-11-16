@@ -2040,6 +2040,9 @@ scan, or delete a thing.
 | POST | `/api/switches` | Body `{"kind": "switch", "name": "Office SG108E", "ports": 8, "subnet": "192.168.1.0/24", "hostId": 0, "uplink": "switch", "uplinkSwitch": 1, "uplinkPort": 16}` — add a switch, router or access point to the recorded layout. `kind` is `switch` (the default), `router`, `ap`, `virtual`, `ssid` or `vpn`; a virtual switch takes `runsOn` (the id of the machine it runs on) instead of a device, uplink or port count, and a wireless SSID takes `runsOn` as the id of its access point (a switch record of kind `ap`), with an optional `subnet` for its own network. Devices on a virtual switch, SSID or VPN are recorded with port 0. `uplink` is `""` (not recorded), `"router"` or `"switch"`. With a `hostId`, the network comes from that device. Returns the switch, or 400 with `{"error": "…"}` |
 | POST | `/api/switches/{id}` | Same body — update a switch. Refuses loops and ports that would strand recorded devices |
 | DELETE | `/api/switches/{id}` | Delete a switch. Devices recorded on it go back to unrecorded; switches plugged into it lose that uplink |
+| GET | `/api/gear` | Network gear: `features` (`map`, `wifi`, `health`), `unifi` (`configured`, `fromRouterImport`, `url`, `user`, `hasSecret`, `site`, `verify`; never the password), `sources` (what each last said), `drawn`, `gear` (each piece with `issues`), `wifi` (each Wi-Fi device, weakest first) |
+| POST | `/api/settings/gear` | Body, any of `{"map": true, "wifi": true, "health": true, "unifiUrl": "https://192.168.1.1", "unifiUser": "…", "unifiSecret": "…", "unifiSite": "", "unifiVerify": false}`. Switching one on reads at once; switching it off takes back what it made. An empty `unifiUrl` forgets the controller and what it gave |
+| POST | `/api/gear/run` | Read now; 409 with no feature on or a read already running, 429 within ten seconds of the last |
 | GET | `/api/switches/snmp` | Each switch and router's traffic counters: `enabled`, `address`, `hasCommunity`, `lastPoll`, `error`, `portsRead`, `mapping`, `counted`, and `ports` — every port's number, the switch's `name` for it, the `device` it counts or a `note` saying why not |
 | POST | `/api/switches/{id}/snmp` | Body `{"enabled": true, "address": "192.168.1.2", "community": "…"}` — switch a switch's counters on or off. `address` blank uses its linked device's; `community` null or blank keeps the saved one. Reads the switch straight away and returns its status as above |
 | POST | `/api/switches/{id}/ports` | Body `{"ports": [{"hostId": 3, "port": 1}, {"hostId": 4, "port": 2}], "labels": [{"port": 1, "label": "Living Room"}]}` — set everything on one switch at once. Hosts listed are placed on it (moving off any other switch; `port` 0 = not recorded), and hosts on it that aren't listed come off it. `labels`, when given, replaces the ports' locations (up to 40 characters; blank clears one); leave it out to keep them. Each switch in `GET /api/hosts` carries them as `portLabels` |
@@ -2399,6 +2402,11 @@ the same facts as `networkPlaces`: per network, this machine's `selfIp` and
 in `gateways`.
 
 ### Switches and cabling, as you record them
+
+If your gear is a UniFi controller's, or a managed switch, BAMF can draw all of this
+itself: see [Network gear](#network-gear-the-map-wi-fi-quality-and-health-from-the-gear-itself),
+off until you switch it on. What follows is for everything else, and for anything you
+would rather say yourself.
 
 What BAMF can't discover, you can tell it. Add your switches, and your router
 and access points, under **Settings → Your network → Switches and routers**, or with
@@ -4268,6 +4276,99 @@ in `POST /api/settings/dhcp-probe`, and is on unless you switch it off.
 
 **Ask now** in Settings runs it at once, at most once in ten seconds.
 `GET /api/dhcp-probe` has the last result and the schedule.
+
+### Network gear: the Map, Wi-Fi quality and health from the gear itself
+
+Your switches, access points and router know things BAMF can't see from outside:
+which port or Wi-Fi network each device is on, how well each Wi-Fi device hears its
+access point, and how the gear itself is doing. Under **Settings → Your network →
+Network gear** there are three switches, **each off until you switch it on**, so a
+network with nothing special on it is unchanged:
+
+- **Draw the Map for me.** Adds your switches, access points and router to the Map,
+  how they're cabled (what each is plugged into, and which port of the switch above
+  it), a **wireless SSID** under each access point for every Wi-Fi network it
+  broadcasts, and puts each device on the port or the SSID it's on. Wired devices get
+  their port, so Find port, the switch dialog and the traffic counters work with no
+  recording. The Map's tooltip says where a placement came from.
+- **Wi-Fi quality.** Each Wi-Fi device's signal in dBm, in words (excellent from
+  -55, good from -67, fair from -75, weak below), its speed in each direction, its
+  band and channel, the access point and SSID it's on, the controller's own
+  "experience" score, and when it moved from one access point to another. It's on
+  the device's row, and **Settings** lists the weakest first. A reading is marked
+  *as of* when the controller hasn't listed the device for fifteen minutes, which is
+  what a device that has gone to sleep looks like.
+- **Gear health.** For each piece of gear: whether the controller says it's up, its
+  firmware and whether a newer one is out, how long it has been up and how many
+  restarts BAMF has seen (an uptime that went down), CPU and memory, temperature, PoE
+  drawn against the budget, and ports linked at 10 or 100 Mbps on a switch whose other
+  ports run at a gigabit. Things that need a look are marked (a restart in the last
+  day, a PoE budget nearly spent, a device the controller says is offline); the rest
+  are for information. **It sends no alerts**: it's a list. A switch or access point
+  that goes offline is already an alert like any other device's.
+
+**Where it reads from.** Two kinds of source, and a feature uses whichever can give it:
+
+- **A UniFi controller**: a Cloud Gateway, Dream Machine, Cloud Key or a classic
+  controller. It gives all three. Give BAMF its address (the console's own, such as
+  `https://192.168.1.1`) and a **local** account: in UniFi, Admins & Users, make one
+  with the **View Only** role on the Network application, since BAMF only reads. If
+  you've already set `Bamf:RouterImport` to `unifi` in appsettings.json, that login is
+  used until you save another here. A console on a home network has a certificate it
+  signed itself, so BAMF accepts it unless you tick **check its certificate**. The
+  password is kept like a webhook's: never shown again, not in the settings export.
+  **Forget** removes it, and takes back what the controller drew and read.
+- **Any managed switch**, of any make, over SNMP: the ones you've switched
+  **Counters** on for under [Traffic from your switches](#traffic-from-your-switches).
+  BAMF reads the standard tables every managed switch has (the bridge table of which
+  MAC address it has learned on which port, uptime, PoE and port speeds), so **Draw the
+  Map** puts devices on its ports and **Gear health** reports it, whether it's a
+  Cisco, an Aruba, a MikroTik, a Netgear or a UniFi switch. The switch must already be
+  recorded under Switches and routers, with its device linked. Reading it every two
+  minutes adds a few more requests to the minute's counter read; it still only ever reads.
+
+Wi-Fi quality, and drawing the access points and the SSIDs, need a controller for now:
+there is no standard way to ask an access point how well it hears a device. Other makes
+of controller can be added as readers of their own without changing any of this.
+
+**What it won't do to what you've recorded.**
+
+- A **switch you recorded for a device** is left exactly as you made it. BAMF uses it
+  (and plugs the gear it reports into it), and doesn't draw a second one.
+- A **device you placed yourself** stays where you put it, whatever the gear says.
+- What BAMF draws is marked as drawn by it. **Edit a drawn switch** and it becomes
+  yours. A placement made by hand does the same. Switching **Draw the Map** off, or
+  **Forget**, takes back everything BAMF drew, **except** what you've built on it: a
+  switch with a device you placed on it, or another switch you plugged into it, stays,
+  as yours.
+- **Delete a drawn switch, access point or SSID** you don't want to see and it isn't
+  drawn again, although the controller still lists it. Switching **Draw the Map** off and
+  on again starts afresh.
+- A wireless network is put on the network most of its devices are on, so a guest SSID
+  lands on the guest network.
+- Gear the controller stops listing comes off the Map, and the devices on it go
+  unplaced. A controller that can't be read leaves what was drawn as it was, and says
+  why in **Network services**.
+- Where a controller and a switch both place a device, the controller wins, since it
+  also knows the Wi-Fi.
+- A port that has learned another switch's or an access point's own address leads on
+  to that gear, so BAMF places nothing on it from the table alone; and a device is put
+  on the port that has learned the fewest other addresses, which is the one it's
+  really plugged into rather than the ones that lead on. If two ports tie, it's left
+  alone rather than guessed.
+
+**It was written from UniFi's and the standard SNMP tables' documentation, and tried
+against stand-ins, not against every make of gear.** If a controller or a switch says
+something BAMF reads differently, the **Network services** card shows the error, and
+what it drew before stays. If you hit one, an issue with what it said helps.
+
+The API is `GET /api/gear` (the switches, the sources and what each last said, what has
+been drawn, the gear and its issues, and the Wi-Fi devices), `POST /api/settings/gear`
+(any of `map`, `wifi`, `health`, and `unifiUrl`, `unifiUser`, `unifiSecret`,
+`unifiSite`, `unifiVerify`; an empty `unifiUrl` forgets the controller) and
+`POST /api/gear/run` (read now; 409 with nothing switched on, 429 within ten seconds of
+the last). `GET /api/hosts` gives each device `switchAuto` (`unifi`, `snmp` or empty
+for one you recorded) and `wifi` when there's a reading.
 
 ### Traffic from your switches
 

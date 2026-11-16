@@ -80,9 +80,11 @@ internal static class ApiHelpers
         };
     }
 
-    internal static object SwitchJson(SwitchRecord s, Dictionary<long, Dictionary<int, string>> labels) => new
+    internal static object SwitchJson(SwitchRecord s, Dictionary<long, Dictionary<int, string>> labels, string? auto = null) => new
     {
         id = s.Id, name = s.Name, kind = s.Kind, ports = s.Ports, subnet = s.Subnet, hostId = s.HostId,
+        // Which source drew it on its own (Network gear in Settings), or "" when you recorded it.
+        auto = auto ?? "",
         uplink = s.Uplink, uplinkSwitch = s.UplinkSwitch, uplinkPort = s.UplinkPort,
         // For a virtual switch: the device it runs inside.
         runsOn = s.RunsOn,
@@ -93,7 +95,8 @@ internal static class ApiHelpers
     internal static List<object> SwitchesJson(HostStore store)
     {
         var labels = store.GetPortLabels();
-        return store.GetSwitches().Select(s => SwitchJson(s, labels)).ToList();
+        var auto = store.GetAutoSwitchSources();
+        return store.GetSwitches().Select(s => SwitchJson(s, labels, auto.GetValueOrDefault(s.Id))).ToList();
     }
 
     // The destinations besides the main webhook, each URL masked like the main one's.

@@ -185,7 +185,8 @@ function mapTitle(h, role) {
   if (h.vendor) lines.push(h.vendor);
   lines.push(h.typeName ? "Type: " + h.typeName + " (yours)" : h.osGuess ? "Guess: " + h.osGuess : "No guess yet");
   const sw = h.switchId ? switches.find(s => s.id === h.switchId) : null;
-  if (sw) lines.push(`Plugged into ${sw.name}` + (h.switchPort ? `, ${portText(sw, h.switchPort)}` : "") + " (your record)");
+  if (sw) lines.push(`Plugged into ${sw.name}` + (h.switchPort ? `, ${portText(sw, h.switchPort)}` : "") + (h.switchAuto ? ` (from ${h.switchAuto === "unifi" ? "your UniFi controller" : "the switch's own table"})` : " (your record)"));
+  if (h.wifi && h.wifi.signal != null) lines.push(`Wi-Fi ${h.wifi.signal} dBm (${h.wifi.quality}) on ${h.wifi.ap}`);
   if (role === "gw" || gwNetsOf(h).length) {
     const nets = gwNetsOf(h);
     lines.push(nets.length ? `Gateway of ${nets.join(", ")} (you declared it)` : "Default gateway for this network (from BAMF's routing table)");

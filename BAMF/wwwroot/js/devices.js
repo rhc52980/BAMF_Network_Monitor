@@ -1044,6 +1044,17 @@ function render() {
           (h.uptime30 != null ? `<b>${h.uptime30}%</b> over 30 days` : "") +
           (h.uptime30 != null && h.uptime30 < 100 ? ` <span title="Time offline over the last 30 days">(down ${(100 - h.uptime30).toFixed(1)}% of the month)</span>` : "") + `</div>`;
       }
+      // How well it hears its access point, when Wi-Fi quality is on.
+      if (h.wifi) {
+        const w = h.wifi, stale = Date.now() - new Date(w.updatedAt).getTime() > 15 * 60 * 1000;
+        inner += `<div class="lat-sum wifi-line ${esc(w.quality)}">Wi-Fi: ` +
+          (w.signal != null ? `<b>${w.signal} dBm</b> (${esc(w.quality)})` : "no signal reading") +
+          ` · ${esc(w.ap)}${w.ssid ? " · " + esc(w.ssid) : ""}${w.band ? " · " + esc(w.band) : ""}${w.channel ? " ch " + w.channel : ""}` +
+          (w.tx != null ? ` · ↓${w.tx}${w.rx != null ? " ↑" + w.rx : ""} Mbps` : "") +
+          (w.satisfaction != null ? ` · experience ${w.satisfaction}%` : "") +
+          (w.movedFrom ? ` · moved from ${esc(w.movedFrom)} ${esc(fmtAgo(w.movedAt))}` : "") +
+          (stale ? ` <span title="The controller hasn't listed it for a while">(as of ${esc(fmtAgo(w.updatedAt))})</span>` : "") + `</div>`;
+      }
       inner += buildPresence(presenceCache[h.id]);
       if ((h.ipv6 || []).length)
         inner += `<div class="lat-sum">IPv6: ${h.ipv6.map(a => `<span class="mono">${esc(a)}</span>`).join(" · ")}</div>`;

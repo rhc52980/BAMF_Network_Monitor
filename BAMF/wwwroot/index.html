@@ -1087,6 +1087,59 @@
           <span class="note">Switches, ports, SSIDs, gateways, network cards, names, notes, tags and Map positions, keyed by MAC, so the file works on another server.</span>
         </div>
       </div>
+      <div class="set-card" id="gearCard">
+        <div class="set-card-title">Network gear</div>
+        <p class="modal-help">
+          What your own switches, access points and router can tell BAMF, so you don't have to record it. Three
+          things, each switched on separately and all off until you do. BAMF only reads: it never changes anything
+          on your gear, and a view-only account is enough. Switch one off and what it made goes away; anything you
+          recorded by hand is never replaced.
+        </p>
+        <label class="set-row">
+          <span class="set-label">Draw the Map for me
+            <span class="set-hint">Adds your switches, access points and router to the Map, how they're cabled, and puts each device on the port or the Wi-Fi network it's on. Something you've already recorded stays exactly as you recorded it, and a device you've placed yourself stays where you put it.</span>
+            <span class="set-hint" id="setGearMapStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setGearMap" aria-label="Draw the Map from my gear" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Wi-Fi quality
+            <span class="set-hint">How well each Wi-Fi device hears its access point: signal, speed and channel, and when it moves to another access point. Shown on the device, and the weakest are listed below. Needs a UniFi controller.</span>
+            <span class="set-hint" id="setGearWifiStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setGearWifi" aria-label="Read Wi-Fi quality" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Gear health
+            <span class="set-hint">Each switch, access point and router: whether it's up, its firmware and whether a newer one is out, how long it has been up and any restarts, how much PoE it's using, and ports linked slower than the rest. Listed below; it sends no alerts.</span>
+            <span class="set-hint" id="setGearHealthStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setGearHealth" aria-label="Watch the health of my gear" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <div class="set-sub">Where it reads from</div>
+        <p class="modal-help">
+          <strong>A UniFi controller</strong> (a Cloud Gateway, Dream Machine, Cloud Key or classic controller) gives all three.
+          <strong>Any managed switch</strong>, whatever its make, can place devices on its ports and report its health over SNMP:
+          switch on its <strong>Counters</strong> under Switches and routers above, and BAMF reads its table too. Wi-Fi
+          quality, and drawing the access points, come from a controller for now.
+        </p>
+        <label class="set-row set-stack">
+          <span class="set-label">UniFi controller
+            <span class="set-hint" id="setGearUnifiNote"></span>
+            <span class="set-hint">The console's own address, such as <code>https://192.168.1.1</code>, and a <em>local</em> account for it: in UniFi, Admins &amp; Users, make one with the <em>View Only</em> role for the Network application. The password is kept like a webhook's: never shown again, and not in the settings export.</span>
+          </span>
+          <span class="set-field"><input class="modal-input" id="setGearUnifiUrl" size="26" placeholder="https://192.168.1.1" autocomplete="off" spellcheck="false" aria-label="Address of the UniFi controller"> <input class="modal-input" id="setGearUnifiUser" size="14" placeholder="user name" autocomplete="off" spellcheck="false" aria-label="User name"> <input class="modal-input" id="setGearUnifiSecret" type="password" size="16" autocomplete="new-password" aria-label="Password"> <input class="modal-input" id="setGearUnifiSite" size="10" placeholder="site: default" autocomplete="off" spellcheck="false" aria-label="Site (leave empty unless you have several)"> <label class="inline-check"><input type="checkbox" id="setGearUnifiVerify"> check its certificate</label> <button type="button" class="export-btn" id="setGearUnifiSave">Save</button> <button type="button" class="toggle" id="setGearRun">Read now</button> <button type="button" class="toggle" id="setGearUnifiForget">Forget</button></span>
+        </label>
+        <div class="gear-sources" id="gearSources"></div>
+        <div id="gearHealthBox" hidden>
+          <div class="set-sub">Your gear</div>
+          <table class="set-table gear-table" id="gearTable"></table>
+        </div>
+        <div id="gearWifiBox" hidden>
+          <div class="set-sub">Wi-Fi devices, weakest signal first</div>
+          <table class="set-table gear-table" id="gearWifiTable"></table>
+        </div>
+      </div>
       <div class="set-card" id="typeIconCard">
         <div class="set-card-title">Map icons</div>
         <p class="modal-help">

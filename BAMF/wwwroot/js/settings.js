@@ -1686,6 +1686,7 @@ async function loadSettings() {
   loadDdns();
   loadEscalation();
   loadDnsFilter();
+  loadGear();
   if (typeof e.takeoverAlert === "boolean") takeoverAlert = e.takeoverAlert;
   if (typeof e.dnsWatch === "boolean") dnsWatch = e.dnsWatch;
   if (typeof e.wanQuality === "boolean") wanQualityAlert = e.wanQuality;
@@ -2784,4 +2785,88 @@ $("setDnsFilterRun").onclick = () => postDnsFilter("/api/dns-filter/run", null, 
 $("setDnsFilterForget").onclick = async () => {
   if (!confirm("Forget the address and the password? Reading is switched off too.")) return;
   if (await postDnsFilter("/api/settings/dns-filter", { url: "", secret: "", user: "", enabled: false }, "", "Forgotten")) $("setDnsFilterSecret").value = "";
+};
+
+// ---- Settings → Your network → Network gear ----
+// Three features, each its own switch and all off by default: draw the Map from the gear, Wi-Fi quality, gear health.
+let gearCache = null;
+async function loadGear() {
+  try { const r = await fetch("/api/gear"); if (r.ok) gearCache = await r.json(); } catch { /* keep what it had */ }
+  renderGear();
+}
+function fmtUptime(sec) {
+  if (!sec || sec < 0) return "";
+  const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
+  return d ? `${d} d ${h} h` : h ? `${h} h ${m} min` : `${m} min`;
+}
+const gearKindName = k => k === "ap" ? "Access point" : k === "router" ? "Router" : "Switch";
+function renderGear() {
+  const g = gearCache;
+  if (!g || !$("gearCard")) return;
+  const f = g.features;
+  setToggleState($("setGearMap"), f.map); setToggleState($("setGearWifi"), f.wifi); setToggleState($("setGearHealth"), f.health);
+  const n = (x, one, many) => `${x} ${x === 1 ? one : many || one + "s"}`;
+  const noSource = !g.unifi.configured && !g.snmpSwitches;
+  const wait = on => on && noSource ? " No source yet: add your UniFi controller below." : "";
+  $("setGearMapStatus").textContent = f.map ? `On.${g.drawn.gear || g.drawn.placements ? ` BAMF has drawn ${n(g.drawn.gear, "piece of gear", "pieces of gear")} and placed ${n(g.drawn.placements, "device")}.` : ""}${wait(true)}` : "Off.";
+  const weak = g.wifi.filter(w => w.weak).length;
+  $("setGearWifiStatus").textContent = f.wifi ? `On.${g.wifi.length ? ` ${n(g.wifi.length, "Wi-Fi device")}, ${weak} weak.` : ""}${g.unifi.configured ? "" : " This needs a UniFi controller: add it below."}` : "Off.";
+  const attention = g.gear.filter(x => x.attention).length;
+  $("setGearHealthStatus").textContent = f.health ? `On.${g.gear.length ? ` ${n(g.gear.length, "piece of gear", "pieces of gear")}, ${attention ? attention + " needing a look" : "nothing urgent"}.` : ""}${wait(true)}` : "Off.";
+
+  const u = g.unifi;
+  $("setGearUnifiNote").textContent = u.fromRouterImport ? `Using the UniFi login from Router import (${u.url}). Saving one here uses that instead.` : u.configured ? `Saved: ${u.url}.` : "Not set up.";
+  for (const [id, v] of [["setGearUnifiUrl", u.fromRouterImport ? "" : u.url], ["setGearUnifiUser", u.fromRouterImport ? "" : u.user], ["setGearUnifiSite", u.fromRouterImport ? "" : u.site]])
+    if (document.activeElement !== $(id)) $(id).value = v || "";
+  $("setGearUnifiSecret").placeholder = u.hasSecret && !u.fromRouterImport ? "saved (type to replace)" : "password";
+  $("setGearUnifiVerify").checked = !!u.verify && !u.fromRouterImport;
+  $("setGearUnifiForget").hidden = !u.configured || u.fromRouterImport;
+  $("setGearRun").hidden = !(f.map || f.wifi || f.health);
+
+  // What each source last said.
+  $("gearSources").innerHTML = g.sources.map(s => `<div class="gear-src ${esc(s.state)}"><span class="dot"></span><span><strong>${esc(s.name)}</strong> <span class="why">${esc(s.detail)}${s.at ? " · " + esc(fmtAgo(s.at)) : ""}</span></span></div>`).join("");
+
+  // The gear itself.
+  $("gearHealthBox").hidden = !f.health || !g.gear.length;
+  $("gearTable").innerHTML = g.gear.length ? `<tr><th>Name</th><th>Firmware</th><th>Up for</th><th>PoE</th><th></th></tr>` + [...g.gear].sort((a, b) => b.attention - a.attention || a.name.localeCompare(b.name)).map(x => {
+    const name = x.hostId ? `<a href="#" class="gear-open" data-id="${x.hostId}">${esc(x.name)}</a>` : esc(x.name);
+    return `<tr><td>${name}<span class="issue">${esc(gearKindName(x.kind))}${x.model ? " · " + esc(x.model) : ""}${x.ip ? " · " + esc(x.ip) : ""}</span></td>` +
+      `<td>${esc(x.version || "—")}</td><td>${esc(fmtUptime(x.uptimeSeconds) || "—")}${x.reboots ? `<span class="issue">${x.reboots} restart${x.reboots === 1 ? "" : "s"} seen</span>` : ""}</td>` +
+      `<td>${x.poe != null ? `${x.poe} W${x.poeBudget ? " of " + x.poeBudget : ""}` : "—"}</td>` +
+      `<td>${x.issues.map(i => `<span class="issue ${esc(i.level)}">${esc(i.text)}</span>`).join("") || '<span class="issue">All good.</span>'}</td></tr>`;
+  }).join("") : "";
+  $("gearTable").querySelectorAll(".gear-open").forEach(a => a.onclick = ev => { ev.preventDefault(); if (typeof jumpToHost === "function") jumpToHost(+a.dataset.id); });
+
+  // The Wi-Fi devices, weakest first.
+  $("gearWifiBox").hidden = !f.wifi || !g.wifi.length;
+  $("gearWifiTable").innerHTML = g.wifi.length ? `<tr><th>Device</th><th>Signal</th><th>Connected to</th><th>Speed</th></tr>` + g.wifi.slice(0, 25).map(w =>
+    `<tr><td>${esc(w.name)}</td><td class="sig ${esc(w.quality)}">${w.signal != null ? w.signal + " dBm · " + esc(w.quality) : "—"}</td>` +
+    `<td>${esc(w.ap)}${w.ssid ? " · " + esc(w.ssid) : ""}${w.band ? " · " + esc(w.band) : ""}${w.channel ? " ch " + w.channel : ""}</td>` +
+    `<td>${w.tx != null ? `↓${w.tx}${w.rx != null ? " ↑" + w.rx : ""} Mbps` : "—"}</td></tr>`).join("") +
+    (g.wifi.length > 25 ? `<tr><td colspan="4" class="issue">…and ${g.wifi.length - 25} more, each shown on its device.</td></tr>` : "") : "";
+}
+async function postGear(path, body, busy, ok) {
+  if (busy) $("setGearMapStatus").textContent = busy;
+  try {
+    const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || "Couldn't do that"); renderGear(); return false; }
+    gearCache = d; renderGear(); if (typeof refresh === "function") refresh();
+    if (ok) toast(ok);
+    return true;
+  } catch (e) { console.error(e); toast("Couldn't do that - see the server log"); renderGear(); return false; }
+}
+$("setGearMap").onclick = () => { const on = !(gearCache && gearCache.features.map); postGear("/api/settings/gear", { map: on }, on ? "Reading\u2026" : "", on ? "Drawing the Map from your gear" : "What it drew is gone; what you recorded stays"); };
+$("setGearWifi").onclick = () => { const on = !(gearCache && gearCache.features.wifi); postGear("/api/settings/gear", { wifi: on }, on ? "Reading\u2026" : "", on ? "Reading Wi-Fi quality" : "Wi-Fi readings forgotten"); };
+$("setGearHealth").onclick = () => { const on = !(gearCache && gearCache.features.health); postGear("/api/settings/gear", { health: on }, on ? "Reading\u2026" : "", on ? "Watching the health of your gear" : "Gear health forgotten"); };
+$("setGearUnifiSave").onclick = async () => {
+  const body = { unifiUrl: $("setGearUnifiUrl").value.trim(), unifiUser: $("setGearUnifiUser").value.trim(), unifiSite: $("setGearUnifiSite").value.trim(), unifiVerify: $("setGearUnifiVerify").checked };
+  if ($("setGearUnifiSecret").value !== "") body.unifiSecret = $("setGearUnifiSecret").value;
+  if (!body.unifiUrl) { toast("Type the controller's address first"); return; }
+  if (await postGear("/api/settings/gear", body, "Saving\u2026", "Saved")) { $("setGearUnifiSecret").value = ""; if (gearCache.features.map || gearCache.features.wifi || gearCache.features.health) postGear("/api/gear/run", null, "Reading\u2026"); }
+};
+$("setGearRun").onclick = () => postGear("/api/gear/run", null, "Reading\u2026", "Read");
+$("setGearUnifiForget").onclick = async () => {
+  if (!confirm("Forget the controller's address and password? What it drew on the Map, and its Wi-Fi and health readings, go with it. Anything you recorded yourself stays.")) return;
+  if (await postGear("/api/settings/gear", { unifiUrl: "", unifiUser: "", unifiSecret: "", unifiSite: "", unifiVerify: false }, "", "Forgotten")) $("setGearUnifiSecret").value = "";
 };
