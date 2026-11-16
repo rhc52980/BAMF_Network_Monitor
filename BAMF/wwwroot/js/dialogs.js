@@ -1379,6 +1379,7 @@ function renderSwitchList() {
         : `${kindNoun(sw.kind)[0].toUpperCase() + kindNoun(sw.kind).slice(1)}, ${sw.ports} ports`,
       sw.subnet || "no network", innerKind(sw.kind) ? null : host ? host.ip : "no address BAMF sees",
       uplinkText(sw),
+      sw.auto ? `drawn from your ${sw.auto === "unifi" ? "UniFi controller" : "switch"} (edit it to make it yours)` : null,
       sw.kind === "ap" ? (ssids.length ? `SSIDs: ${ssids.map(x => x.name).join(", ")}` : "no SSIDs yet")
         : `${n} ${sw.kind === "virtual" ? "VM" : sw.kind === "vpn" ? "client" : "device"}${n === 1 ? "" : "s"} recorded`,
     ].filter(Boolean).join(" · ");

@@ -52,6 +52,8 @@ internal static class DeviceEndpoints
             var ipv6 = store.GetIpv6(DateTime.UtcNow.AddDays(-7));
             var snoozes = store.GetSnoozes();
             var offHours = store.GetOffHours();
+            var wifi = store.GetWifi();
+            var autoPlaced = store.GetAutoPlacementSources();
             var hosts = store.GetAll().Select(h => new
             {
                 id = h.Id,
@@ -82,6 +84,15 @@ internal static class DeviceEndpoints
                 // Which switch port the user recorded this device on; 0 = not recorded.
                 switchId = placements.TryGetValue(h.Id, out var pl) ? pl.SwitchId : 0,
                 switchPort = placements.TryGetValue(h.Id, out var pp) ? pp.Port : 0,
+                // "unifi" or "snmp" when BAMF placed it from the gear itself (Network gear in Settings); "" when you recorded it.
+                switchAuto = autoPlaced.TryGetValue(h.Id, out var ap) ? ap : "",
+                // How well it hears its access point, when the Wi-Fi feature is on and the controller reported it.
+                wifi = wifi.TryGetValue(h.Id, out var wl) ? new
+                {
+                    ap = wl.ApName, ssid = wl.Ssid, band = wl.Band, channel = wl.Channel, signal = wl.Signal, quality = WifiQuality.Label(wl.Signal),
+                    weak = WifiQuality.Weak(wl.Signal), noise = wl.Noise, tx = wl.TxMbps, rx = wl.RxMbps, satisfaction = wl.Satisfaction, roams = wl.Roams,
+                    since = wl.Since, updatedAt = wl.UpdatedAt, movedFrom = wl.MovedFrom, movedAt = wl.MovedAt,
+                } : null,
                 // The type the user set, overriding the guess for its icon and type chip; "" = BAMF's guess.
                 deviceType = deviceTypes.TryGetValue(h.Id, out var dt) ? dt : "",
                 // What the device is, in the user's own words; "" = BAMF's guess stands.
@@ -123,7 +134,8 @@ internal static class DeviceEndpoints
                 version,
                 buildDate,
                 subnets = scanner.SubnetLabels,
-                scanModes = scanner.SubnetModes,
+                // A network read from the gateway isn't scanned, so it has no scan mode of its own: it says where it's read from.
+                scanModes = scanner.SubnetModes.Concat(store.GearVlanNetworks().Where(n => !scanner.SubnetModes.ContainsKey(n)).Select(n => KeyValuePair.Create(n, "gateway"))).ToDictionary(kv => kv.Key, kv => kv.Value),
                 activeArp = new { enabled = scanner.ActiveArpEnabled, npcapAvailable = scanner.NpcapAvailable },
                 autoIgnoreRandom = scanner.AutoIgnoreRandomEnabled,
                 latencyProbe = scanner.LatencyProbeEnabled,

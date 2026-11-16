@@ -315,21 +315,8 @@ public sealed class RouterImport : BackgroundService
     }
 
     /// <summary>Logs in to a UniFi OS console (UDM, Cloud Key Gen2+), else a classic controller. Returns the API prefix.</summary>
-    private async Task<string> UniFiLogin(HttpClient http, CancellationToken ct)
-    {
-        var creds = JsonSerializer.Serialize(new { username = Cfg["Username"] ?? "", password = Cfg["Password"] ?? "" });
-        using (var os = await http.PostAsync(Url + "/api/auth/login", new StringContent(creds, Encoding.UTF8, "application/json"), ct))
-        {
-            if (os.IsSuccessStatusCode)
-            {
-                if (os.Headers.TryGetValues("X-CSRF-Token", out var csrf)) http.DefaultRequestHeaders.Add("X-CSRF-Token", csrf.First());
-                return "/proxy/network";
-            }
-        }
-        using var classic = await http.PostAsync(Url + "/api/login", new StringContent(creds, Encoding.UTF8, "application/json"), ct);
-        classic.EnsureSuccessStatusCode();
-        return "";
-    }
+    private Task<string> UniFiLogin(HttpClient http, CancellationToken ct) =>
+        UniFiApi.Login(http, Url, Cfg["Username"] ?? "", Cfg["Password"] ?? "", ct);
 
     // ------------------------------------------------------------ helpers
 

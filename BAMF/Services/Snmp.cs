@@ -14,7 +14,7 @@ namespace LanWatch.Services;
 /// </summary>
 public static class Snmp
 {
-    public sealed record Value(string Oid, byte Type, object? Data);
+    public sealed record Value(string Oid, byte Type, object? Data, byte[]? Raw = null);
 
     private const byte Integer = 0x02, OctetString = 0x04, Null = 0x05, ObjectId = 0x06, Sequence = 0x30;
     private const byte GetBulk = 0xA5, Response = 0xA2;
@@ -117,7 +117,7 @@ public static class Snmp
                 ObjectId => DecodeOid(b, (start, len)),
                 _ => null,
             };
-            values.Add(new Value(oid, type, data));
+            values.Add(new Value(oid, type, data, type == OctetString ? b[start..(start + len)] : null));
         }
         _ = pduLen;
         return values;

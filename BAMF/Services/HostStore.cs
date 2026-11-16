@@ -181,6 +181,7 @@ public partial class HostStore
         InitWan(conn);
         InitSpeed(conn);
         InitSnmp(conn);
+        InitGear(conn);
         InitServiceWatch(conn);
     }
 

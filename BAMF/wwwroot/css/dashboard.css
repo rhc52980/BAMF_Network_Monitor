@@ -1013,6 +1013,32 @@
   .set-net-rm { font: inherit; font-size: 15px; line-height: 1; cursor: pointer; color: var(--text-dim); background: none;
     border: 1px solid transparent; border-radius: 6px; padding: 2px 7px; }
   .set-net-rm:hover { color: var(--danger); border-color: var(--line); }
+  .set-sub { font-size: 12px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; margin: 16px 0 6px; }
+  .gear-nets { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 8px; }
+  .gear-net { display: flex; gap: 10px; align-items: baseline; font-size: 13px; }
+  .gear-net .why, .gear-nets > .why { color: var(--text-dim); font-size: 12px; }
+  .gear-net .rm { font: inherit; cursor: pointer; color: var(--text-dim); background: none; border: 1px solid transparent; border-radius: 6px; padding: 1px 7px; }
+  .gear-net .rm:hover { color: var(--text); border-color: var(--line); }
+  .gear-add { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+  .gear-sugg { font-size: 12px; color: var(--text-dim); margin: 8px 0 4px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .gear-sugg button { font: inherit; font-size: 12px; cursor: pointer; color: var(--text); background: none; border: 1px dashed var(--line); border-radius: 12px; padding: 2px 10px; }
+  .gear-sugg button:hover { border-style: solid; }
+  .gear-kind { display: block; margin: 8px 0; line-height: 1.45; }
+  .gear-sources { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 4px; font-size: 12px; }
+  .gear-src { display: flex; gap: 8px; align-items: baseline; }
+  .gear-src .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); flex: none; align-self: center; }
+  .gear-src.ok .dot { background: var(--led-on); }
+  .gear-src.error .dot { background: var(--danger); }
+  .gear-src.waiting .dot { background: var(--warn, #d9a441); }
+  .gear-src .why { color: var(--text-dim); }
+  .gear-table td, .gear-table th { vertical-align: top; text-align: left; padding: 6px 14px 6px 0; }
+  .gear-table th { font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: .03em; }
+  .gear-table a { color: var(--text); text-decoration: underline dotted; text-underline-offset: 3px; }
+  .gear-table .issue { display: block; font-size: 12px; color: var(--text-dim); }
+  .gear-table .issue.warn { color: var(--warn, #d9a441); }
+  .gear-table .sig.weak, .gear-table .sig.fair { color: var(--warn, #d9a441); }
+  .gear-table .sig.excellent, .gear-table .sig.good { color: var(--led-on); }
+  .wifi-line.weak b, .wifi-line.fair b { color: var(--warn, #d9a441); }
   .set-net-edit { font: inherit; font-size: 13px; line-height: 1; cursor: pointer; color: var(--text-dim); background: none;
     border: 1px solid transparent; border-radius: 6px; padding: 3px 7px; }
   .set-net-edit:hover { color: var(--text); border-color: var(--line); }

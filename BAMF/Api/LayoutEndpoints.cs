@@ -26,6 +26,7 @@ internal static class LayoutEndpoints
 
         app.MapDelete("/api/switches/{id:long}", (long id, HostStore store) =>
         {
+            store.IgnoreAutoSwitch(id);     // one BAMF drew isn't drawn again once you've deleted it
             if (!store.DeleteSwitch(id)) return Results.NotFound();
             store.DeleteSnmpConfig(id);
             return Results.Ok();

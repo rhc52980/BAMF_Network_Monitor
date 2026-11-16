@@ -205,7 +205,7 @@ public sealed partial class SwitchCounters : BackgroundService
     }
 
     /// <summary>ifIndex -> port number, and how that was decided.</summary>
-    private static (Dictionary<string, int>, string) MapPorts(Dictionary<string, Snmp.Value> types, Dictionary<string, Snmp.Value> names, int ports)
+    internal static (Dictionary<string, int>, string) MapPorts(Dictionary<string, Snmp.Value> types, Dictionary<string, Snmp.Value> names, int ports)
     {
         var physical = types.Where(t => t.Value.Data is long v && PhysicalTypes.Contains(v))
             .Select(t => t.Key).OrderBy(k => long.TryParse(k, out var n) ? n : long.MaxValue).ToList();

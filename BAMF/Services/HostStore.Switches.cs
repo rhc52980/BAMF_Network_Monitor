@@ -276,7 +276,8 @@ public partial class HostStore
                       """
                     : """
                       UPDATE switches SET name = $n, ports = $p, subnet = $s, host_id = $h,
-                             uplink = $u, uplink_switch = $us, uplink_port = $up, kind = $k, runs_on = $ro
+                             uplink = $u, uplink_switch = $us, uplink_port = $up, kind = $k, runs_on = $ro,
+                             auto = '', auto_key = ''
                       WHERE id = $id;
                       SELECT $id;
                       """;
@@ -388,7 +389,7 @@ public partial class HostStore
 
             cmd.CommandText = """
                 INSERT INTO placements (host_id, switch_id, port) VALUES ($h, $s, $p)
-                ON CONFLICT(host_id) DO UPDATE SET switch_id = $s, port = $p
+                ON CONFLICT(host_id) DO UPDATE SET switch_id = $s, port = $p, auto = ''
                 """;
             cmd.Parameters.AddWithValue("$h", hostId);
             cmd.Parameters.AddWithValue("$s", switchId);
@@ -449,7 +450,7 @@ public partial class HostStore
                 put.Transaction = tx;
                 put.CommandText = """
                     INSERT INTO placements (host_id, switch_id, port) VALUES ($h, $s, $p)
-                    ON CONFLICT(host_id) DO UPDATE SET switch_id = $s, port = $p
+                    ON CONFLICT(host_id) DO UPDATE SET switch_id = $s, port = $p, auto = ''
                     """;
                 put.Parameters.AddWithValue("$h", hostId);
                 put.Parameters.AddWithValue("$s", switchId);

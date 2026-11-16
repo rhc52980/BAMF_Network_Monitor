@@ -117,6 +117,10 @@ public partial class ScannerService
     private async Task Notify(string mac, string ip, string hostname, string vendor, string subnet, CancellationToken ct)
         => await SendWebhook(mac, ip, hostname, vendor, subnet, test: false, ct);
 
+    /// <summary>The new-device alert, for a device found some way other than a scan (a network read from the gateway).</summary>
+    public Task NotifyNewHost(string mac, string ip, string hostname, string vendor, string subnet, CancellationToken ct)
+        => Notify(mac, ip, hostname, vendor, subnet, ct);
+
     /// <summary>
     /// Sends a test notification to one destination ("main" for the main
     /// webhook, else an extra's id), whatever kinds it takes. Returns null on

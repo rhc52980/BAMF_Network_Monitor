@@ -20,12 +20,12 @@ internal static class ConnectionsEndpoints
     public static void Map(WebApplication app)
     {
         app.MapGet("/api/connections", (HostStore store, ScannerService scanner, RouterImport import, SwitchCounters switches, RemoteService remotes,
-            MqttPublisher mqtt, ReportService reports, NightlyBackup backup, WanWatch wan, SpeedTest speed, GreyNoiseCheck grey, UpdateChecker updates, Heartbeat beat) =>
-            Results.Json(new { items = Build(store, scanner, import, switches, remotes, mqtt, reports, backup, wan, speed, grey, updates, beat) }));
+            MqttPublisher mqtt, ReportService reports, NightlyBackup backup, WanWatch wan, SpeedTest speed, GreyNoiseCheck grey, UpdateChecker updates, Heartbeat beat, NetworkGear gear) =>
+            Results.Json(new { items = Build(store, scanner, import, switches, remotes, mqtt, reports, backup, wan, speed, grey, updates, beat, gear) }));
     }
 
     internal static List<Item> Build(HostStore store, ScannerService scanner, RouterImport import, SwitchCounters switches, RemoteService remotes,
-        MqttPublisher mqtt, ReportService reports, NightlyBackup backup, WanWatch wan, SpeedTest speed, GreyNoiseCheck grey, UpdateChecker updates, Heartbeat beat)
+        MqttPublisher mqtt, ReportService reports, NightlyBackup backup, WanWatch wan, SpeedTest speed, GreyNoiseCheck grey, UpdateChecker updates, Heartbeat beat, NetworkGear gear)
     {
         var o = new List<Item>();
         static string Iso(DateTime? t) => t?.ToString("o") ?? "";
@@ -49,6 +49,15 @@ internal static class ConnectionsEndpoints
         foreach (var s in sw)
             o.Add(new($"snmp:{s.SwitchId}", Reads, $"Switch {s.Name}", s.Error is not null ? "error" : s.LastPoll is null ? "waiting" : "ok",
                 s.Error ?? (s.LastPoll is null ? "Not read yet." : $"{Plural(s.PortsRead, "port")} read, {Plural(s.Counted, "device")} counted"), At(s.LastPoll), "network"));
+
+        // The Network gear features read the same switches and a controller, so they list what each source last said.
+        if (!gear.AnyOn) o.Add(new("gear", Reads, "Network gear (UniFi controller, managed switches)", "off", "Draws the Map, reads Wi-Fi quality and the health of your gear.", null, "network"));
+        else
+        {
+            var sources = gear.Statuses();
+            if (sources.Count == 0) o.Add(new("gear", Reads, "Network gear", "waiting", "No source yet: add your UniFi controller, or switch on a managed switch's counters.", null, "network"));
+            foreach (var src in sources) o.Add(new($"gear:{src.Id}", Reads, src.Name, src.State, src.Detail, At(src.At), "network"));
+        }
 
         var rem = remotes.Statuses;
         if (rem.Count == 0) o.Add(new("remotes", Reads, "Other BAMF servers", "off", "Shows another site's devices here, read-only.", null, "system"));
