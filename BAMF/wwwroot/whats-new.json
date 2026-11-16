@@ -2,6 +2,16 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.32.0",
+      "date": "2026-11-15",
+      "items": [
+        "A cutover check, in Settings under Your network: take a snapshot before you swap the router or move to VLANs, then compare afterwards. It shows which devices are back, which came back at another address or network, which haven't, and which are new, and spots a device that has probably returned with a new hardware address.",
+        "A segmentation check: say which devices belong on which network (cameras on the IoT network) or never on one (smart plugs off the main one), and BAMF lists the devices that break a rule. Off until you switch it on, with a separate switch for an alert when a device newly breaks a rule.",
+        "Address pool pressure: BAMF counts the devices it has seen in the range your router hands out and shows how full each pool is, so you hear about it before a new device is left without an address. The ranges come from a UniFi controller or from you, for any router. Off until you switch it on, with a separate alert at a percentage you choose.",
+        "Tidied: the README no longer says hosts on other VLANs are invisible, and a few warnings in the 2.31.0 code are gone."
+      ]
+    },
+    {
       "version": "2.31.0",
       "date": "2026-11-15",
       "items": [
