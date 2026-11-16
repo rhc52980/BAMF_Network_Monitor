@@ -18,6 +18,9 @@ public static class SnmpGear
     private const string System = "1.3.6.1.2.1.1";
     private const string PoePower = "1.3.6.1.2.1.105.1.3.1.1.2", PoeUse = "1.3.6.1.2.1.105.1.3.1.1.4";         // pethMainPsePower / ConsumptionPower, watts
 
+    private const string ArpMac = "1.3.6.1.2.1.4.22.1.2", ArpType = "1.3.6.1.2.1.4.22.1.4";            // ipNetToMediaPhysAddress / Type
+    private const string NeighMac = "1.3.6.1.2.1.4.35.1.4";                                             // ipNetToPhysicalPhysAddress
+
     public sealed record Read(
         Dictionary<string, int> Fdb, long UptimeSeconds, string SysName, string SysDescr,
         double? PoeWatts, double? PoeBudget, List<GearPort> Ports);
@@ -68,6 +71,39 @@ public static class SnmpGear
 
         return new Read(fdb, uptime, Text("5.0"), Text("1.0"), Sum(drawn), Sum(budget), list);
     }
+
+    /// <summary>
+    /// A router's ARP table: every IPv4 address it holds a MAC for, which is every device on every network it is on, VLANs
+    /// included. The standard table (IP-MIB) every router with SNMP has, so it isn't tied to a make. Entries marked invalid
+    /// are left out.
+    /// </summary>
+    public static async Task<List<(string Mac, string Ip)>> ReadArp(IPAddress ip, string community, int snmpPort, CancellationToken ct)
+    {
+        var list = new List<(string, string)>();
+        var rows = await Snmp.Walk(ip, community, ArpMac, ct, snmpPort);
+        if (rows.Count > 0)
+        {
+            var types = await Snmp.Walk(ip, community, ArpType, ct, snmpPort);
+            foreach (var (key, row) in rows)
+            {
+                if (types.TryGetValue(key, out var t) && t.Data is long and 2) continue;       // invalid: on its way out
+                var parts = key.Split('.');
+                if (parts.Length < 5 || row.Raw is not { Length: 6 } raw) continue;            // ifIndex, then the four bytes of the address
+                list.Add((Mac(raw), string.Join(".", parts[^4..])));
+            }
+            return list;
+        }
+        // Newer agents keep it in the neighbour table instead: ifIndex, address type (1 is IPv4), length, the address.
+        foreach (var (key, row) in await Snmp.Walk(ip, community, NeighMac, ct, snmpPort))
+        {
+            var parts = key.Split('.');
+            if (parts.Length < 7 || parts[1] != "1" || parts[2] != "4" || row.Raw is not { Length: 6 } raw) continue;
+            list.Add((Mac(raw), string.Join(".", parts[^4..])));
+        }
+        return list;
+    }
+
+    private static string Mac(byte[] raw) => string.Join(":", raw.Select(b => b.ToString("X2")));
 
     /// <summary>
     /// The MAC addresses a bridge table lists, each with the port it was learned on, as the ports are numbered on

@@ -20,7 +20,7 @@ namespace LanWatch.Services;
 /// BAMF only ever reads. What it draws is marked as drawn by it; what you recorded yourself is never replaced,
 /// and switching a feature off takes back what it made, keeping anything of yours that rests on it.
 /// </summary>
-public sealed class NetworkGear : BackgroundService
+public sealed partial class NetworkGear : BackgroundService
 {
     public sealed record SourceStatus(string Id, string Name, string State, string Detail, string? At);
 
@@ -39,12 +39,14 @@ public sealed class NetworkGear : BackgroundService
     /// <summary>The UniFi reader. Tests give it a stand-in for the controller.</summary>
     internal UniFiGear Unifi { get; } = new();
 
-    public NetworkGear(HostStore store, ScannerService scanner, IConfiguration config, ILogger<NetworkGear> log)
+    private readonly OuiLookup _oui;
+
+    public NetworkGear(HostStore store, ScannerService scanner, IConfiguration config, ILogger<NetworkGear> log, OuiLookup oui)
     {
-        _store = store; _scanner = scanner; _config = config; _log = log;
+        _store = store; _scanner = scanner; _config = config; _log = log; _oui = oui;
     }
 
-    public bool AnyOn => _store.GearMapOn || _store.GearWifiOn || _store.GearHealthOn;
+    public bool AnyOn => _store.GearMapOn || _store.GearWifiOn || _store.GearHealthOn || _store.GearVlansOn || _store.GearEventsOn;
 
     // ------------------------------------------------------------ where the controller is
 
@@ -103,6 +105,8 @@ public sealed class NetworkGear : BackgroundService
             case "map": _store.ClearAutoMap(); break;
             case "wifi": _store.ClearWifi(); break;
             case "health": _store.ClearGear(); break;
+            case "vlans": _store.ForgetGatewayHosts(_store.GearVlanNetworkList()); break;
+            case "events": ForgetEventState("all"); break;
         }
     }
 
@@ -130,7 +134,9 @@ public sealed class NetworkGear : BackgroundService
         try
         {
             var map = _store.GearMapOn; var wifi = _store.GearWifiOn; var health = _store.GearHealthOn;
-            if (!map && !wifi && !health) return true;
+            var vlans = _store.GearVlansOn; var threatsOn = _store.GearEventThreats; var wanOn = _store.GearEventWan;
+            var gateway = vlans || threatsOn || wanOn;
+            if (!map && !wifi && !health && !gateway) return true;
 
             var hosts = _store.GetAll().Where(h => !h.Forgotten && h.Mac != "").ToList();
             var now = DateTime.UtcNow.ToString("o");
@@ -160,7 +166,7 @@ public sealed class NetworkGear : BackgroundService
             // ----- managed switches over SNMP: the ones whose counters are already on
             var snmpReads = new Dictionary<long, (SwitchRecord Switch, SnmpGear.Read Read)>();
             var snmpOk = true;
-            var snmpConfigs = (map || health) ? _store.GetSnmpConfigs().Where(c => c.Enabled).ToList() : new();
+            var snmpConfigs = (map || health || vlans) ? _store.GetSnmpConfigs().Where(c => c.Enabled).ToList() : new();
             if (snmpConfigs.Count == 0) Forget("snmp");
             else if (force || DateTime.UtcNow - _lastSnmp >= SnmpEvery)
             {
@@ -175,10 +181,23 @@ public sealed class NetworkGear : BackgroundService
                     {
                         var addr = c.Address != "" ? c.Address : sw.HostId > 0 ? hosts.FirstOrDefault(h => h.Id == sw.HostId)?.Ip : null;
                         if (addr is null || !IPEndPoint.TryParse(addr, out var ep)) throw new InvalidOperationException("No address to ask: link the switch to its device, or type its address.");
-                        var r = await SnmpGear.ReadSwitch(ep.Address, c.Community == "" ? "public" : c.Community, ep.Port == 0 ? 161 : ep.Port, sw.Ports, map, ct);
-                        lock (_lastSnmpRead) _lastSnmpRead[sw.Id] = r;
-                        snmpReads[sw.Id] = (sw, r);
-                        Set(id, $"Switch {sw.Name}", "ok", map ? $"{Plural(r.Fdb.Count, "device")} on its ports, {Plural(r.Ports.Count(p => p.Up), "port")} up" : $"{Plural(r.Ports.Count(p => p.Up), "port")} up");
+                        var community = c.Community == "" ? "public" : c.Community;
+                        var detail = new List<string>();
+                        if (map || health)
+                        {
+                            var r = await SnmpGear.ReadSwitch(ep.Address, community, ep.Port == 0 ? 161 : ep.Port, sw.Ports, map, ct);
+                            lock (_lastSnmpRead) _lastSnmpRead[sw.Id] = r;
+                            snmpReads[sw.Id] = (sw, r);
+                            detail.Add(map ? $"{Plural(r.Fdb.Count, "device")} on its ports, {Plural(r.Ports.Count(p => p.Up), "port")} up" : $"{Plural(r.Ports.Count(p => p.Up), "port")} up");
+                        }
+                        // A router's ARP table lists every device on every network it's on, VLANs included.
+                        if (vlans && sw.Kind == "router")
+                        {
+                            var arp = await SnmpGear.ReadArp(ep.Address, community, ep.Port == 0 ? 161 : ep.Port, ct);
+                            lock (_lastArp) _lastArp[sw.Id] = arp;
+                            detail.Add(Plural(arp.Count, "ARP entry", "ARP entries"));
+                        }
+                        Set(id, $"{(sw.Kind == "router" ? "Router" : "Switch")} {sw.Name}", "ok", string.Join(", ", detail));
                     }
                     catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                     catch (Exception ex)
@@ -208,6 +227,7 @@ public sealed class NetworkGear : BackgroundService
             }
             if (wifi && snap is not null) ApplyWifi(snap, hosts);
             if (health) ApplyHealth(snap, snmpReads.Values.ToList(), hosts, read, now);
+            if (gateway) await GatewayPass(snap, snmpConfigs, vlans, threatsOn, wanOn, force, ct);
             return true;
         }
         finally { _busy.Release(); }

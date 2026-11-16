@@ -32,6 +32,11 @@ public partial class HostStore
     public bool GearMapOn => GetSetting("gearMap") == "true";
     public bool GearWifiOn => GetSetting("gearWifi") == "true";
     public bool GearHealthOn => GetSetting("gearHealth") == "true";
+    public bool GearVlansOn => GetSetting("gearVlans") == "true";
+    public bool GearEventsOn => GetSetting("gearEvents") == "true";
+    /// <summary>Blocked threats, and WAN changes: each its own switch, under Gateway events, and off until ticked.</summary>
+    public bool GearEventThreats => GearEventsOn && GetSetting("gearEventThreats") == "true";
+    public bool GearEventWan => GearEventsOn && GetSetting("gearEventWan") == "true";
 
     private static void InitGear(SqliteConnection conn)
     {
@@ -629,5 +634,57 @@ public partial class HostStore
             if (source is not null) cmd.Parameters.AddWithValue("$s", source);
             cmd.ExecuteNonQuery();
         }
+    }
+
+    // ------------------------------------------------------------ networks read from the gateway
+
+    public const int MaxGatewayNetworks = 16;
+
+    /// <summary>The networks you've marked "read from the gateway", whether or not the feature is on.</summary>
+    public List<string> GearVlanNetworkList()
+    {
+        try { return JsonSerializer.Deserialize<List<string>>(GetSetting("gearVlanNets") ?? "[]") ?? new(); }
+        catch (JsonException) { return new(); }
+    }
+
+    /// <summary>The networks being read from the gateway right now: none unless the feature is on.</summary>
+    public List<string> GearVlanNetworks() => GearVlansOn ? GearVlanNetworkList() : new();
+
+    public void SetGearVlanNetworks(IEnumerable<string> networks) => SetSetting("gearVlanNets", JsonSerializer.Serialize(networks.Distinct().ToList()));
+
+    /// <summary>
+    /// Hides the devices on networks that are no longer read from the gateway: forgotten, not deleted, so a name or note you gave
+    /// one is still there when it comes back. Returns how many.
+    /// </summary>
+    public int ForgetGatewayHosts(IReadOnlyCollection<string> networks)
+    {
+        if (networks.Count == 0) return 0;
+        lock (_lock)
+        {
+            using var conn = Open();
+            using var cmd = conn.CreateCommand();
+            var names = networks.Select((n, i) => ($"$n{i}", n)).ToList();
+            cmd.CommandText = $"UPDATE hosts SET forgotten = 1, watched = 0, online = 0 WHERE forgotten = 0 AND subnet IN ({string.Join(", ", names.Select(n => n.Item1))})";
+            foreach (var (name, value) in names) cmd.Parameters.AddWithValue(name, value);
+            return cmd.ExecuteNonQuery();
+        }
+    }
+
+    // ------------------------------------------------------------ gateway events
+
+    public sealed record GearEventLogItem(string At, string Kind, string Title);
+
+    /// <summary>The last few things a gateway reported that BAMF told you about, newest first.</summary>
+    public List<GearEventLogItem> GetGearEventLog()
+    {
+        try { return JsonSerializer.Deserialize<List<GearEventLogItem>>(GetSetting("gearEventLog") ?? "[]") ?? new(); }
+        catch (JsonException) { return new(); }
+    }
+
+    public void LogGearEvent(string kind, string title, string at)
+    {
+        var log = GetGearEventLog();
+        log.Insert(0, new GearEventLogItem(at, kind, title));
+        SetSetting("gearEventLog", JsonSerializer.Serialize(log.Take(20).ToList()));
     }
 }

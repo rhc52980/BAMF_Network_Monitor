@@ -134,7 +134,8 @@ internal static class DeviceEndpoints
                 version,
                 buildDate,
                 subnets = scanner.SubnetLabels,
-                scanModes = scanner.SubnetModes,
+                // A network read from the gateway isn't scanned, so it has no scan mode of its own: it says where it's read from.
+                scanModes = scanner.SubnetModes.Concat(store.GearVlanNetworks().Where(n => !scanner.SubnetModes.ContainsKey(n)).Select(n => KeyValuePair.Create(n, "gateway"))).ToDictionary(kv => kv.Key, kv => kv.Value),
                 activeArp = new { enabled = scanner.ActiveArpEnabled, npcapAvailable = scanner.NpcapAvailable },
                 autoIgnoreRandom = scanner.AutoIgnoreRandomEnabled,
                 latencyProbe = scanner.LatencyProbeEnabled,

@@ -377,19 +377,24 @@ public partial class ScannerService : BackgroundService
                     // are judged on every pass regardless: no pass can ever see
                     // them again, and before this they only went offline on the
                     // full sweep, which never comes while anything is paused.
+                    // Networks read from the gateway (Network gear) aren't scanned, so no pass can see their devices: they are judged
+                    // by that read, and left out of this one, as if they were networks that are configured but not covered.
+                    var gatewayNets = _store.GearVlanNetworks().Where(n => !labels.Contains(n, StringComparer.OrdinalIgnoreCase)).ToList();
+                    var judged = gatewayNets.Count == 0 ? labels : labels.Concat(gatewayNets).ToList();
+                    var wholeSweep = covered.Count == labels.Count && gatewayNets.Count == 0;
                     var wentDown = _store.MarkOffline(seenMacs,
-                        covered.Count == labels.Count ? null : covered,
+                        wholeSweep ? null : covered,
                         ConfiguredOfflineMisses,
-                        labels);
+                        judged);
                     await SendStatusAlerts(wentDown, up: false, CancellationToken.None);
 
                     // The same judgement per address, for devices answering on
                     // several: an address that stopped answering is retired, and a
                     // device whose main address went moves to one still answering.
                     _store.SweepAddresses(passStart,
-                        covered.Count == labels.Count ? null : covered,
+                        wholeSweep ? null : covered,
                         ConfiguredOfflineMisses,
-                        labels);
+                        judged);
 
                     var recovered = _store.DrainRecovered();
                     await SendStatusAlerts(recovered, up: true, CancellationToken.None);

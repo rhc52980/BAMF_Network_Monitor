@@ -3,8 +3,8 @@ using LanWatch.Services;
 namespace LanWatch.Api;
 
 /// <summary>
-/// Network gear: the three switches (Map, Wi-Fi, health), where a UniFi controller is (the login is kept, never
-/// shown again), and what each source last said. Everything off until switched on.
+/// Network gear: the switches (Map, Wi-Fi, health, networks read from the gateway, gateway events), where a UniFi
+/// controller is (the login is kept, never shown again), and what each source last said. Everything off until switched on.
 /// </summary>
 internal static class GearEndpoints
 {
@@ -51,7 +51,19 @@ internal static class GearEndpoints
 
         return new
         {
-            features = new { map = store.GearMapOn, wifi = store.GearWifiOn, health = store.GearHealthOn },
+            features = new { map = store.GearMapOn, wifi = store.GearWifiOn, health = store.GearHealthOn, vlans = store.GearVlansOn, events = store.GearEventsOn },
+            // Networks BAMF doesn't scan, read from the gateway; and what the gateway's own events are doing.
+            vlans = new
+            {
+                networks = gear.VlanSummary().Select(n => new { network = n.Network, devices = n.Devices, online = n.Online }),
+                suggestions = store.GearVlansOn ? gear.Suggestions().Select(n => new { network = n.Network, devices = n.Devices }).ToList() : [],
+                max = HostStore.MaxGatewayNetworks,
+            },
+            events = new
+            {
+                threats = store.GearEventThreats, wan = store.GearEventWan, opnsense = gear.OpnSenseSettings() is not null,
+                recent = store.GetGearEventLog().Select(e => new { at = e.At, kind = e.Kind, title = e.Title }),
+            },
             unifi = new
             {
                 configured = uni is not null, fromRouterImport = uni?.FromRouterImport ?? false,
@@ -72,7 +84,7 @@ internal static class GearEndpoints
 
         // Any of it can be left out. The password is only ever sent in; "" forgets it. Switching a feature on reads
         // at once, so there is an answer to show; switching it off takes back what it made.
-        app.MapPost("/api/settings/gear", async (GearRequest body, HostStore store, NetworkGear gear, CancellationToken ct) =>
+        app.MapPost("/api/settings/gear", async (GearRequest body, HostStore store, NetworkGear gear, ScannerService scanner, CancellationToken ct) =>
         {
             if (body.UnifiUrl is { } u)
             {
@@ -97,8 +109,36 @@ internal static class GearEndpoints
             if (body.UnifiSite is { } site) store.SetSetting("gearUnifiSite", site.Trim().Length > 60 ? site.Trim()[..60] : site.Trim());
             if (body.UnifiVerify is { } verify) store.SetSetting("gearUnifiVerify", verify ? "true" : "false");
 
+            // The networks to read from the gateway: only private ones, and never one BAMF scans itself, which would be read twice.
+            if (body.VlanNetworks is { } wanted)
+            {
+                var scanned = scanner.CurrentNetworks();
+                var clean = new List<string>();
+                foreach (var raw in wanted)
+                {
+                    if (ScannerService.CheckNetwork(raw, out var label) is { } why) return Results.BadRequest(new { error = why });
+                    var address = label.Split('/')[0];
+                    if (scanned.Any(n => ScannerService.NetworkContains(n, address) || ScannerService.NetworkContains(label, n.Split('/')[0])))
+                        return Results.BadRequest(new { error = $"{label} overlaps a network BAMF scans itself. A network is scanned or read from the gateway, not both." });
+                    if (!clean.Contains(label)) clean.Add(label);
+                }
+                if (clean.Count > HostStore.MaxGatewayNetworks) return Results.BadRequest(new { error = $"At most {HostStore.MaxGatewayNetworks} networks." });
+                // A network taken off the list is no longer read, so its devices are hidden (forgotten, not deleted).
+                store.ForgetGatewayHosts(store.GearVlanNetworkList().Except(clean).ToList());
+                store.SetGearVlanNetworks(clean);
+            }
+            var readNow = false;
+            foreach (var (key, kind, on) in new[] { ("gearEventThreats", "threats", body.EventThreats), ("gearEventWan", "wan", body.EventWan) })
+            {
+                if (on is not { } want) continue;
+                var was = store.GetSetting(key) == "true";
+                store.SetSetting(key, want ? "true" : "false");
+                if (!want && was) gear.ForgetEventState(kind);      // switched on again later, it starts from then, not from a backlog
+                if (want && !was) readNow = true;                  // so the point it starts from is now, not a minute from now
+            }
+
             var turnedOn = false;
-            foreach (var (name, key, on) in new[] { ("map", "gearMap", body.Map), ("wifi", "gearWifi", body.Wifi), ("health", "gearHealth", body.Health) })
+            foreach (var (name, key, on) in new[] { ("map", "gearMap", body.Map), ("wifi", "gearWifi", body.Wifi), ("health", "gearHealth", body.Health), ("vlans", "gearVlans", body.Vlans), ("events", "gearEvents", body.Events) })
             {
                 if (on is not { } want) continue;
                 var was = store.GetSetting(key) == "true";
@@ -106,7 +146,7 @@ internal static class GearEndpoints
                 if (want && !was) turnedOn = true;
                 if (!want && was) await gear.TakeBack(name, ct);
             }
-            if (turnedOn) await gear.Refresh(true, ct);
+            if (turnedOn || readNow) await gear.Refresh(true, ct);
             return Results.Json(Json(store, gear));
         });
 
@@ -132,4 +172,5 @@ internal static class GearEndpoints
     }
 }
 
-internal sealed record GearRequest(bool? Map, bool? Wifi, bool? Health, string? UnifiUrl, string? UnifiUser, string? UnifiSecret, string? UnifiSite, bool? UnifiVerify);
+internal sealed record GearRequest(bool? Map, bool? Wifi, bool? Health, string? UnifiUrl, string? UnifiUser, string? UnifiSecret, string? UnifiSite, bool? UnifiVerify,
+    bool? Vlans = null, List<string>? VlanNetworks = null, bool? Events = null, bool? EventThreats = null, bool? EventWan = null);

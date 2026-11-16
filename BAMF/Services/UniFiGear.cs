@@ -55,20 +55,24 @@ public sealed class UniFiGear : IDisposable
         return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
     }
 
-    public async Task<GearSnapshot> Read(Settings s, CancellationToken ct)
+    /// <summary>Logs in if there's no session for these settings yet.</summary>
+    private async Task EnsureSession(Settings s, CancellationToken ct)
     {
         var key = $"{s.Url}|{s.User}|{s.Secret}|{s.Site}|{s.Verify}";
         if (_http is null || key != _key) { _http?.Dispose(); _http = null; }
+        if (_http is not null) return;
+        var http = NewClient(s);
+        try { _prefix = await UniFiApi.Login(http, s.Url, s.User, s.Secret, ct); _http = http; _key = key; }
+        catch { http.Dispose(); throw; }
+    }
+
+    public async Task<GearSnapshot> Read(Settings s, CancellationToken ct)
+    {
         try
         {
             for (var attempt = 0; ; attempt++)
             {
-                if (_http is null)
-                {
-                    var http = NewClient(s);
-                    try { _prefix = await UniFiApi.Login(http, s.Url, s.User, s.Secret, ct); _http = http; _key = key; }
-                    catch { http.Dispose(); throw; }
-                }
+                await EnsureSession(s, ct);
                 var site = s.Site == "" ? "default" : Uri.EscapeDataString(s.Site);
                 var (st, devices) = await Get($"{s.Url}{_prefix}/api/s/{site}/stat/device", ct);
                 if (st is 401 or 403 && attempt == 0) { _http.Dispose(); _http = null; continue; }   // the session ran out: log in again, once
@@ -81,6 +85,49 @@ public sealed class UniFiGear : IDisposable
             }
         }
         catch (Exception) { _http?.Dispose(); _http = null; throw; }
+    }
+
+    /// <summary>
+    /// The intrusion prevention events the controller has logged, newest first. They're kept with its alarms (key EVT_IPS_*),
+    /// so a controller that keeps them somewhere else, or has Threat Management off, gives an empty list rather than an error.
+    /// </summary>
+    public async Task<List<GearEvent>> ReadThreats(Settings s, CancellationToken ct)
+    {
+        try
+        {
+            for (var attempt = 0; ; attempt++)
+            {
+                await EnsureSession(s, ct);
+                var site = s.Site == "" ? "default" : Uri.EscapeDataString(s.Site);
+                var (st, body) = await Get($"{s.Url}{_prefix}/api/s/{site}/stat/alarm?_limit=200&_sort=-time", ct);
+                if (st is 401 or 403 && attempt == 0) { _http!.Dispose(); _http = null; continue; }
+                if (st is 404) return new();
+                if (st != 200) throw new InvalidOperationException($"The UniFi controller answered HTTP {st} when asked for its alarms.");
+                return ParseThreats(body);
+            }
+        }
+        catch (Exception) { _http?.Dispose(); _http = null; throw; }
+    }
+
+    /// <summary>Turns the controller's alarm list into threat events. Pure, for the tests.</summary>
+    public static List<GearEvent> ParseThreats(JsonNode? alarms)
+    {
+        var list = new List<GearEvent>();
+        foreach (var a in Data(alarms))
+        {
+            if (!Str(a, "key").StartsWith("EVT_IPS", StringComparison.OrdinalIgnoreCase)) continue;
+            var ms = Num(a, "time");
+            if (ms is null) continue;
+            var title = Str(a, "inner_alert_signature") is { Length: > 0 } sig ? sig : Str(a, "msg") is { Length: > 0 } m ? m : "Intrusion prevention event";
+            var cat = Str(a, "inner_alert_category");
+            var src = Str(a, "src_ip") is { Length: > 0 } sp ? sp + (Str(a, "src_port") is { Length: > 0 } spt ? ":" + spt : "") : "";
+            var dst = Str(a, "dst_ip") is { Length: > 0 } dp ? dp : Str(a, "dest_ip");
+            var action = Str(a, "inner_alert_action");
+            var blocked = action.Equals("blocked", StringComparison.OrdinalIgnoreCase) || action.Equals("drop", StringComparison.OrdinalIgnoreCase) || action.Equals("reject", StringComparison.OrdinalIgnoreCase);
+            list.Add(new GearEvent("unifi", DateTimeOffset.FromUnixTimeMilliseconds(ms.Value).UtcDateTime.ToString("o"), "threat", title,
+                (cat != "" ? cat + ". " : "") + (src != "" || dst != "" ? $"{(src != "" ? src : "?")} to {(dst != "" ? dst : "?")}" : "") + (action != "" ? $" ({action})" : ""), blocked));
+        }
+        return list.OrderByDescending(e => e.At, StringComparer.Ordinal).ToList();
     }
 
     private async Task<(int Status, JsonNode? Body)> Get(string url, CancellationToken ct)
@@ -131,13 +178,18 @@ public sealed class UniFiGear : IDisposable
                 foreach (var g in Arr(d, "vap_table").Where(v => Str(v, "essid") != "").GroupBy(v => Str(v, "essid")))
                     ssids.Add(new GearSsid(g.Key, string.Join(", ", g.Select(v => Band(Str(v, "radio"))).Where(b => b != "").Distinct().OrderBy(b => b))));
             var up = d?["uplink"];
+            // The gateway's internet connections (wan1, wan2...) and which one carries traffic.
+            var wans = new List<GearWan>();
+            if (kind == "router" && d is JsonObject obj)
+                foreach (var (k, w) in obj.Where(p => System.Text.RegularExpressions.Regex.IsMatch(p.Key, "^wan[0-9]*$") && p.Value is JsonObject))
+                    wans.Add(new GearWan(Str(w, "name") is { Length: > 0 } wn ? wn : k.ToUpperInvariant(), Bool(w, "up"), Str(w, "ip"), Bool(w, "is_uplink")));
 
             gear.Add(new GearDevice("unifi", mac, name, kind, Str(d, "model"), Str(d, "version"),
                 Bool(d, "upgradable") ? (Str(d, "upgrade_to_firmware") is { Length: > 0 } u ? u : "newer") : "",
                 (long)(Num(d, "uptime") ?? Num(sys, "uptime") ?? 0), Num(d, "state") is null or 1, Str(d, "ip"), ports.Count == 0 ? 0 : ports.Max(p => p.Port),
                 kind == "router" ? "" : RouterImport.NormMac(Str(up, "uplink_mac")), kind == "router" ? 0 : (int)(Num(up, "uplink_remote_port") ?? 0),
                 Dbl(sys, "cpu"), Dbl(sys, "mem"), temp, anyPoe ? Math.Round(poe, 1) : null, budget is > 0 ? budget : null,
-                ports, ssids));
+                ports, ssids, wans));
         }
 
         var people = new List<GearClient>();
@@ -150,7 +202,7 @@ public sealed class UniFiGear : IDisposable
             if (wired)
             {
                 var via = RouterImport.NormMac(Str(c, "sw_mac")) is { Length: > 0 } sw ? sw : RouterImport.NormMac(Str(c, "last_uplink_mac"));
-                people.Add(new GearClient("unifi", mac, ip, true, via, (int)(Num(c, "sw_port") ?? 0), "", "", 0, null, null, null, null, null, 0));
+                people.Add(new GearClient("unifi", mac, ip, true, via, (int)(Num(c, "sw_port") ?? 0), "", "", 0, null, null, null, null, null, 0, ClientName(c), Str(c, "oui")));
                 continue;
             }
             // dBm, negative: 0 or missing means the controller has no reading. Failing that, it's the noise floor plus the signal-to-noise figure.
@@ -158,7 +210,7 @@ public sealed class UniFiGear : IDisposable
             int? Mbps(string key) => Num(c, key) is { } kbps and > 0 ? (int)Math.Round(kbps / 1000.0) : null;
             people.Add(new GearClient("unifi", mac, ip, false, RouterImport.NormMac(Str(c, "ap_mac")), 0, Str(c, "essid"), Band(Str(c, "radio")),
                 (int)(Num(c, "channel") ?? 0), signal, Num(c, "noise") is { } noise and < 0 ? (int)noise : null, Mbps("tx_rate"), Mbps("rx_rate"),
-                Num(c, "satisfaction") is { } sat and >= 0 and <= 100 ? (int)sat : null, (int)(Num(c, "roam_count") ?? 0)));
+                Num(c, "satisfaction") is { } sat and >= 0 and <= 100 ? (int)sat : null, (int)(Num(c, "roam_count") ?? 0), ClientName(c), Str(c, "oui")));
         }
         return new GearSnapshot("unifi", now.ToString("o"), gear, people);
     }
@@ -174,6 +226,9 @@ public sealed class UniFiGear : IDisposable
         if (Arr(d, "port_table").Any()) return "switch";
         return null;
     }
+
+    /// <summary>The name you gave a client in UniFi, else the name it asked for.</summary>
+    private static string ClientName(JsonNode? c) => Str(c, "name") is { Length: > 0 } n ? n : Str(c, "hostname");
 
     private static string Band(string radio) => radio switch { "ng" => "2.4 GHz", "na" => "5 GHz", "6e" or "6g" => "6 GHz", _ => "" };
 

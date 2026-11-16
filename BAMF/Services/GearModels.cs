@@ -20,7 +20,10 @@ public sealed record GearDevice(
     string Source, string Mac, string Name, string Kind, string Model, string Version, string UpgradeTo,
     long UptimeSeconds, bool Online, string Ip, int PortCount, string UplinkMac, int UplinkPort,
     double? Cpu, double? Mem, double? TempC, double? PoeWatts, double? PoeBudget,
-    List<GearPort> Ports, List<GearSsid> Ssids);
+    List<GearPort> Ports, List<GearSsid> Ssids, List<GearWan>? Wans = null);
+
+/// <summary>One internet connection on a gateway: whether it has a link, and whether it's the one traffic is using right now.</summary>
+public sealed record GearWan(string Name, bool Up, string Ip, bool Active);
 
 /// <summary>
 /// A device on the network and how it connects. A wired one names the switch (by MAC) and port; a
@@ -28,7 +31,8 @@ public sealed record GearDevice(
 /// </summary>
 public sealed record GearClient(
     string Source, string Mac, string Ip, bool Wired, string ViaMac, int Port,
-    string Ssid, string Band, int Channel, int? Signal, int? Noise, int? TxMbps, int? RxMbps, int? Satisfaction, int Roams);
+    string Ssid, string Band, int Channel, int? Signal, int? Noise, int? TxMbps, int? RxMbps, int? Satisfaction, int Roams,
+    string Name = "", string Vendor = "");
 
 /// <summary>Everything one source reported in one read.</summary>
 public sealed record GearSnapshot(string Source, string At, List<GearDevice> Devices, List<GearClient> Clients);
@@ -48,3 +52,15 @@ public static class WifiQuality
     /// <summary>Whether a signal is poor enough that the device is probably struggling.</summary>
     public static bool Weak(int? dbm) => dbm is < -75;
 }
+
+/// <summary>A device a gateway or router knows about, on any network it routes: the address and MAC it holds for it, and the name it has.</summary>
+public sealed record GearHost(string Source, string Mac, string Ip, string Name, string Vendor);
+
+/// <summary>
+/// Something the gateway says happened. Kind is "threat" (its intrusion detection saw something; Blocked says whether it
+/// stopped it) or "wan" (an internet connection went down, came back, or traffic moved to another one). At is ISO 8601.
+/// </summary>
+public sealed record GearEvent(string Source, string At, string Kind, string Title, string Detail, bool Blocked = false);
+
+/// <summary>Everything a gateway reader returned in one read. Null Hosts or Events means that wasn't asked for, or can't be given.</summary>
+public sealed record GatewayRead(string Source, List<GearHost>? Hosts, List<GearEvent>? Threats, List<GearDevice>? Gateways);

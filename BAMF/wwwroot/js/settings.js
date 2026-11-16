@@ -2803,6 +2803,7 @@ const gearKindName = k => k === "ap" ? "Access point" : k === "router" ? "Router
 function renderGear() {
   const g = gearCache;
   if (!g || !$("gearCard")) return;
+  renderGearGateway();
   const f = g.features;
   setToggleState($("setGearMap"), f.map); setToggleState($("setGearWifi"), f.wifi); setToggleState($("setGearHealth"), f.health);
   const n = (x, one, many) => `${x} ${x === 1 ? one : many || one + "s"}`;
@@ -2821,7 +2822,7 @@ function renderGear() {
   $("setGearUnifiSecret").placeholder = u.hasSecret && !u.fromRouterImport ? "saved (type to replace)" : "password";
   $("setGearUnifiVerify").checked = !!u.verify && !u.fromRouterImport;
   $("setGearUnifiForget").hidden = !u.configured || u.fromRouterImport;
-  $("setGearRun").hidden = !(f.map || f.wifi || f.health);
+  $("setGearRun").hidden = !(f.map || f.wifi || f.health || f.vlans || f.events);
 
   // What each source last said.
   $("gearSources").innerHTML = g.sources.map(s => `<div class="gear-src ${esc(s.state)}"><span class="dot"></span><span><strong>${esc(s.name)}</strong> <span class="why">${esc(s.detail)}${s.at ? " · " + esc(fmtAgo(s.at)) : ""}</span></span></div>`).join("");
@@ -2863,10 +2864,42 @@ $("setGearUnifiSave").onclick = async () => {
   const body = { unifiUrl: $("setGearUnifiUrl").value.trim(), unifiUser: $("setGearUnifiUser").value.trim(), unifiSite: $("setGearUnifiSite").value.trim(), unifiVerify: $("setGearUnifiVerify").checked };
   if ($("setGearUnifiSecret").value !== "") body.unifiSecret = $("setGearUnifiSecret").value;
   if (!body.unifiUrl) { toast("Type the controller's address first"); return; }
-  if (await postGear("/api/settings/gear", body, "Saving\u2026", "Saved")) { $("setGearUnifiSecret").value = ""; if (gearCache.features.map || gearCache.features.wifi || gearCache.features.health) postGear("/api/gear/run", null, "Reading\u2026"); }
+  if (await postGear("/api/settings/gear", body, "Saving\u2026", "Saved")) { $("setGearUnifiSecret").value = ""; if (gearCache.features.map || gearCache.features.wifi || gearCache.features.health || gearCache.features.vlans || gearCache.features.events) postGear("/api/gear/run", null, "Reading\u2026"); }
 };
 $("setGearRun").onclick = () => postGear("/api/gear/run", null, "Reading\u2026", "Read");
 $("setGearUnifiForget").onclick = async () => {
   if (!confirm("Forget the controller's address and password? What it drew on the Map, and its Wi-Fi and health readings, go with it. Anything you recorded yourself stays.")) return;
   if (await postGear("/api/settings/gear", { unifiUrl: "", unifiUser: "", unifiSecret: "", unifiSite: "", unifiVerify: false }, "", "Forgotten")) $("setGearUnifiSecret").value = "";
 };
+
+// Networks read from the gateway, and the gateway's own events. Both off until switched on, the events kind by kind.
+function renderGearGateway() {
+  const g = gearCache;
+  if (!g || !$("gearCard")) return;
+  const f = g.features, v = g.vlans, ev = g.events;
+  const n = (x, one, many) => `${x} ${x === 1 ? one : many || one + "s"}`;
+  setToggleState($("setGearVlan"), f.vlans); setToggleState($("setGearEvent"), f.events);
+  const devices = v.networks.reduce((a, x) => a + x.devices, 0);
+  $("setGearVlanStatus").textContent = !f.vlans ? "Off." : v.networks.length ? `On. ${n(v.networks.length, "network")} read, ${n(devices, "device")}.` : "On. Add a network below to start.";
+  $("gearVlanBox").hidden = !f.vlans;
+  $("gearVlanList").innerHTML = v.networks.length ? v.networks.map(x => `<div class="gear-net"><span class="mono">${esc(x.network)}</span><span class="why">${n(x.devices, "device")}, ${x.online} online</span><button type="button" class="rm" data-net="${esc(x.network)}" title="Stop reading this network. Its devices are hidden, not deleted." aria-label="Stop reading ${esc(x.network)}">\u00d7</button></div>`).join("") : `<div class="why">None yet.</div>`;
+  $("gearVlanList").querySelectorAll(".rm").forEach(b => b.onclick = () => postGear("/api/settings/gear", { vlanNetworks: v.networks.map(x => x.network).filter(x => x !== b.dataset.net) }, "", "Taken off the list; its devices are hidden"));
+  $("gearVlanSuggest").innerHTML = v.suggestions.length ? `<span>The gateway lists devices on:</span>` + v.suggestions.map(s => `<button type="button" data-net="${esc(s.network)}" title="Read ${esc(s.network)} from the gateway">${esc(s.network)} · ${n(s.devices, "device")}</button>`).join("") : "";
+  $("gearVlanSuggest").querySelectorAll("button").forEach(b => b.onclick = () => postGear("/api/settings/gear", { vlanNetworks: [...v.networks.map(x => x.network), b.dataset.net] }, "", "Reading " + b.dataset.net));
+
+  $("gearEventBox").hidden = !f.events;
+  $("setGearEvWan").checked = !!ev.wan; $("setGearEvThreats").checked = !!ev.threats;
+  const kinds = [ev.wan && "connection changes", ev.threats && "threats"].filter(Boolean);
+  $("setGearEventStatus").textContent = !f.events ? "Off." : kinds.length ? `On, for ${kinds.join(" and ")}.` : "On, but no kind is ticked, so nothing is read or sent.";
+  $("gearEventLog").innerHTML = ev.recent.length ? `<div class="set-sub">Told you recently</div>` + ev.recent.map(e => `<div class="gear-src ${e.kind === "threat" ? "error" : "waiting"}"><span class="dot"></span><span>${esc(e.title)} <span class="why">· ${esc(fmtAgo(e.at))}</span></span></div>`).join("") : "";
+}
+$("setGearVlan").onclick = () => { const on = !(gearCache && gearCache.features.vlans); postGear("/api/settings/gear", { vlans: on }, on ? "Reading\u2026" : "", on ? "Reading the networks you add from the gateway" : "Those networks' devices are hidden, not deleted"); };
+$("setGearEvent").onclick = () => { const on = !(gearCache && gearCache.features.events); postGear("/api/settings/gear", { events: on }, on ? "Reading\u2026" : "", on ? "Tick the kinds of event you want" : "Gateway events forgotten"); };
+$("setGearEvWan").onchange = () => postGear("/api/settings/gear", { eventWan: $("setGearEvWan").checked }, "", $("setGearEvWan").checked ? "Watching internet connections" : "No longer watching internet connections");
+$("setGearEvThreats").onchange = () => postGear("/api/settings/gear", { eventThreats: $("setGearEvThreats").checked }, "", $("setGearEvThreats").checked ? "Watching for threats" : "No longer watching for threats");
+$("setGearVlanAdd").onclick = async () => {
+  const v = $("setGearVlanNet").value.trim();
+  if (!v) { toast("Type a network, like 192.168.10.0/24"); return; }
+  if (await postGear("/api/settings/gear", { vlanNetworks: [...gearCache.vlans.networks.map(x => x.network), v] }, "", "Added")) $("setGearVlanNet").value = "";
+};
+$("setGearVlanNet").onkeydown = e => { if (e.key === "Enter") $("setGearVlanAdd").click(); };

@@ -23,7 +23,7 @@ public class NetworkGearTests
 
     private sealed class Controller : HttpMessageHandler
     {
-        public string Devices = DevicesJson(), Clients = ClientsJson();
+        public string Devices = DevicesJson(), Clients = ClientsJson(), Alarms = """{"data":[]}""";
         public int Status = 200;
         public readonly List<string> Calls = new();
 
@@ -40,6 +40,7 @@ public class NetworkGearTests
             if (Status != 200) return Task.FromResult(new HttpResponseMessage((HttpStatusCode)Status) { Content = new StringContent("{}") });
             if (path.EndsWith("/stat/device")) return Task.FromResult(new HttpResponseMessage { Content = new StringContent(Devices) });
             if (path.EndsWith("/stat/sta")) return Task.FromResult(new HttpResponseMessage { Content = new StringContent(Clients) });
+            if (path.EndsWith("/stat/alarm")) return Task.FromResult(new HttpResponseMessage { Content = new StringContent(Alarms) });
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
         }
     }
@@ -50,11 +51,13 @@ public class NetworkGearTests
          "port_table":[{"port_idx":1,"up":true,"speed":1000},{"port_idx":3,"up":true,"speed":1000}]}
         """;
 
-    private static string DevicesJson(long apUptime = 900_000, bool upgradable = true, bool includeLite = true) => """
+    private static string DevicesJson(long apUptime = 900_000, bool upgradable = true, bool includeLite = true, bool wan1Active = true, bool wan2Up = true) => """
         {"data":[
           {"mac":"aa:00:00:00:00:01","name":"Gateway","model":"UCGMAX","type":"udm","version":"4.1.13","state":1,"ip":"192.168.30.1","uptime":2000000,
            "port_table":[{"port_idx":1,"up":true,"speed":1000},{"port_idx":2,"up":true,"speed":1000},{"port_idx":3,"up":false,"speed":0}],
-           "system-stats":{"cpu":"4.5","mem":"41.0"}},
+           "system-stats":{"cpu":"4.5","mem":"41.0"},
+           "wan1":{"name":"wan","up":true,"is_uplink":@WAN1ACTIVE@,"ip":"203.0.113.5"},
+           "wan2":{"name":"wan2","up":@WAN2UP@,"is_uplink":@WAN2ACTIVE@,"ip":"198.51.100.9"}},
           {"mac":"aa:00:00:00:00:02","name":"Core switch","model":"USPM16P","type":"usw","version":"7.2.1","state":1,"ip":"192.168.30.2","uptime":1500000,
            "upgradable":@UPGRADABLE@,"upgrade_to_firmware":"7.2.9","total_max_power":180,"general_temperature":52,
            "uplink":{"uplink_mac":"aa:00:00:00:00:01","uplink_remote_port":1},
@@ -65,7 +68,7 @@ public class NetworkGearTests
            "vap_table":[{"essid":"Home","radio":"ng"},{"essid":"Home","radio":"na"},{"essid":"Guest","radio":"ng"}]}
           @LITE@
         ]}
-        """.Replace("@UPGRADABLE@", upgradable ? "true" : "false").Replace("@APUPTIME@", apUptime.ToString()).Replace("@LITE@", includeLite ? LiteJson : "");
+        """.Replace("@UPGRADABLE@", upgradable ? "true" : "false").Replace("@APUPTIME@", apUptime.ToString()).Replace("@LITE@", includeLite ? LiteJson : "").Replace("@WAN1ACTIVE@", wan1Active ? "true" : "false").Replace("@WAN2ACTIVE@", wan1Active ? "false" : "true").Replace("@WAN2UP@", wan2Up ? "true" : "false");
 
     private static string ClientsJson(string laptopAp = "aa:00:00:00:00:03", bool phoneWired = false) => """
         {"data":[
@@ -597,6 +600,366 @@ public class NetworkGearTests
         Assert.Contains(store.GetSwitches(), s => s.Name == "Core switch");     // the controller's gear was still drawn
     }
 
+    // ---- devices on networks read from the gateway
+
+    private const string Guest = "192.168.10.0/24";
+
+    private static string VlanClients(bool includeCamera = true) => """
+        {"data":[
+          {"mac":"cc:00:00:00:00:01","ip":"192.168.10.21","is_wired":false,"ap_mac":"aa:00:00:00:00:03","essid":"Guest","radio":"ng","channel":6,"signal":-60,"name":"Dad's iPad","oui":"Apple, Inc."},
+          {"mac":"cc:00:00:00:00:02","ip":"192.168.10.22","is_wired":true,"sw_mac":"aa:00:00:00:00:02","sw_port":7,"hostname":"printer"},
+          @CAMERA@
+          {"mac":"bb:00:00:00:00:01","ip":"192.168.30.10","is_wired":true,"sw_mac":"aa:00:00:00:00:02","sw_port":2}
+        ]}
+        """.Replace("@CAMERA@", includeCamera ? """{"mac":"cc:00:00:00:00:03","ip":"192.168.10.23","is_wired":true,"sw_mac":"aa:00:00:00:00:02","sw_port":8,"name":"Porch camera"},""" : "");
+
+    private static async Task<JsonElement> Gear(HttpClient http) => await http.GetFromJsonAsync<JsonElement>("/api/gear");
+
+    [Fact]
+    public async Task A_network_read_from_the_gateway_gets_its_devices_with_the_names_the_controller_knows()
+    {
+        using var app = new BamfApp();
+        var (gear, store, c, http) = Set(app);
+        c.Clients = VlanClients();
+        var res = await http.PostAsJsonAsync("/api/settings/gear", new { vlans = true, vlanNetworks = new[] { Guest } });
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+
+        var guests = store.GetAll().Where(h => h.Subnet == Guest).OrderBy(h => h.Ip).ToList();
+        Assert.Equal(new[] { "192.168.10.21", "192.168.10.22", "192.168.10.23" }, guests.Select(h => h.Ip).ToArray());
+        Assert.Equal(new[] { "Dad's iPad", "printer", "Porch camera" }, guests.Select(h => h.Hostname).ToArray());
+        Assert.Equal("Apple, Inc.", guests[0].Vendor);                                // the controller's own word for it
+        Assert.All(guests, h => Assert.True(h.Online));
+        Assert.DoesNotContain(guests, h => h.Ip.StartsWith("192.168.30."));          // the scanned network's devices are not taken over
+        Assert.Equal("192.168.30.0/24", Host(store, Pc).Subnet);
+
+        // They show on the dashboard like any network's, marked as read from the gateway.
+        var hosts = await http.GetFromJsonAsync<JsonElement>("/api/hosts");
+        Assert.Equal("gateway", hosts.GetProperty("scanModes").GetProperty(Guest).GetString());
+        var d = await Gear(http);
+        var net = d.GetProperty("vlans").GetProperty("networks").EnumerateArray().Single();
+        Assert.Equal((Guest, 3, 3), (net.GetProperty("network").GetString(), net.GetProperty("devices").GetInt32(), net.GetProperty("online").GetInt32()));
+        _ = gear;
+    }
+
+    [Fact]
+    public async Task A_device_the_gateway_stops_listing_goes_offline_after_as_many_reads_as_a_scanned_one_may_miss()
+    {
+        using var app = new BamfApp();
+        var (gear, store, c, http) = Set(app);
+        c.Clients = VlanClients();
+        await http.PostAsJsonAsync("/api/settings/gear", new { vlans = true, vlanNetworks = new[] { Guest } });
+        var camera = store.GetAll().First(h => h.Mac == "CC:00:00:00:00:03");
+
+        c.Clients = VlanClients(includeCamera: false);
+        await gear.Refresh(true, default);
+        Assert.True(store.GetAll().First(h => h.Id == camera.Id).Online);            // one miss is allowed (two by default)
+        await gear.Refresh(true, default);
+        Assert.False(store.GetAll().First(h => h.Id == camera.Id).Online);
+        Assert.True(store.GetAll().First(h => h.Mac == "CC:00:00:00:00:01").Online);
+
+        c.Clients = VlanClients();                                                    // and back again
+        await gear.Refresh(true, default);
+        Assert.True(store.GetAll().First(h => h.Id == camera.Id).Online);
+    }
+
+    [Fact]
+    public void The_scanner_leaves_a_network_read_from_the_gateway_alone()
+    {
+        using var app = new BamfApp();
+        var (_, store, _, _) = Set(app);
+        store.UpsertSeen("CC:00:00:00:00:09", "192.168.10.9", "cam", "Acme", Guest);
+        store.UpsertSeen("DD:00:00:00:00:09", "192.168.30.99", "pc2", "Acme", "192.168.30.0/24");
+        var scanned = new[] { "192.168.30.0/24" };
+        // What the scanner does when every scanned network was covered and the gateway's is on the list: only what it covered is judged.
+        store.MarkOffline(new HashSet<string>(), scanned, 1, scanned.Concat(new[] { Guest }).ToList());
+        Assert.False(store.GetAll().First(h => h.Mac == "DD:00:00:00:00:09").Online);
+        Assert.True(store.GetAll().First(h => h.Mac == "CC:00:00:00:00:09").Online);
+        // Whereas a network that's on no list at all is judged on every pass, which is what the gateway's would have met without this.
+        store.MarkOffline(new HashSet<string>(), scanned, 1, scanned);
+        Assert.False(store.GetAll().First(h => h.Mac == "CC:00:00:00:00:09").Online);
+    }
+
+    [Fact]
+    public async Task Switching_it_off_hides_the_devices_and_switching_it_on_again_brings_them_back_with_their_names()
+    {
+        using var app = new BamfApp();
+        var (_, store, c, http) = Set(app);
+        c.Clients = VlanClients();
+        await http.PostAsJsonAsync("/api/settings/gear", new { vlans = true, vlanNetworks = new[] { Guest } });
+        var ipad = store.GetAll().First(h => h.Mac == "CC:00:00:00:00:01");
+        store.SetName(ipad.Id, "The iPad");                                     // yours
+
+        await http.PostAsJsonAsync("/api/settings/gear", new { vlans = false });
+        Assert.All(store.GetAll().Where(h => h.Subnet == Guest), h => Assert.True(h.Forgotten));
+        Assert.Equal("The iPad", store.GetAll().First(h => h.Id == ipad.Id).CustomName);       // hidden, not deleted
+        Assert.Equal("192.168.30.0/24", Host(store, Pc).Subnet);                                // nothing else touched
+        Assert.False(Host(store, Pc).Forgotten);
+
+        await http.PostAsJsonAsync("/api/settings/gear", new { vlans = true });                 // the list of networks was kept
+        var back = store.GetAll().First(h => h.Id == ipad.Id);
+        Assert.False(back.Forgotten);
+        Assert.Equal("The iPad", back.CustomName);
+    }
+
+    [Fact]
+    public async Task Taking_a_network_off_the_list_hides_its_devices()
+    {
+        using var app = new BamfApp();
+        var (_, store, c, http) = Set(app);
+        c.Clients = VlanClients();
+        await http.PostAsJsonAsync("/api/settings/gear", new { vlans = true, vlanNetworks = new[] { Guest } });
+        await http.PostAsJsonAsync("/api/settings/gear", new { vlanNetworks = Array.Empty<string>() });
+        Assert.All(store.GetAll().Where(h => h.Subnet == Guest), h => Assert.True(h.Forgotten));
+        Assert.Empty(store.GearVlanNetworkList());
+    }
+
+    [Theory]
+    [InlineData("8.8.8.0/24")]                    // not private
+    [InlineData("192.168.30.0/24")]               // BAMF scans it itself
+    [InlineData("192.168.30.128/25")]             // inside one it scans
+    [InlineData("192.168.0.0/16")]                // wider than BAMF reads
+    [InlineData("nonsense")]
+    public async Task A_network_that_cannot_be_read_from_the_gateway_is_refused(string network)
+    {
+        using var app = new BamfApp();
+        var (_, store, _, http) = Set(app);
+        var res = await http.PostAsJsonAsync("/api/settings/gear", new { vlans = true, vlanNetworks = new[] { network } });
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        Assert.Empty(store.GearVlanNetworkList());
+    }
+
+    [Fact]
+    public async Task Networks_the_gateway_lists_but_you_have_not_added_are_suggested()
+    {
+        using var app = new BamfApp();
+        var (_, store, c, http) = Set(app);
+        c.Clients = VlanClients();
+        await http.PostAsJsonAsync("/api/settings/gear", new { vlans = true });
+        var d = await Gear(http);
+        var s = d.GetProperty("vlans").GetProperty("suggestions").EnumerateArray().Single();
+        Assert.Equal((Guest, 3), (s.GetProperty("network").GetString(), s.GetProperty("devices").GetInt32()));
+        Assert.Empty(store.GetAll().Where(h => h.Subnet == Guest));                // suggesting adds nothing
+    }
+
+    [Fact]
+    public async Task A_routers_arp_table_over_snmp_lists_the_devices_on_every_network_it_is_on()
+    {
+        using var agent = new FakeSnmpAgent();
+        agent.Arp(3, "192.168.10.41", "DD:00:00:00:00:41");
+        agent.Arp(3, "192.168.10.42", "DD:00:00:00:00:42");
+        agent.Arp(1, "192.168.30.10", "BB:00:00:00:00:01");                         // on a network that's scanned: not taken
+        using var app = new BamfApp();
+        var (_, store, _, http) = Set(app);
+        store.SetSetting("gearUnifiUrl", "");
+        var router = store.SaveSwitch(null, new SwitchInput("Router", 4, "", Host(store, Gw).Id, "", 0, 0, "router", 0)).Saved!;
+        store.SaveSnmpConfig(router.Id, true, $"127.0.0.1:{agent.Port}", "public");
+        var res = await http.PostAsJsonAsync("/api/settings/gear", new { vlans = true, vlanNetworks = new[] { Guest } });
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        Assert.Equal(new[] { "DD:00:00:00:00:41", "DD:00:00:00:00:42" }, store.GetAll().Where(h => h.Subnet == Guest).OrderBy(h => h.Ip).Select(h => h.Mac).ToArray());
+        var src = (await Gear(http)).GetProperty("sources").EnumerateArray().First(x => x.GetProperty("id").GetString() == $"snmp:{router.Id}");
+        Assert.Equal("ok", src.GetProperty("state").GetString());
+        Assert.Contains("3 ARP entries", src.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task An_opnsense_firewalls_arp_table_lists_the_devices_too()
+    {
+        using var app = new BamfApp(settings: new()
+        {
+            ["Bamf:RouterImport:Kind"] = "opnsense", ["Bamf:RouterImport:Url"] = "https://fw.test", ["Bamf:RouterImport:ApiKey"] = "k", ["Bamf:RouterImport:ApiSecret"] = "s",
+        });
+        var gear = app.Services.GetRequiredService<NetworkGear>();
+        var store = app.Services.GetRequiredService<HostStore>();
+        var fw = new FakeFirewall();
+        gear.Opn.Handler = fw;
+        await app.Client().PostAsJsonAsync("/api/settings/gear", new { vlans = true, vlanNetworks = new[] { Guest } });
+        var found = store.GetAll().Where(h => h.Subnet == Guest).OrderBy(h => h.Ip).ToList();
+        Assert.Equal(new[] { "192.168.10.51", "192.168.10.52" }, found.Select(h => h.Ip).ToArray());
+        Assert.Equal(new[] { "tv", "" }, found.Select(h => h.Hostname).ToArray());          // a domain is dropped from a name
+        Assert.Equal("Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes("k:s")), fw.Auth);
+        Assert.Contains("GET /api/diagnostics/interface/getArp", fw.Calls);
+    }
+
+    private sealed class FakeFirewall : HttpMessageHandler
+    {
+        public readonly List<string> Calls = new();
+        public string? Auth;
+        public string Gateways = """{"items":[{"name":"WAN_DHCP","address":"203.0.113.5","status":"none"},{"name":"WAN2","address":"198.51.100.9","status":"none"}]}""";
+        public string Alerts = """{"rows":[],"total":0}""";
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct)
+        {
+            Auth = req.Headers.Authorization?.ToString();
+            Calls.Add(req.Method + " " + req.RequestUri!.AbsolutePath);
+            var body = req.RequestUri.AbsolutePath switch
+            {
+                "/api/diagnostics/interface/getArp" => """[{"mac":"dd:00:00:00:00:51","ip":"192.168.10.51","hostname":"tv.lan","manufacturer":"LG"},{"mac":"dd:00:00:00:00:52","ip":"192.168.10.52","hostname":"","manufacturer":""},{"mac":"bb:00:00:00:00:01","ip":"192.168.30.10","hostname":"","manufacturer":""}]""",
+                "/api/routes/gateway/status" => Gateways,
+                "/api/ids/service/queryAlerts" => Alerts,
+                _ => null,
+            };
+            return Task.FromResult(body is null ? new HttpResponseMessage(HttpStatusCode.NotFound) : new HttpResponseMessage { Content = new StringContent(body) });
+        }
+    }
+
+    // ---- the gateway's own events
+
+    [Fact]
+    public void A_failover_a_lost_connection_and_its_return_are_noticed_and_the_first_sight_is_not()
+    {
+        GearDevice Gateway(bool wan1Up, bool wan1Active, bool wan2Up, bool wan2Active) => new("unifi", Gw, "Gateway", "router", "", "", "", 0, true, "", 0, "", 0, null, null, null, null, null, new(), new(),
+            new() { new GearWan("wan", wan1Up, "", wan1Active), new GearWan("wan2", wan2Up, "", wan2Active) });
+        var now = DateTime.UtcNow;
+        var (m1, e1) = GatewayEvents.Step(new(), new[] { Gateway(true, true, true, false) }, now);
+        Assert.Empty(e1);                                                                       // first sight: only remembered
+        var (m2, e2) = GatewayEvents.Step(m1, new[] { Gateway(true, true, true, false) }, now);
+        Assert.Empty(e2);                                                                       // nothing changed
+        var (m3, e3) = GatewayEvents.Step(m2, new[] { Gateway(false, false, true, true) }, now);
+        Assert.Equal(2, e3.Count);                                                              // wan went down, and traffic moved
+        Assert.Contains(e3, e => e.Title == "Internet connection wan is down on Gateway" && e.Detail.Contains("another connection is still up"));
+        Assert.Contains(e3, e => e.Title == "Gateway moved your internet from wan to wan2");
+        var (_, e4) = GatewayEvents.Step(m3, new[] { Gateway(true, true, true, false) }, now);
+        Assert.Contains(e4, e => e.Title == "Internet connection wan is back on Gateway");
+        Assert.Contains(e4, e => e.Title == "Gateway moved your internet from wan2 to wan");
+    }
+
+    [Fact]
+    public void A_batch_of_threats_is_one_alert_that_says_how_many_and_what()
+    {
+        GearEvent T(string sig, bool blocked) => new("unifi", DateTime.UtcNow.ToString("o"), "threat", sig, "1.2.3.4 to 192.168.30.10", blocked);
+        var one = GatewayEvents.Summarize(new[] { T("ET SCAN Nmap", true) });
+        Assert.Equal("Your gateway blocked a threat: ET SCAN Nmap", one.Title);
+        var many = GatewayEvents.Summarize(new[] { T("ET SCAN Nmap", true), T("ET SCAN Nmap", true), T("ET POLICY curl", false) });
+        Assert.Equal("Your gateway's intrusion detection saw 3 threats (2 blocked)", many.Title);
+        Assert.Contains("2 x ET SCAN Nmap", many.Detail);
+        Assert.Contains("1 were only detected, not stopped", many.Detail);
+    }
+
+    [Fact]
+    public void The_controllers_intrusion_events_and_the_firewalls_alerts_are_read()
+    {
+        var uni = UniFiGear.ParseThreats(JsonNode.Parse("""
+            {"data":[
+              {"key":"EVT_IPS_IpsAlert","time":1800000002000,"inner_alert_signature":"ET SCAN Nmap","inner_alert_category":"Attempted Information Leak","src_ip":"203.0.113.9","src_port":"4444","dest_ip":"192.168.30.10","inner_alert_action":"blocked"},
+              {"key":"EVT_AD_Login","time":1800000003000,"msg":"admin logged in"},
+              {"key":"EVT_IPS_IpsAlert","time":1800000001000,"msg":"Something","dest_ip":"192.168.30.11","inner_alert_action":"alert"}
+            ]}
+            """));
+        Assert.Equal(2, uni.Count);                                                             // a login isn't a threat
+        Assert.Equal(("ET SCAN Nmap", true), (uni[0].Title, uni[0].Blocked));                   // newest first
+        Assert.Equal("Attempted Information Leak. 203.0.113.9:4444 to 192.168.30.10 (blocked)", uni[0].Detail);
+        Assert.False(uni[1].Blocked);
+
+        var opn = OpnSenseGear.ParseThreats(JsonNode.Parse("""
+            {"rows":[{"timestamp":"2026-11-15T10:00:00.000000+0000","alert":"ET POLICY curl","alert_action":"allowed","src_ip":"10.1.1.5","dest_ip":"1.1.1.1"},
+                     {"timestamp":"2026-11-15T11:00:00.000000+0000","alert":"ET SCAN ssh","alert_action":"blocked","src_ip":"203.0.113.9","src_port":"22","dest_ip":"192.168.1.5"}]}
+            """));
+        Assert.Equal(new[] { "ET SCAN ssh", "ET POLICY curl" }, opn.Select(e => e.Title).ToArray());
+        Assert.True(opn[0].Blocked);
+    }
+
+    private static string Alarm(long ms, string sig, string action = "blocked") =>
+        $$"""{"key":"EVT_IPS_IpsAlert","time":{{ms}},"inner_alert_signature":"{{sig}}","src_ip":"203.0.113.9","dest_ip":"192.168.30.10","inner_alert_action":"{{action}}"}""";
+
+    [Fact]
+    public async Task Gateway_events_do_nothing_until_a_kind_is_ticked()
+    {
+        using var app = new BamfApp();
+        var (gear, store, c, http) = Set(app);
+        await http.PostAsJsonAsync("/api/settings/gear", new { events = true });                // the feature on, no kind chosen
+        Assert.DoesNotContain(c.Calls, x => x.EndsWith("/stat/alarm"));
+        Assert.Empty(store.GetAlerts(50));
+        c.Devices = DevicesJson(wan1Active: false);                                              // a failover the controller reports
+        await gear.Refresh(true, default);
+        Assert.Empty(store.GetAlerts(50));
+        Assert.Empty(store.GetGearEventLog());
+    }
+
+    [Fact]
+    public async Task A_failover_is_raised_as_an_internet_alert_once_and_the_first_read_is_only_remembered()
+    {
+        using var app = new BamfApp();
+        var (gear, store, c, http) = Set(app);
+        await http.PostAsJsonAsync("/api/settings/gear", new { events = true, eventWan = true });
+        Assert.Empty(store.GetAlerts(50));                                                       // the first read says nothing
+        await gear.Refresh(true, default);
+        Assert.Empty(store.GetAlerts(50));
+
+        c.Devices = DevicesJson(wan1Active: false);                                              // traffic moved to wan2
+        await gear.Refresh(true, default);
+        var alert = Assert.Single(store.GetAlerts(50));
+        Assert.Equal(("internet", "Gateway moved your internet from wan to wan2"), (alert.Kind, alert.Title));
+        await gear.Refresh(true, default);
+        Assert.Single(store.GetAlerts(50));                                                      // not again while it stays so
+        Assert.Equal("Gateway moved your internet from wan to wan2", Assert.Single((await Gear(http)).GetProperty("events").GetProperty("recent").EnumerateArray()).GetProperty("title").GetString());
+
+        // Switched off, it forgets; on again it begins from how things are then (the failover is the starting point, so it isn't announced again)...
+        await http.PostAsJsonAsync("/api/settings/gear", new { eventWan = false });
+        await http.PostAsJsonAsync("/api/settings/gear", new { eventWan = true });
+        Assert.Single(store.GetAlerts(50));
+        // ...and what changes after that is.
+        c.Devices = DevicesJson(wan1Active: true);
+        await gear.Refresh(true, default);
+        Assert.Equal(2, store.GetAlerts(50).Count);
+    }
+
+    [Fact]
+    public async Task Threats_are_baselined_then_one_alert_covers_a_burst_and_no_more_than_one_every_ten_minutes()
+    {
+        using var app = new BamfApp();
+        var (gear, store, c, http) = Set(app);
+        c.Alarms = $$"""{"data":[{{Alarm(1_800_000_000_000, "OLD ONE")}}]}""";
+        await http.PostAsJsonAsync("/api/settings/gear", new { events = true, eventThreats = true });
+        Assert.Empty(store.GetAlerts(50));                                                       // what was logged before is history
+
+        c.Alarms = $$"""{"data":[{{Alarm(1_800_000_090_000, "ET SCAN Nmap")}},{{Alarm(1_800_000_060_000, "ET SCAN Nmap")}},{{Alarm(1_800_000_030_000, "ET POLICY curl", "alert")}},{{Alarm(1_800_000_000_000, "OLD ONE")}}]}""";
+        await gear.Refresh(true, default);
+        var alert = Assert.Single(store.GetAlerts(50));
+        Assert.Equal(("security", "Your gateway's intrusion detection saw 3 threats (2 blocked)"), (alert.Kind, alert.Title));
+        Assert.DoesNotContain("OLD ONE", alert.Detail);
+
+        c.Alarms = $$"""{"data":[{{Alarm(1_800_000_190_000, "ET SCAN ssh")}}]}""";
+        await gear.Refresh(true, default);
+        Assert.Single(store.GetAlerts(50));                                                      // too soon: held for the next alert
+        var src = (await Gear(http)).GetProperty("sources").EnumerateArray().First(x => x.GetProperty("id").GetString() == "unifi:threats");
+        Assert.Equal("ok", src.GetProperty("state").GetString());
+    }
+
+    [Fact]
+    public async Task An_opnsense_firewalls_gateways_and_alerts_are_read_for_events()
+    {
+        using var app = new BamfApp(settings: new()
+        {
+            ["Bamf:RouterImport:Kind"] = "opnsense", ["Bamf:RouterImport:Url"] = "https://fw.test", ["Bamf:RouterImport:ApiKey"] = "k", ["Bamf:RouterImport:ApiSecret"] = "s",
+        });
+        var gear = app.Services.GetRequiredService<NetworkGear>();
+        var store = app.Services.GetRequiredService<HostStore>();
+        var fw = new FakeFirewall();
+        gear.Opn.Handler = fw;
+        await app.Client().PostAsJsonAsync("/api/settings/gear", new { events = true, eventWan = true, eventThreats = true });
+        Assert.Empty(store.GetAlerts(50));
+        fw.Gateways = """{"items":[{"name":"WAN_DHCP","address":"203.0.113.5","status":"down"},{"name":"WAN2","address":"198.51.100.9","status":"none"}]}""";
+        fw.Alerts = """{"rows":[{"timestamp":"2099-01-01T00:00:00.000000+0000","alert":"ET SCAN ssh","alert_action":"blocked","src_ip":"203.0.113.9","dest_ip":"192.168.1.5"}]}""";
+        await gear.Refresh(true, default);
+        var titles = store.GetAlerts(50).Select(a => a.Title).ToList();
+        Assert.Contains("Internet connection WAN_DHCP is down on OPNsense", titles);
+        Assert.Contains("Your gateway blocked a threat: ET SCAN ssh", titles);
+        Assert.Contains("POST /api/ids/service/queryAlerts", fw.Calls);
+    }
+
+    [Fact]
+    public async Task Switching_events_off_forgets_where_they_had_got_to()
+    {
+        using var app = new BamfApp();
+        var (_, store, _, http) = Set(app);
+        await http.PostAsJsonAsync("/api/settings/gear", new { events = true, eventWan = true, eventThreats = true });
+        Assert.NotNull(store.GetSetting("gearWanState"));
+        await http.PostAsJsonAsync("/api/settings/gear", new { events = false });
+        Assert.Equal("", store.GetSetting("gearWanState"));
+        Assert.Equal("", store.GetSetting("gearThreatMark:unifi"));
+        Assert.Empty(store.GetGearEventLog());
+    }
+
     // ---- a tiny SNMP switch to talk to
 
     private sealed class FakeSnmpAgent : IDisposable
@@ -609,6 +972,13 @@ public class NetworkGearTests
         public FakeSnmpAgent() => _ = Task.Run(Serve);
 
         public void Set(string oid, byte type, object value) => _mib[Parse(oid)] = (type, value);
+
+        /// <summary>One ARP entry the way IP-MIB lists it: ifIndex and the address in the key, the MAC's six bytes as the value.</summary>
+        public void Arp(int ifIndex, string ip, string mac)
+        {
+            Set($"1.3.6.1.2.1.4.22.1.2.{ifIndex}.{ip}", 0x04, mac.Split(':').Select(x => Convert.ToByte(x, 16)).ToArray());
+            Set($"1.3.6.1.2.1.4.22.1.4.{ifIndex}.{ip}", 2, 3L);   // dynamic
+        }
 
         /// <summary>One learned MAC on a bridge port, the way Q-BRIDGE-MIB lists it: VLAN, then the six bytes.</summary>
         public void Fdb(int vlan, string mac, int bridgePort)
@@ -676,7 +1046,7 @@ public class NetworkGearTests
         private static byte[] Value(byte type, object v) => type switch
         {
             0x02 => Wrap(0x02, Bytes((long)v)),
-            0x04 => Wrap(0x04, Encoding.ASCII.GetBytes((string)v)),
+            0x04 => Wrap(0x04, v is byte[] raw ? raw : Encoding.ASCII.GetBytes((string)v)),
             _ => Wrap(type, Bytes((long)(ulong)v)),                              // gauges and time ticks
         };
 

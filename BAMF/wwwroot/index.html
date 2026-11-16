@@ -1116,9 +1116,34 @@
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="setGearHealth" aria-label="Watch the health of my gear" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
+        <label class="set-row">
+          <span class="set-label">Devices on other networks
+            <span class="set-hint">For VLANs and guest networks BAMF can't scan from where it runs. Instead of scanning, BAMF asks your gateway or router which devices it has on each network you add below, and a device is online while the gateway still lists it. Needs a UniFi controller, an OPNsense firewall (the one in Router import) or a router that answers SNMP (switch on its <strong>Counters</strong> above). A network BAMF scans itself can't be added.</span>
+            <span class="set-hint" id="setGearVlanStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setGearVlan" aria-label="Read other networks from the gateway" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <div id="gearVlanBox" hidden>
+          <div class="set-sub">Networks read from the gateway</div>
+          <div class="gear-nets" id="gearVlanList"></div>
+          <div class="set-field gear-add"><input class="modal-input" id="setGearVlanNet" size="24" placeholder="192.168.10.0/24" autocomplete="off" spellcheck="false" aria-label="A network to read from the gateway"> <button type="button" class="export-btn" id="setGearVlanAdd">Add</button></div>
+          <div class="gear-sugg" id="gearVlanSuggest"></div>
+        </div>
+        <label class="set-row">
+          <span class="set-label">Gateway events
+            <span class="set-hint">What the gateway itself reports. Tick the kinds you want: none is sent until you do. They go through your alert destinations, quiet hours and digest like any other alert. Needs a UniFi controller or an OPNsense firewall; other gateways can't be asked yet.</span>
+            <span class="set-hint" id="setGearEventStatus"></span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setGearEvent" aria-label="Read the gateway's events" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <div id="gearEventBox" hidden>
+          <label class="inline-check gear-kind"><input type="checkbox" id="setGearEvWan"> Internet connection changes: a connection down or back, and traffic moving to a backup (sent as internet alerts)</label>
+          <label class="inline-check gear-kind"><input type="checkbox" id="setGearEvThreats"> Threats the gateway's intrusion detection saw, blocked or not: at most one alert every ten minutes, saying how many (sent as security alerts)</label>
+          <div class="gear-sources" id="gearEventLog"></div>
+        </div>
         <div class="set-sub">Where it reads from</div>
         <p class="modal-help">
-          <strong>A UniFi controller</strong> (a Cloud Gateway, Dream Machine, Cloud Key or classic controller) gives all three.
+          <strong>A UniFi controller</strong> (a Cloud Gateway, Dream Machine, Cloud Key or classic controller) gives all of them. <strong>An OPNsense firewall</strong> (set in Router import) gives other networks and gateway events.
           <strong>Any managed switch</strong>, whatever its make, can place devices on its ports and report its health over SNMP:
           switch on its <strong>Counters</strong> under Switches and routers above, and BAMF reads its table too. Wi-Fi
           quality, and drawing the access points, come from a controller for now.

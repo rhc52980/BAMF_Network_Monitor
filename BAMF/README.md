@@ -2042,6 +2042,7 @@ scan, or delete a thing.
 | DELETE | `/api/switches/{id}` | Delete a switch. Devices recorded on it go back to unrecorded; switches plugged into it lose that uplink |
 | GET | `/api/gear` | Network gear: `features` (`map`, `wifi`, `health`), `unifi` (`configured`, `fromRouterImport`, `url`, `user`, `hasSecret`, `site`, `verify`; never the password), `sources` (what each last said), `drawn`, `gear` (each piece with `issues`), `wifi` (each Wi-Fi device, weakest first) |
 | POST | `/api/settings/gear` | Body, any of `{"map": true, "wifi": true, "health": true, "unifiUrl": "https://192.168.1.1", "unifiUser": "…", "unifiSecret": "…", "unifiSite": "", "unifiVerify": false}`. Switching one on reads at once; switching it off takes back what it made. An empty `unifiUrl` forgets the controller and what it gave |
+| POST | `/api/settings/gear` (more) | Also `{"vlans": true, "vlanNetworks": ["192.168.10.0/24"], "events": true, "eventWan": true, "eventThreats": true}`. `vlanNetworks` replaces the list; one taken off has its devices hidden |
 | POST | `/api/gear/run` | Read now; 409 with no feature on or a read already running, 429 within ten seconds of the last |
 | GET | `/api/switches/snmp` | Each switch and router's traffic counters: `enabled`, `address`, `hasCommunity`, `lastPoll`, `error`, `portsRead`, `mapping`, `counted`, and `ports` — every port's number, the switch's `name` for it, the `device` it counts or a `note` saying why not |
 | POST | `/api/switches/{id}/snmp` | Body `{"enabled": true, "address": "192.168.1.2", "community": "…"}` — switch a switch's counters on or off. `address` blank uses its linked device's; `community` null or blank keeps the saved one. Reads the switch straight away and returns its status as above |
@@ -4282,7 +4283,7 @@ in `POST /api/settings/dhcp-probe`, and is on unless you switch it off.
 Your switches, access points and router know things BAMF can't see from outside:
 which port or Wi-Fi network each device is on, how well each Wi-Fi device hears its
 access point, and how the gear itself is doing. Under **Settings → Your network →
-Network gear** there are three switches, **each off until you switch it on**, so a
+Network gear** there are five switches, **each off until you switch it on**, so a
 network with nothing special on it is unchanged:
 
 - **Draw the Map for me.** Adds your switches, access points and router to the Map,
@@ -4307,7 +4308,39 @@ network with nothing special on it is unchanged:
   are for information. **It sends no alerts**: it's a list. A switch or access point
   that goes offline is already an alert like any other device's.
 
-**Where it reads from.** Two kinds of source, and a feature uses whichever can give it:
+- **Devices on other networks.** For VLANs and guest networks BAMF can't scan from the
+  machine it runs on (scanning needs an interface on the network, because ARP doesn't
+  cross a router), BAMF asks the gateway or router which devices it holds on them
+  instead. You add each network yourself, and the box suggests any /24 the gateway lists
+  devices on that you haven't added. Those devices appear like any others, under a tab of
+  their own marked *via gateway* on the Map; a device is online while the gateway lists
+  it, and goes offline after as many reads missed (one a minute) as a scanned network
+  allows missed scans. A device that turns up after the network was first read raises the
+  usual new-device alert; the ones already there when you add it are learned quietly, so
+  adding a network with forty devices doesn't send forty alerts. A network BAMF scans
+  itself can't be added, so nothing is read twice, and the scanner never judges these
+  devices offline itself. Switch it off, or take a network off the list, and its devices
+  are **hidden, not deleted** (the Forgotten list brings them back): a name or note you
+  gave one is still there when it returns.
+- **Gateway events.** What the gateway itself reports, kind by kind, each **off until
+  ticked** even with the switch on, so nothing starts sending by surprise:
+  - *Internet connection changes*: a connection down or back, and traffic moving from one
+    connection to another (a failover to a backup or a return to the main line), as
+    **internet** alerts. BAMF's own internet watch still tells you when the internet is
+    down; this adds what only the gateway knows, such as a failover while the internet
+    stayed up. The first read only remembers how things are, so a restart doesn't announce
+    what was already so.
+  - *Threats*: what the gateway's intrusion detection saw, blocked or not, as **security**
+    alerts. A scan from the internet can log hundreds in a minute, so it's **at most one
+    alert every ten minutes**, saying how many, which signatures were most common, and
+    how many were only detected. What was logged before you ticked it is history, not
+    news.
+
+  All of it goes through your alert destinations, tag routing, quiet hours and digest
+  like any other alert; each kind can be taken by one destination and not another. The
+  Settings card lists the last few it told you about.
+
+**Where it reads from.** Three kinds of source, and a feature uses whichever can give it:
 
 - **A UniFi controller**: a Cloud Gateway, Dream Machine, Cloud Key or a classic
   controller. It gives all three. Give BAMF its address (the console's own, such as
@@ -4318,6 +4351,11 @@ network with nothing special on it is unchanged:
   signed itself, so BAMF accepts it unless you tick **check its certificate**. The
   password is kept like a webhook's: never shown again, not in the settings export.
   **Forget** removes it, and takes back what the controller drew and read.
+- **An OPNsense firewall**, with the API key and secret already given to Router import
+  (`Kind` `opnsense` in appsettings.json). It gives **other networks** (its ARP table, which
+  holds every device on every network it routes) and **gateway events** (its gateway
+  status, and the intrusion detection alerts it has logged, if Suricata is on). Its user
+  needs the privileges for those pages.
 - **Any managed switch**, of any make, over SNMP: the ones you've switched
   **Counters** on for under [Traffic from your switches](#traffic-from-your-switches).
   BAMF reads the standard tables every managed switch has (the bridge table of which
@@ -4326,8 +4364,11 @@ network with nothing special on it is unchanged:
   Cisco, an Aruba, a MikroTik, a Netgear or a UniFi switch. The switch must already be
   recorded under Switches and routers, with its device linked. Reading it every two
   minutes adds a few more requests to the minute's counter read; it still only ever reads.
+  A **router** with SNMP on also gives **other networks**: its ARP table (the standard
+  IP-MIB one) lists every device on every network it's on, VLANs included, on a router of
+  any make.
 
-Wi-Fi quality, and drawing the access points and the SSIDs, need a controller for now:
+Wi-Fi quality, drawing the access points and the SSIDs, and the controller's intrusion events need a controller for now:
 there is no standard way to ask an access point how well it hears a device. Other makes
 of controller can be added as readers of their own without changing any of this.
 
@@ -4357,8 +4398,10 @@ of controller can be added as readers of their own without changing any of this.
   really plugged into rather than the ones that lead on. If two ports tie, it's left
   alone rather than guessed.
 
-**It was written from UniFi's and the standard SNMP tables' documentation, and tried
-against stand-ins, not against every make of gear.** If a controller or a switch says
+**It was written from UniFi's, OPNsense's and the standard SNMP tables' documentation, and tried
+against stand-ins, not against every make of gear.** UniFi keeps intrusion events with its
+alarms in the versions this was written for; a controller that keeps them elsewhere, or has
+Threat Management off, lists none, and the card says so. If a controller or a switch says
 something BAMF reads differently, the **Network services** card shows the error, and
 what it drew before stays. If you hit one, an issue with what it said helps.
 
@@ -4367,7 +4410,12 @@ been drawn, the gear and its issues, and the Wi-Fi devices), `POST /api/settings
 (any of `map`, `wifi`, `health`, and `unifiUrl`, `unifiUser`, `unifiSecret`,
 `unifiSite`, `unifiVerify`; an empty `unifiUrl` forgets the controller) and
 `POST /api/gear/run` (read now; 409 with nothing switched on, 429 within ten seconds of
-the last). `GET /api/hosts` gives each device `switchAuto` (`unifi`, `snmp` or empty
+the last). Also in `POST /api/settings/gear`: `vlans`, `vlanNetworks` (the whole list of
+networks to read from the gateway; a network that overlaps one BAMF scans, isn't private or is
+wider than a /21 is refused), `events`, `eventThreats` and `eventWan`. `GET /api/gear` adds
+`vlans` (the networks with their device counts, and suggestions) and `events` (the kinds on,
+and the last few alerts told); `GET /api/hosts` lists a network read from the gateway in
+`scanModes` as `gateway`. `GET /api/hosts` gives each device `switchAuto` (`unifi`, `snmp` or empty
 for one you recorded) and `wifi` when there's a reading.
 
 ### Traffic from your switches
