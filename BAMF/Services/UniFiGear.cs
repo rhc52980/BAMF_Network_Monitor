@@ -81,10 +81,49 @@ public sealed class UniFiGear : IDisposable
                     throw new InvalidOperationException("The UniFi controller won't let that account read its devices. Give it the View Only role on the Network application.");
                 if (st != 200) throw new InvalidOperationException($"The UniFi controller answered HTTP {st} when asked for its devices.");
                 if (st2 != 200) throw new InvalidOperationException($"The UniFi controller answered HTTP {st2} when asked for its clients.");
-                return Parse(devices, clients, DateTime.UtcNow);
+                var snap = Parse(devices, clients, DateTime.UtcNow);
+                return snap with { Gateways = await GatewayAddresses(s, site, ct) };
             }
         }
         catch (Exception) { _http?.Dispose(); _http = null; throw; }
+    }
+
+    private List<string>? _gateways;
+    private DateTime _gatewaysAt;
+
+    /// <summary>
+    /// The gateway's own address on each network, kept ten minutes. Best effort: a controller that won't say gives null, and the
+    /// gear is read as before, so this never fails a read.
+    /// </summary>
+    private async Task<List<string>?> GatewayAddresses(Settings s, string site, CancellationToken ct)
+    {
+        if (_gateways is not null && DateTime.UtcNow - _gatewaysAt < TimeSpan.FromMinutes(10)) return _gateways;
+        try
+        {
+            var (st, body) = await Get($"{s.Url}{_prefix}/api/s/{site}/rest/networkconf", ct);
+            if (st != 200) return _gateways;
+            _gateways = GatewayAddresses(body);
+            _gatewaysAt = DateTime.UtcNow;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception) { /* keep the last answer */ }
+        return _gateways;
+    }
+
+    /// <summary>The gateway's address on each of the controller's networks: the address part of each network's ip_subnet. Pure, for the tests.</summary>
+    public static List<string> GatewayAddresses(JsonNode? networks)
+    {
+        var list = new List<string>();
+        foreach (var n in Data(networks))
+        {
+            var subnet = Str(n, "ip_subnet");
+            var slash = subnet.IndexOf('/');
+            if (slash > 0) subnet = subnet[..slash];
+            if (System.Net.IPAddress.TryParse(subnet, out var ip) && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork
+                && ScannerService.CheckNetwork(ip + "/24", out _) is null && !list.Contains(ip.ToString()))
+                list.Add(ip.ToString());
+        }
+        return list;
     }
 
     /// <summary>

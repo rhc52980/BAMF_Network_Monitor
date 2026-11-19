@@ -21,13 +21,18 @@ internal static class GearEndpoints
         var autos = store.GetAutoSwitchSources();
         var kinds = store.GetSwitches().ToDictionary(s => s.Id, s => s.Kind);
 
+        // A gateway's LAN interface has its own MAC, so its gear isn't found by MAC: the Map's record of it says which host it is.
+        var drawnHost = store.GetAutoSwitches().Where(a => a.Source == "unifi")
+            .Join(store.GetSwitches().Where(s => s.HostId > 0), a => a.Id, s => s.Id, (a, s) => (a.Key, s.HostId))
+            .GroupBy(x => x.Key.ToUpperInvariant()).ToDictionary(x => x.Key, x => x.First().HostId);
+
         var rows = store.GetGear().Select(g =>
         {
             byMac.TryGetValue(g.Mac.ToUpperInvariant(), out var h);
             var issues = NetworkGear.IssuesFor(g, now);
             return new
             {
-                mac = g.Mac, hostId = h?.Id ?? 0, name = g.Name, kind = g.Kind, model = g.Model, version = g.Version, upgradeTo = g.UpgradeTo,
+                mac = g.Mac, hostId = h?.Id ?? drawnHost.GetValueOrDefault(g.Mac.ToUpperInvariant()), name = g.Name, kind = g.Kind, model = g.Model, version = g.Version, upgradeTo = g.UpgradeTo,
                 uptimeSeconds = g.UptimeSeconds, online = g.Online, ip = g.Ip, ports = g.PortCount, source = g.Source,
                 cpu = g.Cpu, mem = g.Mem, temp = g.TempC, poe = g.PoeWatts, poeBudget = g.PoeBudget,
                 portsUp = g.Ports.Count(p => p.Up), reboots = g.Reboots, lastReboot = g.LastReboot, updatedAt = g.UpdatedAt,

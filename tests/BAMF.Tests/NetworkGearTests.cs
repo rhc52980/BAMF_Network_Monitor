@@ -24,6 +24,7 @@ public class NetworkGearTests
     private sealed class Controller : HttpMessageHandler
     {
         public string Devices = DevicesJson(), Clients = ClientsJson(), Alarms = """{"data":[]}""";
+        public string? Networks;
         public int Status = 200;
         public readonly List<string> Calls = new();
 
@@ -41,6 +42,7 @@ public class NetworkGearTests
             if (path.EndsWith("/stat/device")) return Task.FromResult(new HttpResponseMessage { Content = new StringContent(Devices) });
             if (path.EndsWith("/stat/sta")) return Task.FromResult(new HttpResponseMessage { Content = new StringContent(Clients) });
             if (path.EndsWith("/stat/alarm")) return Task.FromResult(new HttpResponseMessage { Content = new StringContent(Alarms) });
+            if (path.EndsWith("/rest/networkconf") && Networks is not null) return Task.FromResult(new HttpResponseMessage { Content = new StringContent(Networks) });
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
         }
     }
@@ -150,6 +152,61 @@ public class NetworkGearTests
     {
         Assert.Equal(word, WifiQuality.Label(dbm));
         Assert.Equal(weak, WifiQuality.Weak(dbm));
+    }
+
+    // ---- the gateway, drawn once
+
+    private const string NetworksJson = """
+        {"data":[
+          {"name":"Default","purpose":"corporate","ip_subnet":"192.168.30.1/24","dhcpd_enabled":true,"dhcpd_start":"192.168.30.6","dhcpd_stop":"192.168.30.254"},
+          {"name":"Cameras","purpose":"corporate","ip_subnet":"10.20.0.1/24"},
+          {"name":"Internet 1","purpose":"wan"},
+          {"name":"Odd","purpose":"corporate","ip_subnet":"203.0.113.1/24"}
+        ]}
+        """;
+
+    [Fact]
+    public void The_gateways_address_on_each_network_is_read_from_the_controllers_networks()
+    {
+        // Each network's own address; a WAN has none, and a public range isn't one of the home's networks.
+        Assert.Equal(new[] { "192.168.30.1", "10.20.0.1" }, UniFiGear.GatewayAddresses(JsonNode.Parse(NetworksJson)));
+        Assert.Empty(UniFiGear.GatewayAddresses(null));
+        Assert.Empty(UniFiGear.GatewayAddresses(JsonNode.Parse("{\"data\":[{\"ip_subnet\":\"nonsense\"}]}")));
+    }
+
+    [Fact]
+    public async Task A_gateway_whose_LAN_mac_isnt_the_one_the_controller_lists_is_one_gateway_on_the_Map()
+    {
+        // The LAN interface of a gateway carries a MAC of its own: 76:... where the controller lists 74:...
+        using var app = new BamfApp();
+        var (gear, store, c, http) = Set(app, seedHosts: false);
+        c.Networks = NetworksJson;
+        var net = "192.168.30.0/24";
+        store.UpsertSeen("EE:00:00:00:00:77", "192.168.30.1", "unifi", "Ubiquiti", net);     // not the gateway's listed MAC
+        store.UpsertSeen(Core, "192.168.30.2", "core", "Ubiquiti", net);
+        var lan = Host(store, "EE:00:00:00:00:77");
+
+        Assert.Equal(HttpStatusCode.OK, (await http.PostAsJsonAsync("/api/settings/gear", new { map = true, health = true })).StatusCode);
+
+        var routers = store.GetSwitches().Where(s => s.Kind == "router").ToList();
+        Assert.Single(routers);
+        Assert.Equal(lan.Id, routers[0].HostId);                              // drawn as that host, not beside it
+        var d = await http.GetFromJsonAsync<JsonElement>("/api/gear");
+        var row = d.GetProperty("gear").EnumerateArray().First(g => g.GetProperty("mac").GetString() == Gw);
+        Assert.Equal(lan.Id, row.GetProperty("hostId").GetInt64());          // and the gear list says which device it is
+    }
+
+    [Fact]
+    public async Task A_controller_that_wont_list_its_networks_changes_nothing()
+    {
+        using var app = new BamfApp();
+        var (gear, store, c, http) = Set(app, seedHosts: false);              // no networkconf route: 404
+        store.UpsertSeen("EE:00:00:00:00:77", "192.168.30.1", "unifi", "Ubiquiti", "192.168.30.0/24");
+        Assert.Equal(HttpStatusCode.OK, (await http.PostAsJsonAsync("/api/settings/gear", new { map = true })).StatusCode);
+        var router = store.GetSwitches().Single(s => s.Kind == "router");
+        Assert.Equal(0, router.HostId);                                       // as before: drawn on its own
+        var state = (await http.GetFromJsonAsync<JsonElement>("/api/gear")).GetProperty("sources")[0].GetProperty("state").GetString();
+        Assert.Equal("ok", state);
     }
 
     // ---- off until switched on

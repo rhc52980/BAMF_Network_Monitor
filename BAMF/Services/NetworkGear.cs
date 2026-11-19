@@ -244,6 +244,20 @@ public sealed partial class NetworkGear : BackgroundService
         return nets.FirstOrDefault(n => ip != "" && ScannerService.NetworkContains(n, ip)) ?? nets.FirstOrDefault() ?? "";
     }
 
+    /// <summary>
+    /// A gateway's LAN interface usually has a MAC of its own, not the one its controller lists, so no host matches the gear by MAC.
+    /// It is the host at the address the controller says the gateway holds on a network, which is how the Map comes to draw one gateway
+    /// and not two. Only for a router nothing else matched; a host is given to one router.
+    /// </summary>
+    internal static HostRecord? GatewayHost(GearDevice d, GearSnapshot snap, IEnumerable<HostRecord> hosts, HashSet<long> taken)
+    {
+        if (d.Kind != "router" || snap.Gateways is not { Count: > 0 } gws) return null;
+        var host = hosts.FirstOrDefault(h => !h.Forgotten && gws.Contains(h.Ip) && !taken.Contains(h.Id)
+            && !snap.Devices.Any(o => o != d && o.Mac.Equals(h.Mac, StringComparison.OrdinalIgnoreCase)));
+        if (host is not null) taken.Add(host.Id);
+        return host;
+    }
+
     private void ApplyUniFiMap(GearSnapshot snap, List<HostRecord> hosts)
     {
         if (snap.Devices.Count == 0) return;     // an empty answer is not a reason to take the Map down
@@ -263,11 +277,13 @@ public sealed partial class NetworkGear : BackgroundService
 
         var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var ignored = _store.GetAutoIgnored();     // drawn ones you deleted: not drawn again
+        var gatewayTaken = new HashSet<long>();
         foreach (var d in Parents(snap.Devices))
         {
             keys.Add(d.Mac);
             if (ignored.Contains("unifi|" + d.Mac.ToUpperInvariant())) continue;
             byMac.TryGetValue(d.Mac, out var host);
+            host ??= GatewayHost(d, snap, hosts, gatewayTaken);
             // One you made for this device is left exactly as it is.
             if (idOfMac.TryGetValue(d.Mac, out var own) && mine.Contains(own)) continue;
             long parent = 0; var uplink = "";
