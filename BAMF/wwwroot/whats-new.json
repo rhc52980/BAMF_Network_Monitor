@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.33.0",
+      "date": "2026-11-19",
+      "items": [
+        "The Map draws a gateway once. A gateway's LAN side has a hardware address of its own, so a controller's gateway was drawn beside the real one as a second router, which also made the map far wider than it needed to be. BAMF now asks the controller what address the gateway holds on each network and draws it as that device.",
+        "A network with nothing left on it, every device forgotten, no longer gets an empty panel on the Map. One still on the list of networks BAMF scans keeps its panel.",
+        "On a big network the whole map is small, so as it zooms out the names of the gateway, switches and access points now grow, up to twice their size, to stay readable. Devices keep their size, and zooming in brings everything back to normal."
+      ]
+    },
+    {
       "version": "2.32.0",
       "date": "2026-11-15",
       "items": [
