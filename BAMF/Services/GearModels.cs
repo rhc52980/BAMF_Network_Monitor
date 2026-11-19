@@ -35,7 +35,9 @@ public sealed record GearClient(
     string Name = "", string Vendor = "");
 
 /// <summary>Everything one source reported in one read.</summary>
-public sealed record GearSnapshot(string Source, string At, List<GearDevice> Devices, List<GearClient> Clients);
+/// <param name="Gateways">The addresses the gateway holds on its networks (192.168.10.1 for 192.168.10.0/24), when the source can say.
+/// A gateway's LAN interface often has a different MAC from the one its controller lists, so this is how the gateway is found among the hosts.</param>
+public sealed record GearSnapshot(string Source, string At, List<GearDevice> Devices, List<GearClient> Clients, List<string>? Gateways = null);
 
 /// <summary>How strong a Wi-Fi signal is, in words. The cut-offs are the usual rule of thumb for 2.4, 5 and 6 GHz.</summary>
 public static class WifiQuality

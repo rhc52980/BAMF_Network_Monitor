@@ -2358,7 +2358,11 @@ brings its devices along. Zoom with Ctrl + scroll, a pinch or the − / +
 buttons; a plain scroll wheel keeps scrolling the page, so you can scroll past
 one network's map to the next. Drag the background to pan,
 **Fit** shows everything, and **Auto-arrange** forgets the positions you set on
-that network.
+that network. On a big network the whole map is small, so as it zooms out the names
+of the gateway, switches and access points grow, up to twice their size, to stay
+readable; devices keep their size, and zooming in brings everything back to normal.
+A network with nothing left on it (every device forgotten) gets no map, unless it's
+still on the list of networks BAMF scans.
 
 **Wiring it up by dragging:**
 
@@ -4385,6 +4389,9 @@ of controller can be added as readers of their own without changing any of this.
 - A **switch you recorded for a device** is left exactly as you made it. BAMF uses it
   (and plugs the gear it reports into it), and doesn't draw a second one.
 - A **device you placed yourself** stays where you put it, whatever the gear says.
+- A **gateway** has one drawing, not two. Its LAN side usually has a MAC of its own, not the
+  one the controller lists, so BAMF finds it as the device at the address the controller
+  says the gateway holds on a network, and draws the controller's gateway as that device.
 - What BAMF draws is marked as drawn by it. **Edit a drawn switch** and it becomes
   yours. A placement made by hand does the same. Switching **Draw the Map** off, or
   **Forget**, takes back everything BAMF drew, **except** what you've built on it: a

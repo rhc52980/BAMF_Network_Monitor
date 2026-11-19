@@ -34,7 +34,8 @@ function mapClusters() {
   // A remote site's network has no map here: its own BAMF draws it.
   const nets = network.includes(" \u00b7 ") ? []
     : network === "all"
-    ? [...new Set([...subnets, ...hosts.filter(h => !h.remote).map(h => h.subnet).filter(Boolean)])]
+    // A network nothing is on any more (its devices forgotten) isn't drawn, unless it's one still being scanned.
+    ? [...new Set([...subnets, ...hosts.filter(h => !h.remote && !h.forgotten).map(h => h.subnet).filter(Boolean)])]
         .sort((a, b) => ipNum(a.split("/")[0]) - ipNum(b.split("/")[0]))
     : [network];
   return nets.map(subnet => {
@@ -1014,6 +1015,33 @@ function topoApplyView(m) {
   const v = mapViews[m.subnet] || topoBounds(m);
   m.view = v.slice();
   m.svg.setAttribute("viewBox", m.view.map(n => n.toFixed(1)).join(" "));
+  topoLabelZoom(m);
+}
+
+// A big network drawn whole is squeezed into the frame, and every name with it. The names of the gateway, switches and access
+// points, the skeleton of the map, grow as the view zooms out so they stay readable, up to twice their size; devices keep theirs,
+// and zooming in brings everything back to normal. Done to the text alone, so a theme's own look is left as it is.
+const TOPO_LABEL_FROM = .8, TOPO_LABEL_MAX = 2, TOPO_LABEL_ROOM = 210;
+function topoLabelZoom(m) {
+  // The frame changes size with the window, and has none while its tab is hidden: look again whenever it does.
+  if (!m.labelWatch && typeof ResizeObserver === "function") { m.labelWatch = new ResizeObserver(() => topoLabelZoom(m)); m.labelWatch.observe(m.svg); }
+  const box = m.svg.getBoundingClientRect();
+  if (!box.width || !box.height) return;
+  const k = Math.min(box.width / m.view[2], box.height / m.view[3]);        // pixels per unit of drawing
+  const z = k >= TOPO_LABEL_FROM ? 1 : Math.min(TOPO_LABEL_MAX, TOPO_LABEL_FROM / k);
+  if (z === m.labelZoom) return;
+  m.labelZoom = z;
+  const at = TOPO.T + 8;                                                    // where a node's names start
+  const put = (t, f) => { if (f > 1.05) t.setAttribute("transform", `translate(${at} 0) scale(${f.toFixed(2)}) translate(${-at} 0)`); else t.removeAttribute("transform"); };
+  // A name grows only as far as there is room beside it (the machine next to the router is 250 along), and the line under it, which is
+  // longer and matters less, grows half as far.
+  const room = text => Math.max(1, TOPO_LABEL_ROOM / (text.length * TOPO.CHAR));
+  for (const el of m.els.values()) {
+    if (!el.hasAttribute("data-gear")) continue;
+    const name = el.querySelector(".t-name"), sub = el.querySelector(".t-sub");
+    if (name) put(name, Math.min(z, room(name.textContent)));
+    if (sub) put(sub, Math.min(1 + (z - 1) / 2, room(sub.textContent)));
+  }
 }
 
 function topoFit(subnet) {
@@ -1031,6 +1059,7 @@ function topoZoomBy(subnet, factor, center) {
   m.view = [cx - (cx - x) * k, cy - (cy - y) * k, w * k, h * k];
   mapViews[subnet] = m.view.slice();
   m.svg.setAttribute("viewBox", m.view.map(n => n.toFixed(1)).join(" "));
+  topoLabelZoom(m);
 }
 
 async function topoAutoArrange(subnet) {
@@ -1166,6 +1195,7 @@ function topoNodeEl(m, key, n) {
   const g = svgEl("g", { class: "tnode " + cls, "data-key": key, tabindex: "0", role: "button", "aria-label": name });
   if (h && !h.synthetic) g.setAttribute("data-id", h.id);
   if (n.type === "switch") g.setAttribute("data-sw", n.sw.id);
+  if (n.type === "switch" || n.type === "root") g.setAttribute("data-gear", "");
   const title = svgEl("title", {});
   title.textContent = tip;
   g.appendChild(title);
