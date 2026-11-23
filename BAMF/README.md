@@ -2400,6 +2400,16 @@ devices and they count as one: the switch, with its devices. **Esc** or a click 
 picks everything but the router, and **Shift+Enter** picks the focused thing from the keyboard. Every align,
 spread and group move is one step in Undo.
 
+**Compact Wi-Fi.** An access point normally has each of its SSIDs hung beside it, and each SSID has its own
+fan of devices, so a few access points broadcasting the same four SSIDs make a drawing several times wider than the
+rest of the network. The **Compact Wi-Fi** button on the Map toolbar (shown when the map has an access point; off until
+you turn it on, and your choice is kept in the browser) draws them differently: the SSIDs go under the access point,
+each SSID that has devices is drawn with its devices in one list, and an SSID with no devices recorded on it is only a
+small tag under the access point's name (hover for the full name; more than two rows of tags end in a "+N").
+Dragging a device onto an SSID works as ever; an SSID with no devices has no node to drop on, so record a device on it
+from the device's Plugged into dialog. Nothing you recorded changes: only how it is drawn. Anything you dragged to a
+place by hand keeps that place.
+
 **Wiring it up by dragging:**
 
 - **Drop a device on a switch** to record it there. The Plugged into dialog
