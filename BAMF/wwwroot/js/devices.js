@@ -712,7 +712,7 @@ function render() {
     const showDns = h.customName && subName && subName !== h.customName;
     tr.innerHTML = `
       <td class="led-cell">${h.remote ? "" : `<input type="checkbox" class="sel-box" aria-label="Select this device">`}<span class="led ${h.online ? "on" : ""}" title="${h.online ? "online" : "offline"}"></span></td>
-      <td class="hostname" title="Click to rename">
+      <td class="hostname" title="Click to rename${showDns ? "\nNetwork name: " + esc(subName) : ""}">
         <span class="name-text">${esc(dispName(h))}</span>
         ${h.note ? `<span class="note-flag" title="${esc(h.note)}">\uD83D\uDCDD</span>` : ""}
         ${h.snoozedUntil ? `<span class="snooze-chip" title="Alerts snoozed until ${esc(fmtExact(h.snoozedUntil))}. Click to change.">\uD83D\uDCA4 ${esc(snoozeClock(h.snoozedUntil))}</span>` : ""}

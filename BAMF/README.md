@@ -1212,6 +1212,11 @@ a busy network fits on one screen. Nothing is hidden; the secondary lines just
 get tighter. Like the theme, it's kept in the browser rather than on the
 server, so each device you open BAMF on can choose for itself.
 
+**Settings → Appearance → Hide the network name under a name you set** is another browser setting, off to start with. Under a
+name you gave a device, the list shows in grey what the device calls itself on the network (a hostname such as
+`U7-Pro-XG.localdomain`), which on a row of identical access points says the same thing four times. Turn it on to show only
+your name. Hover the name to see the network name, and the search box still finds it.
+
 ## A network this machine isn't on
 
 BAMF discovers devices through the ARP table, which only ever holds entries

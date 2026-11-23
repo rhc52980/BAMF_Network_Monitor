@@ -25,6 +25,9 @@
   var d = null;
   try { d = localStorage.getItem("bamf-density"); } catch (e) {}
   if (d === "compact") document.documentElement.classList.add("compact");
+  var n = null;
+  try { n = localStorage.getItem("bamf-hide-netname"); } catch (e) {}
+  if (n === "1") document.documentElement.classList.add("hide-netname");
 })();
 </script>
 <!-- Fonts are served from this machine, not a CDN: the dashboard often runs on
@@ -1292,6 +1295,12 @@
             <span class="set-hint">Tighter device rows, about half the height, so a busy network fits on one screen. Nothing is hidden.</span>
           </span>
           <span class="set-field"><button type="button" class="arp-toggle" id="setCompact" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
+        <label class="set-row">
+          <span class="set-label">Hide the network name under a name you set
+            <span class="set-hint">Under a name you gave a device, the list shows in grey the name the device calls itself on the network (U7-Pro-XG.localdomain). Turn this on to show only your name. Hover the name to see the network name, and searching still finds it. Off, it shows as before.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setHideNetname" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
         </label>
         <div class="set-row">
           <span class="set-label">Screen saver
