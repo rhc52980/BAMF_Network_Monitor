@@ -263,7 +263,7 @@ function addrMenuHtml(h) {
   const list = curAddrs(h);
   const rows = list.map(a => `<div class="addr-row">
       <a class="mono" href="${esc(a.linkUrl || ("http://" + a.ip))}" target="_blank" rel="noopener" title="Open ${esc(a.linkUrl || ("http://" + a.ip))}">${esc(a.ip)}</a>
-      <span class="addr-net">${esc(a.subnet || "—")}${a.mac ? `<br><span class="mono" title="On a network card you combined into this device">${esc(a.mac)}</span>` : ""}</span>
+      <span class="addr-net">${esc(a.subnet ? netName(a.subnet) : "—")}${a.mac ? `<br><span class="mono" title="On a network card you combined into this device">${esc(a.mac)}</span>` : ""}</span>
       <span class="addr-seen">${a.ip === h.ip ? "main" : "seen " + fmtAgo(a.lastSeen)}${declaredGws.some(g => g.hostId === h.id && g.ip === a.ip) ? " · gateway" : ""}</span>
     </div>`).join("");
   return `<div class="addr-head">Answers on ${list.length} addresses${h.interfaces ? ` · ${h.interfaces.length + 1} network cards` : ""}</div>${rows}` +
@@ -332,7 +332,7 @@ function visible(opts) {
 function matchesQuery(h, query) {
   if (!query) return true;
   const fields = [h.customName, h.hostname, h.mdnsName, h.routerName, h.mdnsServices, h.ip, h.mac, h.vendor, h.note, h.osGuess, ...(h.tags || []),
-    h.typeName, ...(h.addresses || []).map(a => a.ip), ...(h.ipv6 || [])].filter(Boolean);
+    networkLabels[h.subnet], h.typeName, ...(h.addresses || []).map(a => a.ip), ...(h.ipv6 || [])].filter(Boolean);
   if (/[*?]/.test(query)) {
     let rx;
     try {
@@ -504,11 +504,11 @@ function renderNetTabs() {
   const counted = hosts.filter(h => !h.ignored && !h.forgotten);
   const rows = [{ net: "all", label: "All networks", count: counted.filter(h => !h.remote).length }];
   for (const n of all)
-    rows.push({ net: n, label: n, count: counted.filter(h => onNet(h, n)).length });
+    rows.push({ net: n, label: netName(n), count: counted.filter(h => onNet(h, n)).length });
   for (const r of rows) r.kind = netTabKind(r.net);
 
   const wrap = $("nettabs");
-  const sig = rows.map(r => r.net + "\u0001" + r.kind).join("\u0002");
+  const sig = rows.map(r => r.net + "\u0001" + r.kind + "\u0001" + r.label).join("\u0002");
   if (sig !== netTabSig) {
     netTabSig = sig;
     wrap.innerHTML = "";
@@ -726,7 +726,7 @@ function render() {
       <td class="vendor" data-label="Vendor">${esc(h.vendor)}${h.typeName
         ? `<span class="os-guess type-set" title="Device type you set${h.osGuess ? " — BAMF guessed " + esc(h.osGuess) : ""}. Click to change.">${esc(h.typeName)} · your type</span>`
         : h.osGuess ? `<span class="os-guess type-set" title="BAMF's guess, from ${esc(h.osGuess)}. Click to set the device type yourself.">${esc(h.osGuess)}</span>` : ""}</td>
-      <td class="ip" data-label="Network">${esc(h.subnet || "—")}</td>
+      <td class="ip" data-label="Network">${esc(h.subnet ? netName(h.subnet) : "—")}</td>
       <td class="seen" data-label="First seen" title="${esc(fmtExact(h.firstSeen))}">${fmtAgo(h.firstSeen)}</td>
       <td class="seen" data-label="Last seen" title="${esc(fmtExact(h.lastSeen))}">${fmtAgo(h.lastSeen)}</td>
       <td class="spark-cell" data-label="24h"></td>

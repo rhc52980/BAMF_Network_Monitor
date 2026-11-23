@@ -1414,6 +1414,14 @@ each row:
   **forget** them, which hides them without deleting anything, and the Forgotten
   tab brings them back. A network with no devices just goes.
 
+**A name of your own.** Each network row has a small **Name** box (up to 40 characters, saved as you leave it): Home, Guest,
+IoT. A named network shows as `IoT · 192.168.30.0/24` on its tab, in the Network column and the address menu, on the Map
+(the card titles, the colour key, and the network's own node, which carries the name with the range under it), on the Print
+page and in the new-host toast, and the search box finds a device by its network's name. Empty goes back to the range
+alone. It is only how the network is shown: devices stay filed under the range, nothing about scanning changes, and the name
+is kept on the server so every browser sees it. Change a network's range and the name goes with it; remove the network and
+the name goes too. Alert and log messages, MQTT and the API keep using the range.
+
 A forgotten device no longer keeps a network's tab on the list, so forgetting
 what's left is also how to clear a tab left behind by an older removal.
 `appsettings.json` can still list anything, but a network wider than a /21 there
@@ -2103,6 +2111,7 @@ scan, or delete a thing.
 | POST | `/api/hosts/{id}/typename` | Body `{"type": "Kids' tablet"}` — set the device type in your own words, up to 40 characters; empty goes back to BAMF's guess. It's what the list shows and the type chips group by. `GET /api/hosts` returns it as `typeName` |
 | POST | `/api/hosts/{id}/type` | Body `{"type": "nas"}` — set a device's Map icon, overriding the automatic one. Types: `router`, `switch`, `ap`, `camera`, `printer`, `tv`, `speaker`, `phone`, `tablet`, `laptop`, `desktop`, `server`, `nas`, `vm`, `game`, `iot`, `light`, `plug`, `streamer`, `soundbar`, `display`, `projector`, `doorbell`, `dome`, `thermostat`, `lock`, `garage`, `sprinkler`, `vacuum`, `fridge`, `washer`, `purifier`, `ac`, `charger`, `car`, `vr`, `watch`, `handheld`, `ereader`, `printer3d`, `modem`, `mesh`, `minipc`, `pi`, `device`. Empty goes back to the automatic icon. `GET /api/hosts` returns it as `deviceType` |
 | POST | `/api/settings/type-icons` | Body `{"icons": {"Linux": "server"}}` — the icon for every device of a guessed type; an empty icon clears it. Returned in `GET /api/hosts` as `typeIcons` |
+| POST | `/api/settings/network-label` | Body `{"network": "192.168.30.0/24", "label": "IoT"}` — name a network (up to 40 characters; an empty label takes the name away). Replies with every name. `GET /api/hosts` returns them as `networkLabels`. Display only: devices stay filed by range |
 | POST | `/api/hosts/{id}/combine` | Body `{"parentId": 12}` — combine the device into another as one of its network cards; `parentId` 0 separates it again. `GET /api/hosts` gives each host's `interfaceOf` (0 for a device of its own). Returns 400 with `{"error": "…"}` for a device combined with itself, or one that's a switch's own device |
 | POST | `/api/hosts/{id}/gateway` | Body `{"ip": "192.168.1.1", "enabled": true}` — declare the device the gateway of the network that address is on (one of its own addresses), or stop declaring it. One gateway per network. `GET /api/hosts` lists them as `gateways`: `[{"subnet", "hostId", "ip"}]`. Returns 400 with `{"error": "…"}` for an address the device doesn't have, or a VPN's device |
 | POST | `/api/hosts/{id}/plug` | Body `{"switchId": 1, "port": 3}` — record which switch port a device is plugged into. `switchId` 0 clears it; `port` 0 means "port not recorded". `GET /api/hosts` returns each host's `switchId` and `switchPort`, and the layout as `switches` |

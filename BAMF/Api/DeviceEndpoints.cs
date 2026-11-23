@@ -210,6 +210,8 @@ internal static class DeviceEndpoints
                 mapPositions = store.GetMapPositions(),
                 // Icons the user chose for whole guessed types: { "Linux": "server" }.
                 typeIcons = store.GetTypeIcons(),
+                // Names the user gave their networks: { "192.168.30.0/24": "IoT" }. Shown beside the range; devices stay filed by it.
+                networkLabels = store.GetNetworkLabels(),
                 hosts,
             });
         });

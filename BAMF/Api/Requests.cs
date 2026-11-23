@@ -25,6 +25,7 @@ record PortEntry(long HostId, int Port);
 record BlinkRequest(int? Seconds);
 record DeviceTypeRequest(string? Type);
 record TypeIconsRequest(Dictionary<string, string?>? Icons);
+record NetworkLabelRequest(string? Network, string? Label);
 record MapPositionsRequest(string? Subnet, Dictionary<string, double[]?>? Positions);
 record PortLabel(int Port, string? Label);
 record SwitchPortsRequest(List<PortEntry>? Ports, List<PortLabel>? Labels);

@@ -1274,8 +1274,8 @@ function topoNodeEl(m, key, n) {
       if (m.c.group && !h.synthetic) sub = declaredGws.filter(g => g.hostId === h.id && m.c.nets.includes(g.subnet)).map(g => g.ip).join(" · ") || h.ip;
     } else {
       cls = "node net"; kind = "net";
-      name = m.c.whole ? "Your network" : m.subnet; sub = m.c.whole ? "no gateway known" : "this network";
-      tip = m.c.whole ? "No router or gateway known for these networks" : `Network ${m.subnet}`;
+      name = m.c.whole ? "Your network" : networkLabels[m.subnet] || m.subnet; sub = m.c.whole ? "no gateway known" : networkLabels[m.subnet] ? m.subnet : "this network";
+      tip = m.c.whole ? "No router or gateway known for these networks" : `Network ${netName(m.subnet)}`;
     }
   } else if (n.type === "self") {
     cls = mapNodeClass(h, "self"); kind = "server"; name = "BAMF"; sub = h.ip; tip = mapTitle(h, "self");
@@ -1955,7 +1955,7 @@ function buildClusterCard(c) {
   const name = document.createElement("span");
   name.className = "map-net";
   const gwHost = c.group ? hosts.find(h => h.id === Number(c.subnet.slice(3))) : null;
-  name.textContent = c.group ? `Networks behind ${gwHost ? nameOrIp(gwHost) : "the gateway"}` : c.whole ? "Whole network" : c.subnet;
+  name.textContent = c.group ? `Networks behind ${gwHost ? nameOrIp(gwHost) : "the gateway"}` : c.whole ? "Whole network" : netName(c.subnet);
   const cnt = document.createElement("span");
   cnt.className = "map-cnt";
   const tag = document.createElement("span");
@@ -1967,7 +1967,7 @@ function buildClusterCard(c) {
   if (c.group) {
     const nets = document.createElement("span");
     nets.className = "map-nets";
-    nets.innerHTML = c.nets.map(n => `<span><i style="background:${c.netColors[n]}"></i>${esc(n)}</span>`).join("");
+    nets.innerHTML = c.nets.map(n => `<span><i style="background:${c.netColors[n]}"></i>${esc(netName(n))}</span>`).join("");
     head.appendChild(nets);
   }
   card.appendChild(head);
@@ -2126,9 +2126,9 @@ function buildPrintHtml(subnet) {
   svg.querySelectorAll("[tabindex]").forEach(e => e.removeAttribute("tabindex"));
   const c = m.c;
   const gwHost = c.group ? hosts.find(h => h.id === Number(subnet.slice(3))) : null;
-  const title = c.group ? `Networks behind ${gwHost ? nameOrIp(gwHost) : "the gateway"}` : c.whole ? "Whole network" : subnet;
+  const title = c.group ? `Networks behind ${gwHost ? nameOrIp(gwHost) : "the gateway"}` : c.whole ? "Whole network" : netName(subnet);
   const count = c.members.length;
-  const nets = c.whole ? c.nets.map(n => `<span><i style="background:${c.netColors[n]}"></i>${esc(n)}</span>`).join("") : "";
+  const nets = c.whole ? c.nets.map(n => `<span><i style="background:${c.netColors[n]}"></i>${esc(netName(n))}</span>`).join("") : "";
   const css = `
 @page { size: landscape; margin: 10mm; }
 html, body { margin: 0; background: #fff; color: #111; font-family: "Segoe UI", system-ui, sans-serif; }
@@ -2203,7 +2203,7 @@ function renderMap() {
   if (whole) {
     const colors = clusters[0].netColors;
     const html = Object.entries(colors).map(([n, col]) =>
-      `<span><svg viewBox="-8 -8 16 16"><circle r="5" fill="${col}"/></svg>${esc(n)}</span>`).join("");
+      `<span><svg viewBox="-8 -8 16 16"><circle r="5" fill="${col}"/></svg>${esc(netName(n))}</span>`).join("");
     if (netLegend.innerHTML !== html) netLegend.innerHTML = html;
   }
   wrap.classList.toggle("single", clusters.length === 1 || mapStyle === "topology");
