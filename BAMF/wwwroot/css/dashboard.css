@@ -1399,6 +1399,11 @@
   .map-tools .sig-key i { width: 8px; height: 8px; border-radius: 50%; background: var(--led-on); display: inline-block; }
   .map-tools .sig-key .sig-fair i { background: var(--led-warn); }
   .map-tools .sig-key .sig-weak i { background: var(--danger); }
+  /* The Map's right-click menu: the device menu's look, a plain list. */
+  .row-menu.rm-device.map-menu { width: auto; min-width: 230px; max-width: 340px; padding: 6px; z-index: 480; }   /* over a full-screen map (420), under a dialog (500) */
+  .map-menu .mm-sep { height: 1px; background: var(--line); margin: 4px 2px; }
+  .map-menu button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; background: var(--panel-2); }
+  .map-menu .rm-head { padding: 6px 8px 8px; margin-bottom: 4px; }
   .map-svg .spoke.tunnel { fill: none; stroke: var(--focus); stroke-width: 1.6; stroke-dasharray: 1 4; stroke-linecap: round; }
   .map-svg .spoke.tunnel.off { stroke: var(--led-off); }
   .map-head .map-nets { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; color: var(--text-dim); }

@@ -1974,6 +1974,16 @@ function buildClusterCard(c) {
       key.innerHTML = `<span class="sig-good"><i></i>strong</span><span class="sig-fair"><i></i>fair</span><span class="sig-weak"><i></i>weak</span>`;
       tools.appendChild(key);
     }
+    const rm = document.createElement("button");
+    rm.className = "toggle map-rc" + (mapMenuOn ? " active" : ""); rm.type = "button"; rm.textContent = "Right-click menu";
+    rm.title = "Right-click a device, switch or access point (or press the menu key on it) for what you can do to it: where it's plugged in, its icon and type, a note, snooze, ping, copy its address, and put it back in its automatic place. Off, the browser's own menu appears.";
+    rm.onclick = () => {
+      mapMenuOn = !mapMenuOn;
+      try { localStorage.setItem("bamf-map-menu", mapMenuOn ? "1" : "0"); } catch { }
+      document.querySelectorAll(".map-rc").forEach(b => b.classList.toggle("active", mapMenuOn));
+      if (!mapMenuOn) mapMenuClose();
+    };
+    tools.appendChild(rm);
     btn("Print", "A clean white drawing of this map on one page, for the closet door", () => printTopoMap(c.subnet));
     btn(mapExpanded === c.subnet ? "Exit full screen" : "⛶ Full screen",
       mapExpanded === c.subnet ? "Back to the page (Esc)" : "Fill the screen with this map", () => toggleMapExpanded(c.subnet));
