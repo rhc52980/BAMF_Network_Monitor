@@ -30,6 +30,19 @@ public partial class HostStore
         return null;
     }
 
+    /// <summary>Whether alert text says "IoT · 192.168.30.0/24" rather than the range alone. Off unless switched on.</summary>
+    public bool NetworkNamesInAlerts => GetSetting(NetworkNamesInAlertsSetting) == "true";
+
+    private const string NetworkNamesInAlertsSetting = "networkNamesInAlerts";
+
+    /// <summary>A network as an alert names it: the name you gave it, then its range, when the switch is on and it has a name; else the range alone.</summary>
+    public string AlertNetName(string? network)
+    {
+        var net = network ?? "";
+        if (net.Length == 0 || !NetworkNamesInAlerts) return net;
+        return GetNetworkLabels().TryGetValue(net, out var label) ? label + " · " + net : net;
+    }
+
     /// <summary>A network's name follows it to a new range, or goes when it goes.</summary>
     public void CarryNetworkLabel(string from, string? to)
     {

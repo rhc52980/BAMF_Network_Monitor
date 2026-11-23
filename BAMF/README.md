@@ -1420,7 +1420,14 @@ IoT. A named network shows as `IoT · 192.168.30.0/24` on its tab, in the Networ
 page and in the new-host toast, and the search box finds a device by its network's name. Empty goes back to the range
 alone. It is only how the network is shown: devices stay filed under the range, nothing about scanning changes, and the name
 is kept on the server so every browser sees it. Change a network's range and the name goes with it; remove the network and
-the name goes too. Alert and log messages, MQTT and the API keep using the range.
+the name goes too. MQTT, the webhook's data fields and the API keep using the range.
+
+**Names in alerts.** Under the Networks list, **Use the names in alerts** (off by default) makes the alerts that say where use
+the name too: `IoT · 192.168.30.0/24` instead of `192.168.30.0/24`. It covers the new-device alert, a watched device going
+offline or coming back (its Network field), a DHCP server answering again or going quiet, DHCP naming a different gateway,
+a new DHCP server, IP conflicts, a changed gateway MAC, ARP spoofing, a full address pool, and the segmentation alerts. A
+network with no name still shows its range, and with the switch off every alert reads as it did. The switch is part of the
+settings you can export and import.
 
 A forgotten device no longer keeps a network's tab on the list, so forgetting
 what's left is also how to clear a tab left behind by an older removal.
@@ -2111,6 +2118,7 @@ scan, or delete a thing.
 | POST | `/api/hosts/{id}/typename` | Body `{"type": "Kids' tablet"}` — set the device type in your own words, up to 40 characters; empty goes back to BAMF's guess. It's what the list shows and the type chips group by. `GET /api/hosts` returns it as `typeName` |
 | POST | `/api/hosts/{id}/type` | Body `{"type": "nas"}` — set a device's Map icon, overriding the automatic one. Types: `router`, `switch`, `ap`, `camera`, `printer`, `tv`, `speaker`, `phone`, `tablet`, `laptop`, `desktop`, `server`, `nas`, `vm`, `game`, `iot`, `light`, `plug`, `streamer`, `soundbar`, `display`, `projector`, `doorbell`, `dome`, `thermostat`, `lock`, `garage`, `sprinkler`, `vacuum`, `fridge`, `washer`, `purifier`, `ac`, `charger`, `car`, `vr`, `watch`, `handheld`, `ereader`, `printer3d`, `modem`, `mesh`, `minipc`, `pi`, `device`. Empty goes back to the automatic icon. `GET /api/hosts` returns it as `deviceType` |
 | POST | `/api/settings/type-icons` | Body `{"icons": {"Linux": "server"}}` — the icon for every device of a guessed type; an empty icon clears it. Returned in `GET /api/hosts` as `typeIcons` |
+| POST | `/api/settings/network-names-in-alerts` | Body `{"enabled": true}` — alert text names a network as you named it, `IoT · 192.168.30.0/24`. Off by default; the webhook's `subnet` field, MQTT and the API keep the range |
 | POST | `/api/settings/network-label` | Body `{"network": "192.168.30.0/24", "label": "IoT"}` — name a network (up to 40 characters; an empty label takes the name away). Replies with every name. `GET /api/hosts` returns them as `networkLabels`. Display only: devices stay filed by range |
 | POST | `/api/hosts/{id}/combine` | Body `{"parentId": 12}` — combine the device into another as one of its network cards; `parentId` 0 separates it again. `GET /api/hosts` gives each host's `interfaceOf` (0 for a device of its own). Returns 400 with `{"error": "…"}` for a device combined with itself, or one that's a switch's own device |
 | POST | `/api/hosts/{id}/gateway` | Body `{"ip": "192.168.1.1", "enabled": true}` — declare the device the gateway of the network that address is on (one of its own addresses), or stop declaring it. One gateway per network. `GET /api/hosts` lists them as `gateways`: `[{"subnet", "hostId", "ip"}]`. Returns 400 with `{"error": "…"}` for an address the device doesn't have, or a VPN's device |

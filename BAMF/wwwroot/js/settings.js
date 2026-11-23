@@ -184,6 +184,7 @@ function renderBypassToggles() {
     ["setDnsBypassWatch", dnsBypassWatch, "Devices that skip your DNS are listed on Activity - click to stop", "Click to list the devices that ask a DNS server other than your network's"],
     ["setDnsBypassAlert", dnsBypassAlert, "A device that skips your DNS alerts, once - click to stop", "Click to be told, once per device, when it starts asking a DNS server other than your network's"],
     ["setSameHints", sameHints, "Records that look like one phone are offered as one - click to stop", "Click to have records that look like one phone offered as one device"],
+    ["setNetNamesAlerts", netNamesAlerts, "Alerts name a network as you named it - click to stop", "Click to have alerts name a network as you named it, with its range"],
   ]) { const t = $(id); if (t) { setToggleState(t, on); t.title = on ? yes : no; } }
 }
 function renderOffHoursToggle() {
@@ -228,6 +229,8 @@ for (const [id, url, get, set, on, off] of [
     "Devices that skip your DNS will be listed on Activity", "The list of devices that skip your DNS is off"],
   ["setDnsBypassAlert", "/api/settings/dns-bypass-alert", () => dnsBypassAlert, v => { dnsBypassAlert = v; renderBypassToggles(); },
     "A device that skips your DNS will alert, once", "The alert for a device that skips your DNS is off"],
+  ["setNetNamesAlerts", "/api/settings/network-names-in-alerts", () => netNamesAlerts, v => { netNamesAlerts = v; renderBypassToggles(); },
+    "Alerts will name a network as you named it", "Alerts show a network's range alone"],
   ["setSameHints", "/api/settings/same-device-hints", () => sameHints, v => { sameHints = v; renderBypassToggles(); if (typeof loadSameDevice === "function") loadSameDevice(true); },
     "Records that look like one phone will be offered as one device", "Same-phone suggestions are off"],
   ["setFlowWatch", "/api/settings/flow-watch", () => flowWatch, v => { flowWatch = v; renderFlowToggles(); if (typeof loadFlows === "function") loadFlows(); },
@@ -1687,6 +1690,7 @@ async function loadSettings() {
   if (typeof e.dnsBypassWatch === "boolean") dnsBypassWatch = e.dnsBypassWatch;
   if (typeof e.dnsBypassAlert === "boolean") dnsBypassAlert = e.dnsBypassAlert;
   if (typeof e.sameDeviceHints === "boolean") sameHints = e.sameDeviceHints;
+  if (typeof e.networkNamesInAlerts === "boolean") netNamesAlerts = e.networkNamesInAlerts;
   if (typeof e.offHoursAlert === "boolean") offHoursAlert = e.offHoursAlert;
   clockCache = { enabled: e.clockCheck === true, serverSetting: e.clockServer || "", maxSeconds: e.clockMaxSeconds || 30, last: clockCache && clockCache.last, server: clockCache && clockCache.server };
   loadClock();

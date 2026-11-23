@@ -135,11 +135,11 @@ public partial class ScannerService
             var who = string.Join(" and ", macs.Select(DescribeMac));
             if (g.Key == gw)
                 await RaiseSecurity($"Possible ARP spoofing: {macs.Count} devices claim to be the gateway {g.Key}",
-                    $"On {subnet}, {who} all answered for the gateway's address in the same scan. One of them is your router. " +
+                    $"On {_store.AlertNetName(subnet)}, {who} all answered for the gateway's address in the same scan. One of them is your router. " +
                     "Any other is either misconfigured or pretending to be the router so your traffic goes through it.", ct);
             else
                 await RaiseSecurity($"IP conflict: {macs.Count} devices answer at {g.Key}",
-                    $"On {subnet}, {who} both answered for {g.Key} in the same scan. Two devices on one address fight over it, " +
+                    $"On {_store.AlertNetName(subnet)}, {who} both answered for {g.Key} in the same scan. Two devices on one address fight over it, " +
                     "and connections to it break at random. Usually one has a static address inside the range DHCP hands out.", ct);
         }
 
@@ -156,7 +156,7 @@ public partial class ScannerService
             _store.SetSetting("gatewayMacs", JsonSerializer.Serialize(GatewayMacs));
         }
         if (prev is null || prev.Ip != gw) return;   // first sight of this gateway: just remember it
-        await RaiseSecurity($"Gateway MAC changed on {subnet}",
+        await RaiseSecurity($"Gateway MAC changed on {_store.AlertNetName(subnet)}",
             $"The gateway {gw} answered from {DescribeMac(mac)}, not {DescribeMac(prev.Mac)} as before. " +
             "If you replaced the router or its network card, that's expected. If not, something else may be answering for your gateway.", ct);
     }
@@ -182,7 +182,7 @@ public partial class ScannerService
         {
             try
             {
-                await RaiseSecurity($"Possible ARP spoofing on {subnet}: another device claims the gateway {senderIp}",
+                await RaiseSecurity($"Possible ARP spoofing on {_store.AlertNetName(subnet)}: another device claims the gateway {senderIp}",
                     $"{DescribeMac(senderMac)} sent ARP for the gateway's address, which belongs to {DescribeMac(known.Mac)}. " +
                     "A device doing this is putting itself between the rest of the network and the router. If you just replaced the router, the next scan will learn its new MAC.",
                     CancellationToken.None);
