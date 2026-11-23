@@ -560,6 +560,9 @@ try { mapWifiCompact = localStorage.getItem("bamf-map-wifi-compact") === "1"; } 
 // Signal colours: each Wi-Fi device's tile, line and a small bar glyph show how well it hears its access point. Off until turned on.
 let mapSignal = false;
 try { mapSignal = localStorage.getItem("bamf-map-signal") === "1"; } catch { }
+// Slide into place: an arrange, an undo or a put-back glides each thing to its new spot instead of redrawing the map in one go.
+let mapSlide = false;
+try { mapSlide = localStorage.getItem("bamf-map-slide") === "1"; } catch { }
 
 const TOPO = {
   T: 16,               // half a tile
@@ -1126,12 +1129,14 @@ function topoLabelZoom(m) {
 function topoFit(subnet) {
   delete mapViews[subnet];
   const m = topoModels[subnet];
+  if (m && m.glide) m.glide();
   if (m) topoApplyView(m);
 }
 
 function topoZoomBy(subnet, factor, center) {
   const m = topoModels[subnet];
   if (!m) return;
+  if (m.glide) m.glide();
   const [x, y, w, h] = m.view;
   const nw = Math.min(40000, Math.max(160, w * factor)), k = nw / w;
   const cx = center ? center[0] : x + w / 2, cy = center ? center[1] : y + h / 2;
@@ -1146,7 +1151,7 @@ function topoZoomBy(subnet, factor, center) {
 async function topoAutoArrange(subnet) {
   const saved = mapPositions[subnet] || {};
   if (!Object.keys(saved).length) { toast("Already where the automatic layout puts things."); return; }
-  const before = {};
+  const before = {}, from = topoBefore(subnet);
   for (const [k, p] of Object.entries(saved)) before[k] = p.slice();
   await fetch("/api/map/positions?subnet=" + encodeURIComponent(subnet), { method: "DELETE" });
   delete mapPositions[subnet];
@@ -1154,7 +1159,7 @@ async function topoAutoArrange(subnet) {
   mapUndoPush(subnet, before, "Reset to automatic");
   mapSig = null;
   await refresh();
-  topoSettle(subnet);
+  topoSettle(subnet, from);
   toast(`Back to the automatic layout. <a href="#" id="arrUndoLink">Undo</a>`);
   const link = $("arrUndoLink");
   if (link) link.onclick = e => { e.preventDefault(); topoUndo(subnet); };
@@ -1458,23 +1463,83 @@ async function topoUndo(subnet, redo) {
   while (i >= 0 && from[i].subnet !== subnet) i--;
   if (i < 0) return;
   const [u] = from.splice(i, 1);
-  const now = {}, here = mapPositions[subnet] || {};
+  const now = {}, here = mapPositions[subnet] || {}, was = topoBefore(subnet);
   for (const k of Object.keys(u.before)) now[k] = here[k] ? here[k].slice() : null;
   to.push({ subnet, before: now, label: u.label });
   mapUndoButtons();
   await saveMapPositions(subnet, u.before);
   mapSig = null;
   renderMap();
-  topoSettle(subnet);
+  topoSettle(subnet, was);
   toast(`${redo ? "Redid" : "Undid"}: ${esc(u.label.toLowerCase())}. <a href="#" id="arrUndoLink">${redo ? "Undo" : "Redo"}</a>`);
   const link = $("arrUndoLink");
   if (link) link.onclick = e => { e.preventDefault(); topoUndo(subnet, !redo); };
 }
 
-// After an arrange the drawing is redrawn in one go; a short fade makes that read as a change rather than a flicker.
-function topoSettle(subnet) {
+// Where everything is drawn now, taken just before a redraw so that Slide into place can start from it. Mid-slide this is where
+// things are in the air, so a second arrange carries on from there.
+function topoBefore(subnet) {
+  const m = topoModels[subnet];
+  if (!m || !m.svg || !m.view) return null;
+  return { final: new Map([...m.final].map(([k, p]) => [k, p.slice()])), view: m.view.slice() };
+}
+
+// The things that have to move, as [key, from, to], between two sets of places; a thing in only one of them stays where it is put.
+function slideMoves(from, to) {
+  const out = [];
+  for (const [k, b] of to) {
+    const a = from.get(k);
+    if (a && (Math.abs(a[0] - b[0]) > .5 || Math.abs(a[1] - b[1]) > .5)) out.push([k, a, b.slice()]);
+  }
+  return out;
+}
+
+// How far along a slide is at time t (0 to 1): quick off the mark, easing in to land.
+function slideEase(t) { return 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3); }
+
+// Between the two views (x, y, width, height), e of the way.
+function slideView(a, b, e) { return a.map((n, i) => n + (b[i] - n) * e); }
+
+const SLIDE_MS = 420;
+
+// Glide every moved thing, and the view if it changed, from where it was to where the new drawing has it. The lines follow, as they
+// are drawn from where things are. Pressing, zooming or the keyboard on the map lets go and lands it at once. Returns false when
+// there is nothing to glide, so the caller can fall back to the fade.
+function topoSlide(m, before) {
+  const moves = slideMoves(before.final, m.final), v0 = before.view, v1 = m.view.slice();
+  const viewMoves = v0.some((n, i) => Math.abs(n - v1[i]) > .5);
+  if (!moves.length && !viewMoves) return false;
+  const svg = m.svg, t0 = performance.now();
+  let raf = 0;
+  const end = () => {
+    cancelAnimationFrame(raf);
+    for (const ev of ["pointerdown", "wheel", "keydown"]) svg.removeEventListener(ev, end, true);
+    m.glide = null;
+    for (const [k] of moves) delete m.override[k];
+    topoPlace(m);
+    topoApplyView(m);
+  };
+  const frame = now => {
+    if (topoModels[m.subnet] !== m || !svg.isConnected) { m.glide = null; return; }   // redrawn under us: nothing left to land
+    const t = (now - t0) / SLIDE_MS, e = slideEase(t);
+    for (const [k, a, b] of moves) m.override[k] = [a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e];
+    topoPlace(m);
+    m.view = slideView(v0, v1, e);
+    svg.setAttribute("viewBox", m.view.map(n => n.toFixed(1)).join(" "));
+    if (t >= 1) end(); else raf = requestAnimationFrame(frame);
+  };
+  m.glide = end;
+  for (const ev of ["pointerdown", "wheel", "keydown"]) svg.addEventListener(ev, end, true);
+  frame(t0);   // the new drawing is already in place: put things back where they were for the first frame
+  return true;
+}
+
+// After an arrange the drawing is redrawn in one go. With Slide into place on, and the places before it known, things glide there;
+// otherwise a short fade makes the change read as one rather than a flicker.
+function topoSettle(subnet, before) {
   const m = topoModels[subnet];
   if (!m || !m.svg || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (mapSlide && before && topoSlide(m, before)) return;
   m.svg.classList.remove("arr-settle");
   void m.svg.getBoundingClientRect();
   m.svg.classList.add("arr-settle");
@@ -1496,14 +1561,14 @@ async function topoArrange(subnet, kind) {
 // few things you're looking at; an arrange of the whole map re-fits it.
 async function topoCommit(subnet, positions, label, keepView) {
   const m = topoModels[subnet];
-  const before = {};
+  const before = {}, from = topoBefore(subnet);
   for (const k of Object.keys(positions)) before[k] = m.saved[k] ? m.saved[k].slice() : null;
   await saveMapPositions(subnet, positions);
   mapUndoPush(subnet, before, label);
   if (keepView) mapViews[subnet] = m.view.slice(); else delete mapViews[subnet];
   mapSig = null;
   renderMap();
-  topoSettle(subnet);
+  topoSettle(subnet, from);
   toast(`${label}. <a href="#" id="arrUndoLink">Undo</a>`);
   const link = $("arrUndoLink");
   if (link) link.onclick = e => { e.preventDefault(); topoUndo(subnet); };
@@ -1974,6 +2039,15 @@ function buildClusterCard(c) {
       key.innerHTML = `<span class="sig-good"><i></i>strong</span><span class="sig-fair"><i></i>fair</span><span class="sig-weak"><i></i>weak</span>`;
       tools.appendChild(key);
     }
+    const sl = document.createElement("button");
+    sl.className = "toggle edit-only map-slide" + (mapSlide ? " active" : ""); sl.type = "button"; sl.textContent = "Slide into place";
+    sl.title = "When Tidy up, Compact, Snap to grid, Align, Undo or Put back moves things, glide each one to its new place instead of redrawing the map in one go. Off, the map fades in. Nothing moves if your system asks for reduced motion.";
+    sl.onclick = () => {
+      mapSlide = !mapSlide;
+      try { localStorage.setItem("bamf-map-slide", mapSlide ? "1" : "0"); } catch { }
+      document.querySelectorAll(".map-slide").forEach(b => b.classList.toggle("active", mapSlide));
+    };
+    tools.appendChild(sl);
     const rm = document.createElement("button");
     rm.className = "toggle map-rc" + (mapMenuOn ? " active" : ""); rm.type = "button"; rm.textContent = "Right-click menu";
     rm.title = "Right-click a device, switch or access point (or press the menu key on it) for what you can do to it: where it's plugged in, its icon and type, a note, snooze, ping, copy its address, and put it back in its automatic place. Off, the browser's own menu appears.";

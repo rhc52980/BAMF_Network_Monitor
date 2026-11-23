@@ -2429,6 +2429,13 @@ and Edit. With several things picked, right-clicking one of them offers the alig
 puts them all back in their automatic places. These are the same dialogs a click or the device list's "..." menu opens; someone
 with the view-only password gets only the items that change nothing. Arrow keys move down the menu, Esc closes it.
 
+**Slide into place.** The **Slide into place** button on the Map toolbar (off until you turn it on, and your choice is kept
+in the browser) makes Tidy up, Compact, Snap to grid, Align, Space out, Undo, Redo, Put back and Reset to automatic glide
+each thing from where it was to where it goes, with the lines following, in under half a second, instead of redrawing the
+map in one go. When the view re-fits, it eases there too. Press, scroll or type on the map and it lands at once. Off, the
+map fades in as it did; if your system asks for reduced motion nothing moves either way. Where things end up is the same
+with it on or off.
+
 **Wiring it up by dragging:**
 
 - **Drop a device on a switch** to record it there. The Plugged into dialog
