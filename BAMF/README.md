@@ -2057,7 +2057,7 @@ scan, or delete a thing.
 | POST | `/api/switches/{id}/ports` | Body `{"ports": [{"hostId": 3, "port": 1}, {"hostId": 4, "port": 2}], "labels": [{"port": 1, "label": "Living Room"}]}` — set everything on one switch at once. Hosts listed are placed on it (moving off any other switch; `port` 0 = not recorded), and hosts on it that aren't listed come off it. `labels`, when given, replaces the ports' locations (up to 40 characters; blank clears one); leave it out to keep them. Each switch in `GET /api/hosts` carries them as `portLabels` |
 | POST | `/api/hosts/{id}/blink` | Body `{"seconds": 30}` (optional, 5–60) — "Find port": send the device bursts of UDP traffic, one second on and one second off, so its switch-port light pulses. Private addresses only; replaces any blink already running. Returns `until` |
 | POST | `/api/map/positions` | Body `{"subnet": "192.168.1.0/24", "positions": {"s:1": [120, 140], "h:7": null}}` — save where nodes sit on the topology Map for one network. Keys are `h:<host id>`, `s:<switch id>`, `gw`, `self`, `net` and `box`. A null position forgets that node, so it goes back to the automatic layout. `GET /api/hosts` returns them all as `mapPositions` |
-| DELETE | `/api/map/positions?subnet=…` | "Auto-arrange": forget every saved position on one network |
+| DELETE | `/api/map/positions?subnet=…` | Arrange → "Reset to automatic": forget every saved position on one network |
 | GET | `/api/connections` | BAMF's own connections: `{"items": [{id, group, name, state, detail, at, section}]}`, where `state` is `ok`, `warn`, `error`, `waiting` or `off`. Status only; no addresses or keys |
 | POST | `/api/externalip/lookup` | Finds the public address now, with one request to Cloudflare for a file of no bytes. Answers `{externalIp, changed}`, or 502 with `{error}` if Cloudflare can't be reached or doesn't say. Two calls within five seconds share one answer |
 | GET | `/api/settings/tidy` | The tidy-up: `{"enabled", "days", "would", "wouldNames", "last": {"at", "count", "names"}}` — `would` is how many devices would be forgotten now |
@@ -2357,12 +2357,48 @@ haven't moved by hand follows the node it hangs from, so dragging a switch
 brings its devices along. Zoom with Ctrl + scroll, a pinch or the − / +
 buttons; a plain scroll wheel keeps scrolling the page, so you can scroll past
 one network's map to the next. Drag the background to pan,
-**Fit** shows everything, and **Auto-arrange** forgets the positions you set on
-that network. On a big network the whole map is small, so as it zooms out the names
+**Fit** shows everything. On a big network the whole map is small, so as it zooms out the names
 of the gateway, switches and access points grow, up to twice their size, to stay
 readable; devices keep their size, and zooming in brings everything back to normal.
 A network with nothing left on it (every device forgotten) gets no map, unless it's
 still on the list of networks BAMF scans.
+
+**Getting it tidy: Arrange, Snap and Undo.** Drag things roughly where you want them, ideally
+in **⛶ Full screen** where there's room, then let BAMF straighten it. **Arrange** on a map's
+toolbar has:
+
+- **Tidy up** straightens what you've placed. Switches, access points and boxes that sit about level
+  become one row, each row is spaced evenly with nothing overlapping, rows that start (or are centred)
+  about together are made to start together, and the router is centred over them. It keeps your rows and
+  their order; it only evens them out.
+- **Compact** reflows everything into rows the shape of the frame, instead of one long strip. A network
+  whose switches and access points all hang from the router comes out roughly as wide as it is tall;
+  open it in full screen first and it fits that shape. Lines to the lower rows run down the left, clear
+  of the device lists above them.
+- **Snap to grid** puts everything you placed, and each switch or router, on a grid.
+- **Undo** (or **Ctrl+Z** on the Map) puts back the last move or arrange, as far back as this browser
+  session goes. Dragging a device or switch is undoable too. **Redo** (**Ctrl+Shift+Z** or **Ctrl+Y**) does it
+  again, and the toast after each arrange has an Undo link.
+- **Reset to automatic** is the old Auto-arrange: it forgets everywhere you put things on that map. It no
+  longer asks first, because Undo brings every place back.
+- The menu works from the keyboard: Enter opens it, the arrow keys move down it, Escape closes it. An arrange
+  fades in rather than jumping (not with reduced motion on).
+
+A switch moves as one with the devices recorded on it, and what you had placed inside it moves with it.
+Only the switch's own place is saved; its devices follow, so a device that turns up later still lands
+where it should. **Snap**, beside Arrange, is a switch that makes a drag line up with a neighbour's row
+or column (a dashed line shows which) and otherwise land on the grid; hold **Alt** to drag one thing
+free. Snap is off until you turn it on, and your choice is kept in the browser. None of it changes what
+BAMF knows: only where things are drawn.
+
+**Lining several things up.** Hold **Shift** and click things to pick them, or hold Shift and drag a box round them
+(the **Select** button next to Snap does the same without Shift, which suits a tablet: a drag on the background draws
+the box and a tap picks or lets go). Picked things get a ring and a bar appears over the map: **align** their left
+edges, centres or right edges, or their tops, middles or bottoms, and **space them evenly** across or down (three or
+more; the two at the ends stay put). Dragging one picked thing takes all of them. Pick a switch and one of its
+devices and they count as one: the switch, with its devices. **Esc** or a click on the background lets go, **Ctrl+A**
+picks everything but the router, and **Shift+Enter** picks the focused thing from the keyboard. Every align,
+spread and group move is one step in Undo.
 
 **Wiring it up by dragging:**
 

@@ -1234,6 +1234,36 @@
   .map-svg .t-net { stroke: var(--panel); stroke-width: 1.5; }
   .map-tools { display: inline-flex; gap: 6px; margin-left: 8px; }
   .map-tools button { padding: 3px 9px; font-size: 12px; }
+  /* Arrange: a menu of ways to straighten the map, and the lines a dragged node snaps to. */
+  .arr-wrap { display: inline-block; }
+  .tools-menu.arr-menu { right: auto; left: 0; min-width: 320px; max-width: 360px; }
+  .tools-menu .arr-item { display: flex; flex-direction: column; gap: 1px; font-size: 13px; padding: 7px 10px; }
+  .arr-item b { font-weight: 600; }
+  .arr-item span { font-size: 11px; color: var(--text-dim); white-space: normal; }
+  .tools-menu .arr-item:disabled { opacity: .45; cursor: default; }
+  .tools-menu .arr-item:disabled:hover { background: none; }
+  .tools-menu .arr-undo, .tools-menu .arr-reset { border-top: 1px solid var(--line); margin-top: 2px; }
+  .tools-menu .arr-undo + .arr-redo { border-top: 0; margin-top: 0; }
+  .tools-menu .arr-item:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: -2px; }
+  .map-svg.arr-settle { animation: arr-settle .28s ease-out; }
+  .map-svg.topo.selecting { cursor: crosshair; touch-action: none; }
+  .map-svg .tnode.sel { filter: drop-shadow(0 0 5px var(--focus)); }
+  .map-svg .tnode.sel .t-tile, .map-svg .tbox.sel .t-box { stroke: var(--focus); stroke-width: 3; stroke-dasharray: none; }
+  .map-svg .t-marquee { fill: var(--focus); fill-opacity: .12; stroke: var(--focus); stroke-width: 1; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; pointer-events: none; }
+  .sel-bar { position: absolute; left: 0; right: 0; margin: 0 auto; width: fit-content; bottom: 12px; display: none; align-items: center; gap: 4px; padding: 5px 8px; max-width: calc(100% - 16px); flex-wrap: wrap; justify-content: center;
+             background: var(--panel, #1b1f27); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 22px rgba(0,0,0,.35); z-index: 5; font-size: 12px; }
+  .sel-bar.show { display: flex; }
+  .sel-bar .sel-n { margin: 0 6px 0 2px; color: var(--text-dim); white-space: nowrap; }
+  .sel-bar .sel-sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 4px; }
+  .sel-bar button { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 28px; padding: 0 7px; background: none; color: var(--text); border: 1px solid transparent; border-radius: 7px; cursor: pointer; font-size: 12px; }
+  .sel-bar button:hover:not(:disabled) { background: var(--hover, rgba(127,127,127,.18)); border-color: var(--line); }
+  .sel-bar button:disabled { opacity: .35; cursor: default; }
+  .sel-bar button:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: 1px; }
+  .sel-bar svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; stroke-linecap: round; }
+  body.viewer .sel-bar { display: none !important; }
+  @keyframes arr-settle { from { opacity: .35; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .map-svg.arr-settle { animation: none; } }
+  .map-svg .t-guide { stroke: var(--focus); stroke-width: 1; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; pointer-events: none; opacity: .85; }
   .map-clusters.single.topo { max-width: none; }
   .topo-frame { position: relative; height: min(640px, 76vh); border-top: 1px solid var(--line); margin: 8px -14px -8px; overflow: hidden; }
   /* The wheel and a one-finger swipe scroll the page past a map; zooming is
