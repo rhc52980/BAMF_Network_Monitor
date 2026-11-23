@@ -2419,6 +2419,16 @@ colour, one filled for weak up to all four for excellent. It follows each refres
 corner turns red on the Map, and one that is offline has no colour (what it last heard says nothing now). Hover a device
 for the dBm and the access point; the Print page carries the colours and a key. Nothing else about the Map changes.
 
+**Right-click menu.** The **Right-click menu** button on the Map toolbar (off until you turn it on, and your choice is kept
+in the browser; off, the browser's own menu appears as ever) puts what you would do to a thing under your pointer. Right-click
+a device, or focus it and press the menu key or Shift+F10, for: open it in the devices list, where it is plugged in (and unplug
+it, when you recorded it yourself rather than the gear reporting it), its Map icon and type, a note, snooze, known or ignored,
+Show in 3D, Ping and Trace route, copy its IP or MAC address, and **Put back in its automatic place** if you had dragged it
+(Undo brings the place back). A switch, access point or SSID offers its ports or devices, Add a wireless SSID, Traffic counters
+and Edit. With several things picked, right-clicking one of them offers the align and space-out choices for the lot and
+puts them all back in their automatic places. These are the same dialogs a click or the device list's "..." menu opens; someone
+with the view-only password gets only the items that change nothing. Arrow keys move down the menu, Esc closes it.
+
 **Wiring it up by dragging:**
 
 - **Drop a device on a switch** to record it there. The Plugged into dialog
