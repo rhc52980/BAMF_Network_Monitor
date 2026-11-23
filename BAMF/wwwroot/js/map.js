@@ -939,8 +939,12 @@ function topoResolve(m) {
   for (const key of m.nodes.keys()) get(key);
 }
 
-function topoPath(style, a, b, fromLabelW) {
+function topoPath(style, a, b, fromLabelW, trunk) {
   const T = TOPO.T, f = v => v.toFixed(1);
+  // A block on a lower row (after Arrange) is joined by a line that runs down the left of the rows above it, then along the gap
+  // over its own row, so it never crosses a device list on the way.
+  if (trunk != null && style === "down") return `M${f(a[0])} ${f(a[1] + T)} V${f(a[1] + T + 24)} H${f(trunk)} V${f(b[1] - T - 26)} H${f(b[0])} V${f(b[1] - T)}`;
+  if (trunk != null && style === "box") return `M${f(a[0])} ${f(a[1] + T)} V${f(a[1] + T + 24)} H${f(trunk)} V${f(b[1] - 22)} H${f(b[0] + 40)} V${f(b[1])}`;
   // Machine to its virtual switch: out past the machine's label, then across.
   if (style === "vside") {
     const sx = a[0] + T + 12 + (fromLabelW || 120);
@@ -975,16 +979,34 @@ function topoPath(style, a, b, fromLabelW) {
   return `M${f(a[0])} ${f(a[1] + T)} V${f(mid)} H${f(b[0])} V${f(b[1] - T)}`;
 }
 
+// Blocks under one router that sit on more than one row: those on the lower rows get a trunk, a line down the left of the lot.
+function topoTrunks(m) {
+  const by = new Map();
+  for (const e of m.edgeEls) {
+    e.trunk = null;
+    if (e.style !== "down" && e.style !== "box") continue;
+    if (!by.has(e.from)) by.set(e.from, []);
+    by.get(e.from).push(e);
+  }
+  for (const es of by.values()) {
+    const ys = es.map(e => m.final.get(e.to)[1]), top = Math.min(...ys);
+    if (!ys.some(y => y > top + 100)) continue;
+    const left = Math.min(...es.map(e => m.final.get(e.to)[0])) - 44;
+    es.forEach((e, i) => { if (ys[i] > top + 100) e.trunk = left; });
+  }
+}
+
 // Put every drawn node and line where topoResolve says.
 function topoPlace(m) {
   topoResolve(m);
+  topoTrunks(m);
   for (const [key, el] of m.els) {
     const p = m.final.get(key);
     el.setAttribute("transform", `translate(${p[0].toFixed(1)},${p[1].toFixed(1)})`);
   }
   for (const e of m.edgeEls) {
     const a = m.final.get(e.from), b = m.final.get(e.to);
-    e.path.setAttribute("d", topoPath(e.style, a, b, (m.nodes.get(e.from) || {}).labelW));
+    e.path.setAttribute("d", topoPath(e.style, a, b, (m.nodes.get(e.from) || {}).labelW, e.trunk));
     if (e.pkt) e.pkt.setAttribute("d", e.path.getAttribute("d"));
     if (e.label) {
       if (e.style === "list") { e.label.setAttribute("x", (b[0] - TOPO.T - 6).toFixed(1)); e.label.setAttribute("y", (b[1] - 5).toFixed(1)); }
@@ -1002,7 +1024,7 @@ function topoBounds(m) {
       x0 = Math.min(x0, p[0] - 20); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0] + n.size[0] + 20); y1 = Math.max(y1, p[1] + n.size[1] + 20);
     } else {
       const w = n.labelW || 120;
-      x0 = Math.min(x0, p[0] - 30); y0 = Math.min(y0, p[1] - 60); x1 = Math.max(x1, p[0] + TOPO.T + 12 + w); y1 = Math.max(y1, p[1] + 40);
+      x0 = Math.min(x0, p[0] - 50); y0 = Math.min(y0, p[1] - 60); x1 = Math.max(x1, p[0] + TOPO.T + 12 + w); y1 = Math.max(y1, p[1] + 40);
     }
   }
   // A small network shouldn't be blown up to fill the frame: never zoom in
@@ -1091,7 +1113,10 @@ function buildTopologySvg(c) {
   topoModels[c.subnet] = m;
   const svg = svgEl("svg", { class: "map-svg topo", role: "group", "aria-label": `Network ${c.subnet}`, preserveAspectRatio: "xMidYMid meet" });
   const gBox = svgEl("g", {}), gEdges = svgEl("g", {}), gLabels = svgEl("g", {}), gNodes = svgEl("g", {});
-  svg.append(gBox, gEdges, gLabels, gNodes);
+  const gGuides = svgEl("g", { class: "t-guides" });
+  m.guideX = svgEl("line", { class: "t-guide" }); m.guideY = svgEl("line", { class: "t-guide" });
+  gGuides.append(m.guideX, m.guideY);
+  svg.append(gBox, gEdges, gLabels, gNodes, gGuides);
   m.svg = svg;
 
   for (const [key, n] of m.nodes) {
@@ -1309,10 +1334,75 @@ async function topoDrop(m, key) {
     if ([...$("swUp").options].some(o => o.value === want)) { $("swUp").value = want; syncSwitchDialog(0); }
     return;
   }
+  mapUndoPush(subnet, { [key]: (mapPositions[subnet] || {})[key] ? mapPositions[subnet][key].slice() : null }, "Moved");
   await saveMapPositions(subnet, { [key]: [Math.round(p[0]), Math.round(p[1])] });
   m.saved = mapPositions[subnet] || {};
   delete m.override[key];
 }
+
+// ---- Arranging ----
+// The layouts themselves are in maparrange.js. Here: a snap switch, the lines that show what a dragged node lined up with, and
+// undo for every move and every arrange, in this browser session.
+let mapSnap = false;
+try { mapSnap = localStorage.getItem("bamf-map-snap") === "1"; } catch { }
+const mapUndo = [];
+
+function topoGuides(m, sn) {
+  const [x, y, w, h] = m.view;
+  const put = (el, a) => { if (!a) { el.removeAttribute("x1"); el.removeAttribute("x2"); el.removeAttribute("y1"); el.removeAttribute("y2"); } else for (const [k, v] of Object.entries(a)) el.setAttribute(k, v.toFixed(1)); };
+  put(m.guideX, sn && sn.guideX !== null ? { x1: sn.guideX, x2: sn.guideX, y1: y, y2: y + h } : null);
+  put(m.guideY, sn && sn.guideY !== null ? { x1: x, x2: x + w, y1: sn.guideY, y2: sn.guideY } : null);
+}
+
+function mapUndoPush(subnet, before, label) {
+  mapUndo.push({ subnet, before, label });
+  if (mapUndo.length > 40) mapUndo.shift();
+  document.querySelectorAll(".arr-undo").forEach(b => { b.disabled = !mapUndo.some(u => u.subnet === b.dataset.subnet); });
+}
+
+async function topoUndo(subnet) {
+  let i = mapUndo.length - 1;
+  while (i >= 0 && mapUndo[i].subnet !== subnet) i--;
+  if (i < 0) return;
+  const [u] = mapUndo.splice(i, 1);
+  await saveMapPositions(subnet, u.before);
+  mapSig = null;
+  renderMap();
+  toast(`Undid: ${esc(u.label.toLowerCase())}`);
+}
+
+// Tidy up, Compact or Snap to grid on one map, saved and drawn, with a way back.
+async function topoArrange(subnet, kind) {
+  const m = topoModels[subnet];
+  if (!m) return;
+  const box = m.svg.getBoundingClientRect();
+  const ratio = box.width && box.height ? Math.min(2.6, Math.max(1.3, box.width / box.height * .9)) : ARR.RATIO;
+  const label = { tidy: "Tidied up", compact: "Made compact", grid: "Snapped to the grid" }[kind];
+  const positions = arrArrange(m, kind, ratio);
+  if (!Object.keys(positions).length) { toast(kind === "grid" ? "Everything is already on the grid." : "Nothing to move: it's already laid out that way."); return; }
+  const before = {};
+  for (const k of Object.keys(positions)) before[k] = m.saved[k] ? m.saved[k].slice() : null;
+  await saveMapPositions(subnet, positions);
+  mapUndoPush(subnet, before, label);
+  delete mapViews[subnet];
+  mapSig = null;
+  renderMap();
+  toast(`${label}. <a href="#" id="arrUndoLink">Undo</a>`);
+  const link = $("arrUndoLink");
+  if (link) link.onclick = e => { e.preventDefault(); topoUndo(subnet); };
+}
+
+// Ctrl+Z on the Map puts back the last move or arrange.
+document.addEventListener("keydown", e => {
+  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "z") return;
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  const wrap = $("mapClusters");
+  if (!wrap || !wrap.offsetParent || role === "viewer") return;
+  for (let i = mapUndo.length - 1; i >= 0; i--) {
+    if (wrap.querySelector(`.map-card[data-subnet="${CSS.escape(mapUndo[i].subnet)}"]`)) { e.preventDefault(); topoUndo(mapUndo[i].subnet); return; }
+  }
+});
 
 // Pointer handling for one card: drag a node, drag the background to pan,
 // wheel or pinch to zoom. A press that doesn't move is a click.
@@ -1338,7 +1428,7 @@ function topoWire(m) {
     try { svg.setPointerCapture(e.pointerId); } catch { /* not every pointer can be captured */ }
     pointers.set(e.pointerId, [e.clientX, e.clientY]);
     if (pointers.size === 2) {
-      if (mode === "node" && st.moved) { delete m.override[st.key]; topoPlace(m); markTarget(null); }
+      if (mode === "node" && st.moved) { delete m.override[st.key]; topoPlace(m); markTarget(null); topoGuides(m, null); }
       const [a, b] = [...pointers.values()];
       mode = "pinch";
       pinch = { dist: Math.hypot(a[0] - b[0], a[1] - b[1]), view: m.view.slice() };
@@ -1373,7 +1463,16 @@ function topoWire(m) {
       if (!st.moved && Math.hypot(e.clientX - st.sx, e.clientY - st.sy) < 5) return;
       if (!st.moved) { st.moved = true; mapDragging = true; st.el.classList.add("dragging"); }
       const p = toSvg(e);
-      m.override[st.key] = [st.start[0] + p[0] - st.p0[0], st.start[1] + p[1] - st.p0[1]];
+      let at = [st.start[0] + p[0] - st.p0[0], st.start[1] + p[1] - st.p0[1]];
+      // Snap on (Alt held lets one drag go free): line up with a neighbour's row or column, else land on the grid.
+      if (mapSnap && !e.altKey && m.nodes.get(st.key).type !== "box") {
+        const box = svg.getBoundingClientRect();
+        const k = Math.min(box.width / m.view[2], box.height / m.view[3]) || 1;
+        const sn = arrSnapDrag(m, st.key, at, 10 / k);
+        at = sn.p;
+        topoGuides(m, sn);
+      } else topoGuides(m, null);
+      m.override[st.key] = at;
       topoPlace(m);
       markTarget(st.key);
     } else if (mode === "pan") {
@@ -1393,6 +1492,7 @@ function topoWire(m) {
     } else if (mode === "node") {
       const s = st;
       s.el.classList.remove("dragging");
+      topoGuides(m, null);
       markTarget(null);
       if (!s.moved) topoActivate(m, s.key, s.target);
       else {
@@ -1450,6 +1550,41 @@ document.querySelectorAll("#mapScope button").forEach(b => b.onclick = () => {
   renderMap();
 });
 
+// The Arrange menu: a few ways to straighten a map once it's roughly where you want it.
+function arrangeMenu(c) {
+  const wrap = document.createElement("span");
+  wrap.className = "tools-menu-wrap arr-wrap edit-only";
+  const open = document.createElement("button");
+  open.className = "toggle"; open.type = "button"; open.textContent = "Arrange ▾";
+  open.title = "Straighten the layout, or fit it to the screen";
+  const menu = document.createElement("div");
+  menu.className = "tools-menu arr-menu";
+  const item = (title, text, fn, extra) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "arr-item" + (extra ? " " + extra : "");
+    b.innerHTML = "<b></b><span></span>";
+    b.children[0].textContent = title; b.children[1].textContent = text;
+    b.onclick = () => { menu.classList.remove("show"); fn(b); };
+    menu.appendChild(b);
+    return b;
+  };
+  item("Tidy up", "Straighten what you've placed: things that sit about level become a row, spaced evenly, nothing overlapping.", () => topoArrange(c.subnet, "tidy"));
+  item("Compact", "Reflow it into rows the shape of the screen, instead of one long strip. Best in full screen.", () => topoArrange(c.subnet, "compact"));
+  item("Snap to grid", "Put everything on a grid.", () => topoArrange(c.subnet, "grid"));
+  const undo = item("Undo", "Put back the last move or arrange (Ctrl+Z).", () => topoUndo(c.subnet), "arr-undo");
+  undo.dataset.subnet = c.subnet;
+  undo.disabled = !mapUndo.some(u => u.subnet === c.subnet);
+  item("Reset to automatic…", c.whole ? "Forget everywhere you put things on this map." : "Forget everywhere you put things on this network.", () => topoAutoArrange(c.subnet), "arr-reset");
+  open.onclick = e => {
+    e.stopPropagation();
+    document.querySelectorAll(".arr-menu.show").forEach(x => { if (x !== menu) x.classList.remove("show"); });
+    menu.classList.toggle("show");
+  };
+  wrap.append(open, menu);
+  return wrap;
+}
+document.addEventListener("click", e => { if (!e.target.closest(".arr-wrap")) document.querySelectorAll(".arr-menu.show").forEach(x => x.classList.remove("show")); });
+
 function buildClusterCard(c) {
   const card = document.createElement("section");
   card.className = "map-card";
@@ -1493,8 +1628,16 @@ function buildClusterCard(c) {
     btn("−", "Zoom out", () => topoZoomBy(c.subnet, 1.25));
     btn("+", "Zoom in", () => topoZoomBy(c.subnet, 0.8));
     btn("Fit", "Show everything", () => topoFit(c.subnet));
-    btn("Auto-arrange", c.whole ? "Forget where you dragged things on this map" : "Forget where you dragged things on this network", () => topoAutoArrange(c.subnet));
-    tools.lastChild.classList.add("edit-only");
+    tools.appendChild(arrangeMenu(c));
+    const snap = document.createElement("button");
+    snap.className = "toggle edit-only arr-snap" + (mapSnap ? " active" : ""); snap.type = "button"; snap.textContent = "Snap";
+    snap.title = "Snap what you drag to a neighbour's row or column, or to a grid. Hold Alt to drag one thing free.";
+    snap.onclick = () => {
+      mapSnap = !mapSnap;
+      try { localStorage.setItem("bamf-map-snap", mapSnap ? "1" : "0"); } catch { }
+      document.querySelectorAll(".arr-snap").forEach(b => b.classList.toggle("active", mapSnap));
+    };
+    tools.appendChild(snap);
     btn("Print", "A clean white drawing of this map on one page, for the closet door", () => printTopoMap(c.subnet));
     btn(mapExpanded === c.subnet ? "Exit full screen" : "⛶ Full screen",
       mapExpanded === c.subnet ? "Back to the page (Esc)" : "Fill the screen with this map", () => toggleMapExpanded(c.subnet));
