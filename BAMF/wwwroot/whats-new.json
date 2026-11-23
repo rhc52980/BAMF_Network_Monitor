@@ -2,6 +2,13 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.39.0",
+      "date": "2026-11-23",
+      "items": [
+        "Settings, Appearance has a new switch, Hide the network name under a name you set, off until you turn it on. Under a name you gave a device the list shows in grey what the device calls itself on the network (for example U7-Pro-XG.localdomain), which is the same line four times on a row of identical access points. With it on, only your name shows; hover the name to see the network name, and search still finds it. Off, the list looks as before."
+      ]
+    },
+    {
       "version": "2.38.0",
       "date": "2026-11-23",
       "items": [
