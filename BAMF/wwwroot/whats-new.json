@@ -2,6 +2,14 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.37.0",
+      "date": "2026-11-23",
+      "items": [
+        "The Map has a Right-click menu button, off until you turn it on. With it on, right-click a device, switch, access point or SSID on the topology map (or focus it and press the menu key) for what you can do to it: open it in the devices list, where it is plugged in, its icon and type, a note, snooze, known or ignored, Show in 3D, ping, copy its address, and Put back in its automatic place if you had dragged it. With several things picked, it offers align and space-out for all of them. With the button off, the browser's own menu appears as before.",
+        "Settings, Tidy up old devices now says what happened next to its buttons (Saved, how many devices were forgotten, or that there was nothing to tidy), and Tidy up now no longer sits greyed out and silent when nothing is old enough."
+      ]
+    },
+    {
       "version": "2.36.0",
       "date": "2026-11-23",
       "items": [
