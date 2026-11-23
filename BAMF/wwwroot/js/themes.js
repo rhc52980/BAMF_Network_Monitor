@@ -916,6 +916,16 @@ $("setCompact").onclick = () => {
 };
 renderDensityToggle();
 
+// The grey network name under a name you set: a class on <html> like the density, so the list needs no redraw.
+function renderNetnameToggle() { setToggleState($("setHideNetname"), document.documentElement.classList.contains("hide-netname")); }
+$("setHideNetname").onclick = () => {
+  const on = !document.documentElement.classList.contains("hide-netname");
+  document.documentElement.classList.toggle("hide-netname", on);
+  try { localStorage.setItem("bamf-hide-netname", on ? "1" : "0"); } catch {}
+  renderNetnameToggle();
+};
+renderNetnameToggle();
+
 // Restore the saved theme: localStorage first (survives restarts and new
 // tabs), then window.name (same-tab reload only) for anyone who chose a theme
 // before storage was used, then dark. Each read is guarded separately so a
