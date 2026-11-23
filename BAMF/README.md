@@ -2410,6 +2410,15 @@ Dragging a device onto an SSID works as ever; an SSID with no devices has no nod
 from the device's Plugged into dialog. Nothing you recorded changes: only how it is drawn. Anything you dragged to a
 place by hand keeps that place.
 
+**Signal colours.** When your network gear reports how well each Wi-Fi device hears its access point (the **Wi-Fi**
+setting under Network gear, any brand BAMF can read), the **Signal colours** button on the Map toolbar (shown once there
+is a reading; off until you turn it on, and your choice is kept in the browser) colours each such device's tile and the
+line to it: green for excellent and good, amber for fair, red for weak (the same cut-offs as everywhere else: -67 dBm or
+better is strong, down to -75 is fair, below that is weak). Four small bars at the tile's corner say it again without
+colour, one filled for weak up to all four for excellent. It follows each refresh, so a device that wanders off to a weak
+corner turns red on the Map, and one that is offline has no colour (what it last heard says nothing now). Hover a device
+for the dBm and the access point; the Print page carries the colours and a key. Nothing else about the Map changes.
+
 **Wiring it up by dragging:**
 
 - **Drop a device on a switch** to record it there. The Plugged into dialog

@@ -1382,6 +1382,23 @@
   .map-svg .spoke.bolt { fill: none; stroke: var(--led-warn); stroke-width: 1.8; stroke-linejoin: miter; stroke-linecap: round; }
   .map-svg .spoke.bolt.off { stroke: var(--led-off); }
   /* A VPN client: a dotted tunnel, not a cable. */
+  /* Signal colours (a Map switch): a Wi-Fi device, its line and four little bars, by how well it hears its access point. */
+  .map-svg .spoke.sig-excellent, .map-svg .spoke.sig-good { stroke: var(--led-on); stroke-width: 1.8; }
+  .map-svg .spoke.sig-fair { stroke: var(--led-warn); stroke-width: 1.8; }
+  .map-svg .spoke.sig-weak { stroke: var(--danger); stroke-width: 2.2; }
+  .map-svg .tnode.sig-excellent, .map-svg .tnode.sig-good { --sg: var(--led-on); }
+  .map-svg .tnode.sig-fair { --sg: var(--led-warn); }
+  .map-svg .tnode.sig-weak { --sg: var(--danger); }
+  .map-svg .tnode[class*="sig-"] .t-tile { stroke: var(--sg); stroke-width: 2; }
+  .map-svg .t-sig rect { fill: var(--led-off); }
+  .map-svg .tnode.sig-excellent .t-sig rect:nth-child(-n+4), .map-svg .tnode.sig-good .t-sig rect:nth-child(-n+3),
+  .map-svg .tnode.sig-fair .t-sig rect:nth-child(-n+2), .map-svg .tnode.sig-weak .t-sig rect:nth-child(-n+1) { fill: var(--sg); }
+  .map-tools .sig-key { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-dim); white-space: nowrap; padding: 0 2px; }
+  .map-tools .sig-key[hidden] { display: none; }
+  .map-tools .sig-key span { display: inline-flex; align-items: center; gap: 4px; }
+  .map-tools .sig-key i { width: 8px; height: 8px; border-radius: 50%; background: var(--led-on); display: inline-block; }
+  .map-tools .sig-key .sig-fair i { background: var(--led-warn); }
+  .map-tools .sig-key .sig-weak i { background: var(--danger); }
   .map-svg .spoke.tunnel { fill: none; stroke: var(--focus); stroke-width: 1.6; stroke-dasharray: 1 4; stroke-linecap: round; }
   .map-svg .spoke.tunnel.off { stroke: var(--led-off); }
   .map-head .map-nets { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; color: var(--text-dim); }
