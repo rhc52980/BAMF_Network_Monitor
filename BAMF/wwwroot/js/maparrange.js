@@ -40,7 +40,32 @@ function arrTree(m, kids, key, skipPinned = false, out = []) {
 function arrExtent(m, key) {
   const n = m.nodes.get(key), p = m.final.get(key);
   if (n.type === "box") return [p[0] - 4, p[1] - 4, p[0] + n.size[0] + 4, p[1] + n.size[1] + 4];
-  return [p[0] - ARR.TILE - 4, p[1] - ARR.TILE - 30, p[0] + ARR.TILE + 12 + (n.labelW || 120), p[1] + 40];
+  return [p[0] - ARR.TILE - 4, p[1] - ARR.TILE - 30, p[0] + ARR.TILE + 12 + (n.labelW || 120), p[1] + 40 + (n.tagRows > 1 ? 14 : 0)];
+}
+
+// SSID tags: small labels under an access point's name, for the SSIDs that have no devices to draw. Each is as wide as its name and a
+// little, they wrap to a second row at maxW, and what won't fit in two rows is counted in a last "+N" tag. Returns the rows, each tag
+// with its x within the row, its width and its full name (for the tooltip), and the width of the widest row.
+function arrTagRows(names, maxW = 300) {
+  const CH = 5.6, PAD = 12, GAP = 5, MAXROWS = 2;
+  const rows = [[]], hidden = [];
+  let x = 0;
+  for (const name of names) {
+    if (hidden.length) { hidden.push(name); continue; }
+    const text = name.length > 20 ? name.slice(0, 19) + "\u2026" : name, w = Math.round(text.length * CH + PAD);
+    if (x && x + w > maxW) {
+      if (rows.length === MAXROWS) { hidden.push(name); continue; }
+      rows.push([]); x = 0;
+    }
+    rows[rows.length - 1].push({ text, title: name, x, w });
+    x += w + GAP;
+  }
+  if (hidden.length) {
+    const last = rows[rows.length - 1], end = last.length ? last[last.length - 1].x + last[last.length - 1].w + GAP : 0;
+    last.push({ text: "+" + hidden.length, title: hidden.join(", "), x: end, w: 30 });
+  }
+  const width = Math.max(0, ...rows.map(r => r.length ? r[r.length - 1].x + r[r.length - 1].w : 0));
+  return { rows, width };
 }
 function arrBox(m, keys) {
   let r = [Infinity, Infinity, -Infinity, -Infinity];

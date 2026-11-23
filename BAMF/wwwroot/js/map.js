@@ -531,6 +531,9 @@ try { if (localStorage.getItem("bamf-map-style") === "radial") mapStyle = "radia
 const mapViews = {};        // subnet -> [x, y, w, h]: zoom and pan, kept across redraws
 const topoModels = {};      // subnet -> the drawn model, for the card's buttons
 let mapDragging = false;
+// Compact Wi-Fi: an access point's SSIDs under it, the empty ones as tags, instead of each SSID beside it. Off until turned on.
+let mapWifiCompact = false;
+try { mapWifiCompact = localStorage.getItem("bamf-map-wifi-compact") === "1"; } catch { }
 
 const TOPO = {
   T: 16,               // half a tile
@@ -769,6 +772,25 @@ function topoModel(c) {
     return reach;
   };
 
+  // Compact Wi-Fi: the access point's SSIDs stacked under it. One that has devices is a node with its devices listed beneath on a
+  // spine, as a switch's are; one with none is only a tag on the access point. Returns how far right of hx it reaches, and the tags.
+  const stackSsids = (ap, apKey, hx, hy) => {
+    const tags = [];
+    let reach = 0, y = hy;
+    for (const ss of ssidAll.filter(s => s.runsOn === ap.id && !hung.has(s.id))) {
+      hung.add(ss.id);
+      const devs = c.placed.filter(h => h.switchId === ss.id).sort(byPort);
+      if (!devs.length) { tags.push(ss.name); continue; }
+      const key = "s:" + ss.id, x = hx + 40;
+      add(key, { type: "switch", sw: ss, host: null, parent: apKey, auto: [x, y], edge: { style: "list", vlink: true, cable: false } });
+      devs.forEach((h, j) => add("h:" + h.id, { type: "dev", host: h, parent: key,
+        auto: [x + 44, y + 50 + j * TOPO.ROW], edge: { style: "list", wifi: true, cable: false } }));
+      reach = Math.max(reach, 40 + 44 + TOPO.T + 190, 40 + TOPO.T + 12 + ss.name.length * TOPO.CHAR);
+      y += 70 + devs.length * TOPO.ROW;
+    }
+    return { reach, tags };
+  };
+
   const place = (sw, left, parentKey, edge) => {   // returns the region's width
     if (seen.has(sw.id)) return 0;
     seen.add(sw.id);
@@ -787,9 +809,18 @@ function topoModel(c) {
       vsReach = Math.max(vsReach, hang(h.id, "h:" + h.id, left + TOPO.T + TOPO.PORT_INDENT, y1 + 70 + i * TOPO.ROW, col));
     });
     // An access point's SSIDs, clear of any devices recorded straight on it.
-    const ssidReach = sw.kind === "ap"
-      ? hangSsids(sw, key, left + TOPO.T, y1, { bottom: -1e9 }, devs.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 210 : TOPO.VS_DX)
-      : 0;
+    let ssidReach = 0;
+    if (sw.kind === "ap" && mapWifiCompact) {
+      const st = stackSsids(sw, key, left + TOPO.T, y1 + 70 + devs.length * TOPO.ROW);
+      ssidReach = st.reach;
+      if (st.tags.length) {
+        const tr = arrTagRows(st.tags), nd = nodes.get(key);
+        nd.tags = st.tags; nd.tagRows = tr.rows.length;
+        ssidReach = Math.max(ssidReach, TOPO.T + 8 + tr.width - TOPO.T);   // the tags run on from the name, T + 8 along
+      }
+    } else if (sw.kind === "ap") {
+      ssidReach = hangSsids(sw, key, left + TOPO.T, y1, { bottom: -1e9 }, devs.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 210 : TOPO.VS_DX);
+    }
     // Room for the name, or the line under it ("16 ports · 192.168.30.104"), whichever is longer.
     const label = Math.max(sw.name.length, memberKind(sw.kind) ? (sw.kind === "vpn" ? 24 : 0) : (`${sw.ports} ports`.length + (sw.hostId ? 18 : 0)));
     let width = Math.max(devs.length ? TOPO.PORT_INDENT + 2 * TOPO.T + 190 : 0, 2 * TOPO.T + 30 + label * TOPO.CHAR,
@@ -1130,7 +1161,7 @@ function buildTopologySvg(c) {
 
   for (const [key, n] of m.nodes) {
     if (n.edge && n.parent) {
-      const path = svgEl("path", { class: "spoke" + (n.edge.cable ? " cable" : "") + (n.edge.vlink ? " vlink" : "") + (n.edge.style === "bolt" ? " bolt" : "") + (n.edge.tunnel ? " tunnel" : "") + (n.type === "dev" && !n.host.online ? " off" : "") });
+      const path = svgEl("path", { class: "spoke" + (n.edge.cable ? " cable" : "") + (n.edge.vlink ? " vlink" : "") + (n.edge.style === "bolt" || n.edge.wifi ? " bolt" : "") + (n.edge.tunnel ? " tunnel" : "") + (n.type === "dev" && !n.host.online ? " off" : "") });
       if (n.type === "dev") path.setAttribute("data-id", n.host.id);
       gEdges.appendChild(path);
       // Shown only by some themes: something flowing along a recorded cable.
@@ -1243,6 +1274,21 @@ function topoNodeEl(m, key, n) {
   const t2 = svgEl("text", { class: "t-sub", x: TOPO.T + 8, y: 12 });
   t2.textContent = sub;
   g.append(t1, t2);
+  // An access point's SSIDs that have no devices, as small tags under its name.
+  if (n.tags && n.tags.length) {
+    const tr = arrTagRows(n.tags), gt = svgEl("g", { class: "t-tags", transform: `translate(${TOPO.T + 8},22)` });
+    tr.rows.forEach((row, ri) => row.forEach(t => {
+      const tg = svgEl("g", { class: "t-tag", transform: `translate(${t.x},${ri * 16})` });
+      const tt = svgEl("title", {});
+      tt.textContent = t.title + (t.text[0] === "+" ? "" : " · wireless SSID with no devices recorded");
+      const tx = svgEl("text", { x: 6, y: 9.5 });
+      tx.textContent = t.text;
+      tg.append(tt, svgEl("rect", { width: t.w, height: 13, rx: 6.5 }), tx);
+      gt.appendChild(tg);
+    }));
+    g.appendChild(gt);
+    n.labelW = Math.max(n.labelW, tr.width - 4);
+  }
   // In the whole-network view, a dot per network the device is on.
   if (m.c.whole && h && !h.synthetic) {
     const nets = [...new Set([h.subnet, ...curAddrs(h).map(a => a.subnet)])].filter(v => m.c.netColors[v]).slice(0, 4);
@@ -1869,6 +1915,19 @@ function buildClusterCard(c) {
       document.querySelectorAll(".map-svg.topo").forEach(s => s.classList.toggle("selecting", mapSelectMode));
     };
     tools.appendChild(pick);
+    if (c.switches.some(s => s.kind === "ap")) {
+      const wf = document.createElement("button");
+      wf.className = "toggle arr-wifi" + (mapWifiCompact ? " active" : ""); wf.type = "button"; wf.textContent = "Compact Wi-Fi";
+      wf.title = "Draw each access point's SSIDs under it, the ones with no devices as small tags and the rest with their devices in one list. Much narrower than SSIDs beside every access point.";
+      wf.onclick = () => {
+        mapWifiCompact = !mapWifiCompact;
+        try { localStorage.setItem("bamf-map-wifi-compact", mapWifiCompact ? "1" : "0"); } catch { }
+        for (const k of Object.keys(mapViews)) delete mapViews[k];
+        mapSig = null;
+        renderMap();
+      };
+      tools.appendChild(wf);
+    }
     btn("Print", "A clean white drawing of this map on one page, for the closet door", () => printTopoMap(c.subnet));
     btn(mapExpanded === c.subnet ? "Exit full screen" : "⛶ Full screen",
       mapExpanded === c.subnet ? "Back to the page (Esc)" : "Fill the screen with this map", () => toggleMapExpanded(c.subnet));
@@ -1951,7 +2010,7 @@ footer { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 11px; color: 
 footer span { display: inline-flex; align-items: center; gap: 6px; } footer i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
 footer svg { width: 26px; height: 12px; }
 svg text { fill: #111; font-family: Consolas, "IBM Plex Mono", monospace; }
-.t-name { font-weight: 700; font-size: 12px; } .t-sub { font-size: 10px; fill: #555; } .t-port { font-size: 9px; fill: #555; }
+.t-name { font-weight: 700; font-size: 12px; } .t-sub { font-size: 10px; fill: #555; } .t-port { font-size: 9px; fill: #555; } .t-tag rect { fill: #fff; stroke: #b36b00; stroke-width: .8; } .t-tag text { font-size: 8px; fill: #444; }
 .t-tile { fill: #fff; stroke: #222; stroke-width: 1.6; } .t-icon { fill: none; stroke: #111; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .node.off .t-tile { stroke: #999; } .node.off text { fill: #777; } .node.unknown .t-tile { stroke: #b36b00; stroke-dasharray: 3 2; }
 .spoke { fill: none; stroke: #aaa; stroke-width: 1; } .spoke.cable { stroke: #222; stroke-width: 2; } .spoke.off { stroke-dasharray: 4 3; }

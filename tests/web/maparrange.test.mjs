@@ -11,8 +11,8 @@ import vm from "node:vm";
 const src = readFileSync("BAMF/wwwroot/js/maparrange.js", "utf8");
 const map = readFileSync("BAMF/wwwroot/js/map.js", "utf8");
 const ctx = vm.createContext({ Math, Object, Array, Map, Set, Infinity });
-vm.runInContext(src + "\nglobalThis.arr = { ARR, arrCompact, arrTidy, arrGrid, arrSnapDrag, arrUnits, arrArrange, arrPicked, arrAlign, arrDistribute };", ctx);
-const { ARR, arrCompact, arrTidy, arrGrid, arrSnapDrag, arrUnits, arrArrange, arrPicked, arrAlign, arrDistribute } = ctx.arr;
+vm.runInContext(src + "\nglobalThis.arr = { ARR, arrCompact, arrTidy, arrGrid, arrSnapDrag, arrUnits, arrArrange, arrPicked, arrAlign, arrDistribute, arrTagRows };", ctx);
+const { ARR, arrCompact, arrTidy, arrGrid, arrSnapDrag, arrUnits, arrArrange, arrPicked, arrAlign, arrDistribute, arrTagRows } = ctx.arr;
 
 // A map as map.js builds it: a router, and under it `n` switches each with three devices listed beneath. Positions are the ones
 // the automatic layout gives: switches in one long row, devices a column in from their switch.
@@ -251,4 +251,41 @@ test("Dragging a picked group ignores the group when snapping to neighbours", ()
   const without = arrSnapDrag(m, "s:1", [m.final.get("s:2")[0] + 4, 400], 12, skip);
   assert.equal(withIt.guideX, m.final.get("s:2")[0]);
   assert.equal(without.guideX, null);
+});
+
+// ---- Compact Wi-Fi: SSID tags ----
+
+test("SSID tags sit in a row, none overlapping, each as wide as its name", () => {
+  const t = plain(arrTagRows(["EddieBauer2_Guest", "EddieBauer2_IoT", "GB_Guest"]));
+  assert.equal(t.rows.length, 1, "three ordinary names fit one row");
+  const row = t.rows[0];
+  for (let i = 1; i < row.length; i++) assert.ok(row[i].x >= row[i - 1].x + row[i - 1].w, "no overlap");
+  assert.ok(row[0].w > row[2].w, "a longer name gets a wider tag");
+  assert.equal(t.width, row[2].x + row[2].w);
+});
+
+test("Tags wrap to a second row, and what won't fit in two rows is counted, not lost", () => {
+  const names = Array.from({ length: 14 }, (_, i) => "Network-number-" + i);
+  const t = plain(arrTagRows(names, 300));
+  assert.equal(t.rows.length, 2, "two rows at most");
+  const flat = t.rows.flat(), more = flat[flat.length - 1];
+  assert.match(more.text, /^\+\d+$/, "a last tag counts the rest");
+  const shown = flat.length - 1, hidden = Number(more.text.slice(1));
+  assert.equal(shown + hidden, names.length, "every name is either drawn or counted");
+  assert.equal(more.title.split(", ").length, hidden, "and the tooltip names the hidden ones");
+});
+
+test("A long SSID name is clipped to a tag, with the whole name in the tooltip; no tags is no rows to draw", () => {
+  const t = plain(arrTagRows(["A-very-long-network-name-indeed"]));
+  assert.ok(t.rows[0][0].text.length <= 20 && t.rows[0][0].text.endsWith("…"));
+  assert.equal(t.rows[0][0].title, "A-very-long-network-name-indeed");
+  assert.equal(plain(arrTagRows([])).width, 0);
+});
+
+test("A second row of tags makes an access point taller for the layout, so Tidy up leaves room", () => {
+  const m = model(1);
+  for (const k of [...m.nodes.keys()]) if (k.startsWith("h:")) { m.nodes.delete(k); m.final.delete(k); }
+  const one = ctx.arr.arrUnits(m)[0].blocks[0].r[3];
+  m.nodes.get("s:0").tagRows = 2;
+  assert.equal(ctx.arr.arrUnits(m)[0].blocks[0].r[3], one + 14);
 });

@@ -1232,8 +1232,8 @@
   .map-net-legend { margin-top: -6px; }
   .map-net-legend[hidden] { display: none; }
   .map-svg .t-net { stroke: var(--panel); stroke-width: 1.5; }
-  .map-tools { display: inline-flex; gap: 6px; margin-left: 8px; }
-  .map-tools button { padding: 3px 9px; font-size: 12px; }
+  .map-tools { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: 8px; }
+  .map-tools button { padding: 3px 9px; font-size: 12px; white-space: nowrap; }
   /* Arrange: a menu of ways to straighten the map, and the lines a dragged node snaps to. */
   .arr-wrap { display: inline-block; }
   .tools-menu.arr-menu { right: auto; left: 0; min-width: 320px; max-width: 360px; }
@@ -1299,6 +1299,8 @@
   .map-svg .t-port { font: 10px "IBM Plex Mono", monospace; fill: var(--text-dim); }
   .map-svg .t-box { fill: color-mix(in srgb, var(--panel-2) 45%, transparent); stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 5 4; }
   .map-svg .t-box-title { font: 600 11px "IBM Plex Mono", monospace; fill: var(--text-dim); }
+  .map-svg .t-tag rect { fill: none; stroke: var(--led-warn); stroke-width: 1; opacity: .75; }
+  .map-svg .t-tag text { font: 9px "IBM Plex Mono", monospace; fill: var(--text-dim); }
   /* A virtual switch lives inside its machine: dashed tile, dashed link to it. */
   .map-svg .node.virtual .t-tile { stroke-dasharray: 3 2; }
   .map-svg path.spoke.vlink { stroke: var(--text-dim); stroke-dasharray: 4 3; }
