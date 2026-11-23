@@ -2,6 +2,13 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.41.0",
+      "date": "2026-11-23",
+      "items": [
+        "Alerts can name a network the way you named it. In Settings, Scanning, Networks, turn on Use the names in alerts and an alert that says where, such as a new device, DHCP trouble, an IP conflict, a full address pool or a segmentation rule, reads IoT · 192.168.30.0/24 instead of the range alone. A network with no name still shows its range. It is off by default, and off, alerts read as before."
+      ]
+    },
+    {
       "version": "2.40.0",
       "date": "2026-11-23",
       "items": [
