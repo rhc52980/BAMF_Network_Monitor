@@ -58,6 +58,9 @@ let networkPlaces = {};    // subnet -> { selfIp, selfMac, gateway }: what the m
 let declaredGws = [];      // [{ subnet, hostId, ip }]: gateways the user declared, one per network
 let mapPositions = {};     // topology Map: subnet -> node key -> [x, y] the user dragged to
 let typeIcons = {};        // guessed type -> icon the user chose for all of them: { "Linux": "server" }
+let networkLabels = {};    // names the user gave their networks: { "192.168.30.0/24": "IoT" }
+// A network as it is shown: the name you gave it, then its range; the range alone when it has no name. Devices stay filed by range.
+function netName(net) { const l = networkLabels[net]; return l ? l + " \u00b7 " + net : net; }
 let switches = [];         // the switch layout the user recorded: [{ id, name, ports, subnet, hostId, uplink, uplinkSwitch, uplinkPort }]
 let activeArp = { enabled: false, npcapAvailable: false };
 let autoIgnoreRandom = false;
@@ -158,6 +161,7 @@ async function refresh() {
     switches = data.switches || [];
     mapPositions = data.mapPositions || {};
     typeIcons = data.typeIcons || {};
+    networkLabels = data.networkLabels || {};
     syncBlink(data.blink, data.serverTime);
     activeArp = data.activeArp || activeArp;
     autoIgnoreRandom = !!data.autoIgnoreRandom;
@@ -226,7 +230,7 @@ async function refresh() {
     if (knownMacs) {
       for (const h of raw) {
         if (!knownMacs.has(h.mac) && !h.known && !h.ignored && !h.forgotten) {
-          toast(`New host on <span class="mono">${esc(h.subnet)}</span>: <span class="mono">${esc(h.mac)}</span> at <span class="mono">${esc(h.ip)}</span>`);
+          toast(`New host on <span class="mono">${esc(netName(h.subnet))}</span>: <span class="mono">${esc(h.mac)}</span> at <span class="mono">${esc(h.ip)}</span>`);
           arrivals.push(h);
           festiveHooks.newDevice?.(h);
           if (saverStyle.startsWith("watch")) { watchAlert(h); watchtower?.redraw(); }

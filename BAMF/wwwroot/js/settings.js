@@ -1767,6 +1767,16 @@ async function loadSettings() {
       const tdNet = document.createElement("td");
       tdNet.className = "set-net";
       tdNet.textContent = net;
+      // A name of your own for it (Home, Guest, IoT), shown beside the range everywhere the network appears. Saved as you leave the box.
+      const lab = document.createElement("input");
+      lab.className = "modal-input set-net-label";
+      lab.type = "text"; lab.maxLength = 40; lab.placeholder = "Name, e.g. IoT";
+      lab.value = networkLabels[net] || "";
+      lab.setAttribute("aria-label", `A name for ${net}`);
+      lab.title = "Shown with the range on the tabs, in the list and on the Map. Leave it empty for the range alone. Devices stay filed by the range.";
+      lab.onchange = () => saveNetworkLabel(net, lab);
+      lab.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); lab.blur(); } };
+      tdNet.appendChild(lab);
       tr.appendChild(tdNet);
 
       const tdEff = document.createElement("td");
@@ -1907,6 +1917,24 @@ async function saveSettings() {
 }
 
 // ---- The first-run setup ----
+// Save a network's name, and show it everywhere at once.
+async function saveNetworkLabel(net, input) {
+  const res = $("setNetResult");
+  try {
+    const r = await fetch("/api/settings/network-label", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ network: net, label: input.value }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { res.className = "set-result err"; res.textContent = d.error || "HTTP " + r.status; return; }
+    networkLabels = d;
+    input.value = networkLabels[net] || "";
+    res.className = "set-result ok"; res.textContent = input.value ? `${net} is now ${input.value}.` : `${net} has no name now.`;
+    netTabSig = null; mapSig = null;
+    render();
+    if (typeof renderMap === "function") renderMap();
+  } catch { res.className = "set-result err"; res.textContent = "Couldn't reach BAMF."; }
+}
+
 // Shown once, on a new install: which networks, and a password. The server
 // only offers it when BAMF made its database at this start.
 let setupNets = [];   // { network, iface, problem, on }

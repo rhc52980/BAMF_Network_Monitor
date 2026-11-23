@@ -1159,6 +1159,7 @@
   /* Same min-width override as above; left inherited, the 220px box shoves the
      whole table past the card's right edge. */
   .set-table .set-net-input { width: 110px; min-width: 0; }
+  .set-table .set-net .set-net-label { display: block; width: 150px; max-width: 100%; margin-top: 4px; font-size: 12px; padding: 3px 6px; }
   .set-ro { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 13px; }
   .set-ro dt, .set-ro .set-ro-k { color: var(--text-dim); }
   .set-ro .set-ro-v { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }

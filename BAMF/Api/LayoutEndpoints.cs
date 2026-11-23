@@ -108,6 +108,13 @@ internal static class LayoutEndpoints
             return error is null ? Results.Json(store.GetTypeIcons()) : Results.BadRequest(new { error });
         });
 
+        // A name for a network: { "network": "192.168.30.0/24", "label": "IoT" }. An empty label takes the name away.
+        app.MapPost("/api/settings/network-label", (NetworkLabelRequest body, HostStore store) =>
+        {
+            var error = store.SetNetworkLabel(body.Network, body.Label);
+            return error is null ? Results.Json(store.GetNetworkLabels()) : Results.BadRequest(new { error });
+        });
+
         // Declares a device the gateway of the network one of its addresses is on,
         // or (enabled false) stops declaring it. One gateway per network.
         app.MapPost("/api/hosts/{id:long}/gateway", (long id, GatewayRequest body, HostStore store) =>

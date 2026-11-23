@@ -34,6 +34,7 @@ internal static class NetworkEditEndpoints
             if (to is not null) paused.Add(to);
             store.SetSetting("disabledSubnets", JsonSerializer.Serialize(paused));
         }
+        store.CarryNetworkLabel(from, to);
     }
 
     public static void Map(WebApplication app)
