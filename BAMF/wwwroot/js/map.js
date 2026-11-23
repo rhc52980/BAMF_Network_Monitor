@@ -164,6 +164,7 @@ function mapSignature(clusters) {
     c.ring.map(h => [h.id, typeFamily(h), deviceKind(h), dispName(h), h.ip]),
     c.switches.map(s => [s.id, s.name, s.kind, s.subnet, s.ports, s.hostId, s.uplink, s.uplinkSwitch, s.uplinkPort, s.portLabels]),
     c.placed.map(h => [h.id, h.switchId, h.switchPort, deviceKind(h), dispName(h), h.ip]),
+    c.members.some(hasSignal),
     mapStyle === "topology" ? mapPositions[c.subnet] || null : null,
   ])]);
 }
@@ -171,6 +172,28 @@ function mapSignature(clusters) {
 function mapNodeClass(h, role) {
   if (h.synthetic) return "node synthetic " + role;
   return "node " + role + (h.online ? " on" : " off") + (h.known ? "" : " unknown") + (h.watched ? " watched" : "");
+}
+
+// How well a Wi-Fi device hears its access point, for the Signal colours switch: "excellent", "good", "fair" or "weak", or "" when the
+// switch is off, the device is offline (a reading from when it left says nothing) or the controller gave no reading.
+function hasSignal(h) { return !!(h && h.wifi && h.wifi.signal != null && h.wifi.quality); }
+function sigLevel(h) { return mapSignal && h && h.online && hasSignal(h) ? h.wifi.quality : ""; }
+// Put the level on an element's class list, replacing whatever it had.
+function sigApply(el, h) {
+  for (const c of [...el.classList]) if (c.startsWith("sig-")) el.classList.remove(c);
+  const lv = sigLevel(h);
+  if (lv) el.classList.add("sig-" + lv);
+  return lv;
+}
+// The little bar glyph (like a phone's) at a device tile's corner: made when a device has a level, dropped when it hasn't.
+function sigGlyph(g, lv) {
+  let s = g.querySelector(":scope > .t-sig");
+  if (!lv) { if (s) s.remove(); return; }
+  if (!s) {
+    s = svgEl("g", { class: "t-sig", transform: `translate(${TOPO.T - 15},${-TOPO.T - 3})` });
+    for (let i = 0; i < 4; i++) s.appendChild(svgEl("rect", { x: i * 3.8, y: -(3 + i * 2.4), width: 2.6, height: 3 + i * 2.4, rx: .6 }));
+    g.appendChild(s);
+  }
 }
 
 function mapTitle(h, role) {
@@ -187,7 +210,7 @@ function mapTitle(h, role) {
   lines.push(h.typeName ? "Type: " + h.typeName + " (yours)" : h.osGuess ? "Guess: " + h.osGuess : "No guess yet");
   const sw = h.switchId ? switches.find(s => s.id === h.switchId) : null;
   if (sw) lines.push(`Plugged into ${sw.name}` + (h.switchPort ? `, ${portText(sw, h.switchPort)}` : "") + (h.switchAuto ? ` (from ${h.switchAuto === "unifi" ? "your UniFi controller" : "the switch's own table"})` : " (your record)"));
-  if (h.wifi && h.wifi.signal != null) lines.push(`Wi-Fi ${h.wifi.signal} dBm (${h.wifi.quality}) on ${h.wifi.ap}`);
+  if (h.wifi && h.wifi.signal != null) lines.push(`Wi-Fi ${h.wifi.signal} dBm (${h.wifi.quality}${h.wifi.weak ? ", it may struggle" : ""}) on ${h.wifi.ap}`);
   if (role === "gw" || gwNetsOf(h).length) {
     const nets = gwNetsOf(h);
     lines.push(nets.length ? `Gateway of ${nets.join(", ")} (you declared it)` : "Default gateway for this network (from BAMF's routing table)");
@@ -534,6 +557,9 @@ let mapDragging = false;
 // Compact Wi-Fi: an access point's SSIDs under it, the empty ones as tags, instead of each SSID beside it. Off until turned on.
 let mapWifiCompact = false;
 try { mapWifiCompact = localStorage.getItem("bamf-map-wifi-compact") === "1"; } catch { }
+// Signal colours: each Wi-Fi device's tile, line and a small bar glyph show how well it hears its access point. Off until turned on.
+let mapSignal = false;
+try { mapSignal = localStorage.getItem("bamf-map-signal") === "1"; } catch { }
 
 const TOPO = {
   T: 16,               // half a tile
@@ -1163,6 +1189,7 @@ function buildTopologySvg(c) {
     if (n.edge && n.parent) {
       const path = svgEl("path", { class: "spoke" + (n.edge.cable ? " cable" : "") + (n.edge.vlink ? " vlink" : "") + (n.edge.style === "bolt" || n.edge.wifi ? " bolt" : "") + (n.edge.tunnel ? " tunnel" : "") + (n.type === "dev" && !n.host.online ? " off" : "") });
       if (n.type === "dev") path.setAttribute("data-id", n.host.id);
+      if (n.type === "dev") sigApply(path, n.host);
       gEdges.appendChild(path);
       // Shown only by some themes: something flowing along a recorded cable.
       // It carries the device's id and state, so a theme can stop the flow
@@ -1251,7 +1278,7 @@ function topoNodeEl(m, key, n) {
     // BAMF, recorded on a switch: drawn with that switch's devices.
     cls = mapNodeClass(h, "self"); kind = "server"; name = "BAMF"; sub = h.ip; tip = mapTitle(h, "self") + "\n" + TOPO_DEV_HINT;
   } else {
-    cls = mapNodeClass(h, "dev"); kind = deviceKind(h); name = nameOrIp(h); tip = topoDevTip(h);
+    cls = mapNodeClass(h, "dev") + (sigLevel(h) ? " sig-" + sigLevel(h) : ""); kind = deviceKind(h); name = nameOrIp(h); tip = topoDevTip(h);
     // An unnamed device is already labelled by its address: say what it is instead.
     sub = name === h.ip ? (guessFamily(h.osGuess) || h.vendor || "") : h.ip;
   }
@@ -1274,6 +1301,7 @@ function topoNodeEl(m, key, n) {
   const t2 = svgEl("text", { class: "t-sub", x: TOPO.T + 8, y: 12 });
   t2.textContent = sub;
   g.append(t1, t2);
+  if (n.type === "dev") sigGlyph(g, sigLevel(h));
   // An access point's SSIDs that have no devices, as small tags under its name.
   if (n.tags && n.tags.length) {
     const tr = arrTagRows(n.tags), gt = svgEl("g", { class: "t-tags", transform: `translate(${TOPO.T + 8},22)` });
@@ -1928,6 +1956,24 @@ function buildClusterCard(c) {
       };
       tools.appendChild(wf);
     }
+    if (c.members.some(hasSignal)) {
+      const sg = document.createElement("button");
+      sg.className = "toggle arr-signal" + (mapSignal ? " active" : ""); sg.type = "button"; sg.textContent = "Signal colours";
+      sg.title = "Colour each Wi-Fi device, and the line to it, by how well it hears its access point: green is good, amber fair, red weak. Four small bars say the same without colour.";
+      sg.onclick = () => {
+        mapSignal = !mapSignal;
+        try { localStorage.setItem("bamf-map-signal", mapSignal ? "1" : "0"); } catch { }
+        document.querySelectorAll(".arr-signal").forEach(b => b.classList.toggle("active", mapSignal));
+        document.querySelectorAll(".sig-key").forEach(k => k.hidden = !mapSignal);
+        renderMap();
+      };
+      tools.appendChild(sg);
+      const key = document.createElement("span");
+      key.className = "sig-key"; key.hidden = !mapSignal;
+      key.title = "Wi-Fi signal: strong is -67 dBm or better, fair down to -75, weak below that";
+      key.innerHTML = `<span class="sig-good"><i></i>strong</span><span class="sig-fair"><i></i>fair</span><span class="sig-weak"><i></i>weak</span>`;
+      tools.appendChild(key);
+    }
     btn("Print", "A clean white drawing of this map on one page, for the closet door", () => printTopoMap(c.subnet));
     btn(mapExpanded === c.subnet ? "Exit full screen" : "⛶ Full screen",
       mapExpanded === c.subnet ? "Back to the page (Esc)" : "Fill the screen with this map", () => toggleMapExpanded(c.subnet));
@@ -2014,6 +2060,8 @@ svg text { fill: #111; font-family: Consolas, "IBM Plex Mono", monospace; }
 .t-tile { fill: #fff; stroke: #222; stroke-width: 1.6; } .t-icon { fill: none; stroke: #111; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .node.off .t-tile { stroke: #999; } .node.off text { fill: #777; } .node.unknown .t-tile { stroke: #b36b00; stroke-dasharray: 3 2; }
 .spoke { fill: none; stroke: #aaa; stroke-width: 1; } .spoke.cable { stroke: #222; stroke-width: 2; } .spoke.off { stroke-dasharray: 4 3; }
+.spoke.sig-excellent, .spoke.sig-good { stroke: #1b8a4b; stroke-width: 1.8; } .spoke.sig-fair { stroke: #b36b00; stroke-width: 1.8; } .spoke.sig-weak { stroke: #c62828; stroke-width: 1.8; }
+.t-sig rect { fill: #ccc; } .sig-excellent .t-sig rect:nth-child(-n+4), .sig-good .t-sig rect:nth-child(-n+3) { fill: #1b8a4b; } .sig-fair .t-sig rect:nth-child(-n+2) { fill: #b36b00; } .sig-weak .t-sig rect:nth-child(-n+1) { fill: #c62828; }
 .spoke.vlink { stroke: #666; stroke-dasharray: 4 3; } .spoke.bolt { stroke: #b36b00; stroke-width: 1.8; } .spoke.tunnel { stroke: #2f5fa8; stroke-width: 1.6; stroke-dasharray: 1 4; stroke-linecap: round; }
 .tbox rect, rect.t-boxrect { fill: #f7f7f7; stroke: #888; stroke-dasharray: 6 4; }
 .t-net { stroke: #fff; stroke-width: 1; }
@@ -2026,6 +2074,7 @@ svg text { fill: #111; font-family: Consolas, "IBM Plex Mono", monospace; }
     `<span><svg viewBox="0 0 26 12"><line x1="1" y1="6" x2="25" y2="6" stroke="#222" stroke-width="2" stroke-dasharray="4 3"/></svg>offline</span>` +
     `<span><svg viewBox="0 0 26 12"><path d="M1 6l6-4 4 6 5-6 4 6 5-4" fill="none" stroke="#b36b00" stroke-width="1.8"/></svg>wireless</span>` +
     `<span><svg viewBox="0 0 26 12"><line x1="1" y1="6" x2="25" y2="6" stroke="#2f5fa8" stroke-width="1.6" stroke-dasharray="1 4" stroke-linecap="round"/></svg>VPN tunnel</span>` +
+    (svg.querySelector(".t-sig") ? `<span><i style="background:#1b8a4b"></i>strong Wi-Fi signal</span><span><i style="background:#b36b00"></i>fair</span><span><i style="background:#c62828"></i>weak</span>` : "") +
     `<span><svg viewBox="0 0 26 12"><rect x="2" y="1" width="10" height="10" rx="2" fill="#fff" stroke="#b36b00" stroke-dasharray="3 2"/></svg>unknown device</span>` +
     nets + `</footer></body></html>`;
 }
@@ -2094,8 +2143,9 @@ function renderMap() {
     const swId = g.getAttribute("data-sw");
     const sw = swId ? switches.find(s => String(s.id) === swId) : null;
     const role = sw ? "sw" : g.classList.contains("gw") ? "gw" : g.classList.contains("self") ? "self" : "dev";
-    const cls = mapNodeClass(h, role);
-    g.setAttribute("class", g.classList.contains("tnode") ? "tnode " + cls : cls);
+    const cls = mapNodeClass(h, role), lv = role === "dev" ? sigLevel(h) : "";
+    g.setAttribute("class", g.classList.contains("tnode") ? "tnode " + cls + (lv ? " sig-" + lv : "") : cls);
+    if (g.classList.contains("tnode") && role === "dev") sigGlyph(g, lv);
     g.querySelector("title").textContent = sw ? switchTitle(sw)
       : role === "dev" && g.classList.contains("tnode") ? topoDevTip(h)
       : role === "self" && g.getAttribute("data-key") !== "self" && g.classList.contains("tnode") ? mapTitle(h, role) + "\n" + TOPO_DEV_HINT
@@ -2103,7 +2153,7 @@ function renderMap() {
   });
   wrap.querySelectorAll(".spoke[data-id], .pkt[data-id]").forEach(l => {
     const h = byId.get(l.getAttribute("data-id"));
-    if (h) l.classList.toggle("off", !h.online);
+    if (h) { l.classList.toggle("off", !h.online); if (l.classList.contains("spoke")) sigApply(l, h); }
   });
   clusters.forEach(c => {
     const card = wrap.querySelector(`.map-card[data-subnet="${CSS.escape(c.subnet)}"]`);
