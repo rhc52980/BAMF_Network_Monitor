@@ -1243,7 +1243,11 @@
   .tools-menu .arr-item:disabled { opacity: .45; cursor: default; }
   .tools-menu .arr-item:disabled:hover { background: none; }
   .tools-menu .arr-undo, .tools-menu .arr-reset { border-top: 1px solid var(--line); margin-top: 2px; }
-  .tools-menu .arr-undo + .arr-reset { border-top: 0; margin-top: 0; }
+  .tools-menu .arr-undo + .arr-redo { border-top: 0; margin-top: 0; }
+  .tools-menu .arr-item:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: -2px; }
+  .map-svg.arr-settle { animation: arr-settle .28s ease-out; }
+  @keyframes arr-settle { from { opacity: .35; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .map-svg.arr-settle { animation: none; } }
   .map-svg .t-guide { stroke: var(--focus); stroke-width: 1; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; pointer-events: none; opacity: .85; }
   .map-clusters.single.topo { max-width: none; }
   .topo-frame { position: relative; height: min(640px, 76vh); border-top: 1px solid var(--line); margin: 8px -14px -8px; overflow: hidden; }

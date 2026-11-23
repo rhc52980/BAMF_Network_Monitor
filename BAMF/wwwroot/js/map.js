@@ -1084,14 +1084,23 @@ function topoZoomBy(subnet, factor, center) {
   topoLabelZoom(m);
 }
 
+// Forget everywhere things were put and let the automatic layout decide. There's no question asked: Undo (the toast, the menu,
+// Ctrl+Z) puts every place back.
 async function topoAutoArrange(subnet) {
-  const where = subnet === WHOLE ? "the whole-network map" : subnet.startsWith("gw:") ? "this combined map" : subnet;
-  if (!confirm(`Put everything on ${where} back where the automatic layout puts it? Where you dragged things is forgotten.`)) return;
+  const saved = mapPositions[subnet] || {};
+  if (!Object.keys(saved).length) { toast("Already where the automatic layout puts things."); return; }
+  const before = {};
+  for (const [k, p] of Object.entries(saved)) before[k] = p.slice();
   await fetch("/api/map/positions?subnet=" + encodeURIComponent(subnet), { method: "DELETE" });
   delete mapPositions[subnet];
   delete mapViews[subnet];
+  mapUndoPush(subnet, before, "Reset to automatic");
   mapSig = null;
   await refresh();
+  topoSettle(subnet);
+  toast(`Back to the automatic layout. <a href="#" id="arrUndoLink">Undo</a>`);
+  const link = $("arrUndoLink");
+  if (link) link.onclick = e => { e.preventDefault(); topoUndo(subnet); };
 }
 
 async function saveMapPositions(subnet, positions) {
@@ -1345,7 +1354,7 @@ async function topoDrop(m, key) {
 // undo for every move and every arrange, in this browser session.
 let mapSnap = false;
 try { mapSnap = localStorage.getItem("bamf-map-snap") === "1"; } catch { }
-const mapUndo = [];
+const mapUndo = [], mapRedo = [];
 
 function topoGuides(m, sn) {
   const [x, y, w, h] = m.view;
@@ -1354,21 +1363,47 @@ function topoGuides(m, sn) {
   put(m.guideY, sn && sn.guideY !== null ? { x1: x, x2: x + w, y1: sn.guideY, y2: sn.guideY } : null);
 }
 
+function mapUndoButtons() {
+  document.querySelectorAll(".arr-undo").forEach(b => { b.disabled = !mapUndo.some(u => u.subnet === b.dataset.subnet); });
+  document.querySelectorAll(".arr-redo").forEach(b => { b.disabled = !mapRedo.some(u => u.subnet === b.dataset.subnet); });
+}
+
+// A new move or arrange: it can be undone, and whatever was waiting to be redone on this map no longer makes sense.
 function mapUndoPush(subnet, before, label) {
   mapUndo.push({ subnet, before, label });
   if (mapUndo.length > 40) mapUndo.shift();
-  document.querySelectorAll(".arr-undo").forEach(b => { b.disabled = !mapUndo.some(u => u.subnet === b.dataset.subnet); });
+  for (let i = mapRedo.length - 1; i >= 0; i--) if (mapRedo[i].subnet === subnet) mapRedo.splice(i, 1);
+  mapUndoButtons();
 }
 
-async function topoUndo(subnet) {
-  let i = mapUndo.length - 1;
-  while (i >= 0 && mapUndo[i].subnet !== subnet) i--;
+// Undo, or with `redo` put back what an undo took away. Either way the other direction gets what is there now, for the same
+// nodes, so the two can be stepped through as often as you like.
+async function topoUndo(subnet, redo) {
+  const from = redo ? mapRedo : mapUndo, to = redo ? mapUndo : mapRedo;
+  let i = from.length - 1;
+  while (i >= 0 && from[i].subnet !== subnet) i--;
   if (i < 0) return;
-  const [u] = mapUndo.splice(i, 1);
+  const [u] = from.splice(i, 1);
+  const now = {}, here = mapPositions[subnet] || {};
+  for (const k of Object.keys(u.before)) now[k] = here[k] ? here[k].slice() : null;
+  to.push({ subnet, before: now, label: u.label });
+  mapUndoButtons();
   await saveMapPositions(subnet, u.before);
   mapSig = null;
   renderMap();
-  toast(`Undid: ${esc(u.label.toLowerCase())}`);
+  topoSettle(subnet);
+  toast(`${redo ? "Redid" : "Undid"}: ${esc(u.label.toLowerCase())}. <a href="#" id="arrUndoLink">${redo ? "Undo" : "Redo"}</a>`);
+  const link = $("arrUndoLink");
+  if (link) link.onclick = e => { e.preventDefault(); topoUndo(subnet, !redo); };
+}
+
+// After an arrange the drawing is redrawn in one go; a short fade makes that read as a change rather than a flicker.
+function topoSettle(subnet) {
+  const m = topoModels[subnet];
+  if (!m || !m.svg || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  m.svg.classList.remove("arr-settle");
+  void m.svg.getBoundingClientRect();
+  m.svg.classList.add("arr-settle");
 }
 
 // Tidy up, Compact or Snap to grid on one map, saved and drawn, with a way back.
@@ -1387,20 +1422,25 @@ async function topoArrange(subnet, kind) {
   delete mapViews[subnet];
   mapSig = null;
   renderMap();
+  topoSettle(subnet);
   toast(`${label}. <a href="#" id="arrUndoLink">Undo</a>`);
   const link = $("arrUndoLink");
   if (link) link.onclick = e => { e.preventDefault(); topoUndo(subnet); };
 }
 
-// Ctrl+Z on the Map puts back the last move or arrange.
+// Ctrl+Z on the Map puts back the last move or arrange; Ctrl+Shift+Z or Ctrl+Y does it again.
 document.addEventListener("keydown", e => {
-  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "z") return;
+  const key = e.key.toLowerCase();
+  if (!(e.ctrlKey || e.metaKey) || e.altKey || (key !== "z" && key !== "y")) return;
+  const redo = key === "y" ? !e.shiftKey : e.shiftKey;
+  if (key === "y" && e.shiftKey) return;
   const t = e.target;
   if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
   const wrap = $("mapClusters");
   if (!wrap || !wrap.offsetParent || role === "viewer") return;
-  for (let i = mapUndo.length - 1; i >= 0; i--) {
-    if (wrap.querySelector(`.map-card[data-subnet="${CSS.escape(mapUndo[i].subnet)}"]`)) { e.preventDefault(); topoUndo(mapUndo[i].subnet); return; }
+  const stack = redo ? mapRedo : mapUndo;
+  for (let i = stack.length - 1; i >= 0; i--) {
+    if (wrap.querySelector(`.map-card[data-subnet="${CSS.escape(stack[i].subnet)}"]`)) { e.preventDefault(); topoUndo(stack[i].subnet, redo); return; }
   }
 });
 
@@ -1557,14 +1597,18 @@ function arrangeMenu(c) {
   const open = document.createElement("button");
   open.className = "toggle"; open.type = "button"; open.textContent = "Arrange ▾";
   open.title = "Straighten the layout, or fit it to the screen";
+  open.setAttribute("aria-haspopup", "menu"); open.setAttribute("aria-expanded", "false");
   const menu = document.createElement("div");
   menu.className = "tools-menu arr-menu";
+  menu.setAttribute("role", "menu");
+  const close = back => { menu.classList.remove("show"); open.setAttribute("aria-expanded", "false"); if (back) open.focus(); };
   const item = (title, text, fn, extra) => {
     const b = document.createElement("button");
     b.type = "button"; b.className = "arr-item" + (extra ? " " + extra : "");
+    b.setAttribute("role", "menuitem");
     b.innerHTML = "<b></b><span></span>";
     b.children[0].textContent = title; b.children[1].textContent = text;
-    b.onclick = () => { menu.classList.remove("show"); fn(b); };
+    b.onclick = () => { close(false); fn(b); };
     menu.appendChild(b);
     return b;
   };
@@ -1574,16 +1618,35 @@ function arrangeMenu(c) {
   const undo = item("Undo", "Put back the last move or arrange (Ctrl+Z).", () => topoUndo(c.subnet), "arr-undo");
   undo.dataset.subnet = c.subnet;
   undo.disabled = !mapUndo.some(u => u.subnet === c.subnet);
-  item("Reset to automatic…", c.whole ? "Forget everywhere you put things on this map." : "Forget everywhere you put things on this network.", () => topoAutoArrange(c.subnet), "arr-reset");
+  const redo = item("Redo", "Do again what you just undid (Ctrl+Shift+Z).", () => topoUndo(c.subnet, true), "arr-redo");
+  redo.dataset.subnet = c.subnet;
+  redo.disabled = !mapRedo.some(u => u.subnet === c.subnet);
+  item("Reset to automatic", c.whole ? "Forget everywhere you put things on this map. Undo brings them back." : "Forget everywhere you put things on this network. Undo brings them back.", () => topoAutoArrange(c.subnet), "arr-reset");
   open.onclick = e => {
     e.stopPropagation();
     document.querySelectorAll(".arr-menu.show").forEach(x => { if (x !== menu) x.classList.remove("show"); });
-    menu.classList.toggle("show");
+    const on = menu.classList.toggle("show");
+    open.setAttribute("aria-expanded", on ? "true" : "false");
+    if (on && e.detail === 0) { const first = menu.querySelector(".arr-item:not(:disabled)"); if (first) first.focus(); }   // opened from the keyboard
   };
+  // Arrow keys move down the list, Escape closes it and gives focus back to the button.
+  wrap.addEventListener("keydown", e => {
+    if (!menu.classList.contains("show")) return;
+    if (e.key === "Escape") { e.preventDefault(); close(true); return; }
+    const items = [...menu.querySelectorAll(".arr-item:not(:disabled)")];
+    if (!items.length || !/^Arrow(Down|Up)$|^(Home|End)$/.test(e.key)) return;
+    e.preventDefault();
+    const i = items.indexOf(document.activeElement);
+    const next = e.key === "Home" ? 0 : e.key === "End" ? items.length - 1 : e.key === "ArrowDown" ? (i + 1) % items.length : (i <= 0 ? items.length - 1 : i - 1);
+    items[next].focus();
+  });
   wrap.append(open, menu);
   return wrap;
 }
-document.addEventListener("click", e => { if (!e.target.closest(".arr-wrap")) document.querySelectorAll(".arr-menu.show").forEach(x => x.classList.remove("show")); });
+document.addEventListener("click", e => {
+  if (e.target.closest(".arr-wrap")) return;
+  document.querySelectorAll(".arr-menu.show").forEach(x => { x.classList.remove("show"); const b = x.previousElementSibling; if (b) b.setAttribute("aria-expanded", "false"); });
+});
 
 function buildClusterCard(c) {
   const card = document.createElement("section");

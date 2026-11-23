@@ -2377,8 +2377,12 @@ toolbar has:
   of the device lists above them.
 - **Snap to grid** puts everything you placed, and each switch or router, on a grid.
 - **Undo** (or **Ctrl+Z** on the Map) puts back the last move or arrange, as far back as this browser
-  session goes. Dragging a device or switch is undoable too.
-- **Reset to automatic…** is the old Auto-arrange: it forgets everywhere you put things on that map.
+  session goes. Dragging a device or switch is undoable too. **Redo** (**Ctrl+Shift+Z** or **Ctrl+Y**) does it
+  again, and the toast after each arrange has an Undo link.
+- **Reset to automatic** is the old Auto-arrange: it forgets everywhere you put things on that map. It no
+  longer asks first, because Undo brings every place back.
+- The menu works from the keyboard: Enter opens it, the arrow keys move down it, Escape closes it. An arrange
+  fades in rather than jumping (not with reduced motion on).
 
 A switch moves as one with the devices recorded on it, and what you had placed inside it moves with it.
 Only the switch's own place is saved; its devices follow, so a device that turns up later still lands
