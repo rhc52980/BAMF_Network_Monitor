@@ -2,6 +2,14 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.35.0",
+      "date": "2026-11-22",
+      "items": [
+        "The Map has a Compact Wi-Fi button, off until you turn it on. Where several access points each broadcast the same SSIDs, the Map drew every SSID beside every access point, which made the drawing several times wider than the rest of the network. With it on, an access point's SSIDs go under it, each SSID that has devices lists them in one column, and an SSID with no devices is just a small tag under the access point's name.",
+        "With the button off the Map is drawn exactly as before. Nothing you recorded changes, only how it is drawn."
+      ]
+    },
+    {
       "version": "2.34.0",
       "date": "2026-11-22",
       "items": [
