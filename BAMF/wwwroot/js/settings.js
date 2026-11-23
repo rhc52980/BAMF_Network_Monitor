@@ -965,7 +965,6 @@ function renderTidy() {
   $("tidyStatus").textContent = (d.would
     ? `${d.would} device${d.would === 1 ? "" : "s"} would be tidied now (${d.wouldNames.slice(0, 4).join(", ")}${d.would > 4 ? ", \u2026" : ""}).`
     : "Nothing to tidy: no device untouched by you has been gone that long.") + last;
-  $("tidyRun").disabled = !d.would;
 }
 async function loadTidy() {
   try { const r = await fetch("/api/settings/tidy"); if (r.ok) { tidyCache = await r.json(); renderTidy(); } } catch { /* leave it */ }
@@ -980,25 +979,33 @@ async function saveTidy(patch) {
     if (!r.ok) { out.textContent = j.error || `Couldn't save (HTTP ${r.status}).`; out.className = "set-result err"; return false; }
     tidyCache = j; renderTidy(); out.textContent = ""; out.className = "set-result";
     return true;
-  } catch { out.textContent = "Couldn't reach BAMF."; return false; }
+  } catch { out.textContent = "Couldn't reach BAMF."; out.className = "set-result err"; return false; }
+}
+// Say what happened next to the buttons, where you are looking, as well as in the corner of the page, which is easy to miss.
+function tidySay(msg) {
+  const out = $("tidyResult");
+  out.textContent = msg; out.className = "set-result ok";
+  toast(msg);
 }
 $("tidyEnabled").onclick = async () => {
   const next = !(tidyCache && tidyCache.enabled);
-  if (await saveTidy({ enabled: next })) toast(next ? "Old devices will be tidied up every day" : "Old devices are left alone");
+  if (await saveTidy({ enabled: next }))
+    tidySay(next ? `Done: devices gone more than ${tidyCache.days} days will be tidied up every day.` : "Done: old devices are left alone.");
 };
-$("tidySave").onclick = async () => { if (await saveTidy({})) toast("Saved"); };
+$("tidySave").onclick = async () => { if (await saveTidy({})) tidySay("Saved."); };
 $("tidyRun").onclick = async () => {
   if (!await saveTidy({})) return;
   const n = tidyCache.would;
-  if (!n || !confirm(`Forget ${n} device${n === 1 ? "" : "s"} that ${n === 1 ? "has" : "have"} been gone more than ${tidyCache.days} days?\n\n${tidyCache.wouldNames.slice(0, 8).join("\n")}${n > 8 ? "\n\u2026" : ""}\n\nThey go to the Forgotten tab, where each can be brought back.`)) return;
+  if (!n) { tidySay(`Nothing to tidy: no device untouched by you has been gone more than ${tidyCache.days} days.`); return; }
+  if (!confirm(`Forget ${n} device${n === 1 ? "" : "s"} that ${n === 1 ? "has" : "have"} been gone more than ${tidyCache.days} days?\n\n${tidyCache.wouldNames.slice(0, 8).join("\n")}${n > 8 ? "\n\u2026" : ""}\n\nThey go to the Forgotten tab, where each can be brought back.`)) return;
   try {
     const r = await fetch("/api/tidy/run", { method: "POST" });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) { toast("Couldn't tidy up"); return; }
-    toast(`${j.count} device${j.count === 1 ? "" : "s"} forgotten`);
+    if (!r.ok) { const out = $("tidyResult"); out.textContent = j.error || `Couldn't tidy up (HTTP ${r.status}).`; out.className = "set-result err"; return; }
+    tidySay(`Done: ${j.count} device${j.count === 1 ? "" : "s"} forgotten. They are on the Forgotten tab.`);
     await refresh();
     loadTidy();
-  } catch { toast("Couldn't reach BAMF"); }
+  } catch { const out = $("tidyResult"); out.textContent = "Couldn't reach BAMF."; out.className = "set-result err"; }
 };
 
 $("settingsExport").onclick = () => { location.href = "/api/settings/export"; };
