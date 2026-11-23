@@ -66,6 +66,13 @@ internal static class SecurityEndpoints
             return Results.Ok();
         });
 
+        // Alerts that say where, naming the network as you named it ("IoT · 192.168.30.0/24"). Off unless asked for.
+        app.MapPost("/api/settings/network-names-in-alerts", (ActiveArpRequest body, HostStore store) =>
+        {
+            store.SetSetting("networkNamesInAlerts", body.Enabled ? "true" : "false");
+            return Results.Ok();
+        });
+
         // GreyNoise: has this network's public address been seen scanning the internet?
         // Off unless switched on; turning it on checks straight away.
         app.MapGet("/api/greynoise", (GreyNoiseCheck greynoise) => Results.Json(new { enabled = greynoise.Enabled, result = greynoise.Last }));

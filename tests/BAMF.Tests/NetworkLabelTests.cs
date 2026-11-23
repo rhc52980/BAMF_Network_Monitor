@@ -65,4 +65,55 @@ public class NetworkLabelTests
         Assert.False(store.GetNetworkLabels().ContainsKey("192.168.40.0/24"));
         Assert.Equal("Home", store.GetNetworkLabels()["192.168.0.0/21"]);
     }
+
+    [Fact]
+    public async Task Alerts_name_a_network_only_when_the_switch_is_on_and_the_network_has_a_name()
+    {
+        using var app = new BamfApp();
+        var c = app.Client();
+        var store = app.Services.GetRequiredService<HostStore>();
+        await c.PostAsJsonAsync("/api/settings/network-label", new { network = "192.168.30.0/24", label = "IoT" });
+
+        Assert.False(store.NetworkNamesInAlerts);                                                       // off unless asked for
+        Assert.Equal("192.168.30.0/24", store.AlertNetName("192.168.30.0/24"));                         // so the range alone, as before
+
+        Assert.Equal(HttpStatusCode.OK, (await c.PostAsJsonAsync("/api/settings/network-names-in-alerts", new { enabled = true })).StatusCode);
+        Assert.Equal("IoT \u00b7 192.168.30.0/24", store.AlertNetName("192.168.30.0/24"));
+        Assert.Equal("192.168.20.0/24", store.AlertNetName("192.168.20.0/24"));                         // no name: the range
+        Assert.Equal("", store.AlertNetName(null));
+
+        var settings = (await c.GetFromJsonAsync<JsonElement>("/api/settings")).GetProperty("editable");
+        Assert.True(settings.GetProperty("networkNamesInAlerts").GetBoolean());
+        Assert.Contains("networkNamesInAlerts", HostStore.TransferKeys);
+
+        await c.PostAsJsonAsync("/api/settings/network-names-in-alerts", new { enabled = false });
+        Assert.Equal("192.168.30.0/24", store.AlertNetName("192.168.30.0/24"));
+    }
+
+    [Fact]
+    public async Task A_segmentation_alert_says_where_by_name_with_the_switch_on_and_by_range_without()
+    {
+        using var app = new BamfApp();
+        var c = app.Client();
+        var store = app.Services.GetRequiredService<HostStore>();
+        var seg = app.Services.GetRequiredService<SegmentationCheck>();
+        await c.PostAsJsonAsync("/api/settings/network-label", new { network = "192.168.30.0/24", label = "Home" });
+        await c.PostAsJsonAsync("/api/settings/network-label", new { network = "192.168.20.0/24", label = "IoT" });
+        await c.PostAsJsonAsync("/api/settings/segmentation", new { rules = new[] { new { label = "Cameras", tag = "", words = new[] { "cam" }, type = "", where = "on", network = "192.168.20.0/24" } }, enabled = true });
+        await c.PostAsJsonAsync("/api/settings/segmentation", new { alert = true });
+        await seg.Run(default);
+
+        store.UpsertSeen("AA:00:00:00:00:01", "192.168.30.5", "porch-cam", "Acme", "192.168.30.0/24");
+        await seg.Run(default);
+        var plain = Assert.Single(store.GetAlerts(50));
+        Assert.Equal("porch-cam is on 192.168.30.0/24, outside your \"Cameras\" rule", plain.Title);       // switch off: as it always was
+        Assert.Contains("belong on 192.168.20.0/24", plain.Detail);
+
+        await c.PostAsJsonAsync("/api/settings/network-names-in-alerts", new { enabled = true });
+        store.UpsertSeen("AA:00:00:00:00:02", "192.168.30.6", "yard-cam", "Acme", "192.168.30.0/24");
+        await seg.Run(default);
+        var named = store.GetAlerts(50).First(a => a.Title.StartsWith("yard-cam"));
+        Assert.Equal("yard-cam is on Home \u00b7 192.168.30.0/24, outside your \"Cameras\" rule", named.Title);
+        Assert.Contains("belong on IoT \u00b7 192.168.20.0/24", named.Detail);
+    }
 }

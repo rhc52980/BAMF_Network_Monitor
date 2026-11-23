@@ -146,7 +146,7 @@ public partial class ScannerService
         bool test, CancellationToken ct, string? only = null)
     {
         var title = test ? "BAMF webhook test" : "New host detected";
-        var text = $"BAMF: {(test ? "webhook test - " : "")}new host {mac} at {ip} on {subnet}" +
+        var text = $"BAMF: {(test ? "webhook test - " : "")}new host {mac} at {ip} on {_store.AlertNetName(subnet)}" +
                    (hostname != "" ? $" ({hostname})" : "") +
                    (vendor != "" ? $" [{vendor}]" : "");
 
@@ -172,7 +172,7 @@ public partial class ScannerService
                             {
                                 new { name = "MAC",      value = $"`{mac}`", inline = true },
                                 new { name = "IP",       value = $"`{ip}`",  inline = true },
-                                new { name = "Network",  value = subnet,      inline = true },
+                                new { name = "Network",  value = _store.AlertNetName(subnet), inline = true },
                                 new { name = "Hostname", value = hostname == "" ? "—" : hostname, inline = true },
                                 new { name = "Vendor",   value = vendor == "" ? "—" : vendor,     inline = true },
                             },

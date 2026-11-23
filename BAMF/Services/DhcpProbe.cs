@@ -305,7 +305,7 @@ public sealed class DhcpProbe : BackgroundService
             changed = true;
             if (known is null || known.Count == 0 || !AlertOnGateway) continue;
             var by = offered.Where(x => fresh.Contains(x.Gateway)).Select(x => x.Server).Distinct().ToList();
-            await _scanner.RaiseSecurity($"DHCP on {n.Subnet} names a different gateway: {string.Join(", ", fresh)}",
+            await _scanner.RaiseSecurity($"DHCP on {_store.AlertNetName(n.Subnet)} names a different gateway: {string.Join(", ", fresh)}",
                 $"{string.Join(" and ", by)} offered {string.Join(" and ", fresh)} as the way out; this network's offers have named {string.Join(" and ", known)} until now. " +
                 "If you changed or added a router, that is this. If not, a device handing out a gateway of its own is a way to put itself in the middle of every device's traffic.", ct);
         }
@@ -329,8 +329,8 @@ public sealed class DhcpProbe : BackgroundService
             if (n.Offers.Count > 0)
             {
                 if (was.Alerted && tell)
-                    _traffic.Notify("dhcp-up", $"DHCP is answering again on {n.Subnet}",
-                        $"{string.Join(", ", n.Offers.Select(o => o.Server))} answered BAMF's DHCP check on {n.Subnet} after it had gone quiet there.", "back:" + n.Subnet);
+                    _traffic.Notify("dhcp-up", $"DHCP is answering again on {_store.AlertNetName(n.Subnet)}",
+                        $"{string.Join(", ", n.Offers.Select(o => o.Server))} answered BAMF's DHCP check on {_store.AlertNetName(n.Subnet)} after it had gone quiet there.", "back:" + n.Subnet);
                 states[n.Subnet] = new NetState(true, 0, false);
             }
             else if (n.Error is null && was.Answered)
@@ -340,8 +340,8 @@ public sealed class DhcpProbe : BackgroundService
                 if (misses >= MissesToAlert && !alerted && tell)
                 {
                     alerted = true;
-                    _traffic.Notify("dhcp", $"No DHCP server is answering on {n.Subnet}",
-                        $"A DHCP server answered BAMF's check on {n.Subnet} before, but the last {misses} checks heard nothing. If it is down or its pool is full, " +
+                    _traffic.Notify("dhcp", $"No DHCP server is answering on {_store.AlertNetName(n.Subnet)}",
+                        $"A DHCP server answered BAMF's check on {_store.AlertNetName(n.Subnet)} before, but the last {misses} checks heard nothing. If it is down or its pool is full, " +
                         "devices that need an address there won't get one.", "silent:" + n.Subnet);
                 }
                 states[n.Subnet] = new NetState(true, misses, alerted);

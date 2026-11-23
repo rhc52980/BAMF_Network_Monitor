@@ -267,6 +267,7 @@ internal static class SettingsEndpoints
                     addressWatch = store.GetSetting("addressWatch") == "true",
                     signInAlert = store.GetSetting("signInAlert") == "true",
                     networkScore = store.GetSetting("networkScore") != "false",
+                    networkNamesInAlerts = store.NetworkNamesInAlerts,
                     allQuiet = store.GetSetting("allQuiet") == "true",
                     allQuietHour = int.TryParse(store.GetSetting("allQuietHour"), out var aqh) ? Math.Clamp(aqh, 0, 23) : 8,
                     flowWatch = store.GetSetting("flowWatch") != "false",

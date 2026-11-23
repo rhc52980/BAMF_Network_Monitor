@@ -20,7 +20,7 @@ public partial class HostStore
         "backupKeep", "backupNightly", "bulkSelect", "cascadeAlert", "certWatch", "clockCheck", "clockMaxSeconds", "clockServer", "dhcpGatewayAlert", "dhcpProbe", "dhcpProbeHours", "dhcpSilentAlert", "diskAlert", "diskAlertPercent", "dnsBypassAlert", "dnsBypassWatch", "dnsWatch",
         "firstWeekReport", "flapAlert", "flapDrops", "flapHold", "flowWatch", "greynoise", "heartbeatEnabled", "heartbeatMinutes",
         "historyRetentionDays", "holidaySpirit", "ipv6Watch", "latencyAlert", "latencyAlertMs", "latencyProbe", "mdnsListen",
-        "networkScore", "networkTools", "newDays", "nightFrom", "nightMode", "nightTheme", "nightTo", "offHoursAlert", "offlineAfterMissedScans",
+        "networkNamesInAlerts", "networkScore", "networkTools", "newDays", "nightFrom", "nightMode", "nightTheme", "nightTo", "offHoursAlert", "offlineAfterMissedScans",
         "pauseAlerts", "pingConcurrency", "portWatch", "quietDigest", "quietFrom", "quietTo", "reportDay", "reportHour",
         "reportSchedule", "restartAlert", "routerAdvertWatch", "sameDeviceHints", "scanIntervalSeconds", "serviceWatch", "signInAlert", "speedTest", "spikeAlert", "takeoverAlert", "tidyDays", "tidyEnabled",
         "traceAnywhere", "trafficMonitor", "unusualWatch", "updateCheck", "upnpIgd", "wanInterval", "wanQuality", "wanSlow",

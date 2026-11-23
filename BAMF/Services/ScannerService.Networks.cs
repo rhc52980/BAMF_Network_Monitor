@@ -276,7 +276,7 @@ public partial class ScannerService
                             fields = new object[]
                             {
                                 new { name = "IP",      value = $"`{host.Ip}`", inline = true },
-                                new { name = "Network", value = host.Subnet,     inline = true },
+                                new { name = "Network", value = _store.AlertNetName(host.Subnet), inline = true },
                                 new { name = "MAC",     value = $"`{host.Mac}`", inline = true },
                             },
                             timestamp = DateTime.UtcNow.ToString("o"),

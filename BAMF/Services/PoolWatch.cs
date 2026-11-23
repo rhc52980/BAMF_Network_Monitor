@@ -141,9 +141,10 @@ public sealed class PoolWatch : BackgroundService
             if (u.Percent >= limit || (held && u.Percent > limit - 5)) next.Add(u.Pool.Network);
             if (u.Percent < limit || held) continue;
             var left = Math.Max(0, u.Size - u.Used);
-            var name = u.Pool.Name != "" ? $"{u.Pool.Name} ({u.Pool.Network})" : u.Pool.Network;
+            var net = _store.AlertNetName(u.Pool.Network);
+            var name = u.Pool.Name != "" ? $"{u.Pool.Name} ({net})" : net;
             var title = $"The address pool for {name} is {u.Percent}% used";
-            var detail = $"{u.Used} of the {u.Size} addresses the router hands out on {u.Pool.Network} ({u.Pool.Start} to {u.Pool.End}) belong to devices seen in the last day: about {left} left. " +
+            var detail = $"{u.Used} of the {u.Size} addresses the router hands out on {net} ({u.Pool.Start} to {u.Pool.End}) belong to devices seen in the last day: about {left} left. " +
                          "When it runs out, the next device to join gets no address and looks as if the network is broken. Widen the range or shorten the lease time in the router, " +
                          "or move some devices to a static address or another network.";
             _log.LogWarning("Pool: {Title}", title);

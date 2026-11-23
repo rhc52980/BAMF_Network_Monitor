@@ -361,7 +361,7 @@ public sealed class TrafficMonitor : IDisposable
         }
         SaveSeen();   // found by the probe, which runs now and then whether or not the capture does, so it isn't left for the capture's flush
         if (isNew)
-            Raise("dhcp", $"New DHCP server: {ip}", $"A DHCP server at {ip}{(string.IsNullOrEmpty(mac) ? "" : " (" + Describe(mac) + ")")} answered BAMF's own DHCP check of {subnet}. " +
+            Raise("dhcp", $"New DHCP server: {ip}", $"A DHCP server at {ip}{(string.IsNullOrEmpty(mac) ? "" : " (" + Describe(mac) + ")")} answered BAMF's own DHCP check of {_store.AlertNetName(subnet)}. " +
                 "If you didn't add a router or DHCP server, something on the network is handing out addresses that shouldn't be.", ip);
     }
 

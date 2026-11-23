@@ -478,6 +478,12 @@
         <div class="set-net-action" id="setNetAction" hidden></div>
         <div class="set-net-found" id="setNetFound" hidden></div>
         <div class="set-net-source" id="setNetSource"></div>
+        <label class="set-row">
+          <span class="set-label">Use the names in alerts
+            <span class="set-hint">A network you have named reads as IoT · 192.168.30.0/24 in alerts (new device, DHCP, gateway and address conflicts, address pool, segmentation), instead of the range alone. A network without a name still shows its range. Off, alerts show the range as before. The webhook's data fields, MQTT and the API always carry the range.</span>
+          </span>
+          <span class="set-field"><button type="button" class="arp-toggle" id="setNetNamesAlerts" aria-pressed="false"><span class="pill"></span><span class="tstate"></span></button></span>
+        </label>
       </div>
       <div class="set-actions">
         <button class="toggle" id="setReset">Reset to file defaults</button>

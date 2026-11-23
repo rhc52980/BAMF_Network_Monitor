@@ -116,7 +116,7 @@ public sealed class SegmentationCheck : BackgroundService
             else
             {
                 var title = $"{fresh.Count} devices are on the wrong network";
-                var detail = string.Join("; ", fresh.Take(6).Select(f => $"{f.Name} is on {f.Network}, {Wording(f)}")) + (fresh.Count > 6 ? $"; and {fresh.Count - 6} more" : "") + ". Your segmentation rules are under Settings, Your network.";
+                var detail = string.Join("; ", fresh.Take(6).Select(f => $"{f.Name} is on {_store.AlertNetName(f.Network)}, {Wording(f)}")) + (fresh.Count > 6 ? $"; and {fresh.Count - 6} more" : "") + ". Your segmentation rules are under Settings, Your network.";
                 _store.AddAlert("security", title, detail);
                 await _scanner.SendGenericAlert(title, detail, "security", ct);
             }
@@ -125,12 +125,12 @@ public sealed class SegmentationCheck : BackgroundService
         finally { _busy.Release(); }
     }
 
-    private static string Wording(Finding f) => f.Where == "on" ? $"where {f.Rule} belong on {f.Expected}" : $"where {f.Rule} should never be";
+    private string Wording(Finding f) => f.Where == "on" ? $"where {f.Rule} belong on {_store.AlertNetName(f.Expected)}" : $"where {f.Rule} should never be";
 
     private async Task Raise(Finding f, CancellationToken ct)
     {
-        var title = $"{f.Name} is on {f.Network}, outside your \"{f.Rule}\" rule";
-        var detail = $"{f.Name} ({f.Ip}) matched your rule \"{f.Rule}\" ({f.Why}) and is on {f.Network}, {Wording(f)}. " +
+        var title = $"{f.Name} is on {_store.AlertNetName(f.Network)}, outside your \"{f.Rule}\" rule";
+        var detail = $"{f.Name} ({f.Ip}) matched your rule \"{f.Rule}\" ({f.Why}) and is on {_store.AlertNetName(f.Network)}, {Wording(f)}. " +
                      "If it is where it should be, change the rule or give the device a tag the rule doesn't pick; if not, it may be on the wrong Wi-Fi network or switch port.";
         _log.LogWarning("Segmentation: {Title}", title);
         _store.AddAlert("security", title, detail);

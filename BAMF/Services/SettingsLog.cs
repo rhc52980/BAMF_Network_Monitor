@@ -35,6 +35,7 @@ public static class SettingsLog
         ["dns-watch"] = "DNS watch",
         ["dns-bypass-watch"] = "Devices that skip your DNS",
         ["dns-bypass-alert"] = "Alert when a device skips your DNS",
+        ["network-names-in-alerts"] = "Network names in alerts",
         ["same-device-hints"] = "Same phone, new address?",
         ["off-hours-alert"] = "Alert when a device is on in its off hours",
         ["dhcp-gateway-alert"] = "Alert when DHCP names a different gateway",
