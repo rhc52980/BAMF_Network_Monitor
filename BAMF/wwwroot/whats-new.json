@@ -2,6 +2,15 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.34.0",
+      "date": "2026-11-22",
+      "items": [
+        "The Map has an Arrange menu for getting a layout tidy once you have roughed it out: Tidy up straightens what you placed into even rows, Compact reflows a long strip into rows the shape of the screen (best in full screen), and Snap to grid puts everything on a grid. Reset to automatic no longer asks first.",
+        "Every drag and every arrange can be undone, with Ctrl+Z or the Undo link, and redone with Ctrl+Shift+Z. A Snap switch makes a dragged device line up with a neighbour with a dashed guide; it is off until you turn it on, and Alt drags one thing free.",
+        "Pick several things with Shift-click, Shift-drag a box, or the Select button, then align their edges or middles and space them evenly from the bar over the map. Dragging one picked thing takes them all. Lines to lower rows now run down the left, clear of the device lists."
+      ]
+    },
+    {
       "version": "2.33.0",
       "date": "2026-11-19",
       "items": [
