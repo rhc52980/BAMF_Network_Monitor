@@ -2391,6 +2391,15 @@ or column (a dashed line shows which) and otherwise land on the grid; hold **Alt
 free. Snap is off until you turn it on, and your choice is kept in the browser. None of it changes what
 BAMF knows: only where things are drawn.
 
+**Lining several things up.** Hold **Shift** and click things to pick them, or hold Shift and drag a box round them
+(the **Select** button next to Snap does the same without Shift, which suits a tablet: a drag on the background draws
+the box and a tap picks or lets go). Picked things get a ring and a bar appears over the map: **align** their left
+edges, centres or right edges, or their tops, middles or bottoms, and **space them evenly** across or down (three or
+more; the two at the ends stay put). Dragging one picked thing takes all of them. Pick a switch and one of its
+devices and they count as one: the switch, with its devices. **Esc** or a click on the background lets go, **Ctrl+A**
+picks everything but the router, and **Shift+Enter** picks the focused thing from the keyboard. Every align,
+spread and group move is one step in Undo.
+
 **Wiring it up by dragging:**
 
 - **Drop a device on a switch** to record it there. The Plugged into dialog

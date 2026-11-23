@@ -14,6 +14,7 @@ const ARR = {
   ROW_TOL: 70,        // blocks whose rows are this close are one row
   ALIGN: 60,          // rows that start, or are centred, this close are made to start, or be centred, together
   UNDER: 62,          // room between the router and the first row, for the lines that join them
+  MIN_GAP: 24,        // the least gap Distribute leaves between two things
   GRID: [40, 23],     // the snap grid; 23 is half a device row
   RATIO: 1.7,         // the shape Compact aims for when it can't see the frame
 };
@@ -208,10 +209,58 @@ function arrArrange(m, kind, ratio) {
   return kind === "compact" ? arrCompact(m, ratio) : kind === "tidy" ? arrTidy(m) : kind === "grid" ? arrGrid(m) : {};
 }
 
+// What a selection moves as: each picked node that isn't inside another picked node, with everything that hangs from it (what you
+// placed by hand in it included), and the room that takes. Pick a switch and one of its devices and the switch is the one thing.
+function arrPicked(m, keys) {
+  const kids = arrKids(m), sel = new Set(keys.filter(k => m.nodes.has(k))), out = [];
+  for (const k of sel) {
+    let p = m.nodes.get(k).parent, inside = false, guard = 0;
+    while (p && guard++ < 50) { if (sel.has(p)) { inside = true; break; } p = (m.nodes.get(p) || {}).parent; }
+    if (inside) continue;
+    const ks = arrTree(m, kids, k), r = arrBox(m, ks);
+    out.push({ key: k, keys: ks, r, w: r[2] - r[0], h: r[3] - r[1] });
+  }
+  return out;
+}
+
+// Align the picked things: how is left, hcenter, right, top, vmiddle or bottom, to the edge or middle of all of them together.
+function arrAlign(m, keys, how) {
+  const bl = arrPicked(m, keys), out = {};
+  if (bl.length < 2) return out;
+  const x0 = Math.min(...bl.map(b => b.r[0])), x1 = Math.max(...bl.map(b => b.r[2]));
+  const y0 = Math.min(...bl.map(b => b.r[1])), y1 = Math.max(...bl.map(b => b.r[3]));
+  for (const b of bl) {
+    const dx = how === "left" ? x0 - b.r[0] : how === "right" ? x1 - b.r[2] : how === "hcenter" ? (x0 + x1) / 2 - (b.r[0] + b.r[2]) / 2 : 0;
+    const dy = how === "top" ? y0 - b.r[1] : how === "bottom" ? y1 - b.r[3] : how === "vmiddle" ? (y0 + y1) / 2 - (b.r[1] + b.r[3]) / 2 : 0;
+    arrMove(m, b.keys, dx, dy, out);
+  }
+  return arrChanged(m, out);
+}
+
+// Space the picked things evenly, across (axis h) or down (v): the first and last stay put and the ones between are spread so the
+// gaps are all alike, never less than ARR.MIN_GAP, which can push the last one on when they're packed tight.
+function arrDistribute(m, keys, axis) {
+  const bl = arrPicked(m, keys), out = {};
+  if (bl.length < 3) return out;
+  const a = axis === "h" ? 0 : 1, size = axis === "h" ? "w" : "h";
+  bl.sort((p, q) => p.r[a] - q.r[a] || p.r[1 - a] - q.r[1 - a]);
+  const span = Math.max(...bl.map(b => b.r[a + 2])) - bl[0].r[a];
+  const gap = Math.max(ARR.MIN_GAP, (span - bl.reduce((s, b) => s + b[size], 0)) / (bl.length - 1));
+  let at = bl[0].r[a];
+  for (const b of bl) {
+    const d = at - b.r[a];
+    arrMove(m, b.keys, axis === "h" ? d : 0, axis === "h" ? 0 : d, out);
+    at += b[size] + gap;
+  }
+  return arrChanged(m, out);
+}
+
 // While dragging: line a node up with another's row or column if one is within thr (in drawing units), else land it on the grid.
-// Returns where it goes and the lines to draw: guideX / guideY are where it lined up, or null.
-function arrSnapDrag(m, key, p, thr) {
+// Returns where it goes and the lines to draw: guideX / guideY are where it lined up, or null. skip: other keys to ignore, such as
+// the rest of a selection being dragged along with it.
+function arrSnapDrag(m, key, p, thr, skip) {
   const own = new Set(arrTree(m, arrKids(m), key, true));
+  if (skip) for (const k of skip) own.add(k);
   let bx = null, by = null, dx = thr, dy = thr;
   for (const [k, q] of m.final) {
     if (own.has(k) || m.nodes.get(k).type === "box") continue;

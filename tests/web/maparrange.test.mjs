@@ -11,8 +11,8 @@ import vm from "node:vm";
 const src = readFileSync("BAMF/wwwroot/js/maparrange.js", "utf8");
 const map = readFileSync("BAMF/wwwroot/js/map.js", "utf8");
 const ctx = vm.createContext({ Math, Object, Array, Map, Set, Infinity });
-vm.runInContext(src + "\nglobalThis.arr = { ARR, arrCompact, arrTidy, arrGrid, arrSnapDrag, arrUnits, arrArrange };", ctx);
-const { ARR, arrCompact, arrTidy, arrGrid, arrSnapDrag, arrUnits, arrArrange } = ctx.arr;
+vm.runInContext(src + "\nglobalThis.arr = { ARR, arrCompact, arrTidy, arrGrid, arrSnapDrag, arrUnits, arrArrange, arrPicked, arrAlign, arrDistribute };", ctx);
+const { ARR, arrCompact, arrTidy, arrGrid, arrSnapDrag, arrUnits, arrArrange, arrPicked, arrAlign, arrDistribute } = ctx.arr;
 
 // A map as map.js builds it: a router, and under it `n` switches each with three devices listed beneath. Positions are the ones
 // the automatic layout gives: switches in one long row, devices a column in from their switch.
@@ -179,4 +179,76 @@ test("A line to a block on a lower row runs down a trunk at the left, not throug
   assert.ok(!/H40\b/.test(flat), "the first row is drawn as ever");
   assert.match(trunked, /H40\.0 V/, "a lower row goes round by the trunk");
   assert.match(trunked, /V\d+\.\d H300\.0 V434\.0$/, "and arrives from above");
+});
+
+// ---- Selecting: Align and Distribute ----
+
+test("Picking a switch and one of its devices is one thing: the switch, with the device along", () => {
+  const m = model(3);
+  const bl = arrPicked(m, ["s:0", "h:0.1", "s:2"]);
+  assert.deepEqual(plain(bl.map(b => b.key)), ["s:0", "s:2"]);
+  assert.ok(bl[0].keys.includes("h:0.1") && bl[0].keys.includes("h:0.2"), "a switch takes all its devices");
+  assert.deepEqual(plain(arrPicked(m, ["nothing", "h:1.0"]).map(b => b.key)), ["h:1.0"]);
+});
+
+test("Align left, right and centre put the picked blocks on one edge or middle, and move nothing else", () => {
+  const m = model(4, { jitter: [[0, 0], [30, 10], [-40, 20], [15, -5]] });
+  const keys = ["s:0", "s:1", "s:2"];
+  const bl = out => blocksOf(m, out).filter(b => keys.includes(b.key));
+  const left = bl(arrAlign(m, keys, "left")), right = bl(arrAlign(m, keys, "right")), mid = bl(arrAlign(m, keys, "hcenter"));
+  assert.equal(new Set(left.map(b => Math.round(b.r[0]))).size, 1, "left edges together");
+  assert.equal(new Set(right.map(b => Math.round(b.r[2]))).size, 1, "right edges together");
+  assert.equal(new Set(mid.map(b => Math.round((b.r[0] + b.r[2]) / 2))).size, 1, "centres together");
+  assert.ok(!Object.keys(arrAlign(m, keys, "left")).some(k => k === "s:3" || k === "r"), "what wasn't picked stays");
+});
+
+test("Align top, middle and bottom work down the page the same way, and only the picked block's own node is saved", () => {
+  const m = model(3, { jitter: [[0, 0], [0, 60], [0, -30]] });
+  const keys = ["s:0", "s:1", "s:2"];
+  const top = blocksOf(m, arrAlign(m, keys, "top")), bottom = blocksOf(m, arrAlign(m, keys, "bottom"));
+  assert.equal(new Set(top.map(b => Math.round(b.r[1]))).size, 1);
+  assert.equal(new Set(bottom.map(b => Math.round(b.r[3]))).size, 1);
+  assert.equal(new Set(blocksOf(m, arrAlign(m, keys, "vmiddle")).map(b => Math.round((b.r[1] + b.r[3]) / 2))).size, 1);
+  assert.ok(Object.keys(arrAlign(m, keys, "top")).every(k => k.startsWith("s:")), "devices just follow");
+});
+
+test("Aligning is a no-op with one thing, and again once done", () => {
+  const m = model(3, { jitter: [[0, 0], [20, 30], [-10, 5]] });
+  assert.deepEqual(plain(arrAlign(m, ["s:1"], "left")), {});
+  const out = arrAlign(m, ["s:0", "s:1", "s:2"], "left");
+  assert.ok(Object.keys(out).length > 0);
+  assert.deepEqual(plain(arrAlign(commit(m, out), ["s:0", "s:1", "s:2"], "left")), {});
+});
+
+test("Distribute spaces three or more with equal gaps and leaves the two ends where they are", () => {
+  const m = model(4, { jitter: [[0, 0], [-120, 0], [50, 0], [250, 0]] });
+  const keys = ["s:0", "s:1", "s:2", "s:3"];
+  const before = blocksOf(m, {}), out = arrDistribute(m, keys, "h");
+  const bl = blocksOf(m, out).sort((a, b) => a.r[0] - b.r[0]);
+  const gaps = bl.slice(1).map((b, i) => b.r[0] - bl[i].r[2]);
+  assert.ok(Math.max(...gaps) - Math.min(...gaps) < 2, "even: " + gaps.join());
+  const first = before.slice().sort((a, b) => a.r[0] - b.r[0])[0], last = before.slice().sort((a, b) => a.r[2] - b.r[2]).pop();
+  assert.equal(Math.round(bl[0].r[0]), Math.round(first.r[0]), "the left end stays");
+  assert.equal(Math.round(bl[bl.length - 1].r[2]), Math.round(last.r[2]), "and the right");
+  assert.deepEqual(plain(arrDistribute(m, ["s:0", "s:1"], "h")), {}, "two can't be spread");
+});
+
+test("Distribute down, and never closer than the least gap", () => {
+  const m = model(4);
+  // Four blocks in a column, the middle two nearly touching.
+  const ys = [0, 300, 330, 900];
+  for (let i = 0; i < 4; i++) for (const [k, n] of m.nodes) if (k === "s:" + i || n.parent === "s:" + i) { const p = m.final.get(k); m.final.set(k, [40, p[1] - 140 + ys[i]]); }
+  const bl = blocksOf(m, arrDistribute(m, ["s:0", "s:1", "s:2", "s:3"], "v")).sort((a, b) => a.r[1] - b.r[1]);
+  const gaps = bl.slice(1).map((b, i) => b.r[1] - bl[i].r[3]);
+  assert.ok(gaps.every(g => g >= ARR.MIN_GAP - 1), gaps.join());
+  assert.ok(Math.max(...gaps) - Math.min(...gaps) < 2, "even: " + gaps.join());
+});
+
+test("Dragging a picked group ignores the group when snapping to neighbours", () => {
+  const m = model(4);
+  const skip = new Set(["s:2", "h:2.0", "h:2.1", "h:2.2"]);
+  const withIt = arrSnapDrag(m, "s:1", [m.final.get("s:2")[0] + 4, 400], 12);
+  const without = arrSnapDrag(m, "s:1", [m.final.get("s:2")[0] + 4, 400], 12, skip);
+  assert.equal(withIt.guideX, m.final.get("s:2")[0]);
+  assert.equal(without.guideX, null);
 });

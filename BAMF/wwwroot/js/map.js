@@ -1120,7 +1120,7 @@ async function saveMapPositions(subnet, positions) {
 function buildTopologySvg(c) {
   const m = topoModel(c);
   topoModels[c.subnet] = m;
-  const svg = svgEl("svg", { class: "map-svg topo", role: "group", "aria-label": `Network ${c.subnet}`, preserveAspectRatio: "xMidYMid meet" });
+  const svg = svgEl("svg", { class: "map-svg topo" + (mapSelectMode ? " selecting" : ""), role: "group", "aria-label": `Network ${c.subnet}`, preserveAspectRatio: "xMidYMid meet" });
   const gBox = svgEl("g", {}), gEdges = svgEl("g", {}), gLabels = svgEl("g", {}), gNodes = svgEl("g", {});
   const gGuides = svgEl("g", { class: "t-guides" });
   m.guideX = svgEl("line", { class: "t-guide" }); m.guideY = svgEl("line", { class: "t-guide" });
@@ -1415,17 +1415,120 @@ async function topoArrange(subnet, kind) {
   const label = { tidy: "Tidied up", compact: "Made compact", grid: "Snapped to the grid" }[kind];
   const positions = arrArrange(m, kind, ratio);
   if (!Object.keys(positions).length) { toast(kind === "grid" ? "Everything is already on the grid." : "Nothing to move: it's already laid out that way."); return; }
+  await topoCommit(subnet, positions, label, false);
+}
+
+// Save a set of new places as one undoable step, redraw, and say so. keepView leaves the view where it is, for something done to a
+// few things you're looking at; an arrange of the whole map re-fits it.
+async function topoCommit(subnet, positions, label, keepView) {
+  const m = topoModels[subnet];
   const before = {};
   for (const k of Object.keys(positions)) before[k] = m.saved[k] ? m.saved[k].slice() : null;
   await saveMapPositions(subnet, positions);
   mapUndoPush(subnet, before, label);
-  delete mapViews[subnet];
+  if (keepView) mapViews[subnet] = m.view.slice(); else delete mapViews[subnet];
   mapSig = null;
   renderMap();
   topoSettle(subnet);
   toast(`${label}. <a href="#" id="arrUndoLink">Undo</a>`);
   const link = $("arrUndoLink");
   if (link) link.onclick = e => { e.preventDefault(); topoUndo(subnet); };
+}
+
+// ---- Selecting ----
+// Shift-click or Shift-drag (or the Select button, which makes a plain click and drag do it) picks things on a map; the bar that
+// appears lines them up or spaces them out, and dragging one of them takes the lot. The pick is kept per map and survives a redraw.
+const mapSel = {};
+let mapSelectMode = false;
+
+function topoSelSet(m) { return mapSel[m.subnet] || (mapSel[m.subnet] = new Set()); }
+
+// how: "set" replaces the pick, "add" adds to it, "toggle" flips each.
+function topoSelect(m, keys, how) {
+  const sel = topoSelSet(m);
+  if (how === "set") sel.clear();
+  for (const k of keys) {
+    if (!m.nodes.has(k)) continue;
+    if (how === "toggle" && sel.has(k)) sel.delete(k); else sel.add(k);
+  }
+  topoSelApply(m);
+}
+
+// Draw the pick: a ring on each picked thing, and the bar with what can be done to this many.
+function topoSelApply(m) {
+  const sel = topoSelSet(m);
+  for (const k of [...sel]) if (!m.nodes.has(k)) sel.delete(k);
+  for (const [k, el] of m.els) el.classList.toggle("sel", sel.has(k));
+  const bar = m.svg.parentElement && m.svg.parentElement.querySelector(".sel-bar");
+  if (!bar) return;
+  const movers = arrPicked(m, [...sel]).length;
+  bar.classList.toggle("show", sel.size > 0);
+  bar.querySelector(".sel-n").textContent = sel.size === 1 ? "1 selected" : sel.size + " selected";
+  bar.querySelectorAll("[data-need]").forEach(b => { b.disabled = movers < Number(b.dataset.need); });
+}
+
+const SEL_TOOLS = [
+  ["left", "Align left edges", "M2 1v14M4 3h9v4H4zM4 9h5v4H4z", 2],
+  ["hcenter", "Centre across", "M8 1v14M3 3h10v4H3zM5 9h6v4H5z", 2],
+  ["right", "Align right edges", "M14 1v14M3 3h9v4H3zM7 9h5v4H7z", 2],
+  null,
+  ["top", "Align tops", "M1 2h14M3 4v9h4V4zM9 4v5h4V4z", 2],
+  ["vmiddle", "Centre down", "M1 8h14M3 3v10h4V3zM9 5v6h4V5z", 2],
+  ["bottom", "Align bottoms", "M1 14h14M3 5v9h4V5zM9 9v5h4V9z", 2],
+  null,
+  ["dh", "Space evenly across (three or more)", "M2 1v14M14 1v14M6 4v8h4V4z", 3],
+  ["dv", "Space evenly down (three or more)", "M1 2h14M1 14h14M4 6h8v4H4z", 3],
+];
+
+function selBar(c) {
+  const bar = document.createElement("div");
+  bar.className = "sel-bar edit-only";
+  bar.setAttribute("role", "toolbar");
+  bar.setAttribute("aria-label", "Selected things");
+  const n = document.createElement("span");
+  n.className = "sel-n";
+  bar.appendChild(n);
+  for (const t of SEL_TOOLS) {
+    if (!t) { const s = document.createElement("span"); s.className = "sel-sep"; bar.appendChild(s); continue; }
+    const [how, title, path, need] = t;
+    const b = document.createElement("button");
+    b.type = "button"; b.title = title; b.setAttribute("aria-label", title); b.dataset.need = need;
+    b.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${path}"/></svg>`;
+    b.onclick = () => topoAlign(c.subnet, how);
+    bar.appendChild(b);
+  }
+  const s = document.createElement("span");
+  s.className = "sel-sep";
+  const clear = document.createElement("button");
+  clear.type = "button"; clear.textContent = "Clear"; clear.title = "Let go of the selection (Esc)";
+  clear.onclick = () => { const m = topoModels[c.subnet]; if (m) topoSelect(m, [], "set"); };
+  bar.append(s, clear);
+  return bar;
+}
+
+const SEL_LABEL = { left: "Aligned left", hcenter: "Centred across", right: "Aligned right", top: "Aligned tops", vmiddle: "Centred down", bottom: "Aligned bottoms", dh: "Spaced evenly across", dv: "Spaced evenly down" };
+async function topoAlign(subnet, how) {
+  const m = topoModels[subnet], sel = mapSel[subnet];
+  if (!m || !sel || !sel.size) return;
+  const keys = [...sel];
+  const positions = how === "dh" ? arrDistribute(m, keys, "h") : how === "dv" ? arrDistribute(m, keys, "v") : arrAlign(m, keys, how);
+  if (!Object.keys(positions).length) { toast(how === "dh" || how === "dv" ? "Already evenly spaced." : "Already lined up that way."); return; }
+  await topoCommit(subnet, positions, SEL_LABEL[how], true);
+}
+
+// A group dragged by one of its members: each thing in it, and what you'd placed inside, is saved where it ended up.
+async function topoDropGroup(m, g) {
+  const subnet = m.subnet, out = {}, before = {}, saved = mapPositions[subnet] || {};
+  for (const k of g.starts.keys()) {
+    const p = m.final.get(k);
+    out[k] = [Math.round(p[0]), Math.round(p[1])];
+    before[k] = saved[k] ? saved[k].slice() : null;
+  }
+  mapViews[subnet] = m.view.slice();
+  mapUndoPush(subnet, before, "Moved a selection");
+  await saveMapPositions(subnet, out);
+  m.saved = mapPositions[subnet] || {};
+  for (const k of g.starts.keys()) delete m.override[k];
 }
 
 // Ctrl+Z on the Map puts back the last move or arrange; Ctrl+Shift+Z or Ctrl+Y does it again.
@@ -1468,7 +1571,12 @@ function topoWire(m) {
     try { svg.setPointerCapture(e.pointerId); } catch { /* not every pointer can be captured */ }
     pointers.set(e.pointerId, [e.clientX, e.clientY]);
     if (pointers.size === 2) {
-      if (mode === "node" && st.moved) { delete m.override[st.key]; topoPlace(m); markTarget(null); topoGuides(m, null); }
+      if (mode === "node" && st.moved) {
+        delete m.override[st.key];
+        if (st.group) for (const k of st.group.starts.keys()) delete m.override[k];
+        topoPlace(m); markTarget(null); topoGuides(m, null);
+      }
+      if (mode === "marquee" && st.rect) { st.rect.remove(); mapDragging = false; }
       const [a, b] = [...pointers.values()];
       mode = "pinch";
       pinch = { dist: Math.hypot(a[0] - b[0], a[1] - b[1]), view: m.view.slice() };
@@ -1476,10 +1584,16 @@ function topoWire(m) {
     }
     // View only: nothing moves, so a drag anywhere pans.
     const g = role === "viewer" ? null : e.target.closest(".tnode, .tbox");
+    // Picking: Shift, Ctrl or Cmd held, or the Select button on. A press on a node then picks it on release; on the background it
+    // starts a box.
+    const pick = role !== "viewer" && (e.shiftKey || e.ctrlKey || e.metaKey || mapSelectMode);
     if (g) {
       const key = g.getAttribute("data-key");
       mode = "node";
-      st = { key, el: g, target: e.target, sx: e.clientX, sy: e.clientY, start: m.final.get(key).slice(), p0: toSvg(e), moved: false };
+      st = { key, el: g, target: e.target, sx: e.clientX, sy: e.clientY, start: m.final.get(key).slice(), p0: toSvg(e), moved: false, pick };
+    } else if (pick) {
+      mode = "marquee";
+      st = { sx: e.clientX, sy: e.clientY, p0: toSvg(e), add: e.shiftKey || e.ctrlKey || e.metaKey, moved: false, rect: null };
     } else {
       mode = "pan";
       st = { sx: e.clientX, sy: e.clientY, view: m.view.slice() };
@@ -1501,20 +1615,41 @@ function topoWire(m) {
     }
     if (mode === "node") {
       if (!st.moved && Math.hypot(e.clientX - st.sx, e.clientY - st.sy) < 5) return;
-      if (!st.moved) { st.moved = true; mapDragging = true; st.el.classList.add("dragging"); }
+      if (!st.moved) {
+        st.moved = true; mapDragging = true; st.el.classList.add("dragging");
+        // Dragging one of several picked things takes them all, each with what hangs from it.
+        const sel = mapSel[m.subnet], movers = sel && sel.has(st.key) ? arrPicked(m, [...sel]) : [];
+        if (movers.length > 1) {
+          const starts = new Map(), skip = new Set();
+          for (const b of movers) for (const k of b.keys) { skip.add(k); if (k === b.key || m.saved[k]) starts.set(k, m.final.get(k).slice()); }
+          st.group = { starts, skip };
+        }
+      }
       const p = toSvg(e);
       let at = [st.start[0] + p[0] - st.p0[0], st.start[1] + p[1] - st.p0[1]];
       // Snap on (Alt held lets one drag go free): line up with a neighbour's row or column, else land on the grid.
       if (mapSnap && !e.altKey && m.nodes.get(st.key).type !== "box") {
         const box = svg.getBoundingClientRect();
         const k = Math.min(box.width / m.view[2], box.height / m.view[3]) || 1;
-        const sn = arrSnapDrag(m, st.key, at, 10 / k);
+        const sn = arrSnapDrag(m, st.key, at, 10 / k, st.group && st.group.skip);
         at = sn.p;
         topoGuides(m, sn);
       } else topoGuides(m, null);
-      m.override[st.key] = at;
-      topoPlace(m);
-      markTarget(st.key);
+      if (st.group) {
+        const dx = at[0] - st.start[0], dy = at[1] - st.start[1];
+        for (const [k, s0] of st.group.starts) m.override[k] = [s0[0] + dx, s0[1] + dy];
+        topoPlace(m);
+      } else {
+        m.override[st.key] = at;
+        topoPlace(m);
+        markTarget(st.key);
+      }
+    } else if (mode === "marquee") {
+      if (!st.moved && Math.hypot(e.clientX - st.sx, e.clientY - st.sy) < 5) return;
+      if (!st.moved) { st.moved = true; mapDragging = true; st.rect = svgEl("rect", { class: "t-marquee" }); svg.appendChild(st.rect); }
+      const p = toSvg(e);
+      st.rect.setAttribute("x", Math.min(st.p0[0], p[0]).toFixed(1)); st.rect.setAttribute("y", Math.min(st.p0[1], p[1]).toFixed(1));
+      st.rect.setAttribute("width", Math.abs(p[0] - st.p0[0]).toFixed(1)); st.rect.setAttribute("height", Math.abs(p[1] - st.p0[1]).toFixed(1));
     } else if (mode === "pan") {
       const k = st.view[2] / svg.clientWidth;
       const kk = Math.max(k, st.view[3] / svg.clientHeight);
@@ -1529,14 +1664,29 @@ function topoWire(m) {
     if (mode === "pan") {
       svg.classList.remove("panning");
       if (Math.hypot(e.clientX - st.sx, e.clientY - st.sy) > 3) mapViews[m.subnet] = m.view.slice();
+      else if (topoSelSet(m).size) topoSelect(m, [], "set");   // a click on the background lets go
+    } else if (mode === "marquee") {
+      const s = st;
+      if (s.rect) {
+        // Whatever the box touches; a group box (which is big, and holds what's in it) only if the box takes in all of it.
+        const p = toSvg(e), x0 = Math.min(s.p0[0], p[0]), x1 = Math.max(s.p0[0], p[0]), y0 = Math.min(s.p0[1], p[1]), y1 = Math.max(s.p0[1], p[1]);
+        s.rect.remove();
+        const hit = [...m.nodes].filter(([k, n]) => {
+          if (n.type === "root") return false;
+          const r = arrExtent(m, k);
+          return n.type === "box" ? r[0] >= x0 && r[2] <= x1 && r[1] >= y0 && r[3] <= y1 : r[0] < x1 && r[2] > x0 && r[1] < y1 && r[3] > y0;
+        }).map(([k]) => k);
+        mapDragging = false;
+        topoSelect(m, hit, s.add ? "add" : "set");
+      } else if (!s.add) topoSelect(m, [], "set");
     } else if (mode === "node") {
       const s = st;
       s.el.classList.remove("dragging");
       topoGuides(m, null);
       markTarget(null);
-      if (!s.moved) topoActivate(m, s.key, s.target);
+      if (!s.moved) { if (s.pick) topoSelect(m, [s.key], "toggle"); else topoActivate(m, s.key, s.target); }
       else {
-        try { await topoDrop(m, s.key); } finally { mapDragging = false; }
+        try { await (s.group ? topoDropGroup(m, s.group) : topoDrop(m, s.key)); } finally { mapDragging = false; }
       }
     }
     mode = null;
@@ -1562,7 +1712,16 @@ function topoWire(m) {
   }, { passive: false });
   svg.addEventListener("keydown", e => {
     const g = e.target.closest && e.target.closest(".tnode");
-    if (g && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); topoActivate(m, g.getAttribute("data-key")); }
+    if (g && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      if (e.shiftKey && role !== "viewer") topoSelect(m, [g.getAttribute("data-key")], "toggle"); else topoActivate(m, g.getAttribute("data-key"));
+    }
+    // Esc lets go of a selection; Ctrl+A picks everything but the router.
+    if (e.key === "Escape" && topoSelSet(m).size) { e.preventDefault(); e.stopPropagation(); topoSelect(m, [], "set"); }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "a" && role !== "viewer") {
+      e.preventDefault();
+      topoSelect(m, [...m.nodes].filter(([, n]) => n.type !== "root").map(([k]) => k), "set");
+    }
     // T on a focused device: its type / icon.
     if (g && (e.key === "t" || e.key === "T") && !e.ctrlKey && !e.metaKey && !e.altKey) {
       const n = m.nodes.get(g.getAttribute("data-key"));
@@ -1701,6 +1860,15 @@ function buildClusterCard(c) {
       document.querySelectorAll(".arr-snap").forEach(b => b.classList.toggle("active", mapSnap));
     };
     tools.appendChild(snap);
+    const pick = document.createElement("button");
+    pick.className = "toggle edit-only arr-pick" + (mapSelectMode ? " active" : ""); pick.type = "button"; pick.textContent = "Select";
+    pick.title = "Pick several things to move, line up or space out: drag a box round them, or click them one by one. Shift-click and Shift-drag do the same without this on.";
+    pick.onclick = () => {
+      mapSelectMode = !mapSelectMode;
+      document.querySelectorAll(".arr-pick").forEach(b => b.classList.toggle("active", mapSelectMode));
+      document.querySelectorAll(".map-svg.topo").forEach(s => s.classList.toggle("selecting", mapSelectMode));
+    };
+    tools.appendChild(pick);
     btn("Print", "A clean white drawing of this map on one page, for the closet door", () => printTopoMap(c.subnet));
     btn(mapExpanded === c.subnet ? "Exit full screen" : "⛶ Full screen",
       mapExpanded === c.subnet ? "Back to the page (Esc)" : "Fill the screen with this map", () => toggleMapExpanded(c.subnet));
@@ -1724,6 +1892,8 @@ function buildClusterCard(c) {
     hint.className = "topo-hint";
     hint.textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? "Hold ⌘ or Ctrl and scroll to zoom" : "Hold Ctrl and scroll to zoom";
     frame.appendChild(hint);
+    frame.appendChild(selBar(c));
+    topoSelApply(topoModels[c.subnet]);
     card.appendChild(frame);
   } else {
     card.appendChild(buildClusterSvg(c));
@@ -1761,6 +1931,7 @@ function buildPrintHtml(subnet) {
   svg.setAttribute("viewBox", `${(x0 - pad).toFixed(0)} ${(y0 - pad).toFixed(0)} ${(x1 - x0 + 2 * pad).toFixed(0)} ${(y1 - y0 + 2 * pad).toFixed(0)}`);
   svg.setAttribute("class", "print-map");
   svg.removeAttribute("style");
+  svg.querySelectorAll(".sel").forEach(e => e.classList.remove("sel"));
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
   svg.querySelectorAll(".pkt, .t-hd, .t-mustard, .t-cog, .t-tophat, .t-paperhat, .t-drip, .blink-ring, .t-ghost, .t-pk, .t-hat, .t-gift, .ww-tag, .aq-shell, .t-deco-icon, .t-watch, title").forEach(e => e.remove());
   svg.querySelectorAll("[tabindex]").forEach(e => e.removeAttribute("tabindex"));
