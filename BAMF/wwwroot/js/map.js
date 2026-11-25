@@ -2247,7 +2247,144 @@ function renderMap() {
     const hubTxt = card.querySelector(".hub-txt");
     if (hubTxt) hubTxt.textContent = `${on}/${c.members.length}`;
   });
+  mapFindApply();
 }
+
+// ---- Find a device on the map ----
+// A box above the maps. What you type is matched the way the search above the list matches (name, address, MAC, vendor, tag, network
+// name, * and ? wildcards). The matches light up and everything else fades; picking one (or Enter for the first) takes the map to it
+// and pulses it. It draws nothing new and changes nothing saved. Ignored devices are not drawn on a map, so they are listed as that.
+let mapFindText = "";        // what is in the box
+let mapFindPicked = null;    // the id of the device last taken to
+let mapFindRows = [];        // what the list shows, in order
+let mapFindAt = -1;          // which of them the arrow keys are on
+
+// Where a device is drawn right now: the drawing and its node, or the bare element of a radial map; null when it is not drawn.
+function mapFindWhere(h) {
+  if (h.remote || h.ignored || h.forgotten) return null;
+  for (const m of Object.values(topoModels)) {
+    if (m && m.svg && m.svg.isConnected && m.nodes.has("h:" + h.id)) return { m, key: "h:" + h.id, subnet: m.subnet };
+  }
+  const el = $("mapClusters").querySelector(`.node[data-id="${h.id}"]:not(.tnode)`);
+  return el ? { el } : null;
+}
+
+// Every device the text matches, the ones on a map first, each with where it is: { host, at, why }. `why` says why one isn't drawn.
+function mapFindHits(text) {
+  if (!text) return [];
+  const out = [];
+  for (const h of hosts) {
+    if (h.forgotten || !matchesQuery(h, text)) continue;
+    const at = mapFindWhere(h);
+    out.push({ host: h, at, why: at ? "" : h.ignored ? "ignored, so not drawn" : h.remote ? "on " + h.remote : "not on this map" });
+  }
+  return out.sort((a, b) => (!a.at - !b.at) || nameOrIp(a.host).localeCompare(nameOrIp(b.host)));
+}
+
+// The view that has a node in the middle of the frame: as wide as the map is now, or 700 across if that is wider (a map drawn whole
+// is much wider than the node), never narrower than the closest zoom allows.
+function findView(view, p, n, T) {
+  const w = Math.max(160, Math.min(view[2], 700)), h = view[3] * w / view[2];
+  const box = n && n.type === "box";
+  const cx = box ? p[0] + n.size[0] / 2 : p[0] + (12 + ((n && n.labelW) || 120)) / 2;
+  const cy = box ? p[1] + n.size[1] / 2 : p[1];
+  return [cx - w / 2, cy - h / 2, w, h];
+}
+
+// Light up what the text matches and fade the rest: classes only, so it survives the drawing being redone or its status refreshed.
+function mapFindApply() {
+  const wrap = $("mapClusters");
+  if (!wrap) return;
+  const hits = mapFindHits(mapFindText).filter(x => x.at);
+  const ids = new Set(hits.map(x => String(x.host.id)));
+  wrap.classList.toggle("finding", ids.size > 0);
+  wrap.querySelectorAll(".tnode[data-id], .node[data-id]").forEach(g => {
+    const id = g.getAttribute("data-id");
+    g.classList.toggle("found", ids.has(id));
+    g.classList.toggle("picked", ids.has(id) && id === mapFindPicked);
+  });
+}
+
+function mapFindList() {
+  const list = $("mapFindList");
+  if (!mapFindText) { list.hidden = true; list.textContent = ""; mapFindRows = []; return; }
+  const hits = mapFindHits(mapFindText);
+  mapFindRows = hits.slice(0, 8);
+  mapFindAt = mapFindRows.findIndex(x => x.at);
+  list.textContent = "";
+  if (!hits.length) {
+    const none = document.createElement("div");
+    none.className = "map-find-none";
+    none.textContent = `No device matches “${mapFindText}”.`;
+    list.appendChild(none);
+  }
+  mapFindRows.forEach((x, i) => {
+    const row = document.createElement("div");
+    row.className = "map-find-item" + (i === mapFindAt ? " on" : "") + (x.at ? "" : " off");
+    row.setAttribute("role", "option");
+    const name = document.createElement("span"), sub = document.createElement("span"), note = document.createElement("span");
+    name.className = "mf-name"; name.textContent = nameOrIp(x.host);
+    sub.className = "mf-sub"; sub.textContent = x.host.ip + (x.host.subnet ? " · " + netName(x.host.subnet) : "");
+    note.className = "mf-note"; note.textContent = x.at ? (x.host.online ? "online" : "offline") : x.why;
+    row.append(name, sub, note);
+    // mousedown, not click: the box would lose focus first and close the list
+    row.onmousedown = e => { e.preventDefault(); mapFindGo(x.host); };
+    list.appendChild(row);
+  });
+  if (hits.length > mapFindRows.length) {
+    const more = document.createElement("div");
+    more.className = "map-find-more";
+    more.textContent = `and ${hits.length - mapFindRows.length} more, lit on the map`;
+    list.appendChild(more);
+  }
+  list.hidden = false;
+}
+
+function mapFindClear() {
+  mapFindText = ""; mapFindPicked = null;
+  $("mapFind").value = "";
+  mapFindList();
+  mapFindApply();
+}
+
+// Take the map to a device: the card that has it comes into view, the drawing pans and zooms to it, and it pulses.
+function mapFindGo(h) {
+  let at = mapFindWhere(h);
+  // A network tab or a tag can leave a device off the map: look at every network rather than say it isn't there.
+  if (!at && !h.ignored && !h.remote && !h.forgotten && network !== "all") { network = "all"; render(); at = mapFindWhere(h); }
+  if (!at) {
+    toast(h.ignored ? `${esc(nameOrIp(h))} is ignored, so the map doesn't draw it.`
+      : h.remote ? `${esc(nameOrIp(h))} is on ${esc(h.remote)}: open that BAMF.` : `${esc(nameOrIp(h))} isn't on the map right now.`);
+    return;
+  }
+  mapFindPicked = String(h.id);
+  $("mapFindList").hidden = true;
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const frame = (at.m ? at.m.svg : at.el).closest(".map-card");
+  if (frame) frame.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+  if (at.m) {
+    const m = at.m;
+    if (m.glide) m.glide();
+    const before = topoBefore(m.subnet);
+    m.view = findView(m.view, m.final.get(at.key), m.nodes.get(at.key), TOPO.T);
+    mapViews[m.subnet] = m.view.slice();
+    if (reduced || !before || !topoSlide(m, before)) topoApplyView(m);
+  }
+  mapFindApply();
+}
+
+$("mapFind").oninput = e => { mapFindText = e.target.value.trim(); mapFindPicked = null; mapFindList(); mapFindApply(); };
+$("mapFind").onfocus = () => { if (mapFindText) mapFindList(); };
+$("mapFind").onblur = () => { $("mapFindList").hidden = true; };
+$("mapFind").onkeydown = e => {
+  if (e.key === "Escape") { e.stopPropagation(); mapFindClear(); e.target.blur(); return; }
+  if (e.key === "Enter") { e.preventDefault(); const x = mapFindRows[Math.max(0, mapFindAt)]; if (x) mapFindGo(x.host); return; }
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  e.preventDefault();
+  if (!mapFindRows.length) return;
+  mapFindAt = (Math.max(0, mapFindAt) + (e.key === "ArrowDown" ? 1 : mapFindRows.length - 1)) % mapFindRows.length;
+  $("mapFindList").querySelectorAll(".map-find-item").forEach((r, i) => r.classList.toggle("on", i === mapFindAt));
+};
 
 // From the map: show the device in the list. If a filter would hide it, clear
 // the filters rather than land on a list it isn't in.

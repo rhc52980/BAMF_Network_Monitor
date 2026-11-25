@@ -264,6 +264,11 @@
     <button type="button" data-scope="per" title="One diagram per network">Per network</button>
     <button type="button" data-scope="whole" title="Every network in one diagram, drawn by the cabling you recorded">Whole network</button>
   </div>
+  <div class="map-find" id="mapFindWrap">
+    <input class="map-find-input" id="mapFind" type="search" placeholder="Find a device on the map… ( / )" aria-label="Find a device on the map" autocomplete="off" spellcheck="false"
+      title="Type a name, address, MAC, vendor, tag or network name (the same as the search above the list; * and ? are wildcards). Matches light up and the rest fade. Pick one, or press Enter, to zoom to it. Esc clears.">
+    <div class="map-find-list" id="mapFindList" role="listbox" aria-label="Devices found" hidden></div>
+  </div>
   <div class="map-legend" aria-hidden="true">
     <span><svg viewBox="-8 -8 16 16"><circle r="6" class="lg-dot on"/></svg>online</span>
     <span><svg viewBox="-8 -8 16 16"><circle r="6" class="lg-dot"/></svg>offline</span>

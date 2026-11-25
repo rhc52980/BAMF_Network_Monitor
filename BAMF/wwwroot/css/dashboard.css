@@ -1231,6 +1231,32 @@
   .map-style button { background: none; border: 0; color: var(--text-dim); padding: 6px 12px; font: inherit; font-size: 12.5px; cursor: pointer; }
   .map-style button.active { background: var(--panel-2); color: var(--text); }
   .map-scope { margin-left: 8px; }
+  .map-find { position: relative; display: inline-block; vertical-align: top; margin: 0 0 12px 8px; }
+  .map-find-input {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--text); padding: 6px 12px; font: inherit; font-size: 12.5px; width: 260px; max-width: 100%;
+  }
+  .map-find-input::placeholder { color: var(--text-dim); }
+  .map-find-list {
+    position: absolute; z-index: 30; left: 0; top: calc(100% + 4px); min-width: 320px; max-width: min(520px, 90vw);
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 4px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35); max-height: 320px; overflow-y: auto;
+  }
+  .map-find-list[hidden] { display: none; }
+  .map-find-item { display: flex; align-items: baseline; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 12.5px; }
+  .map-find-item:hover, .map-find-item.on { background: var(--panel-2); }
+  .map-find-item .mf-name { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .map-find-item .mf-sub { color: var(--text-dim); font-family: "IBM Plex Mono", monospace; font-size: 11px; white-space: nowrap; }
+  .map-find-item .mf-note { margin-left: auto; color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+  .map-find-item.off .mf-name { color: var(--text-dim); }
+  .map-find-none, .map-find-more { padding: 6px 8px; color: var(--text-dim); font-size: 12px; }
+  /* While finding: the matches stay as they are, everything else on the map fades. The one picked pulses a few times. */
+  .map-clusters.finding .map-svg .tnode:not(.found), .map-clusters.finding .map-svg .node[data-id]:not(.found) { opacity: .2; }
+  .map-svg .tnode.found .t-tile, .map-svg .node.found .shape { stroke: var(--focus); stroke-width: 3; }
+  .map-svg .tnode.found, .map-svg .node.found { filter: drop-shadow(0 0 5px var(--focus)); }
+  .map-svg .tnode.picked .t-tile { animation: find-pulse 1s ease-in-out 3; }
+  @keyframes find-pulse { 50% { stroke-width: 7; } }
+  @media (prefers-reduced-motion: reduce) { .map-svg .tnode.picked .t-tile { animation: none; } }
   .map-scope[hidden] { display: none; }
   .map-net-legend { margin-top: -6px; }
   .map-net-legend[hidden] { display: none; }
