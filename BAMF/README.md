@@ -2462,6 +2462,15 @@ map in one go. When the view re-fits, it eases there too. Press, scroll or type 
 map fades in as it did; if your system asks for reduced motion nothing moves either way. Where things end up is the same
 with it on or off.
 
+**Find a device.** The **Find a device on the map** box above the maps (press `/` on the Map to jump to it) matches what you
+type the way the search above the list does: name, address, MAC, vendor, note, tag, network name, and `*` and `?` wildcards.
+The matches stay lit and everything else on the map fades. A list under the box shows each match with its address, network
+and whether it is online; pick one, or press Enter for the first (the arrow keys move down the list), and the map scrolls to
+its card, pans and zooms to it and pulses it. If a network tab or tag filter has left it off the map, Find looks at every
+network. Ignored devices are not drawn on a map, so they are listed as "ignored, so not drawn", and a device on another BAMF
+server as on that server. Esc clears the box. It only changes how the map is shown: nothing is moved or saved, and a
+reduced-motion setting makes the zoom instant. There is no switch for it, as it does nothing until you type in the box.
+
 **Wiring it up by dragging:**
 
 - **Drop a device on a switch** to record it there. The Plugged into dialog

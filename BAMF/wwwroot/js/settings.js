@@ -1394,7 +1394,9 @@ document.addEventListener("keydown", e => {
   if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
     const t = e.target;
     const typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
-    if (!typing) { e.preventDefault(); $("search").focus(); $("search").select(); }
+    // On the Map the same key goes to the box that finds a device on the map.
+    const box = view === "map" ? $("mapFind") : $("search");
+    if (!typing) { e.preventDefault(); box.focus(); box.select(); }
     return;
   }
   if (e.key !== "Escape") return;
