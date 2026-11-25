@@ -2294,7 +2294,11 @@ Up to 500 devices at a time.
 
 The search box does substring matching across name, hostname, IP, MAC, vendor,
 note, and device guess. Add `*` or `?` and it becomes a wildcard match against
-each field on its own:
+each field on its own.
+
+A search looks at every status: the Online, Offline, Unknown, New and Ignored tabs are for browsing, so while you type they
+step aside and an ignored device shows up marked **ignored**. The network tab, the type chips and a tag you picked still
+narrow it, and a device you have forgotten stays in the Forgotten tab. Clear the box and the tab you were on filters again.
 
 | Query | Finds |
 |---|---|

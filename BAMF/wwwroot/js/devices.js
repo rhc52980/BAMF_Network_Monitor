@@ -306,6 +306,9 @@ function guessFamily(osGuess) {
 function visible(opts) {
   if (view === "home" || view === "activity") return [];
   const ignoreGuess = !!(opts && opts.ignoreGuess);
+  // Typing in the search box looks at every status, ignored devices too: the Online, Offline, Unknown, New and Ignored tabs
+  // are for browsing, not for hiding a device you are looking for. (Forgotten ones stay in their own view.)
+  const searching = !!query && view === "devices";
   return hosts.filter(h => {
     if (!inNetwork(h)) return false;
     if (!ignoreGuess && guessFilter !== null && typeFamily(h) !== (guessFilter === NO_GUESS ? null : guessFilter)) return false;
@@ -313,7 +316,8 @@ function visible(opts) {
     if (view === "forgotten") { if (!h.forgotten) return false; }
     else {
       if (h.forgotten) return false;
-      if (filter === "ignored") { if (!h.ignored) return false; }
+      if (searching) { /* any status, ignored or not */ }
+      else if (filter === "ignored") { if (!h.ignored) return false; }
       else {
         if (h.ignored) return false;
         if (filter === "online" && !h.online) return false;
@@ -732,7 +736,7 @@ function render() {
       <td class="spark-cell" data-label="24h"></td>
       <td class="traf traffic-col${h.traffic && (h.traffic.rx || h.traffic.tx) ? "" : " quiet"}" data-label="Traffic" title="${h.traffic ? `In ${fmtBytes(h.traffic.rxTotal)} · out ${fmtBytes(h.traffic.txTotal)} ${trafficSince(h.traffic)}` : "Nothing seen from this device yet"}">${h.traffic ? `↓<b>${fmtRate(h.traffic.rx)}</b> ↑<b>${fmtRate(h.traffic.tx)}</b>` : "—"}</td>
       <td class="lat ${h.latencyMs == null ? "none" : h.latencyMs < 20 ? "fast" : h.latencyMs < 100 ? "" : h.latencyMs < 300 ? "slow" : "bad"}" data-label="Latency" title="${h.latencyMs == null ? (h.online ? "No reply to the last echo" : "Offline") : "Round-trip time of the last echo"}">${h.latencyMs == null ? (h.online ? "no reply" : "—") : h.latencyMs + " ms"}</td>
-      <td class="status-cell"><span class="badge ${h.known ? "known" : "unknown"}">${h.known ? "known" : "unknown"}</span></td>
+      <td class="status-cell"><span class="badge ${h.known ? "known" : "unknown"}">${h.known ? "known" : "unknown"}</span>${h.ignored && query ? ` <span class="badge ignored" title="Ignored: hidden from alerts, history and summaries. It shows here because you searched.">ignored</span>` : ""}</td>
       <td class="actions-cell"></td>`;
 
     const typeLine = tr.querySelector(".type-set");
