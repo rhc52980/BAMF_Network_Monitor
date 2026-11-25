@@ -428,6 +428,7 @@
   }
   .badge.known { color: var(--led-on); background: rgba(63,219,127,.1); }
   .badge.unknown { color: var(--led-warn); background: rgba(255,180,84,.12); }
+  .badge.ignored { color: var(--text-dim); background: var(--panel-2); }
   .toggle {
     background: none; border: 1px solid var(--line); border-radius: var(--radius);
     color: var(--text-dim); padding: 6px 12px; font: inherit; font-size: 12px; cursor: pointer;
