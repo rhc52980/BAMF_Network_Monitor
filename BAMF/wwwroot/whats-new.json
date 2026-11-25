@@ -2,6 +2,13 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.43.0",
+      "date": "2026-11-24",
+      "items": [
+        "You can find a device on the Map. A Find a device on the map box sits above the maps (press / on the Map to jump to it). Type a name, address, MAC, vendor, tag or network name, and the matches stay lit while the rest of the map fades. Pick one, or press Enter for the first, and the map scrolls to it, zooms in and pulses it. Ignored devices are not drawn on a map, so they are listed as not drawn. It only changes how the map is shown, and nothing is moved or saved."
+      ]
+    },
+    {
       "version": "2.42.0",
       "date": "2026-11-24",
       "items": [
