@@ -40,6 +40,8 @@ function page({ view = "devices", filter = "all", query = "" } = {}) {
     function tagOk() { return true; }
     function typeFamily() { return null; }
     function isNew() { return false; }
+    let showUnseen = false;
+    function unseenHidden() { return false; }
     ${take(devices, "function visible(")}
     ${take(devices, "function matchesQuery(")}
     globalThis.names = () => visible().map(h => h.customName);`, ctx);

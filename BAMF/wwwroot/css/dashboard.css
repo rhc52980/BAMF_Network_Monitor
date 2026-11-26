@@ -1995,6 +1995,9 @@
   }
 
   /* Select sits beside the filters it acts on; Pause alerts says so when alerts are held. */
+  .unseen-chip { margin-left: 10px; font-size: 12px; }
+  .unseen-chip[hidden] { display: none; }
+  .unseen-chip[aria-pressed="true"] { background: var(--panel-2); color: var(--text); border-color: var(--focus); }
   .sel-btn { margin-left: auto; }
   .sel-btn.on { background: var(--panel-2); color: var(--text); border-color: var(--focus); }
   .pause-btn.held { color: var(--led-warn); border-color: var(--led-warn); }

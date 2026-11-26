@@ -64,6 +64,10 @@ function netName(net) { const l = networkLabels[net]; return l ? l + " \u00b7 " 
 let switches = [];         // the switch layout the user recorded: [{ id, name, ports, subnet, hostId, uplink, uplinkSwitch, uplinkPort }]
 let activeArp = { enabled: false, npcapAvailable: false };
 let autoIgnoreRandom = false;
+// Hide devices not seen for this many days from the Devices list (0 = off). A view setting for this browser only: the devices stay in
+// every count, on the Map and in the alerts. showUnseen lets them through for now, from the chip beside the tabs.
+let hideUnseenDays = 0, showUnseen = false;
+try { hideUnseenDays = Math.max(0, Math.round(Number(localStorage.getItem("bamf-hide-unseen")) || 0)); } catch {}
 // Holiday Spirit, from the server. Remembered in this browser too, so the
 // holiday theme is up from the first paint rather than after the first poll.
 let holidaySpirit = false;

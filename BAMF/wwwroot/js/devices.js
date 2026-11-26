@@ -303,6 +303,14 @@ function guessFamily(osGuess) {
   return (cut > 0 ? osGuess.slice(0, cut) : osGuess).trim() || null;
 }
 
+// A device that has been offline longer than the days chosen in Settings, so the list can leave it out. Never one that is online, one
+// you watch (a watched device being down is what you want to see) or one with no last-seen time.
+function unseenHidden(h) {
+  if (!hideUnseenDays || h.online || h.watched || !h.lastSeen) return false;
+  const t = Date.parse(h.lastSeen);
+  return !isNaN(t) && Date.now() - t > hideUnseenDays * 864e5;
+}
+
 function visible(opts) {
   if (view === "home" || view === "activity") return [];
   const ignoreGuess = !!(opts && opts.ignoreGuess);
@@ -320,6 +328,7 @@ function visible(opts) {
       else if (filter === "ignored") { if (!h.ignored) return false; }
       else {
         if (h.ignored) return false;
+        if (!showUnseen && unseenHidden(h)) return false;
         if (filter === "online" && !h.online) return false;
         if (filter === "offline" && h.online) return false;
         if (filter === "unknown" && h.known) return false;
@@ -328,6 +337,20 @@ function visible(opts) {
     }
     return matchesQuery(h, query);
   });
+}
+
+// The chip beside the status tabs: how many devices the setting is leaving out, and a way to see them for now. Only on the Devices
+// list, and only while there is something hidden (or being shown), so with the setting off nothing is there.
+function renderUnseenChip() {
+  const chip = $("unseenChip");
+  if (!chip) return;
+  const n = hideUnseenDays && view === "devices" && filter !== "ignored" && !query
+    ? hosts.filter(h => inNetwork(h) && !h.forgotten && !h.ignored && unseenHidden(h)).length : 0;
+  chip.hidden = n === 0;
+  if (!n) { showUnseen = false; return; }
+  chip.textContent = showUnseen ? `Showing ${n} unseen ${hideUnseenDays}+ days · Hide` : `${n} unseen ${hideUnseenDays}+ days hidden · Show`;
+  chip.setAttribute("aria-pressed", showUnseen ? "true" : "false");
+  chip.title = showUnseen ? "Hide the devices not seen for a while again" : `Devices offline for more than ${hideUnseenDays} days are left out of this list (Settings > System). Click to show them. Searching always finds them.`;
 }
 
 // Plain substring by default. If the query contains * or ?, treat it as a glob
@@ -603,6 +626,7 @@ function render() {
   const openAddrRow = document.querySelector(".addr-menu.show")?.closest("tr")?.dataset.id ?? null;
   renderNetTabs();
   renderBulk();
+  renderUnseenChip();
   const showTable = view === "devices" || view === "forgotten";
   $("tableWrap").hidden = !showTable;
   $("feedWrap").hidden = view !== "activity";

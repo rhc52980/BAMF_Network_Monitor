@@ -4751,6 +4751,13 @@ The card says how many would be tidied now, and which.
 Tidied devices are **forgotten**, not deleted: they go to the Forgotten tab, each can be brought back from there with
 its history, and one that turns up on the network again is no longer forgotten by itself. The card shows the last tidy.
 
+**Hide devices unseen for a while** (Settings → System, off by default) is the gentler version: it only leaves the old ones out of
+the Devices list, and forgets nothing. Pick 7 days to a year and devices offline for longer step out of the list; a chip beside the
+tabs says how many are hidden ("12 unseen 30+ days hidden · Show") and brings them back for now. It is a setting of this browser,
+not the server: the devices stay in the counts, on the Map, in reports and in alerts. A device you watch is never hidden, since a
+watched device being down is what you want to see, and neither is one that is online. Searching always finds them, and the Ignored
+tab is untouched.
+
 ### The Tools tab: ping, trace route, DNS, web and port checks
 
 When something is flaky, the question is "can BAMF reach it, and by what path?". The **Tools** tab, beside Activity, answers it without a terminal.
