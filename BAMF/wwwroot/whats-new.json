@@ -2,6 +2,14 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.44.0",
+      "date": "2026-11-25",
+      "items": [
+        "The Map can keep named layouts. A Layouts menu beside Arrange saves where everything sits under a name (Rack view, For printing) and switches between them. The one the map is on has a tick, switching slides if Slide into place is on, and Undo puts the map back. Each map keeps up to 30, on the server, so every browser sees them. Nothing changes until you save or pick one.",
+        "The Devices list can hide devices unseen for a while. In Settings > System, pick 7 days up to a year and devices offline for longer leave the list, with a chip beside the tabs that says how many and shows them again. Off by default, this browser only, and nothing is forgotten: the counts, the Map and the alerts are unchanged. A watched device is never hidden, and searching always finds them."
+      ]
+    },
+    {
       "version": "2.43.0",
       "date": "2026-11-24",
       "items": [
