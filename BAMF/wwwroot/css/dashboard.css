@@ -1272,6 +1272,14 @@
   .tools-menu .arr-item:disabled { opacity: .45; cursor: default; }
   .tools-menu .arr-item:disabled:hover { background: none; }
   .tools-menu .arr-undo, .tools-menu .arr-reset { border-top: 1px solid var(--line); margin-top: 2px; }
+  .lay-menu .lay-none { padding: 7px 10px; font-size: 12px; color: var(--text-dim); }
+  .lay-menu .lay-row { display: flex; align-items: stretch; }
+  .lay-menu .lay-row.first, .lay-menu .lay-none { border-top: 1px solid var(--line); margin-top: 2px; }
+  .lay-menu .lay-row .arr-item { flex: 1; min-width: 0; }
+  .lay-menu .lay-row .arr-item b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lay-menu .lay-row .lay-del { width: 34px; flex: none; text-align: center; font-size: 16px; color: var(--text-dim); }
+  .lay-menu .lay-row .lay-del:hover { color: var(--led-bad, #f2716f); }
+  .lay-menu .lay-del:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: -2px; }
   .tools-menu .arr-undo + .arr-redo { border-top: 0; margin-top: 0; }
   .tools-menu .arr-item:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: -2px; }
   .map-svg.arr-settle { animation: arr-settle .28s ease-out; }

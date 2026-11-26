@@ -171,6 +171,7 @@ public partial class HostStore
         InitUnusual(conn);
         InitFlows(conn);
         InitMapPositions(conn);
+        InitMapLayouts(conn);
         InitDeviceTypes(conn);
         InitAddresses(conn);
         InitDrift(conn);

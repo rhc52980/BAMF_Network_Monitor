@@ -2076,6 +2076,7 @@ scan, or delete a thing.
 | POST | `/api/switches/{id}/snmp` | Body `{"enabled": true, "address": "192.168.1.2", "community": "…"}` — switch a switch's counters on or off. `address` blank uses its linked device's; `community` null or blank keeps the saved one. Reads the switch straight away and returns its status as above |
 | POST | `/api/switches/{id}/ports` | Body `{"ports": [{"hostId": 3, "port": 1}, {"hostId": 4, "port": 2}], "labels": [{"port": 1, "label": "Living Room"}]}` — set everything on one switch at once. Hosts listed are placed on it (moving off any other switch; `port` 0 = not recorded), and hosts on it that aren't listed come off it. `labels`, when given, replaces the ports' locations (up to 40 characters; blank clears one); leave it out to keep them. Each switch in `GET /api/hosts` carries them as `portLabels` |
 | POST | `/api/hosts/{id}/blink` | Body `{"seconds": 30}` (optional, 5–60) — "Find port": send the device bursts of UDP traffic, one second on and one second off, so its switch-port light pulses. Private addresses only; replaces any blink already running. Returns `until` |
+| GET / POST / DELETE | `/api/map/layouts` | Named layouts for one map. `GET ?subnet=192.168.1.0/24` lists them (`name`, `created`, `nodes`, `positions`, oldest first); `POST {"subnet": "...", "name": "Rack view", "positions": {"h:7": [120, 140]}}` saves one, replacing the same name; `DELETE ?subnet=...&name=...` removes one. Switching to a layout is the browser saving its positions through `/api/map/positions` |
 | POST | `/api/map/positions` | Body `{"subnet": "192.168.1.0/24", "positions": {"s:1": [120, 140], "h:7": null}}` — save where nodes sit on the topology Map for one network. Keys are `h:<host id>`, `s:<switch id>`, `gw`, `self`, `net` and `box`. A null position forgets that node, so it goes back to the automatic layout. `GET /api/hosts` returns them all as `mapPositions` |
 | DELETE | `/api/map/positions?subnet=…` | Arrange → "Reset to automatic": forget every saved position on one network |
 | GET | `/api/connections` | BAMF's own connections: `{"items": [{id, group, name, state, detail, at, section}]}`, where `state` is `ok`, `warn`, `error`, `waiting` or `off`. Status only; no addresses or keys |
@@ -2461,6 +2462,17 @@ each thing from where it was to where it goes, with the lines following, in unde
 map in one go. When the view re-fits, it eases there too. Press, scroll or type on the map and it lands at once. Off, the
 map fades in as it did; if your system asks for reduced motion nothing moves either way. Where things end up is the same
 with it on or off.
+
+**Named layouts.** The **Layouts** menu beside Arrange keeps how a map is arranged under a name, so you can switch between
+arrangements of the same map and come back: a wide one for the screen, a tidy one for printing, a rack view. **Save this
+layout...** names where everything you have placed sits now (the same name replaces the old one, and each map keeps up to 30);
+picking a saved one switches the map to it, and the one the map is on carries a tick. Switching is saved and drawn like Tidy up
+or Compact: it slides if Slide into place is on, and Undo (the toast, Arrange, Ctrl+Z) puts the map back as it was. A thing you
+had placed that the layout has no place for goes back to its automatic place; a thing the layout has that is no longer on the
+map (a forgotten device, a deleted switch) is skipped, and the toast says how many. Layouts are kept on the server, so every
+browser sees them, and belong to one map: the whole-network map and each network's card have their own. They are in the database
+backups but not in the layout file (**Settings -> Export layout**), which names devices by MAC and carries only the places in use now.
+Nothing changes until you save or pick one.
 
 **Find a device.** The **Find a device on the map** box above the maps (press `/` on the Map to jump to it) matches what you
 type the way the search above the list does: name, address, MAC, vendor, note, tag, network name, and `*` and `?` wildcards.

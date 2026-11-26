@@ -107,6 +107,15 @@ public partial class HostStore
                 m.Parameters.AddWithValue("$f", from);
                 m.ExecuteNonQuery();
             }
+            // and the layouts saved under the old range
+            using (var m = conn.CreateCommand())
+            {
+                m.Transaction = tx;
+                m.CommandText = "UPDATE OR IGNORE map_layouts SET subnet = $t WHERE subnet = $f";
+                m.Parameters.AddWithValue("$t", to);
+                m.Parameters.AddWithValue("$f", from);
+                m.ExecuteNonQuery();
+            }
             tx.Commit();
             return ids.Count;
         }

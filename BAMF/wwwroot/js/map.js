@@ -1559,7 +1559,7 @@ async function topoArrange(subnet, kind) {
 
 // Save a set of new places as one undoable step, redraw, and say so. keepView leaves the view where it is, for something done to a
 // few things you're looking at; an arrange of the whole map re-fits it.
-async function topoCommit(subnet, positions, label, keepView) {
+async function topoCommit(subnet, positions, label, keepView, said) {
   const m = topoModels[subnet];
   const before = {}, from = topoBefore(subnet);
   for (const k of Object.keys(positions)) before[k] = m.saved[k] ? m.saved[k].slice() : null;
@@ -1569,7 +1569,7 @@ async function topoCommit(subnet, positions, label, keepView) {
   mapSig = null;
   renderMap();
   topoSettle(subnet, from);
-  toast(`${label}. <a href="#" id="arrUndoLink">Undo</a>`);
+  toast(`${said || label}. <a href="#" id="arrUndoLink">Undo</a>`);   // said: what to tell you, when more than the undo label (already safe to show)
   const link = $("arrUndoLink");
   if (link) link.onclick = e => { e.preventDefault(); topoUndo(subnet); };
 }
@@ -1990,6 +1990,7 @@ function buildClusterCard(c) {
     btn("+", "Zoom in", () => topoZoomBy(c.subnet, 0.8));
     btn("Fit", "Show everything", () => topoFit(c.subnet));
     tools.appendChild(arrangeMenu(c));
+    tools.appendChild(layoutsMenu(c));
     const snap = document.createElement("button");
     snap.className = "toggle edit-only arr-snap" + (mapSnap ? " active" : ""); snap.type = "button"; snap.textContent = "Snap";
     snap.title = "Snap what you drag to a neighbour's row or column, or to a grid. Hold Alt to drag one thing free.";
