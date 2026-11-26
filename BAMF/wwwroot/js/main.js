@@ -34,6 +34,18 @@ document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
   render();
 });
 $("search").oninput = e => { query = e.target.value; render(); };
+$("unseenChip").onclick = () => { showUnseen = !showUnseen; render(); };
+{
+  const sel = $("setHideUnseen");
+  sel.value = String(hideUnseenDays);
+  if (sel.value !== String(hideUnseenDays)) { const o = new Option(`${hideUnseenDays} days`, String(hideUnseenDays)); sel.add(o); sel.value = o.value; }
+  sel.onchange = () => {
+    hideUnseenDays = Number(sel.value) || 0;
+    showUnseen = false;
+    try { localStorage.setItem("bamf-hide-unseen", String(hideUnseenDays)); } catch {}
+    render();
+  };
+}
 
 // Honour a view in the URL before the first paint. showView calls render(),
 // which is harmless with no data yet; refresh() re-renders when data lands.
