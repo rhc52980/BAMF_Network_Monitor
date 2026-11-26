@@ -100,6 +100,22 @@ internal static class LayoutEndpoints
             return Results.Ok();
         });
 
+        // Named layouts for a Map: the places you put things, kept under a name so you can switch between arrangements of the same map.
+        // Saving under a name that is taken replaces it. The browser applies one as an ordinary move through /api/map/positions.
+        app.MapGet("/api/map/layouts", (string? subnet, HostStore store) =>
+            string.IsNullOrWhiteSpace(subnet)
+                ? Results.BadRequest(new { error = "Which network is this for?" })
+                : Results.Json(store.GetMapLayouts(subnet).Select(l => new { name = l.Name, created = l.Created, nodes = l.Positions.Count, positions = l.Positions })));
+
+        app.MapPost("/api/map/layouts", (MapLayoutRequest body, HostStore store) =>
+        {
+            var error = store.SaveMapLayout(body.Subnet ?? "", body.Name, body.Positions ?? new());
+            return error is null ? Results.Ok() : Results.BadRequest(new { error });
+        });
+
+        app.MapDelete("/api/map/layouts", (string? subnet, string? name, HostStore store) =>
+            store.DeleteMapLayout(subnet ?? "", name) ? Results.Ok() : Results.NotFound(new { error = "There's no layout by that name." }));
+
         // Icons for whole guessed types: { "icons": { "Linux": "server", "Printer": "" } }.
         // An empty icon goes back to the automatic one.
         app.MapPost("/api/settings/type-icons", (TypeIconsRequest body, HostStore store) =>

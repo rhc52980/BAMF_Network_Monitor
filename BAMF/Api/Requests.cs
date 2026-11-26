@@ -27,6 +27,7 @@ record DeviceTypeRequest(string? Type);
 record TypeIconsRequest(Dictionary<string, string?>? Icons);
 record NetworkLabelRequest(string? Network, string? Label);
 record MapPositionsRequest(string? Subnet, Dictionary<string, double[]?>? Positions);
+record MapLayoutRequest(string? Subnet, string? Name, Dictionary<string, double[]?>? Positions);
 record PortLabel(int Port, string? Label);
 record SwitchPortsRequest(List<PortEntry>? Ports, List<PortLabel>? Labels);
 record WebhookRequest(string? Url, string? Format);
