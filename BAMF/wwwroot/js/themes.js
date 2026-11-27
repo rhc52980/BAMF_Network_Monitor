@@ -907,6 +907,13 @@ $("setActivityBadge").onclick = () => {
   loadUnseen();
 };
 renderActivityBadgeToggle();
+// Tagging the new ones on Activity itself: off until switched on. It takes hold the next time Activity is opened.
+function renderActivityMarksToggle() { const t = $("setActivityMarks"); if (t) setToggleState(t, activityMarksOn()); }
+$("setActivityMarks").onclick = () => {
+  try { localStorage.setItem(ACTIVITY_MARKS_KEY, activityMarksOn() ? "off" : "on"); } catch {}
+  renderActivityMarksToggle();
+};
+renderActivityMarksToggle();
 
 $("setCompact").onclick = () => {
   const on = !document.documentElement.classList.contains("compact");

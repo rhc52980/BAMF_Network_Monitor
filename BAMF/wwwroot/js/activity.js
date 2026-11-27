@@ -36,9 +36,32 @@ function renderActivityBadge(n) {
     el.title = `${n} new on Activity since you last looked`;
   }
 }
+// Marking which ones are new (a browser setting, off until switched on). When Activity opens, the time this browser last looked is
+// held for the whole visit, even though "seen" moves to now straight away, and anything newer is tagged. Leaving Activity lets go of it.
+const ACTIVITY_MARKS_KEY = "bamf-activity-marks";
+function activityMarksOn() { try { return localStorage.getItem(ACTIVITY_MARKS_KEY) === "on"; } catch { return false; } }
+let activityVisit = false, activityNewSince = null;
+function isNewOnActivity(at) {
+  if (!activityNewSince) return false;
+  const a = Date.parse(at), s = Date.parse(activityNewSince);
+  return !isNaN(a) && !isNaN(s) && a > s;
+}
+// Called with the time last looked, each time the count is worked out. True when this is the start of a visit with something to mark.
+function noteActivityVisit(since) {
+  if (view !== "activity") { activityVisit = false; activityNewSince = null; return false; }
+  if (activityVisit) return false;
+  activityVisit = true;
+  activityNewSince = activityMarksOn() && since ? since : null;
+  return !!activityNewSince;
+}
+// The line above a card's list saying how many are new, or nothing when there are none or the marks are off.
+function newNote(n) {
+  return n && activityNewSince ? `<div class="new-note"><span class="new-tag">new</span>${n} since you last looked ${esc(fmtAgo(activityNewSince))}</div>` : "";
+}
 async function loadUnseen() {
   try {
     const since = activitySeenAt();
+    if (noteActivityVisit(since)) { renderAlertsCard(); renderProblems(); }
     // Looking at Activity now, or never looked: nothing is new; just note the time.
     const open = view === "activity" || !since;
     const r = await fetch("/api/activity/unseen" + (open ? "" : "?since=" + encodeURIComponent(since)));
@@ -89,9 +112,10 @@ function renderProblems() {
     ? `What went wrong inside BAMF since it started ${fmtAgo(d.since)}, newest first. A problem that repeats is one row with a count.`
     : `Nothing has gone wrong inside BAMF since it started ${fmtAgo(d.since)}. A webhook that won't take an alert, a router that refuses a password and a scan that fails would show here.`;
   $("problemsClear").hidden = !rows.length || role === "viewer";
-  $("problemsBody").innerHTML = rows.slice(0, 25).map(r =>
-    `<div class="problem-row"><span class="wan-dot ${r.level === "error" ? "down" : "slow"}"></span><span class="problem-main">` +
-    `<span class="problem-msg">${esc(r.message)}</span>` +
+  const fresh = r => isNewOnActivity(r.last);
+  $("problemsBody").innerHTML = newNote(rows.filter(fresh).length) + rows.slice(0, 25).map(r =>
+    `<div class="problem-row${fresh(r) ? " is-new" : ""}"><span class="wan-dot ${r.level === "error" ? "down" : "slow"}"></span><span class="problem-main">` +
+    `<span class="problem-msg">${fresh(r) ? `<span class="new-tag">new</span>` : ""}${esc(r.message)}</span>` +
     `<span class="problem-sub">${esc(problemSource(r.source))} \u00b7 ${esc(fmtAgo(r.last))}${r.count > 1 ? ` \u00b7 ${r.count} times, since ${esc(fmtAgo(r.first))}` : ""}</span></span></div>`).join("") +
     (rows.length > 25 ? `<div class="sub" style="margin-top:6px">And ${rows.length - 25} older.</div>` : "");
 }
@@ -215,11 +239,14 @@ function renderAlertsCard() {
   const note = $("alertsEscNote");
   note.hidden = !esc_;
   if (esc_) note.textContent = `${esc_.waiting ? `${esc_.waiting} waiting to be acknowledged. ` : ""}An alert nobody acknowledges in ${esc_.minutes} min goes to ${esc_.toName || "your chosen destination"}.`;
-  body.innerHTML = list.length ? shown.map(a => {
+  // Wake notes aren't counted on the tab, so they aren't marked either.
+  const fresh = a => a.kind !== "wake" && isNewOnActivity(a.at);
+  const newShown = shown.filter(fresh).length, newAll = list.filter(fresh).length;
+  body.innerHTML = list.length ? newNote(newAll) + shown.map(a => {
     const state = a.acked ? `<span class="when">acknowledged ${esc(fmtAgo(a.acked))}</span>` : a.escalated ? `<span class="when">sent on ${esc(fmtAgo(a.escalated))}</span>`
       : waiting(a) && role !== "viewer" ? `<button type="button" class="toggle ack-btn" data-ack="${esc(a.key)}">Acknowledge</button>` : "";
-    return `<div class="alert-item k-${esc(a.kind)}"><div><b>${esc(a.title)}</b><span class="when">${esc(fmtAgo(a.at))}</span>${state}</div><div class="det">${esc(a.detail)}</div></div>`;
-  }).join("")
+    return `<div class="alert-item k-${esc(a.kind)}${fresh(a) ? " is-new" : ""}"><div>${fresh(a) ? `<span class="new-tag">new</span>` : ""}<b>${esc(a.title)}</b><span class="when">${esc(fmtAgo(a.at))}</span>${state}</div><div class="det">${esc(a.detail)}</div></div>`;
+  }).join("") + (newAll > newShown ? `<div class="watch-note">And ${newAll - newShown} more new, older than these.</div>` : "")
     : `<div class="watch-note">Nothing yet. Rules, the port watch and the DHCP/DNS watch put their alerts here.</div>`;
 }
 async function ackAlerts(body) {
