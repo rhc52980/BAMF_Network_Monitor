@@ -1829,6 +1829,12 @@ Wake notes (a Wake-on-LAN BAMF sent on a rule) aren't counted. Where you last lo
 itself, and the very first visit counts nothing rather than everything. Switch the number off with **Count what is new on Activity**
 under **Settings → Appearance**, which is also a browser setting.
 
+The number says how many, not which. **Mark what is new on Activity**, just below it and off until you switch it on, tags them: when you
+open Activity, each alert in the **Alerts** card and each row in **Problems** that appeared since you last looked gets a **new** tag and a
+tint, and a line above the list says how many and since when. The tags stay for as long as you stay on Activity and are gone the next
+time you come back, when "since you last looked" is the visit you just made. If more are new than the Alerts card lists, it says how
+many are older than the ones shown. It reads the same "last looked" time as the number, in this browser, and stores nothing on the server.
+
 **What went wrong inside BAMF.** The **Problems** card on the Activity tab lists BAMF's own warnings and errors since it
 started: an alert a webhook refused ("wasn't taken by Discord: it answered HTTP 403"), a router that wouldn't take its password,
 another BAMF that stopped answering, a scan that failed. Before, these went only to a log file on the server, so "did my alert
