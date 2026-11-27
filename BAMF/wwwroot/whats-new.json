@@ -2,6 +2,13 @@
   "_comment": "Shown on the dashboard after an update: the versions newer than the one this browser last saw, newest first. Add an entry with each release, in the version bump. A few short lines each; the full notes are on the release page.",
   "versions": [
     {
+      "version": "2.45.0",
+      "date": "2026-11-27",
+      "items": [
+        "Activity can show which alerts and problems are new. The number on the Activity tab only said how many; with Mark what is new on Activity (Settings > Appearance), opening Activity tags each alert and problem that appeared since you last looked with a new label and a light tint, and a line above each list says how many. The tags stay while you are on Activity and are gone the next visit. Off by default, this browser only."
+      ]
+    },
+    {
       "version": "2.44.0",
       "date": "2026-11-25",
       "items": [
